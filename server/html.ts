@@ -33,7 +33,7 @@ export function renderLandingPage(): string {
     <style>
       *{margin:0;padding:0;box-sizing:border-box}
       body{font-family:-apple-system,system-ui,sans-serif;background:#0a0a0a;color:#e5e5e5;min-height:100vh;display:flex;align-items:center;justify-content:center}
-      .wrap{max-width:480px;padding:2rem}
+      .wrap{max-width:640px;padding:2rem}
       h1{font-size:2rem;font-weight:700;margin-bottom:.5rem}
       p{color:#999;margin-bottom:2rem;line-height:1.6}
       pre{background:#161616;border:1px solid #262626;border-radius:8px;padding:1rem;font-size:.9rem;overflow-x:auto;line-height:1.7}
@@ -60,7 +60,8 @@ aai dev
 aai deploy
 
 <span class="dim"># create an agent with claude code</span>
-mkdir my-agent &amp;&amp; cd my-agent
+aai new my-agent --template simple
+cd my-agent
 aai skill install
 claude "/new-agent a voice agent that helps plan weekend trips"</code></pre>
       <p style="margin-top:1.5rem;font-size:.85rem">
