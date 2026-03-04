@@ -7,12 +7,12 @@ RUN deno compile \
   --allow-all \
   --unstable-worker-options \
   --target x86_64-unknown-linux-gnu \
-  --output /app/server \
+  --output /app/dist/server \
   server/main.ts
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 
-COPY --from=build /app/server /server
+COPY --from=build /app/dist/server /server
 
 EXPOSE 8080
 
