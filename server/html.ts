@@ -60,6 +60,7 @@ aai dev
 aai deploy
 
 <span class="dim"># create an agent with claude code</span>
+mkdir my-agent &amp;&amp; cd my-agent
 aai skill install
 claude "/new-agent a voice agent that helps plan weekend trips"</code></pre>
       <p style="margin-top:1.5rem;font-size:.85rem">
