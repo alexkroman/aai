@@ -3,7 +3,8 @@ import { bold, cyan, dim, green, red } from "@std/fmt/colors";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { log } from "./_output.ts";
 
-const VERSION = "0.1.0";
+const denoConfig = await import("../deno.json", { with: { type: "json" } });
+const VERSION: string = denoConfig.default.version;
 
 /** Resolve the agent directory. Deno tasks set INIT_CWD to the invoking dir. */
 function resolveAgentDir(): string {
