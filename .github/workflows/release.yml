@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
 permissions:
   contents: write
@@ -11,7 +11,36 @@ env:
   DENO_VERSION: "2.x"
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get.outputs.version }}
+      tag: ${{ steps.get.outputs.tag }}
+      exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from source
+        id: get
+        run: |
+          VERSION=$(jq -r '.version' deno.json)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
+
+      - name: Check if tag already exists
+        id: check
+        run: |
+          if git rev-parse "v${{ steps.get.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag v${{ steps.get.outputs.version }} already exists, skipping release"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: version
+    if: needs.version.outputs.exists == 'false'
     strategy:
       matrix:
         include:
@@ -31,12 +60,6 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: ${{ env.DENO_VERSION }}
-
-      - name: Inject version from tag
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          sed -i.bak "s/const VERSION = \".*\"/const VERSION = \"${VERSION}\"/" cli/cli.ts
-          rm -f cli/cli.ts.bak
 
       - name: Compile binary
         run: |
@@ -62,6 +85,8 @@ jobs:
             dist/${{ matrix.artifact }}.sha256
 
   build-server:
+    needs: version
+    if: needs.version.outputs.exists == 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -93,9 +118,18 @@ jobs:
             dist/aai-server-linux-x64.sha256
 
   release:
-    needs: [build, build-server]
+    needs: [version, build, build-server]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ needs.version.outputs.tag }}" -m "Release ${{ needs.version.outputs.tag }}"
+          git push origin "${{ needs.version.outputs.tag }}"
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -110,20 +144,21 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.version.outputs.tag }}
           generate_release_notes: true
           files: |
             artifacts/*.tar.gz
             artifacts/checksums.txt
 
   update-homebrew:
-    needs: release
+    needs: [version, release]
     runs-on: ubuntu-latest
     steps:
       - name: Download checksums from release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "${{ github.ref_name }}" \
+          gh release download "${{ needs.version.outputs.tag }}" \
             --repo "${{ github.repository }}" \
             --pattern "checksums.txt" \
             --dir artifacts
@@ -146,7 +181,7 @@ jobs:
 
       - name: Update formula
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ needs.version.outputs.version }}"
           cat > homebrew-tap/Formula/aai.rb << 'RUBY'
           class Aai < Formula
             desc "Voice agent development toolkit"
@@ -195,5 +230,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/aai.rb
-          git commit -m "Update aai to ${GITHUB_REF_NAME#v}"
+          git commit -m "Update aai to ${{ needs.version.outputs.version }}"
           git push

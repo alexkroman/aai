@@ -158,7 +158,10 @@ Deno.test({
 
       // 5. Launch headless browser
       console.log("Launching headless browser...");
-      browser = await launch({ headless: true });
+      browser = await launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
       const page = await browser.newPage();
 
       // 6. Navigate to agent page
@@ -195,13 +198,16 @@ Deno.test({
           }
         };
 
-        // Fake getUserMedia so audio setup doesn't block/error
+        // Fake getUserMedia with silence so audio setup works without a real mic
         navigator.mediaDevices.getUserMedia = () => {
           (g.__wsLog as string[]).push("getUserMedia:faked");
           const ctx = new AudioContext({ sampleRate: 16000 });
           const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          gain.gain.value = 0;
           const dest = ctx.createMediaStreamDestination();
-          osc.connect(dest);
+          osc.connect(gain);
+          gain.connect(dest);
           osc.start();
           return Promise.resolve(dest.stream);
         };
@@ -248,12 +254,28 @@ Deno.test({
       );
       console.log("  Greeting received\n");
 
+      // 11b. Wait for greeting TTS to finish (server mutes mic during TTS)
+      console.log("Waiting for greeting TTS to finish...");
+      await pollPage(
+        page,
+        () => {
+          const log = (globalThis as unknown as Record<string, unknown>)
+            .__wsLog as string[];
+          return log.some((e: string) => e === "ws:recv:tts_done");
+        },
+        20_000,
+        "greeting TTS done",
+      );
+      console.log("  TTS done, mic unmuted\n");
+
       // 12. Inject TTS audio frames through the WebSocket
       console.log("Injecting audio frames...");
       await page.evaluate((b64: string) => {
-        const ws = (globalThis as unknown as Record<string, unknown>)
-          .__capturedWs as WebSocket;
+        const g = globalThis as unknown as Record<string, unknown>;
+        const ws = g.__capturedWs as WebSocket;
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        g.__audioSendDone = false;
 
         // Decode base64 to binary
         const raw = atob(b64);
@@ -265,6 +287,10 @@ Deno.test({
         let offset = 0;
         const sendChunk = () => {
           if (offset >= bytes.length || ws.readyState !== WebSocket.OPEN) {
+            (g.__wsLog as string[]).push(
+              `sent:audio:${bytes.length}bytes`,
+            );
+            g.__audioSendDone = true;
             return;
           }
           const end = Math.min(offset + chunkSize, bytes.length);
@@ -273,10 +299,17 @@ Deno.test({
           setTimeout(sendChunk, 50);
         };
         sendChunk();
-
-        ((globalThis as unknown as Record<string, unknown>).__wsLog as string[])
-          .push(`sent:audio:${bytes.length}bytes`);
       }, { args: [audioBase64] });
+
+      // Wait for all audio chunks to be sent
+      await pollPage(
+        page,
+        () =>
+          (globalThis as unknown as Record<string, unknown>).__audioSendDone ===
+            true,
+        5_000,
+        "audio send complete",
+      );
 
       // 13. Wait for user turn to be recognized
       console.log("Waiting for speech recognition...");

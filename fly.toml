@@ -1,4 +1,4 @@
-app = 'voice-agent-api'
+app = 'aai-agent'
 primary_region = 'sjc'
 
 [build]
