@@ -20,3 +20,6 @@ jobs:
 
       - name: Run checks
         run: deno task check
+        env:
+          ASSEMBLYAI_API_KEY: ${{ secrets.ASSEMBLYAI_API_KEY }}
+          ASSEMBLYAI_TTS_API_KEY: ${{ secrets.ASSEMBLYAI_TTS_API_KEY }}
