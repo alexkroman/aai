@@ -1,0 +1,199 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  DENO_VERSION: "2.x"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            artifact: aai-darwin-arm64
+            runner: macos-latest
+          - target: x86_64-apple-darwin
+            artifact: aai-darwin-x64
+            runner: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            artifact: aai-linux-x64
+            runner: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Inject version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i.bak "s/const VERSION = \".*\"/const VERSION = \"${VERSION}\"/" cli/cli.ts
+          rm -f cli/cli.ts.bak
+
+      - name: Compile binary
+        run: |
+          deno compile \
+            --allow-all \
+            --unstable-worker-options \
+            --include examples/ \
+            --target ${{ matrix.target }} \
+            --output dist/aai \
+            cli/cli.ts
+
+      - name: Create tarball
+        run: |
+          cd dist
+          tar czf ${{ matrix.artifact }}.tar.gz aai
+          shasum -a 256 ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/${{ matrix.artifact }}.tar.gz
+            dist/${{ matrix.artifact }}.sha256
+
+  build-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Compile server binary
+        run: |
+          deno compile \
+            --allow-all \
+            --unstable-worker-options \
+            --target x86_64-unknown-linux-gnu \
+            --output dist/server \
+            server/main.ts
+
+      - name: Create tarball
+        run: |
+          cd dist
+          tar czf aai-server-linux-x64.tar.gz server
+          shasum -a 256 aai-server-linux-x64.tar.gz > aai-server-linux-x64.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aai-server-linux-x64
+          path: |
+            dist/aai-server-linux-x64.tar.gz
+            dist/aai-server-linux-x64.sha256
+
+  release:
+    needs: [build, build-server]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          cat *.sha256 > checksums.txt
+          cat checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/*.tar.gz
+            artifacts/checksums.txt
+
+  update-homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download checksums from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "checksums.txt" \
+            --dir artifacts
+
+      - name: Read checksums
+        id: shas
+        run: |
+          cat artifacts/checksums.txt
+          {
+            echo "darwin_arm64=$(awk '/aai-darwin-arm64\.tar\.gz/{print $1}' artifacts/checksums.txt)"
+            echo "darwin_x64=$(awk '/aai-darwin-x64\.tar\.gz/{print $1}' artifacts/checksums.txt)"
+            echo "linux_x64=$(awk '/aai-linux-x64\.tar\.gz/{print $1}' artifacts/checksums.txt)"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: alexkroman/homebrew-aai
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update formula
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cat > homebrew-tap/Formula/aai.rb << 'RUBY'
+          class Aai < Formula
+            desc "Voice agent development toolkit"
+            homepage "https://github.com/alexkroman/aai"
+            version "VERSION_PLACEHOLDER"
+            license "MIT"
+
+            depends_on "esbuild"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/alexkroman/aai/releases/download/vVERSION_PLACEHOLDER/aai-darwin-arm64.tar.gz"
+                sha256 "SHA_DARWIN_ARM64_PLACEHOLDER"
+              end
+              on_intel do
+                url "https://github.com/alexkroman/aai/releases/download/vVERSION_PLACEHOLDER/aai-darwin-x64.tar.gz"
+                sha256 "SHA_DARWIN_X64_PLACEHOLDER"
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "https://github.com/alexkroman/aai/releases/download/vVERSION_PLACEHOLDER/aai-linux-x64.tar.gz"
+                sha256 "SHA_LINUX_X64_PLACEHOLDER"
+              end
+            end
+
+            def install
+              bin.install "aai"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/aai --version")
+            end
+          end
+          RUBY
+
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" homebrew-tap/Formula/aai.rb
+          sed -i "s/SHA_DARWIN_ARM64_PLACEHOLDER/${{ steps.shas.outputs.darwin_arm64 }}/g" homebrew-tap/Formula/aai.rb
+          sed -i "s/SHA_DARWIN_X64_PLACEHOLDER/${{ steps.shas.outputs.darwin_x64 }}/g" homebrew-tap/Formula/aai.rb
+          sed -i "s/SHA_LINUX_X64_PLACEHOLDER/${{ steps.shas.outputs.linux_x64 }}/g" homebrew-tap/Formula/aai.rb
+
+      - name: Push formula
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/aai.rb
+          git commit -m "Update aai to ${GITHUB_REF_NAME#v}"
+          git push

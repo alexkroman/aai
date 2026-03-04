@@ -1,0 +1,33 @@
+app = 'voice-agent-api'
+primary_region = 'sjc'
+
+[build]
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'off'
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "10s"
+    timeout = "2s"
+    grace_period = "5s"
+    method = "GET"
+    path = "/health"
+
+[deploy]
+  strategy = "rolling"
+
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+
+[[vm]]
+  memory = '2gb'
+  cpu_kind = 'performance'
+  cpus = 1
+  scale = 5

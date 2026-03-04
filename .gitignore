@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Agent secrets
+examples/*/.env
+
+# Environment and secrets
+.env
+.env.*
+secrets.json
+
+# OS
+.DS_Store
+
+# IDE
+.claude
+
+# Python (legacy)
+__pycache__/
+*.pyc
+.venv/
+.python-version
+*.egg-info/
+uv.lock
+.mypy_cache
+cov_profile
+bundles/

@@ -1,0 +1,9 @@
+{
+  "name": "@aai/cli",
+  "version": "0.1.0",
+  "exports": "./mod.ts",
+  "imports": {
+    "esbuild": "npm:esbuild@^0.27.3",
+    "@deno/esbuild-plugin": "jsr:@deno/esbuild-plugin@^1.2.1"
+  }
+}
