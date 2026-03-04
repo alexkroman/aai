@@ -158,7 +158,10 @@ Deno.test({
 
       // 5. Launch headless browser
       console.log("Launching headless browser...");
-      browser = await launch({ headless: true });
+      browser = await launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
       const page = await browser.newPage();
 
       // 6. Navigate to agent page
