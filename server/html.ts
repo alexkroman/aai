@@ -54,7 +54,10 @@ brew install aai
 <span class="dim"># create an agent</span>
 aai new my-agent --template simple
 cd my-agent
-aai dev</code></pre>
+aai dev
+
+<span class="dim"># claude code skill</span>
+aai skill install</code></pre>
       <p style="margin-top:1.5rem;font-size:.85rem">
         <a href="https://github.com/alexkroman/aai">GitHub</a>
       </p>

@@ -42,6 +42,7 @@ ${bold("COMMANDS:")}
     ${green("open")}      Open agent in browser (dev server must be running)
     ${green("prod")}      Build, compile, and run agent in production mode
     ${green("deploy")}    Build and deploy agent to the orchestrator
+    ${green("skill")}     Install Claude Code skill for creating agents
 
 ${bold("OPTIONS:")}
     ${cyan("-h, --help")}       Show this help message
@@ -151,6 +152,15 @@ ${bold("USAGE:")}
 
 ${bold("OPTIONS:")}
     ${cyan("-p, --port")} <number>  Dev server port ${dim("(default: 3000)")}`);
+        return 0;
+      case "skill":
+        console.log(`${green(bold("aai skill"))} — Install Claude Code skill
+
+${bold("USAGE:")}
+    ${cyan("aai skill")} install
+
+Installs the aai agent creation skill to ~/.claude/skills/
+so you can use ${cyan("/new-agent")} in Claude Code to scaffold voice agents.`);
         return 0;
       case "deploy":
         console.log(
@@ -294,6 +304,24 @@ ${ENV_VARS.filter((_, i) => i !== 3).join("\n")}
       const { runCompile } = await import("./compile.ts");
       const outDir = resolveFromCaller(flags["out-dir"] || "dist");
       await runCompile({ outDir });
+      return 0;
+    }
+    case "skill": {
+      const sub = rest[0];
+      if (sub !== "install") {
+        log.error("usage: aai skill install");
+        return 1;
+      }
+      const home = Deno.env.get("HOME") || Deno.env.get("USERPROFILE") || "";
+      const skillDir = join(home, ".claude", "skills", "new-agent");
+      const cliDir = dirname(fromFileUrl(import.meta.url));
+      const srcSkill = join(cliDir, "..", "skills", "new-agent", "SKILL.md");
+      await Deno.mkdir(skillDir, { recursive: true });
+      await Deno.copyFile(srcSkill, join(skillDir, "SKILL.md"));
+      log.step("Installed", `skill to ${skillDir}`);
+      console.log(
+        `\nUse ${cyan("/new-agent")} in Claude Code to create voice agents.`,
+      );
       return 0;
     }
     case "deploy": {
