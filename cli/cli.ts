@@ -331,6 +331,11 @@ ${ENV_VARS.filter((_, i) => i !== 3).join("\n")}
         alias: { u: "url" },
       });
       const agentDir = resolveAgentDir();
+      const bundleDir = resolveFromCaller(
+        flags["bundle-dir"] || "dist/bundle",
+      );
+      const { runBuild } = await import("./build.ts");
+      await runBuild({ outDir: bundleDir, agentDir });
       const { loadAgent } = await import("./_discover.ts");
       const agent = await loadAgent(agentDir);
       if (!agent) {
@@ -342,7 +347,7 @@ ${ENV_VARS.filter((_, i) => i !== 3).join("\n")}
       const { runDeploy } = await import("./deploy.ts");
       await runDeploy({
         url: flags.url || "https://voice-agent-api.fly.dev",
-        bundleDir: resolveFromCaller(flags["bundle-dir"] || "dist/bundle"),
+        bundleDir,
         slug: agent.slug,
         dryRun: !!flags["dry-run"],
       });
