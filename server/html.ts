@@ -56,8 +56,9 @@ aai new my-agent --template simple
 cd my-agent
 aai dev
 
-<span class="dim"># claude code skill</span>
-aai skill install</code></pre>
+<span class="dim"># create an agent with claude code</span>
+aai skill install
+claude "create a voice agent that helps plan weekend trips"</code></pre>
       <p style="margin-top:1.5rem;font-size:.85rem">
         <a href="https://github.com/alexkroman/aai">GitHub</a>
       </p>
