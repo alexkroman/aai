@@ -54,7 +54,12 @@ brew install aai
 <span class="dim"># create an agent</span>
 aai new my-agent --template simple
 cd my-agent
+aai build
 aai dev
+
+<span class="dim"># deploy an agent</span>
+aai compile
+aai deploy
 
 <span class="dim"># create an agent with claude code</span>
 aai skill install
