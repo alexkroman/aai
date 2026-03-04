@@ -1,11 +1,10 @@
 import { expect } from "@std/expect";
 import { z } from "zod";
-import { Agent } from "./agent.ts";
-import { tool } from "./agent_types.ts";
+import { defineAgent } from "./agent.ts";
 import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "./agent_types.ts";
 
-Deno.test("Agent - fills defaults", () => {
-  const agent = Agent({ name: "Minimal" });
+Deno.test("defineAgent - fills defaults", () => {
+  const agent = defineAgent({ name: "Minimal" });
   expect(agent.name).toBe("Minimal");
   expect(agent.voice).toBe("jess");
   expect(agent.instructions).toBe(DEFAULT_INSTRUCTIONS);
@@ -13,8 +12,8 @@ Deno.test("Agent - fills defaults", () => {
   expect(Object.keys(agent.tools).length).toBe(0);
 });
 
-Deno.test("Agent - preserves explicit config", () => {
-  const agent = Agent({
+Deno.test("defineAgent - preserves explicit config", () => {
+  const agent = defineAgent({
     name: "TestAgent",
     instructions: "Custom instructions.",
     greeting: "Hi!",
@@ -26,8 +25,8 @@ Deno.test("Agent - preserves explicit config", () => {
   expect(agent.voice).toBe("dan");
 });
 
-Deno.test("Agent - stores optional fields", () => {
-  const agent = Agent({
+Deno.test("defineAgent - stores optional fields", () => {
+  const agent = defineAgent({
     name: "Test",
     prompt: "Transcribe accurately",
     builtinTools: ["web_search"],
@@ -36,16 +35,16 @@ Deno.test("Agent - stores optional fields", () => {
   expect(agent.builtinTools).toEqual(["web_search"]);
 });
 
-Deno.test("Agent - preserves tools and hooks", () => {
+Deno.test("defineAgent - preserves tools and hooks", () => {
   const handler = () => {};
-  const agent = Agent({
+  const agent = defineAgent({
     name: "Test",
     tools: {
-      greet: tool({
+      greet: {
         description: "Greet",
         parameters: z.object({ name: z.string() }),
-        handler: ({ name }) => `Hello, ${name}!`,
-      }),
+        execute: ({ name }) => `Hello, ${name}!`,
+      },
     },
     onConnect: handler,
   });
@@ -53,25 +52,25 @@ Deno.test("Agent - preserves tools and hooks", () => {
   expect(agent.onConnect).toBe(handler);
 });
 
-Deno.test("Agent - tools are accessible for testing", async () => {
-  const agent = Agent({
+Deno.test("defineAgent - tools are accessible for testing", async () => {
+  const agent = defineAgent({
     name: "TestBot",
     tools: {
-      echo: tool({
+      echo: {
         description: "Echo input",
         parameters: z.object({ text: z.string() }),
-        handler: ({ text }) => text,
-      }),
+        execute: ({ text }) => text,
+      },
     },
   });
-  const result = await agent.tools.echo.handler(
+  const result = await agent.tools.echo.execute(
     { text: "hello" },
     { secrets: {}, fetch: globalThis.fetch },
   );
   expect(result).toBe("hello");
 });
 
-Deno.test("Agent - returns frozen object", () => {
-  const agent = Agent({ name: "Frozen" });
+Deno.test("defineAgent - returns frozen object", () => {
+  const agent = defineAgent({ name: "Frozen" });
   expect(Object.isFrozen(agent)).toBe(true);
 });

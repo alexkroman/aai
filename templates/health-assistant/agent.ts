@@ -1,7 +1,3 @@
-import { Agent, fetchJSON, tool } from "@aai/sdk";
-import { z } from "zod";
-import type { ToolContext } from "@aai/sdk";
-
 function first(field: unknown): string | undefined {
   return Array.isArray(field) ? field[0] : undefined;
 }
@@ -107,7 +103,7 @@ async function checkInteractions(
   };
 }
 
-export default Agent({
+export default defineAgent({
   name: "Dr. Sage",
   instructions:
     `You are Dr. Sage, a friendly health information assistant. You help people \
@@ -135,7 +131,7 @@ Use run_code for health calculations:
   prompt: "",
   builtinTools: ["web_search", "run_code", "user_input", "final_answer"],
   tools: {
-    drug_info: tool({
+    drug_info: {
       description:
         "Look up detailed information about a medication from the FDA database including usage, warnings, and side effects.",
       parameters: z.object({
@@ -143,9 +139,9 @@ Use run_code for health calculations:
           "Medication name (generic or brand, e.g. 'ibuprofen' or 'Advil')",
         ),
       }),
-      handler: ({ name }, ctx) => lookupDrug(name, ctx),
-    }),
-    check_interaction: tool({
+      execute: ({ name }, ctx) => lookupDrug(name, ctx),
+    },
+    check_interaction: {
       description:
         "Check for known interactions between two or more medications using the NIH database.",
       parameters: z.object({
@@ -153,7 +149,7 @@ Use run_code for health calculations:
           "Comma-separated medication names (e.g. 'ibuprofen, warfarin')",
         ),
       }),
-      handler: ({ drugs }, ctx) => checkInteractions(drugs, ctx),
-    }),
+      execute: ({ drugs }, ctx) => checkInteractions(drugs, ctx),
+    },
   },
 });

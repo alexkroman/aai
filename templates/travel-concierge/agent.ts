@@ -1,6 +1,4 @@
-import { Agent } from "@aai/sdk";
-
-export default Agent({
+export default defineAgent({
   name: "Aria",
   instructions:
     `You are Aria, a luxury travel concierge. You help customers plan trips,

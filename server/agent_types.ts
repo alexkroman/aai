@@ -6,12 +6,11 @@ export interface ToolContext {
   signal?: AbortSignal;
 }
 
-export interface ToolDef<
-  T extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.ZodRawShape>,
-> {
+export interface ToolDef {
   description: string;
-  parameters: T;
-  handler: (args: z.infer<T>, ctx: ToolContext) => Promise<unknown> | unknown;
+  parameters: z.ZodObject<z.ZodRawShape>;
+  // deno-lint-ignore no-explicit-any
+  execute: (args: any, ctx: ToolContext) => Promise<unknown> | unknown;
 }
 
 export interface AgentOptions {
@@ -53,12 +52,6 @@ export interface ToolSchema {
   name: string;
   description: string;
   parameters: Record<string, unknown>;
-}
-
-export function tool<T extends z.ZodObject<z.ZodRawShape>>(
-  def: ToolDef<T>,
-): ToolDef<T> {
-  return def;
 }
 
 export function agentToolsToSchemas(

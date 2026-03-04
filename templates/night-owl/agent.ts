@@ -1,6 +1,3 @@
-import { Agent, tool } from "@aai/sdk";
-import { z } from "zod";
-
 const PICKS: Record<string, Record<string, string[]>> = {
   movie: {
     chill: ["Lost in Translation", "The Grand Budapest Hotel", "Amelie"],
@@ -65,7 +62,7 @@ const PICKS: Record<string, Record<string, string[]>> = {
   },
 };
 
-export default Agent({
+export default defineAgent({
   name: "Night Owl",
   instructions:
     `You are Night Owl, a cozy evening companion. You help people wind down, recommend entertainment, and share interesting facts about the night sky. Keep your tone warm and relaxed. Use short, conversational responses.
@@ -82,18 +79,18 @@ Use run_code for sleep calculations:
     "Transcribe movie titles, music artists, book names, and times accurately. Listen for genres like horror, comedy, sci-fi, jazz, ambient, and mood words like chill, intense, cozy, spooky.",
   builtinTools: ["run_code", "user_input", "final_answer"],
   tools: {
-    recommend: tool({
+    recommend: {
       description:
         "Get recommendations for movies, music, or books based on mood.",
       parameters: z.object({
         category: z.enum(["movie", "music", "book"]),
         mood: z.enum(["chill", "intense", "cozy", "spooky", "funny"]),
       }),
-      handler: ({ category, mood }) => ({
+      execute: ({ category, mood }) => ({
         category,
         mood,
         picks: PICKS[category]?.[mood] ?? [],
       }),
-    }),
+    },
   },
 });

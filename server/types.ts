@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-} from "@aai/sdk/protocol";
+} from "./protocol.ts";
 
 export interface STTConfig {
   sampleRate: number;
@@ -148,7 +148,7 @@ export const LLMResponseSchema: z.ZodType<LLMResponse> = z
   })
   .passthrough();
 
-export type { ToolSchema } from "@aai/sdk";
+export type { ToolSchema } from "./agent_types.ts";
 
 export interface AgentConfig {
   name?: string;

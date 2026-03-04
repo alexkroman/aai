@@ -1,6 +1,4 @@
-import { Agent } from "@aai/sdk";
-
-export default Agent({
+export default defineAgent({
   name: "Coda",
   instructions:
     `You are Coda, a problem-solving assistant who answers questions by writing and running JavaScript code.

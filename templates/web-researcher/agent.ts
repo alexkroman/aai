@@ -1,6 +1,4 @@
-import { Agent } from "@aai/sdk";
-
-export default Agent({
+export default defineAgent({
   name: "Scout",
   instructions:
     `You are Scout, a research assistant who finds answers by searching the web.

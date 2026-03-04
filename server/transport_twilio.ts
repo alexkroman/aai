@@ -15,7 +15,7 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-} from "@aai/sdk/protocol";
+} from "./protocol.ts";
 
 const log = getLogger("twilio");
 

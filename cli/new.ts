@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { log } from "./_output.ts";
+import { generateTypes } from "./types.ts";
 
 export interface NewOptions {
   projectName: string;
@@ -66,6 +67,10 @@ export async function runNew(opts: NewOptions): Promise<void> {
   } catch {
     // No agent.json to update — that's fine
   }
+
+  // Generate ambient type declarations for editor autocomplete
+  await generateTypes(dest);
+  log.step("Generated", "types.d.ts");
 
   // Copy .env.example as .env
   const envExamplePath = join(dest, ".env.example");

@@ -1,5 +1,3 @@
-import { Agent, tool } from "@aai/sdk";
-import { z } from "zod";
 import knowledge from "./knowledge.json" with { type: "json" };
 
 // Text assets can also be embedded at bundle time via esbuild's text loader:
@@ -9,7 +7,7 @@ import knowledge from "./knowledge.json" with { type: "json" };
 type FaqEntry = { question: string; answer: string };
 const faqs: FaqEntry[] = knowledge.faqs;
 
-export default Agent({
+export default defineAgent({
   name: "FAQ Bot",
   instructions:
     `You are a friendly FAQ assistant. Answer questions using ONLY the information \
@@ -26,13 +24,13 @@ Rules:
     "Hi! I'm your FAQ assistant. Ask me anything about the AAI agent framework and I'll look it up in my knowledge base.",
   voice: "tara",
   tools: {
-    search_faq: tool({
+    search_faq: {
       description:
         "Search the embedded knowledge base for a question. Returns the closest matching FAQ entry.",
       parameters: z.object({
         query: z.string().describe("The user's question to search for"),
       }),
-      handler: ({ query }) => {
+      execute: ({ query }) => {
         const q = query.toLowerCase();
         const match = faqs.find((f) =>
           f.question.toLowerCase().includes(q) ||
@@ -41,11 +39,11 @@ Rules:
         );
         return match ?? { result: "No matching FAQ found." };
       },
-    }),
-    list_topics: tool({
+    },
+    list_topics: {
       description: "List all available FAQ topics in the knowledge base.",
       parameters: z.object({}),
-      handler: () => faqs.map((f) => f.question),
-    }),
+      execute: () => faqs.map((f) => f.question),
+    },
   },
 });

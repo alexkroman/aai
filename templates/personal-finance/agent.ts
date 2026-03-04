@@ -1,6 +1,4 @@
-import { Agent } from "@aai/sdk";
-
-export default Agent({
+export default defineAgent({
   name: "Penny",
   voice: "jess",
   greeting:

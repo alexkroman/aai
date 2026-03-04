@@ -25,16 +25,14 @@ export interface AgentDef {
  *
  * @example
  * ```ts
- * import { Agent } from "@aai/sdk";
- *
- * export default Agent({
+ * export default defineAgent({
  *   name: "Scout",
  *   voice: "tara",
  *   instructions: "...",
  * });
  * ```
  */
-export function Agent(options: AgentOptions): AgentDef {
+export function defineAgent(options: AgentOptions): AgentDef {
   return Object.freeze({
     name: options.name,
     instructions: options.instructions ?? DEFAULT_INSTRUCTIONS,

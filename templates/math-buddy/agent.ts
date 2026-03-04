@@ -1,6 +1,4 @@
-import { Agent } from "@aai/sdk";
-
-export default Agent({
+export default defineAgent({
   name: "Math Buddy",
   instructions:
     `You are Math Buddy, a friendly math assistant. You help with calculations,
