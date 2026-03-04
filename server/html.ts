@@ -58,7 +58,7 @@ aai dev
 
 <span class="dim"># create an agent with claude code</span>
 aai skill install
-claude "create a voice agent that helps plan weekend trips"</code></pre>
+claude "/new-agent a voice agent that helps plan weekend trips"</code></pre>
       <p style="margin-top:1.5rem;font-size:.85rem">
         <a href="https://github.com/alexkroman/aai">GitHub</a>
       </p>
