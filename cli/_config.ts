@@ -37,8 +37,8 @@ export async function getApiKey(): Promise<string> {
 
   // Prompt the user
   log.step("Setup", "AssemblyAI API key required for speech-to-text");
-  console.log("  Get one at https://www.assemblyai.com/dashboard/signup\n");
-  const key = prompt("  Enter your ASSEMBLYAI_API_KEY:")?.trim();
+  console.log("Get one at https://www.assemblyai.com/dashboard/signup\n");
+  const key = prompt("Enter your ASSEMBLYAI_API_KEY:")?.trim();
   if (!key) {
     throw new Error("ASSEMBLYAI_API_KEY is required");
   }

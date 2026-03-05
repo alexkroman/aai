@@ -48,11 +48,10 @@ export function renderLandingPage(): string {
       <h1>aai</h1>
       <p>Build voice agents with a single command.</p>
       <pre><code><span class="dim"># install and run</span>
-curl -fsSL https://voice-agent-api.fly.dev/install | sh
+curl -fsSL https://aai-agent.fly.dev/install | sh
 aai
 
 <span class="dim"># or create with claude code</span>
-mkdir my-agent && cd my-agent
 aai skill install
 claude "/new-agent a voice agent that helps plan weekend trips"</code></pre>
       <p style="margin-top:1.5rem;font-size:.85rem">
