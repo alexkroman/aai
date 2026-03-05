@@ -67,21 +67,16 @@ export async function runDeploy(
       log.info(url);
     }
 
-    // Health check: verify agent is running
+    // Health check: best-effort verification
     try {
       const healthResp = await doFetch(`${opts.url}/${opts.slug}/health`);
-      if (healthResp.ok) {
-        const data = await healthResp.json();
-        if (data.status === "ok") {
-          log.step("Ready", opts.slug);
-        } else {
-          log.error(
-            `${opts.slug} deployed but failed health check — the agent may have a runtime error`,
-          );
-        }
+      const ok = healthResp.ok &&
+        (await healthResp.json()).status === "ok";
+      if (ok) {
+        log.step("Ready", opts.slug);
       } else {
-        log.error(
-          `${opts.slug} deployed but failed health check — the agent may have a runtime error`,
+        log.warn(
+          `${opts.slug} deployed but health check failed — check for runtime errors`,
         );
       }
     } catch {

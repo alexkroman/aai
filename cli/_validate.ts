@@ -15,18 +15,24 @@ export interface ValidationResult {
 }
 
 /**
- * Validate an agent definition by dynamically importing agent.ts
- * and checking its structure before bundling/deploying.
+ * Validate an agent by dynamically importing agent.ts.
+ * defineAgent() already validates fields — we just check that
+ * the module loads and produces a valid default export.
  */
 export async function validateAgent(
   agent: AgentEntry,
 ): Promise<ValidationResult> {
   const errors: ValidationError[] = [];
 
-  // Import the agent module
+  // Temporarily inject the globals that agent.ts expects
+  const saved = {
+    defineAgent: (globalThis as Record<string, unknown>).defineAgent,
+    fetchJSON: (globalThis as Record<string, unknown>).fetchJSON,
+    z: (globalThis as Record<string, unknown>).z,
+  };
+
   let mod: Record<string, unknown>;
   try {
-    // Set up globals that agent.ts expects (defineAgent, z, fetchJSON)
     const { defineAgent } = await import("../server/agent.ts");
     const { fetchJSON } = await import("../server/fetch_json.ts");
     const { z } = await import("zod");
@@ -41,9 +47,17 @@ export async function validateAgent(
       }`,
     });
     return { errors };
+  } finally {
+    // Restore previous global state
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) {
+        delete (globalThis as Record<string, unknown>)[k];
+      } else {
+        (globalThis as Record<string, unknown>)[k] = v;
+      }
+    }
   }
 
-  // Check default export exists
   if (!mod.default) {
     errors.push({
       field: "agent.ts",
@@ -55,65 +69,19 @@ export async function validateAgent(
 
   const def = mod.default as Record<string, unknown>;
 
-  // Check it looks like an AgentDef
-  if (typeof def.name !== "string" || !def.name) {
-    errors.push({
-      field: "name",
-      message: "must be a non-empty string",
-    });
+  // defineAgent() freezes the object and sets defaults — just extract metadata
+  const name = typeof def.name === "string" ? def.name : undefined;
+  if (!name) {
+    errors.push({ field: "name", message: "must be a non-empty string" });
   }
 
-  if (typeof def.instructions !== "string") {
-    errors.push({
-      field: "instructions",
-      message: "must be a string",
-    });
-  }
-
-  if (typeof def.voice !== "string") {
-    errors.push({
-      field: "voice",
-      message: "must be a string",
-    });
-  }
-
-  // Validate tools (defineAgent already does this, but if someone bypasses it)
-  const toolNames: string[] = [];
-  if (def.tools && typeof def.tools === "object") {
-    for (
-      const [name, tool] of Object.entries(def.tools as Record<string, unknown>)
-    ) {
-      const t = tool as Record<string, unknown>;
-      if (!t.description || typeof t.description !== "string") {
-        errors.push({
-          field: `tools.${name}.description`,
-          message: "must be a non-empty string",
-        });
-      }
-      if (t.parameters == null) {
-        errors.push({
-          field: `tools.${name}.parameters`,
-          message: "is required — use z.object({}) or a JSON Schema object",
-        });
-      }
-      if (typeof t.execute !== "function") {
-        errors.push({
-          field: `tools.${name}.execute`,
-          message: "must be a function",
-        });
-      }
-      toolNames.push(name);
-    }
-  }
+  const tools = def.tools && typeof def.tools === "object"
+    ? Object.keys(def.tools as Record<string, unknown>)
+    : [];
 
   const builtinTools = Array.isArray(def.builtinTools)
     ? (def.builtinTools as string[])
     : [];
 
-  return {
-    errors,
-    name: typeof def.name === "string" ? def.name : undefined,
-    tools: toolNames,
-    builtinTools,
-  };
+  return { errors, name, tools, builtinTools };
 }
