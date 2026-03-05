@@ -20,3 +20,16 @@ jobs:
         run: deno task check
         env:
           ASSEMBLYAI_API_KEY: ${{ secrets.ASSEMBLYAI_API_KEY }}
+
+      - name: Compile binary
+        run: |
+          deno compile \
+            --allow-all \
+            --unstable-worker-options \
+            --include templates/ \
+            --include skills/ \
+            --output dist/aai \
+            cli/cli.ts
+
+      - name: Verify binary
+        run: ./dist/aai --version
