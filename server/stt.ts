@@ -54,18 +54,9 @@ export async function connectStt(
       new Promise<SttHandle>((resolve, reject) => {
         ws.addEventListener("open", () => {
           log.info("STT WebSocket connected");
-          let audioSendCount = 0;
           resolve({
             send(audio: Uint8Array) {
               if (ws.readyState === WebSocket.OPEN) {
-                audioSendCount++;
-                if (audioSendCount <= 5 || audioSendCount % 100 === 0) {
-                  log.debug("STT audio send", {
-                    count: audioSendCount,
-                    bytes: audio.length,
-                    wsState: ws.readyState,
-                  });
-                }
                 ws.send(audio);
               } else {
                 log.warn("STT send skipped, ws not open", {

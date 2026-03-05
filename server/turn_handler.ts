@@ -15,6 +15,7 @@ export interface TurnCallLLMOptions {
   tools: ToolSchema[];
   toolChoice?: ToolChoiceParam;
   signal?: AbortSignal;
+  onDelta?: (text: string) => void;
 }
 
 export interface ExecuteTurnOptions {
@@ -24,6 +25,7 @@ export interface ExecuteTurnOptions {
   executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
   signal: AbortSignal;
   logger?: Logger;
+  onDelta?: (text: string) => void;
 }
 
 export async function executeTurn(
@@ -37,6 +39,7 @@ export async function executeTurn(
     executeTool,
     signal,
     logger = getLogger("turn"),
+    onDelta,
   } = opts;
   messages.push({ role: "user", content: text });
 
@@ -46,6 +49,10 @@ export async function executeTurn(
   const finalAnswerSchema = toolSchemas.find(
     (t) => t.name === FINAL_ANSWER_TOOL,
   );
+
+  // Track whether we're on the final LLM call (no more tools expected).
+  // Only stream deltas to the caller on the final call.
+  let streamDeltas = toolSchemas.length === 0;
 
   let callNum = 0;
   callNum++;
@@ -60,6 +67,7 @@ export async function executeTurn(
     tools: toolSchemas,
     toolChoice,
     signal,
+    onDelta: streamDeltas ? onDelta : undefined,
   });
   logger.debug("LLM response", {
     callNum,
@@ -192,7 +200,7 @@ export async function executeTurn(
         messages.push({ role: "assistant", content: msg.content });
       }
     } else {
-      // Plain text response
+      // Plain text response (already streamed via onDelta if enabled)
       const responseText = msg.content ??
         "Sorry, I couldn't generate a response.";
       messages.push({ role: "assistant", content: responseText });
@@ -213,6 +221,9 @@ export async function executeTurn(
         ? { type: "function" as const, function: { name: FINAL_ANSWER_TOOL } }
         : toolChoice;
 
+    // Stream deltas on the last tool iteration (the response will be spoken)
+    streamDeltas = iterations >= MAX_TOOL_ITERATIONS;
+
     callNum++;
     logger.debug("LLM call", {
       callNum,
@@ -225,6 +236,7 @@ export async function executeTurn(
       tools: nextTools,
       toolChoice: nextChoice,
       signal,
+      onDelta: streamDeltas ? onDelta : undefined,
     });
     logger.debug("LLM response", {
       callNum,

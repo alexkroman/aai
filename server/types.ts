@@ -52,7 +52,7 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
   sampleRate: DEFAULT_TTS_SAMPLE_RATE,
 };
 
-export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+export const DEFAULT_MODEL = "gpt-5-nano";
 
 export interface SttMessage {
   type: string;

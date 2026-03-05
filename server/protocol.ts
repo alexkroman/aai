@@ -35,6 +35,16 @@ export interface ChatResponseMessage {
   text: string;
 }
 
+export interface ChatDeltaMessage {
+  type: "chat_delta";
+  text: string;
+}
+
+export interface ChatDoneMessage {
+  type: "chat_done";
+  text: string;
+}
+
 export interface TtsDoneMessage {
   type: "tts_done";
 }
@@ -66,6 +76,8 @@ export type ServerMessage =
   | FinalTranscriptMessage
   | TurnMessage
   | ChatResponseMessage
+  | ChatDeltaMessage
+  | ChatDoneMessage
   | TtsDoneMessage
   | CancelledMessage
   | ResetMessage

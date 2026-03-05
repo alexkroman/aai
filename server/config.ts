@@ -22,10 +22,16 @@ const ServerEnvSchema = z.object({
 
 /** Validate that all required server environment variables are set. Throws on failure. */
 export function validateServerEnv(): void {
-  ServerEnvSchema.parse({
+  const result = ServerEnvSchema.safeParse({
     ASSEMBLYAI_TTS_API_KEY: Deno.env.get("ASSEMBLYAI_TTS_API_KEY"),
     BRAVE_API_KEY: Deno.env.get("BRAVE_API_KEY"),
   });
+  if (!result.success) {
+    const missing = result.error.issues.map((i) => i.path.join(".")).join(", ");
+    throw new Error(
+      `Missing required environment variables: ${missing}\nSee .env.example for the required keys.`,
+    );
+  }
 }
 
 export interface PlatformConfig {
@@ -35,6 +41,7 @@ export interface PlatformConfig {
   model: string;
   llmGatewayBase: string;
   braveApiKey: string;
+  streamLLM: boolean;
 }
 
 /** Read the TTS API key from the server's own process environment. */
@@ -63,5 +70,6 @@ export function loadPlatformConfig(
     model: parsed.LLM_MODEL ?? DEFAULT_MODEL,
     llmGatewayBase: "https://llm-gateway.assemblyai.com/v1",
     braveApiKey: getServerBraveKey(),
+    streamLLM: false,
   };
 }

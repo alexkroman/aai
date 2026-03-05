@@ -11,7 +11,7 @@ const VOICE_RULES =
   "If a tool returns no results, just answer naturally without explaining why.\n" +
   "- Write exactly as you would say it out loud to a friend\n" +
   '- Use short conversational sentences. To list things, say "First," "Next," "Finally,"\n' +
-  "- Keep responses concise — a few sentences max";
+  "- Keep responses concise — 1 to 3 sentences max";
 
 export function buildSystemPrompt(
   config: AgentConfig,

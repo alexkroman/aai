@@ -97,9 +97,15 @@ export function createMockSttHandle(): SttHandle & {
 
 export interface MockTtsClient {
   synthesizeCalls: { text: string }[];
+  synthesizeStreamCalls: number;
   closeCalled: boolean;
   synthesize(
     text: string,
+    onAudio: (chunk: Uint8Array) => void,
+    signal?: AbortSignal,
+  ): Promise<void>;
+  synthesizeStream(
+    chunks: AsyncIterable<string>,
     onAudio: (chunk: Uint8Array) => void,
     signal?: AbortSignal,
   ): Promise<void>;
@@ -109,6 +115,7 @@ export interface MockTtsClient {
 export function createMockTtsClient(): MockTtsClient {
   return {
     synthesizeCalls: [],
+    synthesizeStreamCalls: 0,
     closeCalled: false,
     synthesize(
       text: string,
@@ -117,6 +124,16 @@ export function createMockTtsClient(): MockTtsClient {
     ): Promise<void> {
       this.synthesizeCalls.push({ text });
       return Promise.resolve();
+    },
+    async synthesizeStream(
+      chunks: AsyncIterable<string>,
+      _onAudio: (chunk: Uint8Array) => void,
+      _signal?: AbortSignal,
+    ): Promise<void> {
+      this.synthesizeStreamCalls++;
+      for await (const _ of chunks) {
+        // drain the iterator
+      }
     },
     close() {
       this.closeCalled = true;
@@ -150,6 +167,7 @@ export function createMockPlatformConfig(): PlatformConfig {
     model: "test-model",
     llmGatewayBase: "https://test-gateway.example.com/v1",
     braveApiKey: "",
+    streamLLM: false,
   };
 }
 
@@ -198,7 +216,10 @@ export function createMockSessionOptions(
   overrides?: Partial<
     Pick<
       SessionOptions,
-      "connectStt" | "callLLM" | "ttsClient" | "executeBuiltinTool"
+      | "connectStt"
+      | "callLLM"
+      | "ttsClient"
+      | "executeBuiltinTool"
     >
   >,
 ): {
@@ -233,12 +254,22 @@ export function createMockSessionOptions(
     platformConfig: createMockPlatformConfig(),
     executeTool: executeTool.fn,
     connectStt: () => Promise.resolve(sttHandle),
-    callLLM: (callOpts: CallLLMOptions) => {
+    callLLM: (
+      callOpts: CallLLMOptions & { onDelta?: (text: string) => void },
+    ) => {
       llmCalls.push({
         messages: [...callOpts.messages],
         tools: callOpts.tools,
       });
-      return nextResponse();
+      const resp = nextResponse();
+      // Simulate streaming: call onDelta with content if present
+      return resp.then((r) => {
+        const content = r.choices[0]?.message?.content;
+        if (content && callOpts.onDelta) {
+          callOpts.onDelta(content);
+        }
+        return r;
+      });
     },
     ttsClient,
     executeBuiltinTool: () => Promise.resolve(null),

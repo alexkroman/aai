@@ -86,6 +86,7 @@ export class VoiceSession {
   private ws: WebSocket | null = null;
   private player: AudioPlayer | null = null;
   private mic: MicCapture | null = null;
+  private streamingMessage = false;
   private reconnector = createReconnect();
   private connectionController: AbortController | null = null;
   private hasConnected = false;
@@ -184,7 +185,42 @@ export class VoiceSession {
           ];
           this.state.value = "speaking";
           break;
+        case "chat_delta": {
+          const msgs = this.messages.value;
+          const last = msgs[msgs.length - 1];
+          if (last && last.role === "assistant" && this.streamingMessage) {
+            // Append to existing streaming message
+            this.messages.value = [
+              ...msgs.slice(0, -1),
+              { role: "assistant", text: last.text + msg.text },
+            ];
+          } else {
+            // First delta — create new message
+            this.streamingMessage = true;
+            this.messages.value = [
+              ...msgs,
+              { role: "assistant", text: msg.text },
+            ];
+          }
+          this.state.value = "speaking";
+          break;
+        }
+        case "chat_done":
+          this.streamingMessage = false;
+          // Replace the streaming message with the final complete text
+          if (msg.text) {
+            const msgs = this.messages.value;
+            const last = msgs[msgs.length - 1];
+            if (last && last.role === "assistant") {
+              this.messages.value = [
+                ...msgs.slice(0, -1),
+                { role: "assistant", text: msg.text },
+              ];
+            }
+          }
+          break;
         case "tts_done":
+          this.streamingMessage = false;
           this.state.value = "listening";
           break;
         case "cancelled":

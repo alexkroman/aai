@@ -125,6 +125,112 @@ export function createTtsClient(config: TTSConfig) {
     });
   }
 
+  function runTtsStreamProtocol(
+    ws: WebSocket,
+    chunks: AsyncIterable<string>,
+    onAudio: (chunk: Uint8Array) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const ac = new AbortController();
+      const { signal: listenerSignal } = ac;
+      const cleanup = () => {
+        ac.abort();
+        safeClose(ws);
+      };
+
+      let chunkCount = 0;
+      let totalBytes = 0;
+
+      const onAbort = () => {
+        log.info("TTS stream aborted", { chunkCount, totalBytes });
+        cleanup();
+        resolve();
+      };
+
+      signal?.addEventListener("abort", onAbort, { once: true });
+
+      const startStreaming = async () => {
+        log.info("TTS stream: sending config and streaming words");
+        ws.send(
+          JSON.stringify({
+            voice: config.voice,
+            max_tokens: config.maxTokens,
+            buffer_size: config.bufferSize,
+            repetition_penalty: config.repetitionPenalty,
+            temperature: config.temperature,
+            top_p: config.topP,
+          }),
+        );
+
+        for await (const text of chunks) {
+          if (signal?.aborted) return;
+          for (const word of text.split(/\s+/)) {
+            if (word) ws.send(word);
+          }
+        }
+        ws.send("__END__");
+      };
+
+      if (ws.readyState === WebSocket.OPEN) {
+        startStreaming().catch((err) => {
+          if (!signal?.aborted) {
+            log.error("TTS stream send error", { err });
+          }
+        });
+      } else {
+        ws.addEventListener("open", () => {
+          startStreaming().catch((err) => {
+            if (!signal?.aborted) {
+              log.error("TTS stream send error", { err });
+            }
+          });
+        }, { signal: listenerSignal });
+      }
+
+      ws.addEventListener("message", (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          chunkCount++;
+          totalBytes += event.data.byteLength;
+          onAudio(new Uint8Array(event.data));
+        }
+      }, { signal: listenerSignal });
+
+      ws.addEventListener("close", (event: CloseEvent) => {
+        ac.abort();
+        signal?.removeEventListener("abort", onAbort);
+        warmUp();
+        if (event.code !== 1000 && event.code !== 1005) {
+          log.error("TTS stream WebSocket closed unexpectedly", {
+            code: event.code,
+            reason: event.reason,
+            chunkCount,
+            totalBytes,
+          });
+          reject(
+            new Error(
+              `TTS WebSocket closed unexpectedly (code ${event.code})`,
+            ),
+          );
+        } else {
+          log.info("TTS stream complete", {
+            code: event.code,
+            chunkCount,
+            totalBytes,
+          });
+          resolve();
+        }
+      });
+
+      ws.addEventListener("error", () => {
+        log.error("TTS stream WebSocket error", { chunkCount, totalBytes });
+        signal?.removeEventListener("abort", onAbort);
+        cleanup();
+        reject(new Error("TTS WebSocket error"));
+      });
+    });
+  }
+
   warmUp();
 
   return {
@@ -159,6 +265,34 @@ export function createTtsClient(config: TTSConfig) {
       }
 
       return runTtsProtocol(ws, text, onAudio, signal);
+    },
+    synthesizeStream(
+      chunks: AsyncIterable<string>,
+      onAudio: (chunk: Uint8Array) => void,
+      signal?: AbortSignal,
+    ): Promise<void> {
+      if (signal?.aborted) {
+        log.info("synthesizeStream skipped (already aborted)");
+        return Promise.resolve();
+      }
+
+      log.info("synthesizeStream start", { voice: config.voice });
+
+      let ws: WebSocket;
+      if (warmWs && warmWs.readyState === WebSocket.OPEN) {
+        ws = warmWs;
+        warmWs = null;
+        log.info("using warm WebSocket (stream)");
+      } else {
+        if (warmWs) {
+          safeClose(warmWs);
+          warmWs = null;
+        }
+        ws = makeWs();
+        log.info("created new WebSocket (stream)");
+      }
+
+      return runTtsStreamProtocol(ws, chunks, onAudio, signal);
     },
     close(): void {
       disposed = true;
