@@ -5,7 +5,5 @@ export default defineAgent({
     "visit_webpage",
     "fetch_json",
     "run_code",
-    "user_input",
-    "final_answer",
   ],
 });

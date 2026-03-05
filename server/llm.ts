@@ -40,7 +40,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
   const body: Record<string, unknown> = {
     model: opts.model,
     messages: sanitizeMessages(opts.messages),
-    max_tokens: opts.maxTokens ?? 1024,
+    max_tokens: opts.maxTokens ?? 8000,
   };
 
   if (opts.tools.length > 0) {
@@ -115,7 +115,7 @@ export async function callLLMStream(
   const body: Record<string, unknown> = {
     model: opts.model,
     messages: sanitizeMessages(opts.messages),
-    max_tokens: opts.maxTokens ?? 1024,
+    max_tokens: opts.maxTokens ?? 8000,
     stream: true,
   };
 
@@ -169,7 +169,7 @@ export async function callLLMStream(
   let sseBuffer = "";
 
   try {
-    while (true) {
+    outer: while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
@@ -181,7 +181,7 @@ export async function callLLMStream(
         const trimmed = line.trim();
         if (!trimmed || !trimmed.startsWith("data: ")) continue;
         const data = trimmed.slice(6);
-        if (data === "[DONE]") break;
+        if (data === "[DONE]") break outer;
 
         try {
           const chunk = JSON.parse(data);

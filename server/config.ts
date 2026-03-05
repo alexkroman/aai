@@ -70,6 +70,6 @@ export function loadPlatformConfig(
     model: parsed.LLM_MODEL ?? DEFAULT_MODEL,
     llmGatewayBase: "https://llm-gateway.assemblyai.com/v1",
     braveApiKey: getServerBraveKey(),
-    streamLLM: false,
+    streamLLM: true,
   };
 }

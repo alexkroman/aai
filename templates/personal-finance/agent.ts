@@ -22,5 +22,5 @@ Math calculations (use run_code):
 - Loan payment: M = P * (r(1+r)^n) / ((1+r)^n - 1) where r = annual_rate/12, n = years*12
 - Tip calculator: tip = bill * percent/100, per_person = (bill + tip) / people`,
   prompt: "",
-  builtinTools: ["run_code", "fetch_json", "user_input", "final_answer"],
+  builtinTools: ["run_code", "fetch_json"],
 });

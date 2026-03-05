@@ -32,9 +32,7 @@ export function buildSystemPrompt(
       "BUT, if one of the values for a required parameter is missing, DO NOT invoke the function (not even with fillers for the missing params) and instead, ask the user to provide the missing parameters. " +
       "DO NOT ask for more information on optional parameters if it is not provided. " +
       "Do not answer from memory alone when a tool can provide accurate, up-to-date information." +
-      "\n\nIMPORTANT: You MUST call the final_answer tool to deliver every response. " +
-      "Put your complete spoken response in the answer parameter. " +
-      "It is the only way to complete the task — otherwise you will be stuck in a loop."
+      "\n\nAfter using tools, respond with plain text. Do not wrap your answer in a tool call."
     : "";
 
   const today = new Date().toLocaleDateString("en-US", {

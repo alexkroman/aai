@@ -29,7 +29,5 @@ API endpoints (use fetch_json):
     "web_search",
     "visit_webpage",
     "fetch_json",
-    "user_input",
-    "final_answer",
   ],
 });

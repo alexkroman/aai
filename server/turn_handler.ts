@@ -1,4 +1,3 @@
-import { FINAL_ANSWER_TOOL, USER_INPUT_TOOL } from "./builtin_tools.ts";
 import { getLogger, type Logger } from "./logger.ts";
 import type { ChatMessage, LLMResponse, ToolSchema } from "./types.ts";
 
@@ -43,31 +42,18 @@ export async function executeTurn(
   } = opts;
   messages.push({ role: "user", content: text });
 
-  const toolChoice: ToolChoiceParam = toolSchemas.length > 0
-    ? "required"
-    : undefined;
-  const finalAnswerSchema = toolSchemas.find(
-    (t) => t.name === FINAL_ANSWER_TOOL,
-  );
-
-  // Track whether we're on the final LLM call (no more tools expected).
-  // Only stream deltas to the caller on the final call.
-  let streamDeltas = toolSchemas.length === 0;
-
   let callNum = 0;
   callNum++;
   logger.debug("LLM call", {
     callNum,
     messageCount: messages.length,
-    toolChoice: toolChoice ?? "auto",
     tools: toolSchemas.length,
   });
   let response = await callLLM({
     messages,
     tools: toolSchemas,
-    toolChoice,
     signal,
-    onDelta: streamDeltas ? onDelta : undefined,
+    onDelta,
   });
   logger.debug("LLM response", {
     callNum,
@@ -79,48 +65,6 @@ export async function executeTurn(
     const choice = response.choices[0];
     if (!choice) break;
     const msg = choice.message;
-
-    // final_answer — return immediately
-    const answerTc = msg.tool_calls?.find((c) =>
-      c.function.name === FINAL_ANSWER_TOOL
-    );
-    if (answerTc) {
-      let answer: string;
-      try {
-        answer =
-          (JSON.parse(answerTc.function.arguments) as Record<string, unknown>)[
-            "answer"
-          ] as string ?? "";
-      } catch {
-        answer = "";
-      }
-      messages.push({ role: "assistant", content: answer });
-      logger.info("turn complete (final_answer)", {
-        responseLength: answer.length,
-      });
-      return answer;
-    }
-
-    // user_input — speak the question, end the turn
-    const questionTc = msg.tool_calls?.find((c) =>
-      c.function.name === USER_INPUT_TOOL
-    );
-    if (questionTc) {
-      let question: string;
-      try {
-        question = (JSON.parse(questionTc.function.arguments) as Record<
-          string,
-          unknown
-        >)["question"] as string ?? "";
-      } catch {
-        question = "";
-      }
-      messages.push({ role: "assistant", content: question });
-      logger.info("turn complete (user_input)", {
-        questionLength: question.length,
-      });
-      return question;
-    }
 
     // Out of iterations — return whatever text we have
     if (iterations === MAX_TOOL_ITERATIONS) {
@@ -139,8 +83,7 @@ export async function executeTurn(
         messages.push({ role: "assistant", content: msg.content });
       }
     } else if (msg.tool_calls?.length) {
-      // Execute tool calls — sanitize tool_calls so the gateway can
-      // round-trip them (arguments must always be valid JSON).
+      // Execute tool calls
       messages.push({
         role: "assistant",
         content: msg.content,
@@ -200,7 +143,7 @@ export async function executeTurn(
         messages.push({ role: "assistant", content: msg.content });
       }
     } else {
-      // Plain text response (already streamed via onDelta if enabled)
+      // Plain text response (already streamed via onDelta)
       const responseText = msg.content ??
         "Sorry, I couldn't generate a response.";
       messages.push({ role: "assistant", content: responseText });
@@ -212,31 +155,17 @@ export async function executeTurn(
 
     iterations++;
 
-    // Force final_answer on last iteration
-    const nextTools = iterations >= MAX_TOOL_ITERATIONS && finalAnswerSchema
-      ? [finalAnswerSchema]
-      : toolSchemas;
-    const nextChoice: ToolChoiceParam =
-      iterations >= MAX_TOOL_ITERATIONS && finalAnswerSchema
-        ? { type: "function" as const, function: { name: FINAL_ANSWER_TOOL } }
-        : toolChoice;
-
-    // Stream deltas on the last tool iteration (the response will be spoken)
-    streamDeltas = iterations >= MAX_TOOL_ITERATIONS;
-
     callNum++;
     logger.debug("LLM call", {
       callNum,
       messageCount: messages.length,
-      toolChoice: nextChoice ?? "auto",
-      tools: nextTools.length,
+      tools: toolSchemas.length,
     });
     response = await callLLM({
       messages,
-      tools: nextTools,
-      toolChoice: nextChoice,
+      tools: toolSchemas,
       signal,
-      onDelta: streamDeltas ? onDelta : undefined,
+      onDelta,
     });
     logger.debug("LLM response", {
       callNum,
