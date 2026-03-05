@@ -17,6 +17,7 @@ export interface BundleStore {
     worker: string;
     client: string;
     client_map?: string;
+    owner_hash?: string;
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;
@@ -68,6 +69,7 @@ export class TigrisBundleStore implements BundleStore {
     worker: string;
     client: string;
     client_map?: string;
+    owner_hash?: string;
   }): Promise<void> {
     await this.deleteAgent(bundle.slug);
 
@@ -75,6 +77,7 @@ export class TigrisBundleStore implements BundleStore {
       slug: bundle.slug,
       env: bundle.env,
       transport: bundle.transport,
+      ...(bundle.owner_hash ? { owner_hash: bundle.owner_hash } : {}),
     };
     await this.#put(
       objectKey(bundle.slug, "manifest.json"),

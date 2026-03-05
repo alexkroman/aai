@@ -249,12 +249,18 @@ ${ENV_VARS.filter((_, i) => i !== 3).join("\n")}
         );
         return 1;
       }
+      const apiKey = agent.env.ASSEMBLYAI_API_KEY;
+      if (!apiKey) {
+        log.error("ASSEMBLYAI_API_KEY not found in agent env");
+        return 1;
+      }
       const { runDeploy } = await import("./deploy.ts");
       await runDeploy({
         url: flags.url || "https://voice-agent-api.fly.dev",
         bundleDir,
         slug: agent.slug,
         dryRun: !!flags["dry-run"],
+        apiKey,
       });
       return 0;
     }

@@ -6,6 +6,14 @@ import { getLogger } from "./logger.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 
+export async function hashApiKey(apiKey: string): Promise<string> {
+  const data = new TextEncoder().encode(apiKey);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 const DeployBodySchema = z.object({
   slug: z.string().min(1),
   env: z.record(z.string(), z.string()),
@@ -27,6 +35,15 @@ export function createDeployRoute(ctx: {
   const deploy = new Hono();
 
   deploy.post("/deploy", async (c) => {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      throw new HTTPException(400, {
+        message: "Missing Authorization header (Bearer <ASSEMBLYAI_API_KEY>)",
+      });
+    }
+    const apiKey = authHeader.slice("Bearer ".length);
+    const ownerHash = await hashApiKey(apiKey);
+
     let json: unknown;
     try {
       json = await c.req.json();
@@ -50,6 +67,16 @@ export function createDeployRoute(ctx: {
       });
     }
 
+    // Check slug ownership
+    const existingManifest = await store.getManifest(body.slug);
+    if (
+      existingManifest?.owner_hash && existingManifest.owner_hash !== ownerHash
+    ) {
+      throw new HTTPException(403, {
+        message: "Slug already taken by another owner",
+      });
+    }
+
     const existing = slots.get(body.slug);
     if (existing?.live) {
       log.info("Replacing existing deploy", { slug: body.slug });
@@ -70,6 +97,7 @@ export function createDeployRoute(ctx: {
       transport,
       worker: body.worker,
       client: body.client,
+      owner_hash: ownerHash,
     });
 
     const slot: AgentSlot = {
