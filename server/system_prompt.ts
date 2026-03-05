@@ -32,6 +32,9 @@ export function buildSystemPrompt(
       "BUT, if one of the values for a required parameter is missing, DO NOT invoke the function (not even with fillers for the missing params) and instead, ask the user to provide the missing parameters. " +
       "DO NOT ask for more information on optional parameters if it is not provided. " +
       "Do not answer from memory alone when a tool can provide accurate, up-to-date information." +
+      "\n\nTool Preambles: When you decide to call a tool, ALWAYS say a brief natural phrase BEFORE the tool call " +
+      '(e.g. "Let me look that up" or "One moment while I check"). ' +
+      "This fills silence while the tool executes. Keep preambles to one short sentence." +
       "\n\nAfter using tools, respond with plain text. Do not wrap your answer in a tool call."
     : "";
 

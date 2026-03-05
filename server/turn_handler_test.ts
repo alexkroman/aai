@@ -242,17 +242,22 @@ Deno.test("executeTurn", async (t) => {
     await t.step(
       "returns fallback after MAX_TOOL_ITERATIONS",
       async () => {
+        // MAX_TOOL_ITERATIONS is 1, so after initial call returns tool_calls,
+        // the tool executes, LLM is called again (iteration 1), and if that
+        // also returns tool_calls, the fallback content is returned.
         const toolResp = createMockLLMResponse(null, [
           { id: "c1", name: "loop_tool", arguments: "{}" },
         ]);
-        const fallbackResp = createMockLLMResponse("Here are the results.");
+        const secondToolResp = createMockLLMResponse("Fallback text.", [
+          { id: "c2", name: "loop_tool", arguments: "{}" },
+        ]);
 
         let callCount = 0;
         const c = ctx({
           callLLM: () => {
             callCount++;
-            if (callCount > 3) return Promise.resolve(fallbackResp);
-            return Promise.resolve(toolResp);
+            if (callCount === 1) return Promise.resolve(toolResp);
+            return Promise.resolve(secondToolResp);
           },
         });
 
@@ -265,9 +270,9 @@ Deno.test("executeTurn", async (t) => {
           logger,
         });
 
-        expect(result).toBe("Here are the results.");
-        expect(c.toolCalls.length).toBe(3);
-        expect(callCount).toBe(4); // 1 initial + 2 re-calls + 1 final
+        expect(result).toBe("Fallback text.");
+        expect(c.toolCalls.length).toBe(1);
+        expect(callCount).toBe(2); // 1 initial + 1 re-call (hits limit)
       },
     );
 

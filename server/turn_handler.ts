@@ -1,7 +1,7 @@
 import { getLogger, type Logger } from "./logger.ts";
 import type { ChatMessage, LLMResponse, ToolSchema } from "./types.ts";
 
-const MAX_TOOL_ITERATIONS = 3;
+const MAX_TOOL_ITERATIONS = 1;
 
 export type ToolChoiceParam =
   | "auto"
@@ -14,7 +14,6 @@ export interface TurnCallLLMOptions {
   tools: ToolSchema[];
   toolChoice?: ToolChoiceParam;
   signal?: AbortSignal;
-  onDelta?: (text: string) => void;
 }
 
 export interface ExecuteTurnOptions {
@@ -24,7 +23,6 @@ export interface ExecuteTurnOptions {
   executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
   signal: AbortSignal;
   logger?: Logger;
-  onDelta?: (text: string) => void;
 }
 
 export async function executeTurn(
@@ -38,7 +36,6 @@ export async function executeTurn(
     executeTool,
     signal,
     logger = getLogger("turn"),
-    onDelta,
   } = opts;
   messages.push({ role: "user", content: text });
 
@@ -53,7 +50,6 @@ export async function executeTurn(
     messages,
     tools: toolSchemas,
     signal,
-    onDelta,
   });
   logger.debug("LLM response", {
     callNum,
@@ -143,7 +139,7 @@ export async function executeTurn(
         messages.push({ role: "assistant", content: msg.content });
       }
     } else {
-      // Plain text response (already streamed via onDelta)
+      // Plain text response
       const responseText = msg.content ??
         "Sorry, I couldn't generate a response.";
       messages.push({ role: "assistant", content: responseText });
@@ -165,7 +161,6 @@ export async function executeTurn(
       messages,
       tools: toolSchemas,
       signal,
-      onDelta,
     });
     logger.debug("LLM response", {
       callNum,

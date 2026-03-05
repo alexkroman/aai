@@ -96,14 +96,9 @@ export function createMockSttHandle(): SttHandle & {
 }
 
 export interface MockTtsClient {
-  synthesizeCalls: { text: string }[];
   synthesizeStreamCalls: number;
+  streamedText: string[];
   closeCalled: boolean;
-  synthesize(
-    text: string,
-    onAudio: (chunk: Uint8Array) => void,
-    signal?: AbortSignal,
-  ): Promise<void>;
   synthesizeStream(
     chunks: AsyncIterable<string>,
     onAudio: (chunk: Uint8Array) => void,
@@ -114,25 +109,17 @@ export interface MockTtsClient {
 
 export function createMockTtsClient(): MockTtsClient {
   return {
-    synthesizeCalls: [],
     synthesizeStreamCalls: 0,
+    streamedText: [],
     closeCalled: false,
-    synthesize(
-      text: string,
-      _onAudio: (chunk: Uint8Array) => void,
-      _signal?: AbortSignal,
-    ): Promise<void> {
-      this.synthesizeCalls.push({ text });
-      return Promise.resolve();
-    },
     async synthesizeStream(
       chunks: AsyncIterable<string>,
       _onAudio: (chunk: Uint8Array) => void,
       _signal?: AbortSignal,
     ): Promise<void> {
       this.synthesizeStreamCalls++;
-      for await (const _ of chunks) {
-        // drain the iterator
+      for await (const text of chunks) {
+        this.streamedText.push(text);
       }
     },
     close() {
@@ -167,7 +154,6 @@ export function createMockPlatformConfig(): PlatformConfig {
     model: "test-model",
     llmGatewayBase: "https://test-gateway.example.com/v1",
     braveApiKey: "",
-    streamLLM: false,
   };
 }
 
@@ -248,28 +234,18 @@ export function createMockSessionOptions(
     agentConfig: {
       instructions: "Test instructions",
       greeting: "Hi there!",
-      voice: "jess",
+      voice: "luna",
     },
     toolSchemas: [],
     platformConfig: createMockPlatformConfig(),
     executeTool: executeTool.fn,
     connectStt: () => Promise.resolve(sttHandle),
-    callLLM: (
-      callOpts: CallLLMOptions & { onDelta?: (text: string) => void },
-    ) => {
+    callLLM: (callOpts: CallLLMOptions) => {
       llmCalls.push({
         messages: [...callOpts.messages],
         tools: callOpts.tools,
       });
-      const resp = nextResponse();
-      // Simulate streaming: call onDelta with content if present
-      return resp.then((r) => {
-        const content = r.choices[0]?.message?.content;
-        if (content && callOpts.onDelta) {
-          callOpts.onDelta(content);
-        }
-        return r;
-      });
+      return nextResponse();
     },
     ttsClient,
     executeBuiltinTool: () => Promise.resolve(null),

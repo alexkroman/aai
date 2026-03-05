@@ -1,9 +1,5 @@
 import type { PlatformConfig } from "./config.ts";
-import {
-  callLLM as defaultCallLLM,
-  type CallLLMOptions,
-  callLLMStream as defaultCallLLMStream,
-} from "./llm.ts";
+import { callLLM as defaultCallLLM, type CallLLMOptions } from "./llm.ts";
 import { getLogger } from "./logger.ts";
 import type { ExecuteTool } from "./tool_executor.ts";
 import {
@@ -43,16 +39,9 @@ export interface SessionOptions {
     config: STTConfig,
     events: SttEvents,
   ): Promise<SttHandle>;
-  callLLM?(
-    opts: CallLLMOptions & { onDelta?: (text: string) => void },
-  ): Promise<LLMResponse>;
+  callLLM?(opts: CallLLMOptions): Promise<LLMResponse>;
   ttsClient?: {
-    synthesize(
-      text: string,
-      onAudio: (chunk: Uint8Array) => void,
-      signal?: AbortSignal,
-    ): Promise<void>;
-    synthesizeStream?(
+    synthesizeStream(
       chunks: AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
@@ -108,15 +97,7 @@ export function createSession(opts: SessionOptions): Session {
   };
 
   const doConnectStt = opts.connectStt ?? defaultConnectStt;
-  const defaultLLM = platformConfig.streamLLM
-    ? defaultCallLLMStream
-    : (callOpts: CallLLMOptions & { onDelta?: (text: string) => void }) =>
-      defaultCallLLM(callOpts).then((r) => {
-        const content = r.choices[0]?.message?.content;
-        if (content && callOpts.onDelta) callOpts.onDelta(content);
-        return r;
-      });
-  const doCallLLM = opts.callLLM ?? defaultLLM;
+  const doCallLLM = opts.callLLM ?? defaultCallLLM;
   const tts = opts.ttsClient ?? createTtsClient(config.ttsConfig);
   const doExecuteBuiltinTool = opts.executeBuiltinTool ??
     ((name: string, args: Record<string, unknown>) =>
@@ -133,9 +114,7 @@ export function createSession(opts: SessionOptions): Session {
     content: buildSystemPrompt(agentConfig, toolSchemas, { voice: true }),
   }];
 
-  function boundCallLLM(
-    turnOpts: TurnCallLLMOptions & { onDelta?: (text: string) => void },
-  ): Promise<LLMResponse> {
+  function boundCallLLM(turnOpts: TurnCallLLMOptions): Promise<LLMResponse> {
     return doCallLLM({
       ...turnOpts,
       apiKey: config.apiKey,
@@ -248,48 +227,7 @@ export function createSession(opts: SessionOptions): Session {
     const abort = new AbortController();
     turnAbort = abort;
 
-    // Channel for piping LLM deltas to TTS in real-time
-    const deltaQueue: string[] = [];
-    let deltaResolve: (() => void) | null = null;
-    let deltaDone = false;
-
-    async function* deltaStream(): AsyncGenerator<string> {
-      while (true) {
-        if (deltaQueue.length > 0) {
-          yield deltaQueue.shift()!;
-        } else if (deltaDone) {
-          return;
-        } else {
-          await new Promise<void>((r) => {
-            deltaResolve = r;
-          });
-          deltaResolve = null;
-        }
-      }
-    }
-
-    function pushDelta(delta: string): void {
-      deltaQueue.push(delta);
-      deltaResolve?.();
-    }
-
-    function closeDeltaStream(): void {
-      deltaDone = true;
-      deltaResolve?.();
-    }
-
     try {
-      let gotDeltas = false;
-
-      // Start TTS streaming in parallel — it will consume deltas as they arrive
-      const ttsPromise = tts.synthesizeStream
-        ? tts.synthesizeStream(
-          deltaStream(),
-          (chunk) => trySendBytes(chunk),
-          abort.signal,
-        )
-        : null;
-
       const result = await executeTurn(text, {
         messages,
         toolSchemas,
@@ -297,42 +235,23 @@ export function createSession(opts: SessionOptions): Session {
         executeTool: boundExecuteTool,
         signal: abort.signal,
         logger,
-        onDelta: (delta) => {
-          if (abort.signal.aborted) return;
-          gotDeltas = true;
-          trySendJson({ type: "chat_delta", text: delta });
-          pushDelta(delta);
-        },
       });
-
-      closeDeltaStream();
       if (abort.signal.aborted) return;
 
       if (result) {
-        if (gotDeltas) {
-          // Streamed response — wait for TTS to finish, send chat_done
-          if (ttsPromise) await ttsPromise;
-          if (!abort.signal.aborted) {
-            trySendJson({ type: "chat_done", text: result });
-            trySendJson({ type: "tts_done" });
-          }
-        } else {
-          // Non-streamed (tool calls returned answer directly) — use regular TTS
-          trySendJson({ type: "chat", text: result });
-          await tts.synthesize(
-            result,
-            (chunk) => trySendBytes(chunk),
-            abort.signal,
-          );
-          if (!abort.signal.aborted) trySendJson({ type: "tts_done" });
-        }
+        trySendJson({ type: "chat", text: result });
+        await tts.synthesizeStream(
+          (async function* () {
+            yield result;
+          })(),
+          (chunk) => trySendBytes(chunk),
+          abort.signal,
+        );
+        if (!abort.signal.aborted) trySendJson({ type: "tts_done" });
       } else {
-        closeDeltaStream();
-        if (ttsPromise) await ttsPromise;
         trySendJson({ type: "tts_done" });
       }
     } catch (err: unknown) {
-      closeDeltaStream();
       if (abort.signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
       logger.error("Chat failed", { error: msg });
@@ -345,8 +264,11 @@ export function createSession(opts: SessionOptions): Session {
   function speakText(text: string): void {
     const abort = new AbortController();
     turnAbort = abort;
+    async function* oneShot() {
+      yield text;
+    }
     const p = tts
-      .synthesize(text, (chunk) => trySendBytes(chunk), abort.signal)
+      .synthesizeStream(oneShot(), (chunk) => trySendBytes(chunk), abort.signal)
       .then(() => {
         if (!abort.signal.aborted) trySendJson({ type: "tts_done" });
       })

@@ -104,7 +104,7 @@ Deno.test("createSession", async (t) => {
       const chat = messages.find((m) => m.type === "chat");
       expect(chat).toBeDefined();
       expect(chat!.text).toBe("Hi there!");
-      expect(ttsClient.synthesizeCalls.length).toBeGreaterThan(0);
+      expect(ttsClient.synthesizeStreamCalls).toBeGreaterThan(0);
     });
 
     await t.step("is a no-op on second call", async () => {
@@ -112,9 +112,9 @@ Deno.test("createSession", async (t) => {
       await session.start();
 
       session.onAudioReady();
-      const firstCount = ttsClient.synthesizeCalls.length;
+      const firstCount = ttsClient.synthesizeStreamCalls;
       session.onAudioReady();
-      expect(ttsClient.synthesizeCalls.length).toBe(firstCount);
+      expect(ttsClient.synthesizeStreamCalls).toBe(firstCount);
     });
   });
 
@@ -164,7 +164,7 @@ Deno.test("createSession", async (t) => {
 
   await t.step("handleTurn()", async (t) => {
     await t.step(
-      "sends TURN, CHAT_DELTA, CHAT_DONE, triggers TTS",
+      "sends TURN, CHAT, triggers TTS",
       async () => {
         const ctx = setupWithSttEvents();
         await ctx.session.start();
@@ -176,10 +176,7 @@ Deno.test("createSession", async (t) => {
         expect(messages.find((m) => m.type === "turn")!.text).toBe(
           "What is the weather?",
         );
-        expect(messages.find((m) => m.type === "chat_delta")!.text).toBe(
-          "Hello from LLM",
-        );
-        expect(messages.find((m) => m.type === "chat_done")!.text).toBe(
+        expect(messages.find((m) => m.type === "chat")!.text).toBe(
           "Hello from LLM",
         );
         expect(ctx.ttsClient.synthesizeStreamCalls).toBeGreaterThan(0);
@@ -211,7 +208,6 @@ Deno.test("createSession", async (t) => {
       expect(ctx.executeTool.calls.length).toBe(1);
       expect(ctx.executeTool.calls[0].name).toBe("get_weather");
       const msgs = getSentJson(ctx.transport);
-      // Tool responses go through non-streaming path (chat, not chat_done)
       expect(msgs.find((m) => m.type === "chat")!.text).toBe(
         "It's sunny in NYC.",
       );
