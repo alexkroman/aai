@@ -57,7 +57,7 @@ export async function runDeploy(
     const transport = manifest.transport ?? ["websocket"];
     const urls: string[] = [];
     if (transport.includes("websocket")) {
-      urls.push(`${opts.url}/websocket/${opts.slug}/`);
+      urls.push(`${opts.url}/${opts.slug}/`);
     }
     if (transport.includes("twilio")) {
       urls.push(`${opts.url}/twilio/${opts.slug}/voice`);
@@ -65,6 +65,27 @@ export async function runDeploy(
     log.step("Deploy", `${opts.slug} → ${urls[0] ?? opts.url}`);
     for (const url of urls.slice(1)) {
       log.info(url);
+    }
+
+    // Health check: verify agent is running
+    try {
+      const healthResp = await doFetch(`${opts.url}/${opts.slug}/health`);
+      if (healthResp.ok) {
+        const data = await healthResp.json();
+        if (data.status === "ok") {
+          log.step("Ready", opts.slug);
+        } else {
+          log.error(
+            `${opts.slug} deployed but failed health check — the agent may have a runtime error`,
+          );
+        }
+      } else {
+        log.error(
+          `${opts.slug} deployed but failed health check — the agent may have a runtime error`,
+        );
+      }
+    } catch {
+      // Health check is best-effort — don't fail the deploy
     }
   } else {
     const text = await resp.text();
