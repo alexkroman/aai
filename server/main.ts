@@ -34,5 +34,10 @@ log.info(`http://localhost:${port}`);
 
 Deno.addSignalListener("SIGTERM", () => {
   log.info("SIGTERM received — draining connections...");
-  server.shutdown();
+  const drain = server.shutdown();
+  const force = new Promise<void>((r) => setTimeout(r, 5_000));
+  Promise.race([drain, force]).then(() => {
+    log.info("Shutdown complete");
+    Deno.exit(0);
+  });
 });
