@@ -42,6 +42,7 @@
     "jsr:@std/path@^1.1.4": "1.1.4",
     "jsr:@std/testing@^1.0.17": "1.0.17",
     "jsr:@zip-js/zip-js@^2.7.52": "2.8.22",
+    "jsr:@zod/zod@^4.3.6": "4.3.6",
     "npm:@aws-sdk/client-s3@^3.1001.0": "3.1001.0",
     "npm:@preact/signals@2.8.1": "2.8.1_preact@10.28.4",
     "npm:@preact/signals@^2.8.1": "2.8.1_preact@10.28.4",
@@ -51,8 +52,7 @@
     "npm:goober@^2.1.18": "2.1.18_csstype@3.2.3",
     "npm:preact@10.28.4": "10.28.4",
     "npm:preact@^10.28.4": "10.28.4",
-    "npm:unique-names-generator@^4.7.1": "4.7.1",
-    "npm:zod@^4.3.6": "4.3.6"
+    "npm:unique-names-generator@^4.7.1": "4.7.1"
   },
   "jsr": {
     "@astral/astral@0.5.5": {
@@ -196,6 +196,9 @@
     },
     "@zip-js/zip-js@2.8.22": {
       "integrity": "d8609d060d129c48f3e7d789909e101dfed04ed1e79c32ed0bb6f6aaa6693903"
+    },
+    "@zod/zod@4.3.6": {
+      "integrity": "7144e5e11f8ffc3cf6e2fca624f6597a8762898aac9868cc8938e9398b96ffe4"
     }
   },
   "npm": {
@@ -1361,9 +1364,6 @@
     },
     "unique-names-generator@4.7.1": {
       "integrity": "sha512-lMx9dX+KRmG8sq6gulYYpKWZc9RlGsgBR6aoO8Qsm3qvkSJ+3rAymr+TnV8EDMrIrwuFJ4kruzMWM/OpYzPoow=="
-    },
-    "zod@4.3.6": {
-      "integrity": "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="
     }
   },
   "remote": {
@@ -1399,12 +1399,12 @@
       "jsr:@std/html@^1.0.5",
       "jsr:@std/path@^1.1.4",
       "jsr:@std/testing@^1.0.17",
+      "jsr:@zod/zod@^4.3.6",
       "npm:@preact/signals@^2.8.1",
       "npm:esbuild-wasm@~0.27.3",
       "npm:goober@^2.1.18",
       "npm:preact@^10.28.4",
-      "npm:unique-names-generator@^4.7.1",
-      "npm:zod@^4.3.6"
+      "npm:unique-names-generator@^4.7.1"
     ],
     "members": {
       "cli": {
