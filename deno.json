@@ -1,5 +1,5 @@
 {
-  "version": "0.1.1",
+  "version": "0.1.2",
   "workspace": ["server", "ui", "cli"],
   "tasks": {
     "setup": "git config core.hooksPath .githooks",
