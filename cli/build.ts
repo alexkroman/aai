@@ -1,6 +1,6 @@
 import { log } from "./_output.ts";
 import { type AgentEntry, loadAgent } from "./_discover.ts";
-import { bundleAgent } from "./_bundler.ts";
+import { bundleAgent, warmNpmCache } from "./_bundler.ts";
 import { validateAgent } from "./_validate.ts";
 
 export interface BuildOpts {
@@ -29,6 +29,10 @@ export async function runBuild(
     }
     throw new Error("agent validation failed — fix the errors above");
   }
+
+  const spinner = log.spinner("Setup", "preparing bundler...");
+  await warmNpmCache();
+  spinner.stop();
 
   const outDir = `${opts.outDir}/${agent.slug}`;
   await bundle(agent, outDir);

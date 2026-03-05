@@ -6,6 +6,12 @@ set -e
 REPO="alexkroman/aai"
 INSTALL_DIR="\${AAI_INSTALL_DIR:-\$HOME/.aai/bin}"
 
+# Verify curl is available
+if ! command -v curl >/dev/null 2>&1; then
+  echo "Error: curl is required to install aai." >&2
+  exit 1
+fi
+
 # Detect OS and architecture
 OS="\$(uname -s)"
 ARCH="\$(uname -m)"
@@ -24,8 +30,14 @@ esac
 
 ARTIFACT="aai-\${os}-\${arch}"
 
-# Get latest version from GitHub
-VERSION="\$(curl -fsSL "https://api.github.com/repos/\$REPO/releases/latest" | grep '"tag_name"' | sed 's/.*"v\\(.*\\)".*/\\1/')"
+# Get latest version from GitHub (retry up to 3 times)
+n=0
+VERSION=""
+while [ -z "\$VERSION" ] && [ "\$n" -lt 3 ]; do
+  VERSION="\$(curl -fsSL "https://api.github.com/repos/\$REPO/releases/latest" | grep '"tag_name"' | sed 's/.*"v\\(.*\\)".*/\\1/')" || true
+  n=\$((n + 1))
+  [ -z "\$VERSION" ] && [ "\$n" -lt 3 ] && sleep 2
+done
 
 if [ -z "\$VERSION" ]; then
   echo "Failed to get latest version" >&2
@@ -41,13 +53,21 @@ mkdir -p "\$INSTALL_DIR"
 TMP="\$(mktemp -d)"
 trap 'rm -rf "\$TMP"' EXIT
 
-curl -fsSL "\$URL" | tar xz -C "\$TMP"
+if ! curl -fsSL "\$URL" | tar xz -C "\$TMP"; then
+  echo "Download failed. Check that a release exists for \$os/\$arch." >&2
+  exit 1
+fi
 mv "\$TMP/aai" "\$INSTALL_DIR/aai"
 chmod +x "\$INSTALL_DIR/aai"
 
+# Verify the binary works
+if ! "\$INSTALL_DIR/aai" --version >/dev/null 2>&1; then
+  echo "Warning: installed binary does not appear to work" >&2
+fi
+
 echo "Installed aai to \$INSTALL_DIR/aai"
 
-# Check if INSTALL_DIR is in PATH
+# Add to PATH if needed (skip if already present)
 case ":\$PATH:" in
   *":\$INSTALL_DIR:"*) ;;
   *)
@@ -59,9 +79,14 @@ case ":\$PATH:" in
       *)    RC="" ;;
     esac
     if [ -n "\$RC" ]; then
-      echo "" >> "\$RC"
-      echo "export PATH=\\"\\\$HOME/.aai/bin:\\\$PATH\\"" >> "\$RC"
-      echo "Added \$INSTALL_DIR to PATH in \$RC"
+      PATH_LINE="export PATH=\\"\\\$HOME/.aai/bin:\\\$PATH\\""
+      if [ -f "\$RC" ] && grep -qF ".aai/bin" "\$RC"; then
+        echo "\$INSTALL_DIR already in \$RC"
+      else
+        echo "" >> "\$RC"
+        echo "\$PATH_LINE" >> "\$RC"
+        echo "Added \$INSTALL_DIR to PATH in \$RC"
+      fi
       echo "Run: source \$RC"
     else
       echo "Add \$INSTALL_DIR to your PATH"
