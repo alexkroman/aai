@@ -5,7 +5,7 @@ Build voice agents with a single command.
 ## Install
 
 ```sh
-curl -fsSL https://voice-agent-api.fly.dev/install | sh
+curl -fsSL https://aai-agent.fly.dev/install | sh
 ```
 
 ## Quick start

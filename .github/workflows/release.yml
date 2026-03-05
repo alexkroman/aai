@@ -17,7 +17,6 @@ jobs:
     outputs:
       version: ${{ steps.get.outputs.version }}
       tag: ${{ steps.get.outputs.tag }}
-      exists: ${{ steps.check.outputs.exists }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,33 +28,8 @@ jobs:
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "Detected version: $VERSION"
 
-      - name: Check if tag already exists
-        id: check
-        run: |
-          if git rev-parse "v${{ steps.get.outputs.version }}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Tag v${{ steps.get.outputs.version }} already exists, skipping release"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  publish-jsr:
-    needs: version
-    if: needs.version.outputs.exists == 'false'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: ${{ env.DENO_VERSION }}
-
-      - name: Publish @aai/ui
-        run: cd ui && deno publish
-
   build:
     needs: version
-    if: needs.version.outputs.exists == 'false'
     strategy:
       matrix:
         include:
@@ -121,7 +95,7 @@ jobs:
           tag_name: ${{ needs.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
+          make_latest: true
           files: |
             artifacts/*.tar.gz
             artifacts/checksums.txt
-
