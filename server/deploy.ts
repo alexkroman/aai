@@ -80,7 +80,7 @@ export function createDeployRoute(ctx: {
     ) {
       throw new HTTPException(403, {
         message:
-          'Slug already taken by another owner. Change the "name" field in your agent definition to use a different slug.',
+          'Slug already taken by another owner. Change the "name" field in agent.json to use a different slug.',
       });
     }
 
