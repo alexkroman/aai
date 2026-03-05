@@ -53,6 +53,7 @@ jobs:
       - name: Compile binary
         run: |
           deno compile \
+            --frozen \
             --allow-all \
             --unstable-worker-options \
             --include templates/ \

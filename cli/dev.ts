@@ -1,7 +1,7 @@
 import { debounce } from "@std/async/debounce";
 import { log } from "./_output.ts";
 import { type AgentEntry, loadAgent } from "./_discover.ts";
-import { bundleAgent } from "./_bundler.ts";
+import { bundleAgent, warmNpmCache } from "./_bundler.ts";
 import { validateAgent } from "./_validate.ts";
 
 export interface DevOpts {
@@ -108,6 +108,10 @@ export async function runDev(opts: DevOpts): Promise<void> {
   }
 
   const tmpDir = await Deno.makeTempDir({ prefix: "aai-dev-" });
+
+  const spinner = log.spinner("Setup", "preparing bundler...");
+  await warmNpmCache();
+  spinner.stop();
 
   const tools = await buildAndDeploy(agent, opts.serverUrl, tmpDir);
   printSummary(agent, tools);
