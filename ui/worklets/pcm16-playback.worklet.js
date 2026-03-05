@@ -1,6 +1,6 @@
 // PCM16 playback via ring buffer with pre-buffering.
-const CAPACITY = 1440000; // ~60s at 24 kHz
-const PRE_BUFFER = 4800; // 200ms at 24 kHz — absorb network jitter
+const CAPACITY = 960000; // ~60s at 16 kHz
+const PRE_BUFFER = 6400; // 400ms at 16 kHz
 
 class PCM16PlaybackProcessor extends AudioWorkletProcessor {
   constructor() {

@@ -13,9 +13,9 @@ const EnvSchema = z.object({
 });
 
 const ServerEnvSchema = z.object({
-  ASSEMBLYAI_TTS_API_KEY: z.string().min(
+  RIME_API_KEY: z.string().min(
     1,
-    "ASSEMBLYAI_TTS_API_KEY is required",
+    "RIME_API_KEY is required",
   ),
   BRAVE_API_KEY: z.string().min(1, "BRAVE_API_KEY is required"),
 });
@@ -23,7 +23,7 @@ const ServerEnvSchema = z.object({
 /** Validate that all required server environment variables are set. Throws on failure. */
 export function validateServerEnv(): void {
   const result = ServerEnvSchema.safeParse({
-    ASSEMBLYAI_TTS_API_KEY: Deno.env.get("ASSEMBLYAI_TTS_API_KEY"),
+    RIME_API_KEY: Deno.env.get("RIME_API_KEY"),
     BRAVE_API_KEY: Deno.env.get("BRAVE_API_KEY"),
   });
   if (!result.success) {
@@ -41,12 +41,11 @@ export interface PlatformConfig {
   model: string;
   llmGatewayBase: string;
   braveApiKey: string;
-  streamLLM: boolean;
 }
 
 /** Read the TTS API key from the server's own process environment. */
 export function getServerTtsKey(): string {
-  return Deno.env.get("ASSEMBLYAI_TTS_API_KEY") ?? "";
+  return Deno.env.get("RIME_API_KEY") ?? "";
 }
 
 /** Read the Brave Search API key from the server's own process environment. */
@@ -70,6 +69,5 @@ export function loadPlatformConfig(
     model: parsed.LLM_MODEL ?? DEFAULT_MODEL,
     llmGatewayBase: "https://llm-gateway.assemblyai.com/v1",
     braveApiKey: getServerBraveKey(),
-    streamLLM: true,
   };
 }

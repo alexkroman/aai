@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 export const DEFAULT_STT_SAMPLE_RATE = 16_000;
-export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
+export const DEFAULT_TTS_SAMPLE_RATE = 16_000;
 
 // Server → Client
 

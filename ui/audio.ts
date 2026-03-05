@@ -89,10 +89,11 @@ export async function createAudioPlayer(
   const player: AudioPlayer = {
     enqueue(pcm16Buffer: ArrayBuffer) {
       if (ctx.state === "closed") return;
-      const floats = Float32Array.from(
-        new Int16Array(pcm16Buffer),
-        (v) => v / 32768,
-      );
+      // Trim trailing odd byte — PCM16 samples are 2 bytes each
+      const len = pcm16Buffer.byteLength & ~1;
+      if (len === 0) return;
+      const samples = new Int16Array(pcm16Buffer, 0, len / 2);
+      const floats = Float32Array.from(samples, (v) => v / 32768);
       worklet.port.postMessage(floats, [floats.buffer]);
       // Unmute when audio is flowing
       gate.gain.value = 1;

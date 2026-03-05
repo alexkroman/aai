@@ -17,7 +17,7 @@ export default defineAgent({
   name: "Agent Name",
   instructions: "...",
   greeting: "...",
-  voice: "jess",              // "jess", "dan", or "tara"
+  voice: "luna",              // "luna", "arcana", or any Rime voice
   builtinTools: [],            // see available tools below
   tools: {},                   // custom tools defined inline
 });
