@@ -57,6 +57,12 @@ export function clientBuildOptions(
 }
 
 async function precomputeSchemas(agent: AgentEntry) {
+  // Inject SDK globals so import-free agent files can use defineAgent, z, etc.
+  const { defineAgent } = await import("../server/agent.ts");
+  const { fetchJSON } = await import("../server/fetch_json.ts");
+  const { z } = await import("zod");
+  Object.assign(globalThis, { defineAgent, fetchJSON, z });
+
   const mod = await import(toFileUrl(resolve(agent.entryPoint)).href);
   return agentToolsToSchemas(mod.default.tools);
 }

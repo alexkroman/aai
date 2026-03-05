@@ -97,6 +97,7 @@ Deno.test("handleSessionWebSocket", async (t) => {
 
       ws.sent.length = 0;
       ws.msg(JSON.stringify({ type: "ping" }));
+      await flush();
       expect(ws.sentJson().some((m) => m.type === "pong")).toBe(true);
     },
   );

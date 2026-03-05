@@ -84,6 +84,5 @@ export async function runNew(opts: NewOptions): Promise<void> {
   log.step("Done", dest);
   console.log(`\nNext steps:`);
   console.log(`    cd ${projectName}`);
-  console.log(`    ${log.cyan("aai build")}`);
   console.log(`    ${log.cyan("aai dev")}`);
 }

@@ -1,5 +1,7 @@
 // WebSocket wire-format types shared by server/ and ui/.
 
+import { z } from "zod";
+
 export const DEFAULT_STT_SAMPLE_RATE = 16_000;
 export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
 
@@ -81,3 +83,18 @@ export type ClientMessage =
     type: "history";
     messages: { role: "user" | "assistant"; text: string }[];
   };
+
+export const ClientMessageSchema: z.ZodType<ClientMessage> = z
+  .discriminatedUnion("type", [
+    z.object({ type: z.literal("audio_ready") }),
+    z.object({ type: z.literal("cancel") }),
+    z.object({ type: z.literal("reset") }),
+    z.object({ type: z.literal("ping") }),
+    z.object({
+      type: z.literal("history"),
+      messages: z.array(z.object({
+        role: z.enum(["user", "assistant"]),
+        text: z.string(),
+      })),
+    }),
+  ]);

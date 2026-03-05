@@ -150,6 +150,7 @@ export function createMockPlatformConfig(): PlatformConfig {
     ttsConfig: { ...DEFAULT_TTS_CONFIG, apiKey: "test-tts-key" },
     model: "test-model",
     llmGatewayBase: "https://test-gateway.example.com/v1",
+    braveApiKey: "",
   };
 }
 
