@@ -17,12 +17,14 @@ export class MemoryBundleStore implements BundleStore {
     worker: string;
     client: string;
     client_map?: string;
+    owner_hash?: string;
   }): Promise<void> {
     this.#agents.set(bundle.slug, {
       manifest: {
         slug: bundle.slug,
         env: bundle.env,
         transport: bundle.transport,
+        ...(bundle.owner_hash ? { owner_hash: bundle.owner_hash } : {}),
       },
       worker: bundle.worker,
       client: bundle.client,

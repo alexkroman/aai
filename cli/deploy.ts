@@ -5,6 +5,7 @@ export interface DeployOpts {
   bundleDir: string;
   slug: string;
   dryRun: boolean;
+  apiKey: string;
 }
 
 export async function runDeploy(
@@ -41,7 +42,10 @@ export async function runDeploy(
 
   const resp = await doFetch(`${opts.url}/deploy`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${opts.apiKey}`,
+    },
     body: JSON.stringify({
       slug: manifest.slug,
       env: manifest.env,

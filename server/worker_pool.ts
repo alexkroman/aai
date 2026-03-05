@@ -8,6 +8,7 @@ export interface AgentMetadata {
   slug: string;
   env: Record<string, string>;
   transport: ("websocket" | "twilio")[];
+  owner_hash?: string;
 }
 
 const log = getLogger("worker-pool");

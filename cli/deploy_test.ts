@@ -13,9 +13,13 @@ function mockReadTextFile(path: string | URL): Promise<string> {
 
 Deno.test("runDeploy", async (t) => {
   await t.step("deploys all bundles found in bundleDir", async () => {
-    const fetched: string[] = [];
-    const doFetch: typeof globalThis.fetch = (input) => {
-      fetched.push(String(input));
+    const fetched: { url: string; authHeader: string | null }[] = [];
+    const doFetch: typeof globalThis.fetch = (input, init) => {
+      fetched.push({
+        url: String(input),
+        authHeader:
+          (init?.headers as Record<string, string>)?.["Authorization"] ?? null,
+      });
       return Promise.resolve(
         new Response(JSON.stringify({ ok: true }), {
           status: 200,
@@ -30,11 +34,13 @@ Deno.test("runDeploy", async (t) => {
         bundleDir: "dist/bundle",
         slug: "agent-a",
         dryRun: false,
+        apiKey: "test-key",
       },
       doFetch,
       mockReadTextFile,
     );
-    expect(fetched).toEqual(["http://localhost:3000/deploy"]);
+    expect(fetched[0].url).toBe("http://localhost:3000/deploy");
+    expect(fetched[0].authHeader).toBe("Bearer test-key");
   });
 
   await t.step("dry run does not call fetch", async () => {
@@ -50,6 +56,7 @@ Deno.test("runDeploy", async (t) => {
         bundleDir: "dist/bundle",
         slug: "agent-a",
         dryRun: true,
+        apiKey: "test-key",
       },
       doFetch,
       mockReadTextFile,
