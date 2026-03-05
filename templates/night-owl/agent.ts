@@ -77,7 +77,7 @@ Use run_code for sleep calculations:
   voice: "luna",
   prompt:
     "Transcribe movie titles, music artists, book names, and times accurately. Listen for genres like horror, comedy, sci-fi, jazz, ambient, and mood words like chill, intense, cozy, spooky.",
-  builtinTools: ["run_code"],
+  builtinTools: ["run_code", "user_input", "final_answer"],
   tools: {
     recommend: {
       description:

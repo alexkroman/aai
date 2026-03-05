@@ -109,7 +109,9 @@ export async function main(args: string[]): Promise<number> {
 
     await getApiKey();
 
+    let isNewAgent = false;
     if (!await hasAgent(cwd)) {
+      isNewAgent = true;
       console.log(`\n${green(bold("aai"))} ${dim(VERSION)}`);
       console.log("Agent development toolkit\n");
 
@@ -132,7 +134,12 @@ export async function main(args: string[]): Promise<number> {
     }
 
     const { runDev } = await import("./dev.ts");
-    await runDev({ agentDir: cwd, serverUrl, watch: flags.watch });
+    await runDev({
+      agentDir: cwd,
+      serverUrl,
+      watch: flags.watch,
+      openBrowser: isNewAgent,
+    });
 
     return 0;
   }

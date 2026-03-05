@@ -17,7 +17,7 @@ import {
   type SessionOptions,
 } from "./types.ts";
 
-import type { AudioPlayer, MicCapture } from "./audio.ts";
+import type { VoiceIO } from "./audio.ts";
 
 export interface Reconnect {
   readonly canRetry: boolean;
@@ -84,8 +84,7 @@ export class VoiceSession {
   >(null);
 
   private ws: WebSocket | null = null;
-  private player: AudioPlayer | null = null;
-  private mic: MicCapture | null = null;
+  private voiceIO: VoiceIO | null = null;
   private streamingMessage = false;
   private reconnector = createReconnect();
   private connectionController: AbortController | null = null;
@@ -149,7 +148,7 @@ export class VoiceSession {
   private handleServerMessage(event: MessageEvent): void {
     if (event.data instanceof ArrayBuffer) {
       if (this.state.value === "speaking") {
-        this.player?.enqueue(event.data);
+        this.voiceIO?.enqueue(event.data);
       }
       return;
     }
@@ -224,11 +223,11 @@ export class VoiceSession {
           this.state.value = "listening";
           break;
         case "cancelled":
-          this.player?.flush();
+          this.voiceIO?.flush();
           this.state.value = "listening";
           break;
         case "reset":
-          this.player?.flush();
+          this.voiceIO?.flush();
           this.resetState();
           break;
         case "pong":
@@ -256,36 +255,33 @@ export class VoiceSession {
     try {
       // esbuild inlines these as strings; Deno sees JS modules, so we cast.
       const [
-        { createAudioPlayer, startMicCapture },
+        { createVoiceIO },
         captureWorklet,
         playbackWorklet,
       ] = await Promise.all([
         import("./audio.ts"),
-        import("./worklets/pcm16-capture.worklet.js").then((m) =>
+        import("./worklets/capture-processor.js").then((m) =>
           m.default as unknown as string
         ),
-        import("./worklets/pcm16-playback.worklet.js").then((m) =>
+        import("./worklets/playback-processor.js").then((m) =>
           m.default as unknown as string
         ),
       ]);
-      const [player, mic] = await Promise.all([
-        createAudioPlayer(
-          msg.tts_sample_rate ?? DEFAULT_TTS_SAMPLE_RATE,
-          playbackWorklet,
-        ),
-        startMicCapture(
-          this.ws!,
-          msg.sample_rate ?? DEFAULT_STT_SAMPLE_RATE,
-          captureWorklet,
-        ),
-      ]);
+      const ws = this.ws!;
+      const voiceIO = await createVoiceIO({
+        sttSampleRate: msg.sample_rate ?? DEFAULT_STT_SAMPLE_RATE,
+        ttsSampleRate: msg.tts_sample_rate ?? DEFAULT_TTS_SAMPLE_RATE,
+        captureWorkletSrc: captureWorklet,
+        playbackWorkletSrc: playbackWorklet,
+        onMicData: (pcm16: ArrayBuffer) => {
+          if (ws.readyState === WebSocket.OPEN) ws.send(pcm16);
+        },
+      });
       if (this.ws?.readyState !== WebSocket.OPEN) {
-        player.close();
-        mic.close();
+        voiceIO.close();
         return;
       }
-      this.player = player;
-      this.mic = mic;
+      this.voiceIO = voiceIO;
       this.ws.send(JSON.stringify({ type: "audio_ready" }));
       this.state.value = "listening";
     } catch (err: unknown) {
@@ -336,10 +332,8 @@ export class VoiceSession {
 
   private cleanupAudio(): void {
     this.audioSetupInFlight = false;
-    this.mic?.close();
-    this.mic = null;
-    this.player?.close();
-    this.player = null;
+    void this.voiceIO?.close();
+    this.voiceIO = null;
   }
 
   private trySend(msg: Record<string, unknown>): boolean {
@@ -353,7 +347,7 @@ export class VoiceSession {
   }
 
   cancel(): void {
-    this.player?.flush();
+    this.voiceIO?.flush();
     this.state.value = "listening";
     this.trySend({ type: "cancel" });
   }
@@ -367,7 +361,7 @@ export class VoiceSession {
   }
 
   reset(): void {
-    this.player?.flush();
+    this.voiceIO?.flush();
     if (this.trySend({ type: "reset" })) return;
     this.resetState();
     this.disconnect();

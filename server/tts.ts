@@ -116,8 +116,13 @@ export function createTtsClient(config: TTSConfig) {
       if (signal) {
         signal.addEventListener("abort", () => {
           log.info("TTS aborted", { chunkCount, totalBytes });
-          if (ws?.readyState === WebSocket.OPEN) {
-            ws.send("<CLEAR>");
+          // Close the WS so the next synthesis gets a fresh connection.
+          // Sending <CLEAR> on the old socket isn't reliable — the server
+          // may still have audio in flight that arrives after we start the
+          // next synthesis, corrupting playback.
+          if (ws) {
+            safeClose(ws);
+            ws = null;
           }
           finishSynthesis();
         }, { once: true });

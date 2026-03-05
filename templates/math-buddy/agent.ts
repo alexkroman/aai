@@ -17,5 +17,5 @@ Examples:
     "Hey, I'm Math Buddy. Try asking me something like, what's 127 times 849, convert 5 miles to kilometers, or roll 3 twenty-sided dice.",
   voice: "luna",
   prompt: "",
-  builtinTools: ["run_code"],
+  builtinTools: ["run_code", "user_input", "final_answer"],
 });

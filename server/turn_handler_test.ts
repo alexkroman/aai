@@ -239,42 +239,49 @@ Deno.test("executeTurn", async (t) => {
       expect(toolMsgs[1].tool_call_id).toBe("c2");
     });
 
-    await t.step(
-      "returns fallback after MAX_TOOL_ITERATIONS",
-      async () => {
-        // MAX_TOOL_ITERATIONS is 1, so after initial call returns tool_calls,
-        // the tool executes, LLM is called again (iteration 1), and if that
-        // also returns tool_calls, the fallback content is returned.
-        const toolResp = createMockLLMResponse(null, [
-          { id: "c1", name: "loop_tool", arguments: "{}" },
-        ]);
-        const secondToolResp = createMockLLMResponse("Fallback text.", [
-          { id: "c2", name: "loop_tool", arguments: "{}" },
-        ]);
+    await t.step("forces final_answer after MAX_TOOL_ITERATIONS", async () => {
+      const toolResp = createMockLLMResponse(null, [
+        { id: "c1", name: "loop_tool", arguments: "{}" },
+      ]);
+      const forcedResp = createMockLLMResponse(null, [
+        {
+          id: "c2",
+          name: "final_answer",
+          arguments: '{"answer":"Here are the results."}',
+        },
+      ]);
+      const schemas: ToolSchema[] = [
+        { name: "loop_tool", description: "loops", parameters: {} },
+        { name: "final_answer", description: "deliver answer", parameters: {} },
+      ];
 
-        let callCount = 0;
-        const c = ctx({
-          callLLM: () => {
-            callCount++;
-            if (callCount === 1) return Promise.resolve(toolResp);
-            return Promise.resolve(secondToolResp);
-          },
-        });
+      let callCount = 0;
+      const c = ctx({
+        toolSchemas: schemas,
+        callLLM: (opts: TurnCallLLMOptions) => {
+          callCount++;
+          if (
+            opts.tools.length === 1 && opts.tools[0].name === "final_answer"
+          ) {
+            return Promise.resolve(forcedResp);
+          }
+          return Promise.resolve(toolResp);
+        },
+      });
 
-        const result = await executeTurn("Go", {
-          messages: c.messages,
-          toolSchemas: c.toolSchemas,
-          callLLM: c.callLLM,
-          executeTool: c.executeTool,
-          signal: signal(),
-          logger,
-        });
+      const result = await executeTurn("Go", {
+        messages: c.messages,
+        toolSchemas: c.toolSchemas,
+        callLLM: c.callLLM,
+        executeTool: c.executeTool,
+        signal: signal(),
+        logger,
+      });
 
-        expect(result).toBe("Fallback text.");
-        expect(c.toolCalls.length).toBe(1);
-        expect(callCount).toBe(2); // 1 initial + 1 re-call (hits limit)
-      },
-    );
+      expect(result).toBe("Here are the results.");
+      expect(c.toolCalls.length).toBe(5);
+      expect(callCount).toBe(6); // 1 initial + 4 re-calls + 1 forced
+    });
 
     await t.step(
       "skips truncated tool calls on max_tokens and retries",
@@ -296,7 +303,11 @@ Deno.test("executeTurn", async (t) => {
         const c = ctx({
           callLLM: responses(
             truncatedResp,
-            createMockLLMResponse("Here you go."),
+            createMockLLMResponse(null, [{
+              id: "c2",
+              name: "final_answer",
+              arguments: '{"answer":"Here you go."}',
+            }]),
           ),
         });
 
@@ -311,6 +322,156 @@ Deno.test("executeTurn", async (t) => {
 
         expect(result).toBe("Here you go.");
         expect(c.toolCalls.length).toBe(0);
+      },
+    );
+  });
+
+  await t.step("final_answer and user_input", async (t) => {
+    for (
+      const [toolName, field, input, expected] of [
+        ["final_answer", "answer", "Why blue?", "The sky is blue."],
+        ["user_input", "question", "Help me", "What color do you prefer?"],
+      ] as const
+    ) {
+      await t.step(`${toolName} short-circuits the loop`, async () => {
+        let callCount = 0;
+        const c = ctx({
+          callLLM: () => {
+            callCount++;
+            return Promise.resolve(
+              createMockLLMResponse(null, [
+                {
+                  id: "c1",
+                  name: toolName,
+                  arguments: JSON.stringify({ [field]: expected }),
+                },
+              ]),
+            );
+          },
+        });
+
+        const result = await executeTurn(input, {
+          messages: c.messages,
+          toolSchemas: c.toolSchemas,
+          callLLM: c.callLLM,
+          executeTool: c.executeTool,
+          signal: signal(),
+          logger,
+        });
+
+        expect(result).toBe(expected);
+        expect(c.toolCalls.length).toBe(0);
+        expect(callCount).toBe(1);
+      });
+
+      await t.step(`${toolName} wins over other tool calls`, async () => {
+        const c = ctx({
+          callLLM: responses(
+            createMockLLMResponse(null, [
+              { id: "c1", name: "web_search", arguments: '{"query":"test"}' },
+              {
+                id: "c2",
+                name: toolName,
+                arguments: JSON.stringify({ [field]: expected }),
+              },
+            ]),
+          ),
+        });
+
+        const result = await executeTurn("Search", {
+          messages: c.messages,
+          toolSchemas: c.toolSchemas,
+          callLLM: c.callLLM,
+          executeTool: c.executeTool,
+          signal: signal(),
+          logger,
+        });
+
+        expect(result).toBe(expected);
+        expect(c.toolCalls.length).toBe(0);
+      });
+
+      await t.step(
+        `${toolName} returns empty string for malformed arguments`,
+        async () => {
+          const c = ctx({
+            callLLM: responses(
+              createMockLLMResponse(null, [{
+                id: "c1",
+                name: toolName,
+                arguments: "not json",
+              }]),
+            ),
+          });
+
+          const result = await executeTurn("Hi", {
+            messages: c.messages,
+            toolSchemas: c.toolSchemas,
+            callLLM: c.callLLM,
+            executeTool: c.executeTool,
+            signal: signal(),
+            logger,
+          });
+          expect(result).toBe("");
+        },
+      );
+    }
+
+    await t.step(
+      "final_answer works after other tools execute first",
+      async () => {
+        const c = ctx({
+          callLLM: responses(
+            createMockLLMResponse(null, [{
+              id: "c1",
+              name: "web_search",
+              arguments: '{"query":"weather"}',
+            }]),
+            createMockLLMResponse(null, [{
+              id: "c2",
+              name: "final_answer",
+              arguments: '{"answer":"It is sunny."}',
+            }]),
+          ),
+        });
+
+        const result = await executeTurn("Weather?", {
+          messages: c.messages,
+          toolSchemas: c.toolSchemas,
+          callLLM: c.callLLM,
+          executeTool: c.executeTool,
+          signal: signal(),
+          logger,
+        });
+        expect(result).toBe("It is sunny.");
+      },
+    );
+
+    await t.step(
+      "user_input adds question to messages as assistant content",
+      async () => {
+        const c = ctx({
+          callLLM: responses(
+            createMockLLMResponse(null, [{
+              id: "c1",
+              name: "user_input",
+              arguments: '{"question":"How many?"}',
+            }]),
+          ),
+        });
+
+        await executeTurn("Count things", {
+          messages: c.messages,
+          toolSchemas: c.toolSchemas,
+          callLLM: c.callLLM,
+          executeTool: c.executeTool,
+          signal: signal(),
+          logger,
+        });
+
+        const lastMsg = c.messages[c.messages.length - 1];
+        expect(lastMsg.role).toBe("assistant");
+        expect(lastMsg.content).toBe("How many?");
       },
     );
   });

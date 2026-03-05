@@ -35,7 +35,9 @@ export function buildSystemPrompt(
       "\n\nTool Preambles: When you decide to call a tool, ALWAYS say a brief natural phrase BEFORE the tool call " +
       '(e.g. "Let me look that up" or "One moment while I check"). ' +
       "This fills silence while the tool executes. Keep preambles to one short sentence." +
-      "\n\nAfter using tools, respond with plain text. Do not wrap your answer in a tool call."
+      "\n\nIMPORTANT: You MUST call the final_answer tool to deliver every response. " +
+      "Put your complete spoken response in the answer parameter. " +
+      "It is the only way to complete the task — otherwise you will be stuck in a loop."
     : "";
 
   const today = new Date().toLocaleDateString("en-US", {

@@ -29,6 +29,8 @@ export default defineAgent({
 - `visit_webpage` — load and read a webpage
 - `fetch_json` — fetch JSON from a REST API
 - `run_code` — execute JavaScript in a sandbox (great for calculations, data transforms)
+- `user_input` — ask the user a follow-up question before proceeding
+- `final_answer` — deliver a spoken response (always include this)
 
 ## Custom tools
 
@@ -84,10 +86,10 @@ export default defineAgent({
 ```
 
 ### Research agent (web search + page reading)
-Use `web_search`, `visit_webpage`. Good for agents that answer questions using live web data.
+Use `web_search`, `visit_webpage`, `user_input`, `final_answer`. Good for agents that answer questions using live web data.
 
 ### Code/calculation agent (sandbox execution)
-Use `run_code`. Good for math, unit conversions, data processing. The `run_code` tool executes JavaScript — instruct the agent to always compute rather than guess.
+Use `run_code`, `user_input`, `final_answer`. Good for math, unit conversions, data processing. The `run_code` tool executes JavaScript — instruct the agent to always compute rather than guess.
 
 ### API-powered agent (external data)
 Use `fetch_json` and/or custom tools with `ctx.fetch`. Good for weather, finance, health data, or any REST API. Include the API endpoint URLs and expected response shapes in the instructions.

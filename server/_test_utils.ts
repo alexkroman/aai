@@ -279,6 +279,7 @@ export function createMockSttEvents(
     get closed() {
       return closed;
     },
+    onSpeechStarted() {},
     onTranscript(text, isFinal, turnOrder) {
       transcripts.push({ text, isFinal, turnOrder });
     },

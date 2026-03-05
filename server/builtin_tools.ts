@@ -320,7 +320,7 @@ const finalAnswer: BuiltinTool = {
 export const FINAL_ANSWER_TOOL = "final_answer";
 export const USER_INPUT_TOOL = "user_input";
 
-const REQUIRED_BUILTIN_TOOLS: string[] = [];
+const REQUIRED_BUILTIN_TOOLS = [FINAL_ANSWER_TOOL];
 
 const BUILTIN_TOOLS: Record<string, BuiltinTool> = {
   web_search: webSearch,

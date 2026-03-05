@@ -70,7 +70,7 @@ Deno.test("createTtsClient", async (t) => {
     },
   );
 
-  await t.step("aborts mid-synthesis and sends CLEAR", async () => {
+  await t.step("aborts mid-synthesis and closes WebSocket", async () => {
     using mockWs = installMockWebSocket();
     const client = createTtsClient(config);
 
@@ -87,7 +87,7 @@ Deno.test("createTtsClient", async (t) => {
     await promise;
 
     const ws = mockWs.created[0];
-    expect(ws.sent).toContain("<CLEAR>");
+    expect(ws.readyState).toBe(WebSocket.CLOSED);
   });
 
   await t.step("close sends EOS and prevents further synthesis", async () => {

@@ -158,6 +158,13 @@ export function createSession(opts: SessionOptions): Session {
 
   async function doConnectSttWithEvents(): Promise<void> {
     const events: SttEvents = {
+      onSpeechStarted: () => {
+        if (turnAbort) {
+          logger.info("User started speaking — interrupting playback");
+          cancelInflight();
+          trySendJson({ type: "cancelled" });
+        }
+      },
       onTranscript: (text, isFinal, turnOrder) => {
         logger.info("transcript", { text, isFinal, turnOrder });
         if (isFinal) {

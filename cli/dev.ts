@@ -7,6 +7,7 @@ export interface DevOpts {
   agentDir: string;
   serverUrl: string;
   watch?: boolean;
+  openBrowser?: boolean;
 }
 
 async function deploy(
@@ -75,13 +76,15 @@ export async function runDev(opts: DevOpts): Promise<void> {
     log.stepInfo("Listen", `${opts.serverUrl}/${agent.slug}/twilio/voice`);
   }
 
-  // Open in browser
-  const openCmd = Deno.build.os === "darwin"
-    ? "open"
-    : Deno.build.os === "windows"
-    ? "start"
-    : "xdg-open";
-  new Deno.Command(openCmd, { args: [agentUrl] }).spawn();
+  // Open in browser (only for newly created agents)
+  if (opts.openBrowser) {
+    const openCmd = Deno.build.os === "darwin"
+      ? "open"
+      : Deno.build.os === "windows"
+      ? "start"
+      : "xdg-open";
+    new Deno.Command(openCmd, { args: [agentUrl] }).spawn();
+  }
 
   if (!opts.watch) {
     console.log();

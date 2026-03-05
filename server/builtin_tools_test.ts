@@ -78,8 +78,10 @@ Deno.test("getBuiltinToolSchemas", async (t) => {
       "run_code",
       "fetch_json",
     ]);
-    expect(schemas).toHaveLength(4);
+    // 4 requested + final_answer (auto-included)
+    expect(schemas).toHaveLength(5);
     const names = schemas.map((s) => s.name);
+    expect(names).toContain("final_answer");
     expect(names).toContain("web_search");
     expect(names).toContain("visit_webpage");
     expect(names).toContain("run_code");
@@ -88,15 +90,27 @@ Deno.test("getBuiltinToolSchemas", async (t) => {
 
   await t.step("ignores unknown tool names", () => {
     const schemas = getBuiltinToolSchemas(["unknown_tool", "web_search"]);
-    expect(schemas).toHaveLength(1);
+    // web_search + final_answer
+    expect(schemas).toHaveLength(2);
     const names = schemas.map((s) => s.name);
     expect(names).toContain("web_search");
+    expect(names).toContain("final_answer");
   });
 
-  await t.step("returns empty list with empty input", () => {
+  await t.step("always includes required tools even with empty input", () => {
     const schemas = getBuiltinToolSchemas([]);
-    expect(schemas).toHaveLength(0);
+    expect(schemas).toHaveLength(1);
+    expect(schemas[0].name).toBe("final_answer");
   });
+
+  await t.step(
+    "does not duplicate final_answer when explicitly requested",
+    () => {
+      const schemas = getBuiltinToolSchemas(["final_answer", "web_search"]);
+      const names = schemas.map((s) => s.name);
+      expect(names.filter((n) => n === "final_answer")).toHaveLength(1);
+    },
+  );
 
   await t.step("returns schemas with correct shape", () => {
     const schemas = getBuiltinToolSchemas(["web_search"]);
@@ -110,6 +124,7 @@ Deno.test("getBuiltinToolSchemas", async (t) => {
     const schemas = getBuiltinToolSchemas(["user_input"]);
     const names = schemas.map((s) => s.name);
     expect(names).toContain("user_input");
+    expect(names).toContain("final_answer");
     const ui = schemas.find((s) => s.name === "user_input")!;
     expect(typeof ui.description).toBe("string");
     expect(ui.parameters).toBeDefined();
