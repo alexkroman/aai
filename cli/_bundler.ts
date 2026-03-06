@@ -260,6 +260,8 @@ export async function bundleAgent(
 
   let clientBytes = 0;
   if (!opts?.skipClient) {
+    // If the user's custom client.tsx exports a default component but doesn't
+    // call mount(), generate a wrapper entry that auto-mounts it for them.
     let effectiveClientEntry = agent.clientEntry;
     const clientShimEntryPath = resolve(outDir, "_client_entry.tsx");
     if (agent.clientEntry.startsWith(agent.dir)) {
