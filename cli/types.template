@@ -19,6 +19,9 @@ interface ToolParameters {
   [key: string]: unknown;
 }
 
+type ParamShorthand = string | (JSONSchemaProperty & { optional?: boolean });
+type SimpleToolParameters = Record<string, ParamShorthand>;
+
 // -- Server -------------------------------------------------------------------
 interface ToolContext {
   secrets: Record<string, string>;
@@ -28,8 +31,8 @@ interface ToolContext {
 
 interface ToolDef {
   description: string;
-  parameters: ToolParameters;
-  execute: (args: any, ctx: ToolContext) => Promise<unknown> | unknown;
+  parameters: ToolParameters | SimpleToolParameters;
+  execute: (args: Record<string, unknown>, ctx: ToolContext) => Promise<unknown> | unknown;
 }
 
 interface AgentOptions {

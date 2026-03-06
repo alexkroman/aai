@@ -2,12 +2,22 @@ import { z } from "zod";
 import { getLogger } from "./logger.ts";
 import { createSandboxRpc } from "./rpc.ts";
 import type { ToolSchema } from "./types.ts";
-import type { ToolParameters } from "./agent_types.ts";
+import type { ToolParameters } from "../sdk/types.ts";
 import { htmlToMarkdown } from "./html.ts";
 
 const log = getLogger("builtin-tools");
 
 type JSONSchemaParam = Parameters<typeof z.fromJSONSchema>[0];
+
+const BraveSearchResponseSchema = z.object({
+  web: z.object({
+    results: z.array(z.object({
+      title: z.string(),
+      url: z.string(),
+      description: z.string(),
+    })),
+  }).optional(),
+});
 
 interface BuiltinTool {
   name: string;
@@ -77,15 +87,26 @@ const webSearch: BuiltinTool = {
       });
     }
 
-    const data = await resp.json() as {
-      web?: { results?: { title: string; url: string; description: string }[] };
-    };
+    const raw = await resp.json();
+    const data = BraveSearchResponseSchema.safeParse(raw);
+    if (!data.success) {
+      log.error("Unexpected Brave Search response", {
+        error: data.error.message,
+      });
+      return JSON.stringify({
+        results: [],
+        note:
+          "No search results available. Answer the user's question to the best of your ability.",
+      });
+    }
 
-    const results = (data.web?.results ?? []).slice(0, maxResults).map((r) => ({
-      title: r.title,
-      url: r.url,
-      description: r.description,
-    }));
+    const results = (data.data.web?.results ?? []).slice(0, maxResults).map(
+      (r) => ({
+        title: r.title,
+        url: r.url,
+        description: r.description,
+      }),
+    );
 
     return JSON.stringify(results);
   },
@@ -303,7 +324,7 @@ const finalAnswer: BuiltinTool = {
 export const FINAL_ANSWER_TOOL = "final_answer";
 export const USER_INPUT_TOOL = "user_input";
 
-const REQUIRED_BUILTIN_TOOLS = [FINAL_ANSWER_TOOL];
+const REQUIRED_BUILTIN_TOOLS = [FINAL_ANSWER_TOOL, USER_INPUT_TOOL];
 
 const BUILTIN_TOOLS: Record<string, BuiltinTool> = {
   web_search: webSearch,
@@ -314,7 +335,7 @@ const BUILTIN_TOOLS: Record<string, BuiltinTool> = {
   final_answer: finalAnswer,
 };
 
-export function getBuiltinToolSchemas(names: string[]): ToolSchema[] {
+export function getBuiltinToolSchemas(names: readonly string[]): ToolSchema[] {
   const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
   return allNames.flatMap((name) => {
     const tool = BUILTIN_TOOLS[name];
