@@ -251,8 +251,16 @@ Deno.test("executeTurn", async (t) => {
         },
       ]);
       const schemas: ToolSchema[] = [
-        { name: "loop_tool", description: "loops", parameters: {} },
-        { name: "final_answer", description: "deliver answer", parameters: {} },
+        {
+          name: "loop_tool",
+          description: "loops",
+          parameters: { type: "object", properties: {} },
+        },
+        {
+          name: "final_answer",
+          description: "deliver answer",
+          parameters: { type: "object", properties: {} },
+        },
       ];
 
       let callCount = 0;
