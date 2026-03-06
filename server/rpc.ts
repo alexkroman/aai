@@ -1,5 +1,9 @@
 import type { AgentConfig, ToolSchema } from "./types.ts";
-import type { WorkerApi } from "./worker_entry.ts";
+import type { WorkerApi } from "../sdk/_worker_entry.ts";
+import {
+  GetConfigResponseSchema,
+  RpcResponseSchema,
+} from "../sdk/_rpc_schema.ts";
 
 interface PendingCall {
   resolve: (value: unknown) => void;
@@ -7,7 +11,7 @@ interface PendingCall {
   timer?: ReturnType<typeof setTimeout>;
 }
 
-export type RpcCall = (
+type RpcCall = (
   type: string,
   payload?: Record<string, unknown>,
   timeoutMs?: number,
@@ -26,7 +30,9 @@ export function createRpcCall(port: Worker | MessagePort): RpcCall {
   }
 
   port.onmessage = (e: MessageEvent) => {
-    const msg = e.data;
+    const parsed = RpcResponseSchema.safeParse(e.data);
+    if (!parsed.success) return;
+    const msg = parsed.data;
     settle(msg.id, (p) => {
       if (msg.error) p.reject(new Error(msg.error));
       else p.resolve(msg.result);
@@ -60,15 +66,23 @@ export function createRpcCall(port: Worker | MessagePort): RpcCall {
 export function createWorkerRpc(port: Worker | MessagePort): WorkerApi {
   const call = createRpcCall(port);
   return {
-    getConfig: (timeoutMs?: number) =>
-      call("getConfig", undefined, timeoutMs) as Promise<
-        { config: AgentConfig; toolSchemas: ToolSchema[] }
-      >,
-    executeTool: (
+    getConfig: async (
+      timeoutMs?: number,
+    ): Promise<{ config: AgentConfig; toolSchemas: ToolSchema[] }> => {
+      const raw = await call("getConfig", undefined, timeoutMs);
+      return GetConfigResponseSchema.parse(raw) as {
+        config: AgentConfig;
+        toolSchemas: ToolSchema[];
+      };
+    },
+    executeTool: async (
       name: string,
       args: Record<string, unknown>,
       timeoutMs?: number,
-    ) => call("executeTool", { name, args }, timeoutMs) as Promise<string>,
+    ): Promise<string> => {
+      const raw = await call("executeTool", { name, args }, timeoutMs);
+      return typeof raw === "string" ? raw : String(raw ?? "");
+    },
   };
 }
 

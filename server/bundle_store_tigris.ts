@@ -6,6 +6,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import type { AgentMetadata } from "./worker_pool.ts";
+import { AgentMetadataSchema } from "../sdk/_rpc_schema.ts";
 
 export type FileKey = "worker" | "client" | "client_map";
 
@@ -183,7 +184,9 @@ export function createBundleStore(
     async getManifest(slug) {
       const data = await get(objectKey(slug, "manifest.json"));
       if (data === null) return null;
-      return JSON.parse(data) as AgentMetadata;
+      const parsed = AgentMetadataSchema.safeParse(JSON.parse(data));
+      if (!parsed.success) return null;
+      return parsed.data as AgentMetadata;
     },
 
     async getFile(slug, file) {

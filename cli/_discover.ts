@@ -2,7 +2,7 @@ import { parse as parseDotenv } from "@std/dotenv/parse";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join, resolve } from "@std/path";
 import { step } from "./_output.ts";
-import { AgentJsonSchema, normalizeTransport } from "../shared/schema.ts";
+import { AgentJsonSchema, normalizeTransport } from "../sdk/_schema.ts";
 
 /** Root of the aai framework (parent of cli/). */
 const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
@@ -85,20 +85,12 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   const parsed = AgentJsonSchema.safeParse(JSON.parse(raw));
   if (!parsed.success) {
     const issues = parsed.error.issues
-      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .map((i) => `${i.path.map(String).join(".")}: ${i.message}`)
       .join(", ");
     throw new Error(`invalid agent.json: ${issues}`);
   }
-  const { slug } = parsed.data;
-
-  const declared = parsed.data.env as string[];
-  const transport = normalizeTransport(
-    parsed.data.transport as
-      | "websocket"
-      | "twilio"
-      | ("websocket" | "twilio")[]
-      | undefined,
-  );
+  const { slug, env: declared } = parsed.data;
+  const transport = normalizeTransport(parsed.data.transport);
 
   const dotenvText = await Deno.readTextFile(join(dir, ".env")).catch(() => "");
   const dotenv = parseDotenv(dotenvText);

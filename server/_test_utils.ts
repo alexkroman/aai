@@ -1,6 +1,6 @@
 import type { SessionOptions, SessionTransport } from "./session.ts";
 import type { SttEvents, SttHandle } from "./stt.ts";
-import type { ExecuteTool } from "./tool_executor.ts";
+import type { ExecuteTool } from "../sdk/_tool_executor.ts";
 import type { PlatformConfig } from "./config.ts";
 import type { CallLLMOptions } from "./llm.ts";
 import type { ChatMessage, LLMResponse, ToolSchema } from "./types.ts";
@@ -11,7 +11,7 @@ import {
   createMemoryS3Client,
 } from "./bundle_store_tigris.ts";
 
-import type { ToolContext } from "./agent_types.ts";
+import type { ToolContext } from "../sdk/types.ts";
 
 export function createTestContext(
   overrides?: Partial<ToolContext>,

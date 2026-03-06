@@ -1,5 +1,5 @@
 import { getLogger } from "./logger.ts";
-import { ClientMessageSchema } from "./protocol.ts";
+import { ClientMessageSchema } from "../sdk/_protocol.ts";
 import type { Session } from "./session.ts";
 
 function safeParseJSON(data: string): unknown {

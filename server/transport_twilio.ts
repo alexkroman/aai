@@ -14,10 +14,17 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-} from "./protocol.ts";
+} from "../sdk/_protocol.ts";
 import { mulawToPcm16, pcm16ToMulaw, resample } from "./mulaw.ts";
+import { z } from "zod";
 
 const log = getLogger("twilio");
+
+const TwilioMessageSchema = z.object({
+  event: z.string(),
+  start: z.object({ streamSid: z.string() }).optional(),
+  media: z.object({ payload: z.string() }).optional(),
+});
 
 const MULAW_RATE = 8000;
 
@@ -209,16 +216,15 @@ export async function handleTwilioStream(
 
   socket.addEventListener("message", (event) => {
     if (typeof event.data !== "string") return;
-    let msg: {
-      event: string;
-      start?: { streamSid: string };
-      media?: { payload: string };
-    };
+    let json: unknown;
     try {
-      msg = JSON.parse(event.data);
+      json = JSON.parse(event.data);
     } catch {
       return;
     }
+    const parsed = TwilioMessageSchema.safeParse(json);
+    if (!parsed.success) return;
+    const msg = parsed.data;
 
     switch (msg.event) {
       case "start":

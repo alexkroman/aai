@@ -3,11 +3,7 @@
   "version": "0.1.0",
   "exports": {
     ".": "./main.ts",
-    "./agent": "./agent.ts",
-    "./agent-types": "./agent_types.ts",
-    "./fetch-json": "./fetch_json.ts",
     "./types": "./types.ts",
-    "./protocol": "./protocol.ts",
     "./testing": "./_test_utils.ts",
     "./testing/mock-ws": "./_mock_ws.ts"
   },

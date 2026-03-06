@@ -38,8 +38,8 @@ export async function validateAgent(
 
   let mod: Record<string, unknown>;
   try {
-    const { defineAgent } = await import("../server/agent.ts");
-    const { fetchJSON } = await import("../server/fetch_json.ts");
+    const { defineAgent } = await import("../sdk/define_agent.ts");
+    const { fetchJSON } = await import("../sdk/fetch_json.ts");
     Object.assign(globalThis, { defineAgent, fetchJSON });
 
     mod = await import(

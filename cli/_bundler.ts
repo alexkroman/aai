@@ -151,9 +151,9 @@ export function clientBuildOptions(
 async function precomputeSchemas(agent: AgentEntry) {
   if (agent.hasNpmDeps) return null;
 
-  const { agentToolsToSchemas } = await import("../server/agent_types.ts");
-  const { defineAgent } = await import("../server/agent.ts");
-  const { fetchJSON } = await import("../server/fetch_json.ts");
+  const { agentToolsToSchemas } = await import("../sdk/types.ts");
+  const { defineAgent } = await import("../sdk/define_agent.ts");
+  const { fetchJSON } = await import("../sdk/fetch_json.ts");
   Object.assign(globalThis, { defineAgent, fetchJSON });
 
   const mod = await import(
@@ -185,9 +185,9 @@ export async function bundleAgent(
   const schemas = await precomputeSchemas(agent);
 
   const agentAbsolute = resolve(agent.entryPoint);
-  const workerEntryAbsolute = resolve(AAI_ROOT, "server/worker_entry.ts");
-  const agentModAbsolute = resolve(AAI_ROOT, "server/agent.ts");
-  const fetchJsonAbsolute = resolve(AAI_ROOT, "server/fetch_json.ts");
+  const workerEntryAbsolute = resolve(AAI_ROOT, "sdk/_worker_entry.ts");
+  const agentModAbsolute = resolve(AAI_ROOT, "sdk/define_agent.ts");
+  const fetchJsonAbsolute = resolve(AAI_ROOT, "sdk/fetch_json.ts");
 
   const workerShimPath = resolve(outDir, "_worker_shim.ts");
   await Deno.writeTextFile(

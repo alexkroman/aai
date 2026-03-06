@@ -1,9 +1,9 @@
 import { loadPlatformConfig } from "./config.ts";
 import { getLogger } from "./logger.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
-import type { ExecuteTool } from "./tool_executor.ts";
+import type { ExecuteTool } from "../sdk/_tool_executor.ts";
 import type { AgentConfig, ToolSchema } from "./types.ts";
-import type { WorkerApi } from "./worker_entry.ts";
+import type { WorkerApi } from "../sdk/_worker_entry.ts";
 import { createWorkerRpc } from "./rpc.ts";
 export interface AgentMetadata {
   slug: string;

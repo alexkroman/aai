@@ -1,8 +1,8 @@
-import { z } from "zod";
 import { loadPlatformConfig } from "./config.ts";
 import { getLogger } from "./logger.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
+import { DeployBodySchema } from "../sdk/_schema.ts";
 
 export async function hashApiKey(apiKey: string): Promise<string> {
   const data = new TextEncoder().encode(apiKey);
@@ -11,17 +11,6 @@ export async function hashApiKey(apiKey: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
-
-const DeployBodySchema = z.object({
-  slug: z.string().min(1),
-  env: z.record(z.string(), z.string()),
-  worker: z.string().min(1),
-  client: z.string().min(1),
-  transport: z.union([
-    z.enum(["websocket", "twilio"]),
-    z.array(z.enum(["websocket", "twilio"])),
-  ]).optional(),
-});
 
 const log = getLogger("deploy");
 
