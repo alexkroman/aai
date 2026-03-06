@@ -87,12 +87,30 @@ export async function main(args: string[]): Promise<number> {
     const templatesDir = join(cliDir, "..", "templates");
     const { generateSlug, runNew } = await import("./new.ts");
 
+    const template = flags.template || "simple";
     await runNew({
       slug: generateSlug(),
       targetDir: cwd,
-      template: flags.template || "simple",
+      template,
       templatesDir,
     });
+
+    const templates: string[] = [];
+    for await (const entry of Deno.readDir(templatesDir)) {
+      if (entry.isDirectory) templates.push(entry.name);
+    }
+    templates.sort();
+
+    console.log(`\n${bold("Templates:")}`);
+    for (const t of templates) {
+      const marker = t === template ? green("●") : dim("○");
+      console.log(`  ${marker} ${t === template ? bold(t) : t}`);
+    }
+    console.log(
+      dim(
+        `\n  Re-run with --template <name> to start from a different template\n`,
+      ),
+    );
   }
 
   const { runDev } = await import("./dev.ts");
