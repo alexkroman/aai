@@ -3,10 +3,19 @@ import { toFileUrl } from "@std/path/to-file-url";
 import { exists } from "@std/fs/exists";
 import type { AgentEntry } from "./_discover.ts";
 import { stripTypes } from "./_bundler.ts";
+import type { AgentDef, ToolContext, ToolDef } from "../sdk/types.ts";
 
 interface ValidationError {
   field: string;
   message: string;
+}
+
+export interface ToolTestResult {
+  name: string;
+  ok: boolean;
+  error?: string;
+  result?: unknown;
+  skipped?: boolean;
 }
 
 export interface ValidationResult {
@@ -15,6 +24,7 @@ export interface ValidationResult {
   voice?: string;
   tools?: string[];
   builtinTools?: string[];
+  toolTests?: ToolTestResult[];
 }
 
 /** Check if the agent has external imports in its deno.json. */
@@ -115,5 +125,73 @@ export async function validateAgent(
     ? (def.builtinTools as string[])
     : [];
 
-  return { errors, name, voice, tools, builtinTools };
+  const toolTests = await testTools(
+    def as unknown as AgentDef,
+    agent,
+  );
+
+  return { errors, name, voice, tools, builtinTools, toolTests };
+}
+
+/** Test each custom tool by invoking execute() with minimal args. */
+async function testTools(
+  def: AgentDef,
+  agent: AgentEntry,
+): Promise<ToolTestResult[]> {
+  if (!def.tools || Object.keys(def.tools).length === 0) return [];
+
+  const ctx: ToolContext = { env: agent.env };
+  const results: ToolTestResult[] = [];
+
+  for (const [name, tool] of Object.entries(def.tools)) {
+    results.push(await testOneTool(name, tool, ctx));
+  }
+  return results;
+}
+
+async function testOneTool(
+  name: string,
+  tool: ToolDef,
+  ctx: ToolContext,
+): Promise<ToolTestResult> {
+  // Check that description exists
+  if (!tool.description) {
+    return { name, ok: false, error: "missing description" };
+  }
+
+  // Check that execute is a function
+  if (typeof tool.execute !== "function") {
+    return { name, ok: false, error: "execute is not a function" };
+  }
+
+  // If tool has required params, validate schema but skip execution
+  if (tool.parameters) {
+    const parseResult = tool.parameters.safeParse({});
+    if (!parseResult.success) {
+      return { name, ok: true, skipped: true };
+    }
+    // Schema accepts empty object — we can test it
+    try {
+      const result = await tool.execute(parseResult.data, ctx);
+      return { name, ok: true, result };
+    } catch (err) {
+      return {
+        name,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  // No params — call directly
+  try {
+    const result = await tool.execute({}, ctx);
+    return { name, ok: true, result };
+  } catch (err) {
+    return {
+      name,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }

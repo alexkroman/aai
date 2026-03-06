@@ -1,6 +1,7 @@
 import { debounce } from "@std/async/debounce";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
+import { cyan, dim, green, red, yellow } from "@std/fmt/colors";
 import { error, spinner, step, stepInfo } from "./_output.ts";
 import { type AgentEntry, loadAgent } from "./_discover.ts";
 import { bundleAgent, BundleError, warmNpmCache } from "./_bundler.ts";
@@ -75,6 +76,26 @@ async function buildAndDeploy(
       error(`${e.field}: ${e.message}`);
     }
     throw new Error("agent validation failed -- fix the errors above");
+  }
+
+  if (validation.toolTests && validation.toolTests.length > 0) {
+    step("Tools", "testing custom tools...");
+    for (const t of validation.toolTests) {
+      if (t.ok && t.skipped) {
+        console.log(
+          `  ${yellow("○")} ${cyan(t.name)} ${dim("skipped (requires args)")}`,
+        );
+      } else if (t.ok) {
+        const preview = t.result !== undefined
+          ? dim(" → " + JSON.stringify(t.result).slice(0, 80))
+          : "";
+        console.log(`  ${green("✓")} ${cyan(t.name)}${preview}`);
+      } else {
+        console.log(
+          `  ${red("✗")} ${cyan(t.name)} ${red(t.error ?? "unknown error")}`,
+        );
+      }
+    }
   }
 
   step("Bundle", agent.slug);
