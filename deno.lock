@@ -1405,6 +1405,7 @@
       "npm:@preact/signals@^2.8.1",
       "npm:esbuild-wasm@~0.27.3",
       "npm:goober@^2.1.18",
+      "npm:lodash-es@4",
       "npm:preact@^10.28.4",
       "npm:unique-names-generator@^4.7.1"
     ],
