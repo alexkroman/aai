@@ -137,14 +137,17 @@ parameters: {
 
 Full JSON Schema (`type: "object"`, `properties`, `required`) is also supported.
 
-For tools that call external APIs, use `fetchJSON`:
+For tools that call external APIs, use `fetchJSON`. It supports a generic type
+parameter for type-safe responses:
 
 ```ts
+interface SearchResult { items: { title: string; url: string }[] }
+
 execute: async ({ query }, ctx) => {
-  const data = await fetchJSON("https://api.example.com/data?q=" + encodeURIComponent(query), {
+  const data = await fetchJSON<SearchResult>("https://api.example.com/data?q=" + encodeURIComponent(query), {
     fetch: ctx.fetch,
   });
-  return data;
+  return data.items;
 },
 ```
 
