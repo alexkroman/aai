@@ -1,5 +1,4 @@
 import { loadPlatformConfig } from "./config.ts";
-import { getLogger } from "./logger.ts";
 import { renderAgentPage } from "./html.ts";
 import { handleSessionWebSocket } from "./ws_handler.ts";
 import { createSession, type Session } from "./session.ts";
@@ -13,8 +12,6 @@ import {
 } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 
-const log = getLogger("websocket");
-
 async function discoverSlot(
   slug: string,
   slots: Map<string, AgentSlot>,
@@ -27,7 +24,7 @@ async function discoverSlot(
   if (!manifest) return null;
 
   if (registerSlot(slots, manifest)) {
-    log.info("Lazy-discovered agent from store", { slug });
+    console.info("Lazy-discovered agent from store", { slug });
   }
   return slots.get(slug) ?? null;
 }
@@ -81,7 +78,7 @@ export async function handleAgentPage(
   try {
     info = await ensureAgent(slot, (s) => ctx.store.getFile(s, "worker"));
   } catch (err: unknown) {
-    log.error("Failed to initialize agent", { slug, err });
+    console.error("Failed to initialize agent", { slug, err });
     return Response.json(
       { error: "Agent failed to initialize" },
       { status: 500 },
@@ -121,7 +118,7 @@ export async function handleWebSocket(
   try {
     info = await ensureAgent(slot);
   } catch (err: unknown) {
-    log.error("Failed to initialize agent for session", { slug, err });
+    console.error("Failed to initialize agent for session", { slug, err });
     return Response.json(
       { error: "Agent failed to initialize" },
       { status: 500 },

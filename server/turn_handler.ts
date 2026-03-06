@@ -1,5 +1,4 @@
 import { FINAL_ANSWER_TOOL, USER_INPUT_TOOL } from "./builtin_tools.ts";
-import { getLogger, type Logger } from "./logger.ts";
 import type { ChatMessage, LLMResponse, ToolSchema } from "./types.ts";
 
 const MAX_TOOL_ITERATIONS = 5;
@@ -23,7 +22,7 @@ export interface ExecuteTurnOptions {
   callLLM: (opts: TurnCallLLMOptions) => Promise<LLMResponse>;
   executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
   signal: AbortSignal;
-  logger?: Logger;
+  logger?: Pick<Console, "debug" | "info" | "warn" | "error">;
 }
 
 export async function executeTurn(
@@ -36,7 +35,7 @@ export async function executeTurn(
     callLLM,
     executeTool,
     signal,
-    logger = getLogger("turn"),
+    logger = console,
   } = opts;
   messages.push({ role: "user", content: text });
 

@@ -1,4 +1,3 @@
-import { getLogger } from "./logger.ts";
 import type { TTSConfig } from "./types.ts";
 
 /** Deno supports headers in WebSocket constructor at runtime. */
@@ -17,8 +16,6 @@ function safeClose(ws: WebSocket): void {
     // ignore
   }
 }
-
-const log = getLogger("tts");
 
 /** Time (ms) after the last audio chunk before we consider synthesis complete. */
 const IDLE_MS = 300;
@@ -52,7 +49,7 @@ export function createTtsClient(config: TTSConfig) {
       idleTimer = null;
     }
     if (completionResolve) {
-      log.info("TTS synthesis done", { chunkCount, totalBytes });
+      console.info("TTS synthesis done", { chunkCount, totalBytes });
       completionResolve();
       completionResolve = null;
     }
@@ -77,7 +74,7 @@ export function createTtsClient(config: TTSConfig) {
 
   function handleClose(event: CloseEvent): void {
     if (event.code !== 1000 && event.code !== 1005) {
-      log.error("TTS WebSocket closed unexpectedly", {
+      console.error("TTS WebSocket closed unexpectedly", {
         code: event.code,
         reason: event.reason,
       });
@@ -87,7 +84,7 @@ export function createTtsClient(config: TTSConfig) {
   }
 
   function handleError(): void {
-    log.error("TTS WebSocket error");
+    console.error("TTS WebSocket error");
     ws = null;
     finishSynthesis();
   }
@@ -113,7 +110,7 @@ export function createTtsClient(config: TTSConfig) {
 
     return new Promise<WebSocket>((resolve, reject) => {
       newWs.addEventListener("open", () => {
-        log.info("TTS WebSocket connected");
+        console.info("TTS WebSocket connected");
         resolve(newWs);
       }, { once: true });
       newWs.addEventListener("error", () => {
@@ -131,7 +128,7 @@ export function createTtsClient(config: TTSConfig) {
 
       if (signal) {
         signal.addEventListener("abort", () => {
-          log.info("TTS aborted", { chunkCount, totalBytes });
+          console.info("TTS aborted", { chunkCount, totalBytes });
           // Close the WS so the next synthesis gets a fresh connection.
           // Sending <CLEAR> on the old socket isn't reliable — the server
           // may still have audio in flight that arrives after we start the
@@ -154,7 +151,7 @@ export function createTtsClient(config: TTSConfig) {
     ): Promise<void> {
       if (disposed || signal?.aborted) return;
 
-      log.info("synthesizeStream start", { voice: config.voice });
+      console.info("synthesizeStream start", { voice: config.voice });
 
       const conn = await connect();
       if (signal?.aborted) return;

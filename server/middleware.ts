@@ -1,7 +1,3 @@
-import { getLogger } from "./logger.ts";
-
-const log = getLogger("middleware");
-
 type Handler = (req: Request) => Response | Promise<Response>;
 
 export function withMiddleware(handler: Handler): Handler {
@@ -31,7 +27,10 @@ export function withMiddleware(handler: Handler): Handler {
         headers,
       });
     } catch (err: unknown) {
-      log.error("Unhandled error", { err, path: new URL(req.url).pathname });
+      console.error("Unhandled error", {
+        err,
+        path: new URL(req.url).pathname,
+      });
       return Response.json({ error: "Internal server error" }, { status: 500 });
     }
   };

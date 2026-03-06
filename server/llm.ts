@@ -4,9 +4,6 @@ import {
   LLMResponseSchema,
   type ToolSchema,
 } from "./types.ts";
-import { getLogger } from "./logger.ts";
-
-const log = getLogger("llm");
 
 function sanitizeMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.map((msg) => {
@@ -55,7 +52,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
     body.tool_choice = opts.toolChoice ?? "auto";
   }
 
-  log.debug("LLM request", {
+  console.debug("LLM request", {
     model: opts.model,
     messageCount: opts.messages.length,
     toolCount: opts.tools.length,
@@ -75,7 +72,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
 
   if (!resp.ok) {
     const text = await resp.text();
-    log.error("LLM request failed", {
+    console.error("LLM request failed", {
       status: resp.status,
       body: text.slice(0, 500),
       model: opts.model,
@@ -85,7 +82,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
   }
 
   const json = await resp.json();
-  log.debug("LLM raw response", {
+  console.debug("LLM raw response", {
     hasChoices: Array.isArray(json.choices),
     finishReason: json.choices?.[0]?.finish_reason,
     hasToolCalls: !!json.choices?.[0]?.message?.tool_calls?.length,
@@ -95,7 +92,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
   });
   const parsed = LLMResponseSchema.safeParse(json);
   if (!parsed.success) {
-    log.error("LLM response validation failed", {
+    console.error("LLM response validation failed", {
       error: parsed.error.message,
       raw: JSON.stringify(json).slice(0, 500),
     });

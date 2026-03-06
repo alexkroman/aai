@@ -2,9 +2,6 @@ import { expect } from "@std/expect";
 import { executeTurn, type TurnCallLLMOptions } from "./turn_handler.ts";
 import { createMockLLMResponse, responses } from "./_test_utils.ts";
 import type { ChatMessage, LLMResponse, ToolSchema } from "./types.ts";
-import { getLogger } from "./logger.ts";
-
-const logger = getLogger("test-turn");
 
 function ctx(overrides?: {
   messages?: ChatMessage[];
@@ -42,7 +39,6 @@ Deno.test("executeTurn", async (t) => {
       callLLM: c.callLLM,
       executeTool: c.executeTool,
       signal: signal(),
-      logger,
     });
 
     expect(result).toBe("Hello from LLM");
@@ -69,7 +65,6 @@ Deno.test("executeTurn", async (t) => {
       callLLM: c.callLLM,
       executeTool: c.executeTool,
       signal: abort.signal,
-      logger,
     });
     expect(receivedSignal).toBe(abort.signal);
   });
@@ -82,7 +77,6 @@ Deno.test("executeTurn", async (t) => {
       callLLM: c.callLLM,
       executeTool: c.executeTool,
       signal: signal(),
-      logger,
     });
     expect(result).toBe("Sorry, I couldn't generate a response.");
   });
@@ -95,7 +89,6 @@ Deno.test("executeTurn", async (t) => {
       callLLM: c.callLLM,
       executeTool: c.executeTool,
       signal: signal(),
-      logger,
     });
     expect(result).toBe("");
   });
@@ -112,7 +105,6 @@ Deno.test("executeTurn", async (t) => {
       callLLM: c.callLLM,
       executeTool: c.executeTool,
       signal: signal(),
-      logger,
     });
 
     expect(messages.length).toBe(3);
@@ -139,7 +131,6 @@ Deno.test("executeTurn", async (t) => {
         callLLM: c.callLLM,
         executeTool: c.executeTool,
         signal: signal(),
-        logger,
       });
 
       expect(result).toBe("Sunny in NYC.");
@@ -170,7 +161,6 @@ Deno.test("executeTurn", async (t) => {
         callLLM: c.callLLM,
         executeTool: c.executeTool,
         signal: signal(),
-        logger,
       });
 
       expect(result).toBe("Recovered.");
@@ -200,7 +190,6 @@ Deno.test("executeTurn", async (t) => {
         callLLM: c.callLLM,
         executeTool: c.executeTool,
         signal: signal(),
-        logger,
       });
 
       expect(result).toBe("Handled.");
@@ -228,7 +217,6 @@ Deno.test("executeTurn", async (t) => {
         callLLM: c.callLLM,
         executeTool: c.executeTool,
         signal: signal(),
-        logger,
       });
 
       expect(result).toBe("Both done.");
@@ -283,7 +271,6 @@ Deno.test("executeTurn", async (t) => {
         callLLM: c.callLLM,
         executeTool: c.executeTool,
         signal: signal(),
-        logger,
       });
 
       expect(result).toBe("Here are the results.");
@@ -325,7 +312,6 @@ Deno.test("executeTurn", async (t) => {
           callLLM: c.callLLM,
           executeTool: c.executeTool,
           signal: signal(),
-          logger,
         });
 
         expect(result).toBe("Here you go.");
@@ -364,7 +350,6 @@ Deno.test("executeTurn", async (t) => {
           callLLM: c.callLLM,
           executeTool: c.executeTool,
           signal: signal(),
-          logger,
         });
 
         expect(result).toBe(expected);
@@ -392,7 +377,6 @@ Deno.test("executeTurn", async (t) => {
           callLLM: c.callLLM,
           executeTool: c.executeTool,
           signal: signal(),
-          logger,
         });
 
         expect(result).toBe(expected);
@@ -418,7 +402,6 @@ Deno.test("executeTurn", async (t) => {
             callLLM: c.callLLM,
             executeTool: c.executeTool,
             signal: signal(),
-            logger,
           });
           expect(result).toBe("");
         },
@@ -449,7 +432,6 @@ Deno.test("executeTurn", async (t) => {
           callLLM: c.callLLM,
           executeTool: c.executeTool,
           signal: signal(),
-          logger,
         });
         expect(result).toBe("It is sunny.");
       },
@@ -474,7 +456,6 @@ Deno.test("executeTurn", async (t) => {
           callLLM: c.callLLM,
           executeTool: c.executeTool,
           signal: signal(),
-          logger,
         });
 
         const lastMsg = c.messages[c.messages.length - 1];
@@ -509,7 +490,6 @@ Deno.test("executeTurn", async (t) => {
           callLLM: c.callLLM,
           executeTool: c.executeTool,
           signal: abort.signal,
-          logger,
         });
         expect(result).toBe("");
       },

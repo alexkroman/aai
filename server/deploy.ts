@@ -1,5 +1,4 @@
 import { loadPlatformConfig } from "./config.ts";
-import { getLogger } from "./logger.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { DeployBodySchema } from "../sdk/_schema.ts";
@@ -11,8 +10,6 @@ export async function hashApiKey(apiKey: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
-
-const log = getLogger("deploy");
 
 export async function handleDeploy(
   req: Request,
@@ -71,7 +68,7 @@ export async function handleDeploy(
 
   const existing = slots.get(body.slug);
   if (existing?.live) {
-    log.info("Replacing existing deploy", { slug: body.slug });
+    console.info("Replacing existing deploy", { slug: body.slug });
     existing.live.worker.terminate();
     existing.live = undefined;
     existing.initializing = undefined;
@@ -100,7 +97,7 @@ export async function handleDeploy(
   };
   slots.set(body.slug, slot);
 
-  log.info("Deploy received", { slug: body.slug, transport });
+  console.info("Deploy received", { slug: body.slug, transport });
 
   return Response.json({ ok: true, message: `Deployed ${body.slug}` });
 }

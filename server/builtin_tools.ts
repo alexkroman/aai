@@ -1,10 +1,7 @@
 import { z } from "zod";
-import { getLogger } from "./logger.ts";
 import { createSandboxRpc } from "./rpc.ts";
 import type { ToolSchema } from "./types.ts";
 import { htmlToMarkdown } from "./html.ts";
-
-const log = getLogger("builtin-tools");
 
 const BraveSearchResponseSchema = z.object({
   web: z.object({
@@ -45,11 +42,11 @@ const webSearch: BuiltinTool = {
     const query = args.query as string;
     const maxResults = (args.max_results as number | undefined) ?? 5;
 
-    log.info("web_search", { query, maxResults });
+    console.info("web_search", { query, maxResults });
 
     const apiKey = env.BRAVE_API_KEY;
     if (!apiKey) {
-      log.error("BRAVE_API_KEY not set");
+      console.error("BRAVE_API_KEY not set");
       return JSON.stringify({
         results: [],
         note:
@@ -68,7 +65,7 @@ const webSearch: BuiltinTool = {
     });
 
     if (!resp.ok) {
-      log.error("Brave Search request failed", {
+      console.error("Brave Search request failed", {
         status: resp.status,
         statusText: resp.statusText,
       });
@@ -82,7 +79,7 @@ const webSearch: BuiltinTool = {
     const raw = await resp.json();
     const data = BraveSearchResponseSchema.safeParse(raw);
     if (!data.success) {
-      log.error("Unexpected Brave Search response", {
+      console.error("Unexpected Brave Search response", {
         error: data.error.message,
       });
       return JSON.stringify({
@@ -121,7 +118,7 @@ const visitWebpage: BuiltinTool = {
   execute: async (args, _env, fetchFn) => {
     const url = args.url as string;
 
-    log.info("visit_webpage", { url });
+    console.info("visit_webpage", { url });
 
     const resp = await fetchFn(url, {
       headers: {
@@ -176,7 +173,7 @@ const runCode: BuiltinTool = {
   execute: async (args, _env, _fetchFn) => {
     const code = args.code as string;
 
-    log.info("run_code", { codeLength: code.length });
+    console.info("run_code", { codeLength: code.length });
 
     // deno-lint-ignore no-explicit-any
     const worker = new (Worker as any)(SANDBOX_WORKER_URL, {
@@ -227,7 +224,7 @@ const fetchJson: BuiltinTool = {
     const url = args.url as string;
     const headers = args.headers as Record<string, string> | undefined;
 
-    log.info("fetch_json", { url });
+    console.info("fetch_json", { url });
 
     const resp = await fetchFn(url, {
       headers,
@@ -337,7 +334,7 @@ export async function executeBuiltinTool(
       fetchFn,
     );
   } catch (err: unknown) {
-    log.error("Built-in tool execution failed", { err, tool: name });
+    console.error("Built-in tool execution failed", { err, tool: name });
     return `Error: ${err instanceof Error ? err.message : String(err)}`;
   }
 }

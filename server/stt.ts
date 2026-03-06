@@ -1,5 +1,4 @@
 import { deadline } from "@std/async/deadline";
-import { getLogger } from "./logger.ts";
 import { type STTConfig, SttMessageSchema } from "./types.ts";
 
 /** Deno supports headers in WebSocket constructor at runtime. */
@@ -20,7 +19,6 @@ function safeParseJSON(data: string): unknown {
 }
 
 const STT_CONNECTION_TIMEOUT = 10_000;
-const log = getLogger("stt");
 
 export interface SttEvents {
   onSpeechStarted: () => void;
@@ -57,7 +55,7 @@ export async function connectStt(
   }
 
   const url = `${config.wssBase}?${params}`;
-  log.info("Connecting to STT", {
+  console.info("Connecting to STT", {
     url: config.wssBase,
     params: Object.fromEntries(params),
   });
@@ -70,13 +68,13 @@ export async function connectStt(
     const handle = await deadline(
       new Promise<SttHandle>((resolve, reject) => {
         ws.addEventListener("open", () => {
-          log.info("STT WebSocket connected");
+          console.info("STT WebSocket connected");
           resolve({
             send(audio: Uint8Array) {
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(audio);
               } else {
-                log.warn("STT send skipped, ws not open", {
+                console.warn("STT send skipped, ws not open", {
                   wsState: ws.readyState,
                 });
               }
@@ -95,14 +93,14 @@ export async function connectStt(
         let msgCount = 0;
         ws.addEventListener("message", (event: MessageEvent) => {
           if (typeof event.data !== "string") {
-            log.debug("STT non-string message", {
+            console.debug("STT non-string message", {
               dataType: typeof event.data,
             });
             return;
           }
           const parsed = safeParseJSON(event.data);
           if (parsed === null) {
-            log.warn("Failed to parse STT message", {
+            console.warn("Failed to parse STT message", {
               raw: (event.data as string).slice(0, 200),
             });
             return;
@@ -110,7 +108,7 @@ export async function connectStt(
 
           const result = SttMessageSchema.safeParse(parsed);
           if (!result.success) {
-            log.warn("Invalid STT message, skipping", {
+            console.warn("Invalid STT message, skipping", {
               error: result.error.message,
               raw: JSON.stringify(parsed).slice(0, 200),
             });
@@ -119,7 +117,7 @@ export async function connectStt(
 
           const msg = result.data;
           msgCount++;
-          log.info("STT message", {
+          console.info("STT message", {
             msgCount,
             type: msg.type,
             transcript: msg.transcript?.slice(0, 100),
@@ -158,14 +156,14 @@ export async function connectStt(
         });
 
         ws.addEventListener("close", (event: CloseEvent) => {
-          log.info("STT WebSocket closed", {
+          console.info("STT WebSocket closed", {
             code: event.code,
             reason: event.reason ?? "",
             msgCount,
           });
           ac.abort();
           if (event.code !== 1000 && event.code !== 1005) {
-            log.error("WebSocket closed unexpectedly", {
+            console.error("WebSocket closed unexpectedly", {
               code: event.code,
               reason: event.reason ?? "",
             });

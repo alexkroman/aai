@@ -1,9 +1,6 @@
 import { createOrchestrator } from "./orchestrator.ts";
 import { createBundleStore, createS3Client } from "./bundle_store_tigris.ts";
-import { getLogger } from "./logger.ts";
 import { validateServerEnv } from "./config.ts";
-
-const log = getLogger("server");
 
 try {
   const { load } = await import("@std/dotenv");
@@ -19,7 +16,7 @@ if (Deno.env.get("AWS_ENDPOINT_URL_S3")) {
 } else {
   const { createMemoryS3Client } = await import("./bundle_store_tigris.ts");
   s3 = createMemoryS3Client();
-  log.info("Using in-memory storage (no S3 configured)");
+  console.info("Using in-memory storage (no S3 configured)");
 }
 const store = createBundleStore(s3, bucket);
 const { app } = createOrchestrator({ store });
@@ -30,14 +27,14 @@ const server = Deno.serve(
   app.fetch,
 );
 
-log.info(`http://localhost:${port}`);
+console.info(`http://localhost:${port}`);
 
 Deno.addSignalListener("SIGTERM", () => {
-  log.info("SIGTERM received — draining connections...");
+  console.info("SIGTERM received — draining connections...");
   const drain = server.shutdown();
   const force = new Promise<void>((r) => setTimeout(r, 5_000));
   Promise.race([drain, force]).then(() => {
-    log.info("Shutdown complete");
+    console.info("Shutdown complete");
     Deno.exit(0);
   });
 });

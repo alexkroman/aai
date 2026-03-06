@@ -1,5 +1,4 @@
 import { loadPlatformConfig } from "./config.ts";
-import { getLogger } from "./logger.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { ExecuteTool } from "../sdk/_tool_executor.ts";
 import type { AgentConfig, ToolSchema } from "./types.ts";
@@ -11,8 +10,6 @@ export interface AgentMetadata {
   transport: ("websocket" | "twilio")[];
   owner_hash?: string;
 }
-
-const log = getLogger("worker-pool");
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 const TOOL_TIMEOUT_MS = 30_000;
@@ -54,7 +51,7 @@ export async function spawnAgent(
 ): Promise<AgentInfo> {
   const { slug } = slot;
 
-  log.info("Spawning agent worker", { slug });
+  console.info("Spawning agent worker", { slug });
 
   if (!getWorkerCode) {
     throw new Error(`No worker code source for ${slug}`);
@@ -83,7 +80,7 @@ export async function spawnAgent(
   worker.addEventListener(
     "error",
     ((event: ErrorEvent) => {
-      log.error("Worker error", { slug, error: event.message });
+      console.error("Worker error", { slug, error: event.message });
       if (slot.live?.worker === worker) slot.live = undefined;
     }) as EventListener,
   );
@@ -129,7 +126,7 @@ export function ensureAgent(
   const t0 = performance.now();
 
   if (slot.live) {
-    log.info("Agent ready", {
+    console.info("Agent ready", {
       slug: slot.slug,
       cached: true,
       durationMs: Math.round(performance.now() - t0),
@@ -141,7 +138,7 @@ export function ensureAgent(
   slot.initializing = spawnAgent(slot, getWorkerCode).then((info) => {
     slot.live = info;
     slot.initializing = undefined;
-    log.info("Agent ready", {
+    console.info("Agent ready", {
       slug: info.slug,
       name: info.name,
       cached: false,
@@ -171,7 +168,7 @@ export function trackSessionClose(
   if (slot.activeSessions === 0 && slot.live) {
     const timerId = setTimeout(() => {
       if (slot.activeSessions === 0 && slot.live) {
-        log.info("Evicting idle agent Worker", { slug: slot.slug });
+        console.info("Evicting idle agent Worker", { slug: slot.slug });
         slot.live.worker.terminate();
         slot.live = undefined;
         slot.idleTimer = undefined;
@@ -189,7 +186,7 @@ export function registerSlot(
   try {
     loadPlatformConfig(metadata.env); // validate only
   } catch (err: unknown) {
-    log.warn("Skipping deploy — missing platform config", {
+    console.warn("Skipping deploy — missing platform config", {
       slug: metadata.slug,
       err,
     });

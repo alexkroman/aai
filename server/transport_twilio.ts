@@ -1,6 +1,5 @@
 import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import { getLogger } from "./logger.ts";
 import { loadPlatformConfig } from "./config.ts";
 import {
   type AgentSlot,
@@ -17,8 +16,6 @@ import {
 } from "../sdk/_protocol.ts";
 import { mulawToPcm16, pcm16ToMulaw, resample } from "./mulaw.ts";
 import { z } from "zod";
-
-const log = getLogger("twilio");
 
 const TwilioMessageSchema = z.object({
   event: z.string(),
@@ -61,11 +58,11 @@ export function createTwilioTransport(ws: WebSocket): SessionTransport & {
         try {
           const msg = JSON.parse(data) as Record<string, unknown>;
           if (msg.type === "chat") {
-            log.info("Agent response", {
+            console.info("Agent response", {
               text: (msg.text as string)?.slice(0, 100),
             });
           } else if (msg.type === "error") {
-            log.error("Session error", { message: msg.message });
+            console.error("Session error", { message: msg.message });
           }
         } catch { /* ignore */ }
         return;
@@ -152,7 +149,7 @@ export async function handleTwilioVoice(
   try {
     await ensureAgent(slot, (s) => ctx.store.getFile(s, "worker"));
   } catch (err: unknown) {
-    log.error("Failed to start agent for call", {
+    console.error("Failed to start agent for call", {
       slug,
       error: err instanceof Error ? err.message : String(err),
     });
@@ -163,7 +160,7 @@ export async function handleTwilioVoice(
 
   const host = req.headers.get("host") ?? "localhost";
   const streamUrl = `wss://${host}/${slug}/twilio/stream`;
-  log.info("Incoming call, connecting media stream", { slug, streamUrl });
+  console.info("Incoming call, connecting media stream", { slug, streamUrl });
   return twiml(`<Connect><Stream url="${streamUrl}" /></Connect>`);
 }
 
@@ -185,7 +182,7 @@ export async function handleTwilioStream(
   try {
     info = await ensureAgent(slot, (s) => ctx.store.getFile(s, "worker"));
   } catch (err: unknown) {
-    log.error("Failed to initialize agent for media stream", { slug, err });
+    console.error("Failed to initialize agent for media stream", { slug, err });
     return Response.json(
       { error: "Agent failed to initialize" },
       { status: 500 },
@@ -211,7 +208,7 @@ export async function handleTwilioStream(
   const audioBuf = createAudioBuffer((chunk) => session.onAudio(chunk));
 
   socket.addEventListener("open", () => {
-    log.info("Twilio media stream connected", { slug });
+    console.info("Twilio media stream connected", { slug });
     void session.start();
   });
 
@@ -230,7 +227,7 @@ export async function handleTwilioStream(
     switch (msg.event) {
       case "start":
         transport.streamSid = msg.start?.streamSid ?? null;
-        log.info("Twilio stream started", {
+        console.info("Twilio stream started", {
           slug,
           streamSid: transport.streamSid,
         });
@@ -243,20 +240,20 @@ export async function handleTwilioStream(
         break;
       case "stop":
         audioBuf.drain();
-        log.info("Twilio stream stopped", { slug });
+        console.info("Twilio stream stopped", { slug });
         void session.stop();
         break;
     }
   });
 
   socket.addEventListener("close", () => {
-    log.info("Twilio media stream disconnected", { slug });
+    console.info("Twilio media stream disconnected", { slug });
     void session.stop();
     trackSessionClose(slot);
   });
 
   socket.addEventListener("error", (event) => {
-    log.error("Twilio media stream error", {
+    console.error("Twilio media stream error", {
       slug,
       error: event instanceof ErrorEvent ? event.message : "WebSocket error",
     });

@@ -1,4 +1,3 @@
-import { getLogger } from "./logger.ts";
 import { ClientMessageSchema } from "../sdk/_protocol.ts";
 import type { Session } from "./session.ts";
 
@@ -9,8 +8,6 @@ function safeParseJSON(data: string): unknown {
     return null;
   }
 }
-
-const log = getLogger("ws");
 
 export interface WsSessionOptions {
   createSession: (sessionId: string, ws: WebSocket) => Session;
@@ -56,7 +53,7 @@ export function handleSessionWebSocket(
     processingChain = processingChain
       .then(() => processControlMessage(raw))
       .catch((err) => {
-        log.error("Control message processing error", {
+        console.error("Control message processing error", {
           ...ctx,
           sid,
           error: err,
@@ -66,12 +63,12 @@ export function handleSessionWebSocket(
 
   ws.addEventListener("open", () => {
     opts.onOpen?.();
-    log.info("Session connected", { ...ctx, sid });
+    console.info("Session connected", { ...ctx, sid });
 
     session = opts.createSession(sessionId, ws);
     sessions.set(sessionId, session);
 
-    log.info("Session configured", { ...ctx, sid });
+    console.info("Session configured", { ...ctx, sid });
     void session.start();
 
     for (const msg of pendingMessages) {
@@ -110,7 +107,7 @@ export function handleSessionWebSocket(
   });
 
   ws.addEventListener("close", async () => {
-    log.info("Session disconnected", { ...ctx, sid });
+    console.info("Session disconnected", { ...ctx, sid });
     if (session) {
       await session.stop();
       sessions.delete(sessionId);
@@ -120,6 +117,6 @@ export function handleSessionWebSocket(
 
   ws.addEventListener("error", (event) => {
     const msg = event instanceof ErrorEvent ? event.message : "WebSocket error";
-    log.error("WebSocket error", { ...ctx, sid, error: msg });
+    console.error("WebSocket error", { ...ctx, sid, error: msg });
   });
 }

@@ -1,6 +1,5 @@
 import type { PlatformConfig } from "./config.ts";
 import { callLLM as defaultCallLLM, type CallLLMOptions } from "./llm.ts";
-import { getLogger } from "./logger.ts";
 import type { ExecuteTool } from "../sdk/_tool_executor.ts";
 import {
   connectStt as defaultConnectStt,
@@ -84,8 +83,6 @@ export function createSession(opts: SessionOptions): Session {
     ...opts.env,
     BRAVE_API_KEY: platformConfig.braveApiKey || opts.env?.BRAVE_API_KEY,
   };
-  const logger = getLogger(`session:${id.slice(0, 8)}`);
-
   const config: PlatformConfig = {
     ...platformConfig,
     sttConfig: {
@@ -139,7 +136,7 @@ export function createSession(opts: SessionOptions): Session {
         ws.send(JSON.stringify(data));
       }
     } catch (err: unknown) {
-      logger.error("trySendJson failed", { err });
+      console.error("trySendJson failed", { err });
     }
   }
 
@@ -149,7 +146,7 @@ export function createSession(opts: SessionOptions): Session {
         ws.send(data);
       }
     } catch (err: unknown) {
-      logger.error("trySendBytes failed", { err });
+      console.error("trySendBytes failed", { err });
     }
   }
 
@@ -162,13 +159,13 @@ export function createSession(opts: SessionOptions): Session {
     const events: SttEvents = {
       onSpeechStarted: () => {
         if (turnAbort) {
-          logger.info("User started speaking — interrupting playback");
+          console.info("User started speaking — interrupting playback");
           cancelInflight();
           trySendJson({ type: "cancelled" });
         }
       },
       onTranscript: (text, isFinal, turnOrder) => {
-        logger.info("transcript", { text, isFinal, turnOrder });
+        console.info("transcript", { text, isFinal, turnOrder });
         if (isFinal) {
           trySendJson({
             type: "final_transcript",
@@ -180,7 +177,7 @@ export function createSession(opts: SessionOptions): Session {
         }
       },
       onTurn: (text, turnOrder) => {
-        logger.info("turn", { text, turnOrder });
+        console.info("turn", { text, turnOrder });
         const prev = turnPromise;
         const next = (prev ?? Promise.resolve())
           .catch(() => {})
@@ -191,22 +188,22 @@ export function createSession(opts: SessionOptions): Session {
         turnPromise = next;
       },
       onTermination: (audioDuration, sessionDuration) => {
-        logger.info("STT termination", { audioDuration, sessionDuration });
+        console.info("STT termination", { audioDuration, sessionDuration });
       },
       onError: (err) => {
-        logger.error("STT error", { err });
+        console.error("STT error", { err });
         trySendJson({
           type: "error",
           message: "Speech recognition disconnected",
         });
       },
       onClose: () => {
-        logger.info("STT closed");
+        console.info("STT closed");
         stt = null;
         if (!stopped) {
-          logger.info("Attempting STT reconnect");
+          console.info("Attempting STT reconnect");
           doConnectSttWithEvents().catch((err) => {
-            logger.error("STT reconnect failed", { err });
+            console.error("STT reconnect failed", { err });
           });
         }
       },
@@ -216,7 +213,7 @@ export function createSession(opts: SessionOptions): Session {
       stt = await doConnectStt(config.apiKey, config.sttConfig, events);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      logger.error("Failed to connect STT", { error: msg });
+      console.error("Failed to connect STT", { error: msg });
       trySendJson({
         type: "error",
         message: "Failed to connect to speech recognition",
@@ -235,7 +232,7 @@ export function createSession(opts: SessionOptions): Session {
 
     if (opts.workerApi) {
       opts.workerApi.invokeHook("onTurn", id, { text }, 5_000).catch(
-        (err: unknown) => logger.error("onTurn hook failed", { err }),
+        (err: unknown) => console.error("onTurn hook failed", { err }),
       );
     }
 
@@ -249,7 +246,6 @@ export function createSession(opts: SessionOptions): Session {
         callLLM: boundCallLLM,
         executeTool: boundExecuteTool,
         signal: abort.signal,
-        logger,
       });
       if (abort.signal.aborted) return;
 
@@ -269,7 +265,7 @@ export function createSession(opts: SessionOptions): Session {
     } catch (err: unknown) {
       if (abort.signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
-      logger.error("Chat failed", { error: msg });
+      console.error("Chat failed", { error: msg });
       trySendJson({ type: "error", message: "Chat failed" });
     } finally {
       if (turnAbort === abort) turnAbort = null;
@@ -304,7 +300,7 @@ export function createSession(opts: SessionOptions): Session {
         try {
           await opts.workerApi.invokeHook("onConnect", id, undefined, 5_000);
         } catch (err: unknown) {
-          logger.error("onConnect hook failed", { err });
+          console.error("onConnect hook failed", { err });
         }
       }
 
@@ -329,7 +325,7 @@ export function createSession(opts: SessionOptions): Session {
         try {
           await opts.workerApi.invokeHook("onDisconnect", id, undefined, 5_000);
         } catch (err: unknown) {
-          logger.error("onDisconnect hook failed", { err });
+          console.error("onDisconnect hook failed", { err });
         }
       }
     },
@@ -337,7 +333,7 @@ export function createSession(opts: SessionOptions): Session {
     onAudio(data: Uint8Array): void {
       audioFrameCount++;
       if (audioFrameCount <= 3) {
-        logger.debug("audio frame", {
+        console.debug("audio frame", {
           frame: audioFrameCount,
           bytes: data.length,
         });
@@ -378,7 +374,7 @@ export function createSession(opts: SessionOptions): Session {
       for (const msg of incoming) {
         messages.push({ role: msg.role, content: msg.text });
       }
-      logger.info("Restored conversation history", {
+      console.info("Restored conversation history", {
         count: incoming.length,
       });
     },
