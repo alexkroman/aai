@@ -48,16 +48,8 @@ let esbuildReady: Promise<void> | null = null;
 function ensureInit() {
   if (!esbuildReady) {
     esbuildReady = (async () => {
-      const wasmPath = resolve(
-        dirname(fromFileUrl(import.meta.url)),
-        "..",
-        "node_modules",
-        ".deno",
-        "esbuild-wasm@0.27.3",
-        "node_modules",
-        "esbuild-wasm",
-        "esbuild.wasm",
-      );
+      const esbuildDir = dirname(fromFileUrl(import.meta.resolve("esbuild")));
+      const wasmPath = join(esbuildDir, "..", "esbuild.wasm");
       const wasmBytes = await Deno.readFile(wasmPath);
       const wasmModule = new WebAssembly.Module(wasmBytes);
       await initialize(
