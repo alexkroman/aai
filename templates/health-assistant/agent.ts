@@ -134,21 +134,33 @@ Use run_code for health calculations:
     drug_info: {
       description:
         "Look up detailed information about a medication from the FDA database including usage, warnings, and side effects.",
-      parameters: z.object({
-        name: z.string().describe(
-          "Medication name (generic or brand, e.g. 'ibuprofen' or 'Advil')",
-        ),
-      }),
+      parameters: {
+        type: "object",
+        properties: {
+          name: {
+            type: "string",
+            description:
+              "Medication name (generic or brand, e.g. 'ibuprofen' or 'Advil')",
+          },
+        },
+        required: ["name"],
+      },
       execute: ({ name }, ctx) => lookupDrug(name, ctx),
     },
     check_interaction: {
       description:
         "Check for known interactions between two or more medications using the NIH database.",
-      parameters: z.object({
-        drugs: z.string().describe(
-          "Comma-separated medication names (e.g. 'ibuprofen, warfarin')",
-        ),
-      }),
+      parameters: {
+        type: "object",
+        properties: {
+          drugs: {
+            type: "string",
+            description:
+              "Comma-separated medication names (e.g. 'ibuprofen, warfarin')",
+          },
+        },
+        required: ["drugs"],
+      },
       execute: ({ drugs }, ctx) => checkInteractions(drugs, ctx),
     },
   },

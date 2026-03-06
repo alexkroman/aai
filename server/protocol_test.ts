@@ -1,20 +1,27 @@
 import { expect } from "@std/expect";
-import { z } from "zod";
 import { agentToolsToSchemas, type ToolDef } from "./agent_types.ts";
 
 Deno.test("agentToolsToSchemas - converts tool definitions to OpenAI schema", () => {
   const tools: Record<string, ToolDef> = {
     get_weather: {
       description: "Get weather",
-      parameters: z.object({ city: z.string().describe("City") }),
+      parameters: {
+        type: "object",
+        properties: { city: { type: "string", description: "City" } },
+        required: ["city"],
+      },
       execute: async () => {},
     },
     set_alarm: {
       description: "Set alarm",
-      parameters: z.object({
-        time: z.string(),
-        label: z.string().optional(),
-      }),
+      parameters: {
+        type: "object",
+        properties: {
+          time: { type: "string" },
+          label: { type: "string" },
+        },
+        required: ["time"],
+      },
       execute: async () => {},
     },
   };

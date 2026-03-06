@@ -1,8 +1,11 @@
+import { z } from "zod";
 import { getLogger } from "./logger.ts";
 import type { ToolContext, ToolDef } from "./agent_types.ts";
 
 const log = getLogger("tool-executor");
 export const TOOL_HANDLER_TIMEOUT = 30_000;
+
+type JSONSchemaParam = Parameters<typeof z.fromJSONSchema>[0];
 
 export type ExecuteTool = (
   name: string,
@@ -15,12 +18,15 @@ export async function executeToolCall(
   tool: ToolDef,
   secrets: Record<string, string>,
 ): Promise<string> {
-  const parsed = tool.parameters.safeParse(args);
+  const validator = z.fromJSONSchema(tool.parameters as JSONSchemaParam);
+  const parsed = validator.safeParse(args);
   if (!parsed.success) {
-    const errors = parsed.error.issues
-      .map((i) => `${i.path.join(".")}: ${i.message}`)
-      .join(", ");
-    return `Error: Invalid arguments for tool "${name}": ${errors}`;
+    // deno-lint-ignore no-explicit-any
+    const issues = ((parsed as any).error?.issues ?? [])
+      .map((i: { path: (string | number)[]; message: string }) =>
+        `${i.path.join(".")}: ${i.message}`
+      ).join(", ");
+    return `Error: Invalid arguments for tool "${name}": ${issues}`;
   }
 
   try {

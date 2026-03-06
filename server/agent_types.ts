@@ -1,25 +1,78 @@
-import { z } from "zod";
-
 export interface ToolContext {
   secrets: Record<string, string>;
   fetch: typeof globalThis.fetch;
   signal?: AbortSignal;
 }
 
+/** JSON Schema property definition. */
+export interface JSONSchemaProperty {
+  type?: string;
+  description?: string;
+  enum?: (string | number | boolean)[];
+  items?: JSONSchemaProperty;
+  properties?: Record<string, JSONSchemaProperty>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
+/** JSON Schema object describing tool parameters. Must have type "object". */
+export interface ToolParameters {
+  type: "object";
+  properties: Record<string, JSONSchemaProperty>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
 export interface ToolDef {
   description: string;
-  parameters: z.ZodObject<z.ZodRawShape>;
+  parameters: ToolParameters;
   // deno-lint-ignore no-explicit-any
   execute: (args: any, ctx: ToolContext) => Promise<unknown> | unknown;
 }
+
+/** Built-in tools provided by the framework. */
+export type BuiltinTool =
+  | "web_search"
+  | "visit_webpage"
+  | "fetch_json"
+  | "run_code"
+  | "user_input"
+  | "final_answer";
+
+/**
+ * Rime TTS voice ID. Popular voices listed for autocomplete;
+ * any valid Rime speaker ID is accepted.
+ * Full catalog: https://docs.rime.ai/api-reference/voices
+ */
+export type Voice =
+  | "luna"
+  | "andromeda"
+  | "celeste"
+  | "orion"
+  | "sirius"
+  | "lyra"
+  | "estelle"
+  | "esther"
+  | "kima"
+  | "bond"
+  | "thalassa"
+  | "vespera"
+  | "moss"
+  | "fern"
+  | "astra"
+  | "tauro"
+  | "walnut"
+  | "arcana"
+  // deno-lint-ignore ban-types
+  | (string & {});
 
 export interface AgentOptions {
   name: string;
   instructions?: string;
   greeting?: string;
-  voice?: string;
+  voice?: Voice;
   prompt?: string;
-  builtinTools?: string[];
+  builtinTools?: BuiltinTool[];
   tools?: Record<string, ToolDef>;
   onConnect?: (ctx: { sessionId: string }) => void | Promise<void>;
   onDisconnect?: (ctx: { sessionId: string }) => void | Promise<void>;
@@ -50,7 +103,7 @@ export const DEFAULT_GREETING: string =
 export interface ToolSchema {
   name: string;
   description: string;
-  parameters: Record<string, unknown>;
+  parameters: ToolParameters;
 }
 
 export function agentToolsToSchemas(
@@ -59,6 +112,6 @@ export function agentToolsToSchemas(
   return Object.entries(tools).map(([name, def]) => ({
     name,
     description: def.description,
-    parameters: z.toJSONSchema(def.parameters) as Record<string, unknown>,
+    parameters: def.parameters,
   }));
 }

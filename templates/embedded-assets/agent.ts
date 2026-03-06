@@ -23,9 +23,16 @@ Rules:
     search_faq: {
       description:
         "Search the embedded knowledge base for a question. Returns the closest matching FAQ entry.",
-      parameters: z.object({
-        query: z.string().describe("The user's question to search for"),
-      }),
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The user's question to search for",
+          },
+        },
+        required: ["query"],
+      },
       execute: ({ query }) => {
         const q = query.toLowerCase();
         const match = faqs.find((f) =>
@@ -38,7 +45,7 @@ Rules:
     },
     list_topics: {
       description: "List all available FAQ topics in the knowledge base.",
-      parameters: z.object({}),
+      parameters: { type: "object", properties: {} },
       execute: () => faqs.map((f) => f.question),
     },
   },

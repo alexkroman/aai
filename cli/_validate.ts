@@ -10,6 +10,7 @@ interface ValidationError {
 export interface ValidationResult {
   errors: ValidationError[];
   name?: string;
+  voice?: string;
   tools?: string[];
   builtinTools?: string[];
 }
@@ -28,17 +29,17 @@ export async function validateAgent(
   const saved = {
     defineAgent: (globalThis as Record<string, unknown>).defineAgent,
     fetchJSON: (globalThis as Record<string, unknown>).fetchJSON,
-    z: (globalThis as Record<string, unknown>).z,
   };
 
   let mod: Record<string, unknown>;
   try {
     const { defineAgent } = await import("../server/agent.ts");
     const { fetchJSON } = await import("../server/fetch_json.ts");
-    const { z } = await import("zod");
-    Object.assign(globalThis, { defineAgent, fetchJSON, z });
+    Object.assign(globalThis, { defineAgent, fetchJSON });
 
-    mod = await import(toFileUrl(resolve(agent.entryPoint)).href);
+    mod = await import(
+      `${toFileUrl(resolve(agent.entryPoint)).href}?t=${Date.now()}`
+    );
   } catch (err) {
     errors.push({
       field: "agent.ts",
@@ -79,9 +80,11 @@ export async function validateAgent(
     ? Object.keys(def.tools as Record<string, unknown>)
     : [];
 
+  const voice = typeof def.voice === "string" ? def.voice : "luna";
+
   const builtinTools = Array.isArray(def.builtinTools)
     ? (def.builtinTools as string[])
     : [];
 
-  return { errors, name, tools, builtinTools };
+  return { errors, name, voice, tools, builtinTools };
 }

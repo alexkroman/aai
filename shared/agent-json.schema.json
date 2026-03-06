@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "agent.json",
+  "description": "Agent configuration file. Declares the agent slug, required environment variables, and transport.",
+  "type": "object",
+  "required": ["slug", "env"],
+  "properties": {
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique agent identifier used in URLs."
+    },
+    "env": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Environment variable names required by the agent. Values are read from .env or the process environment."
+    },
+    "transport": {
+      "description": "Transport protocols. Defaults to [\"websocket\"].",
+      "oneOf": [
+        { "enum": ["websocket", "twilio"] },
+        {
+          "type": "array",
+          "items": { "enum": ["websocket", "twilio"] }
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

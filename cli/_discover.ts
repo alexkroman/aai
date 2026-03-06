@@ -1,7 +1,7 @@
 import { parse as parseDotenv } from "@std/dotenv/parse";
 import { dirname, fromFileUrl, join, resolve } from "@std/path";
-import { z } from "zod";
 import { getApiKey } from "./_config.ts";
+import { AgentJsonSchema, normalizeTransport } from "../shared/schema.ts";
 
 /** Root of the aai framework (parent of cli/). */
 const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
@@ -14,17 +14,6 @@ export interface AgentEntry {
   clientEntry: string;
   transport: ("websocket" | "twilio")[];
 }
-
-const TransportEnum = z.enum(["websocket", "twilio"]);
-
-const AgentJsonSchema = z.object({
-  slug: z.string(),
-  env: z.union([
-    z.array(z.string()),
-    z.record(z.string(), z.union([z.string(), z.null()])),
-  ]),
-  transport: z.union([TransportEnum, z.array(TransportEnum)]).optional(),
-});
 
 export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   let hasAgentTs = false;
@@ -57,15 +46,14 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   }
   const { slug } = parsed.data;
 
-  const declared = Array.isArray(parsed.data.env)
-    ? parsed.data.env
-    : Object.keys(parsed.data.env);
-  const transport: ("websocket" | "twilio")[] =
-    parsed.data.transport === undefined
-      ? ["websocket"]
-      : typeof parsed.data.transport === "string"
-      ? [parsed.data.transport]
-      : parsed.data.transport;
+  const declared = parsed.data.env as string[];
+  const transport = normalizeTransport(
+    parsed.data.transport as
+      | "websocket"
+      | "twilio"
+      | ("websocket" | "twilio")[]
+      | undefined,
+  );
 
   const dotenvText = await Deno.readTextFile(join(dir, ".env")).catch(() => "");
   const dotenv = parseDotenv(dotenvText);

@@ -104,13 +104,15 @@ claude "add a weather lookup tool to my agent"</code></pre>
       </ul>
 
       <h3>Custom tools</h3>
-      <p>Define tools inline with a zod schema (or plain JSON Schema) and an <code>execute</code> function:</p>
+      <p>Define tools with a JSON Schema <code>parameters</code> object and an <code>execute</code> function:</p>
       <pre><code>tools: {
   lookup_weather: {
     description: "Get current weather for a city",
-    parameters: z.object({
-      city: z.string().describe("City name"),
-    }),
+    parameters: {
+      type: "object",
+      properties: { city: { type: "string", description: "City name" } },
+      required: ["city"],
+    },
     execute: async ({ city }, ctx) => {
       <span class="dim">// ctx.fetch &mdash; use instead of global fetch</span>
       <span class="dim">// ctx.secrets &mdash; env vars from .env (e.g. ctx.secrets.API_KEY)</span>

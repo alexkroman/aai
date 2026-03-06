@@ -1,7 +1,43 @@
-import { build, type BuildOptions, initialize, type Plugin } from "esbuild";
+import {
+  build,
+  type BuildOptions,
+  formatMessages,
+  initialize,
+  type Plugin,
+} from "esbuild";
 import { denoPlugin } from "@deno/esbuild-plugin";
 import { dirname, fromFileUrl, resolve, toFileUrl } from "@std/path";
 import type { AgentEntry } from "./_discover.ts";
+
+export class BundleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BundleError";
+  }
+}
+
+async function buildWithCleanErrors(
+  options: BuildOptions,
+): ReturnType<typeof build> {
+  try {
+    return await build(options);
+  } catch (err: unknown) {
+    if (
+      err && typeof err === "object" && "errors" in err &&
+      Array.isArray((err as { errors: unknown[] }).errors)
+    ) {
+      const errors = (err as { errors: unknown[] }).errors as Parameters<
+        typeof formatMessages
+      >[0];
+      const formatted = await formatMessages(errors, {
+        kind: "error",
+        color: true,
+      });
+      throw new BundleError(formatted.join("\n"));
+    }
+    throw err;
+  }
+}
 
 let esbuildReady: Promise<void> | null = null;
 
@@ -119,10 +155,11 @@ async function precomputeSchemas(agent: AgentEntry) {
   const { agentToolsToSchemas } = await import("../server/agent_types.ts");
   const { defineAgent } = await import("../server/agent.ts");
   const { fetchJSON } = await import("../server/fetch_json.ts");
-  const { z } = await import("zod");
-  Object.assign(globalThis, { defineAgent, fetchJSON, z });
+  Object.assign(globalThis, { defineAgent, fetchJSON });
 
-  const mod = await import(toFileUrl(resolve(agent.entryPoint)).href);
+  const mod = await import(
+    `${toFileUrl(resolve(agent.entryPoint)).href}?t=${Date.now()}`
+  );
   return agentToolsToSchemas(mod.default.tools);
 }
 
@@ -161,8 +198,7 @@ export async function bundleAgent(
     workerShimPath,
     `import { defineAgent } from "${agentModAbsolute}";\n` +
       `import { fetchJSON } from "${fetchJsonAbsolute}";\n` +
-      `import { z } from "zod";\n` +
-      `Object.assign(globalThis, { defineAgent, fetchJSON, z });\n`,
+      `Object.assign(globalThis, { defineAgent, fetchJSON });\n`,
   );
 
   const clientShimPath = resolve(outDir, "_client_shim.ts");
@@ -173,7 +209,7 @@ export async function bundleAgent(
       `Object.assign(globalThis, { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, VoiceSession, useEffect, useRef, useState, useCallback, useMemo });\n`,
   );
 
-  const workerResult = await build({
+  const workerResult = await buildWithCleanErrors({
     ...BASE,
     plugins: [denoPlugin({ configPath })],
     stdin: {
@@ -202,7 +238,7 @@ export async function bundleAgent(
 
   let clientBytes = 0;
   if (!opts?.skipClient) {
-    const clientResult = await build({
+    const clientResult = await buildWithCleanErrors({
       ...clientBuildOptions(agent.clientEntry, `${outDir}/client.js`),
       inject: [clientShimPath],
       metafile: true,

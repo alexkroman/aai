@@ -15,7 +15,6 @@ deno compile \
   --allow-all \
   --unstable-worker-options \
   --include templates/ \
-  --include skills/ \
   --include server/ \
   --include ui/ \
   --output /tmp/aai-compile-check \

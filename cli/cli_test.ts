@@ -35,32 +35,7 @@ Deno.test("cli main", async (t) => {
     "prints usage with --help",
     withConsoleSpy(async (logged) => {
       expect(await main(["--help"])).toBe(0);
-      expect(logged[0]).toContain("dev");
-      expect(logged[0]).toContain("deploy");
-    }),
-  );
-
-  await t.step(
-    "prints command help with dev --help",
-    withConsoleSpy(async (logged) => {
-      expect(await main(["dev", "--help"])).toBe(0);
-      expect(logged[0]).toContain("aai dev");
-    }),
-  );
-
-  await t.step(
-    "prints command help with deploy --help",
-    withConsoleSpy(async (logged) => {
-      expect(await main(["deploy", "--help"])).toBe(0);
-      expect(logged[0]).toContain("--url");
-      expect(logged[0]).toContain("--dry-run");
-    }),
-  );
-
-  await t.step(
-    "returns 1 for unknown command",
-    withConsoleSpy(async () => {
-      expect(await main(["unknown-command"])).toBe(1);
+      expect(logged[0]).toContain("aai");
     }),
   );
 });

@@ -2,8 +2,11 @@ import { z } from "zod";
 import { getLogger } from "./logger.ts";
 import { createSandboxRpc } from "./worker_pool.ts";
 import type { ToolSchema } from "./types.ts";
+import type { ToolParameters } from "./agent_types.ts";
 
 const log = getLogger("builtin-tools");
+
+type JSONSchemaParam = Parameters<typeof z.fromJSONSchema>[0];
 
 const ENTITY: Record<string, string> = {
   "&amp;": "&",
@@ -62,7 +65,7 @@ export function htmlToMarkdown(html: string): string {
 interface BuiltinTool {
   name: string;
   description: string;
-  parameters: z.ZodObject<z.ZodRawShape>;
+  parameters: ToolParameters;
   execute: (
     args: Record<string, unknown>,
     env: Record<string, string | undefined>,
@@ -70,13 +73,17 @@ interface BuiltinTool {
   ) => string | Promise<string>;
 }
 
-const webSearchParams = z.object({
-  query: z.string().describe("The search query"),
-  max_results: z
-    .number()
-    .describe("Maximum number of results to return (default 5)")
-    .optional(),
-});
+const webSearchParams: ToolParameters = {
+  type: "object",
+  properties: {
+    query: { type: "string", description: "The search query" },
+    max_results: {
+      type: "number",
+      description: "Maximum number of results to return (default 5)",
+    },
+  },
+  required: ["query"],
+};
 
 const BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
 
@@ -86,8 +93,8 @@ const webSearch: BuiltinTool = {
     "Search the web using Brave Search. Returns a list of results with title, URL, and description.",
   parameters: webSearchParams,
   execute: async (args, env, fetchFn) => {
-    const { query, max_results } = args as z.infer<typeof webSearchParams>;
-    const maxResults = max_results ?? 5;
+    const query = args.query as string;
+    const maxResults = (args.max_results as number | undefined) ?? 5;
 
     log.info("web_search", { query, maxResults });
 
@@ -140,11 +147,16 @@ const webSearch: BuiltinTool = {
 const MAX_PAGE_CHARS = 10_000;
 const MAX_HTML_BYTES = 200_000;
 
-const visitWebpageParams = z.object({
-  url: z
-    .string()
-    .describe("The full URL to fetch (e.g., 'https://example.com/page')"),
-});
+const visitWebpageParams: ToolParameters = {
+  type: "object",
+  properties: {
+    url: {
+      type: "string",
+      description: "The full URL to fetch (e.g., 'https://example.com/page')",
+    },
+  },
+  required: ["url"],
+};
 
 const visitWebpage: BuiltinTool = {
   name: "visit_webpage",
@@ -152,7 +164,7 @@ const visitWebpage: BuiltinTool = {
     "Fetch a webpage URL and return its content as clean Markdown. Useful for reading articles, documentation, or any web page found via search.",
   parameters: visitWebpageParams,
   execute: async (args, _env, fetchFn) => {
-    const { url } = args as z.infer<typeof visitWebpageParams>;
+    const url = args.url as string;
 
     log.info("visit_webpage", { url });
 
@@ -191,11 +203,16 @@ const visitWebpage: BuiltinTool = {
   },
 };
 
-const runCodeParams = z.object({
-  code: z
-    .string()
-    .describe("JavaScript code to execute. Use console.log() for output."),
-});
+const runCodeParams: ToolParameters = {
+  type: "object",
+  properties: {
+    code: {
+      type: "string",
+      description: "JavaScript code to execute. Use console.log() for output.",
+    },
+  },
+  required: ["code"],
+};
 
 const TIMEOUT_MS = 5_000;
 
@@ -207,7 +224,7 @@ const runCode: BuiltinTool = {
     "Execute JavaScript in a sandboxed Deno Worker with no permissions. Use console.log() for output. No network or filesystem access.",
   parameters: runCodeParams,
   execute: async (args, _env, _fetchFn) => {
-    const { code } = args as z.infer<typeof runCodeParams>;
+    const code = args.code as string;
 
     log.info("run_code", { codeLength: code.length });
 
@@ -244,12 +261,18 @@ const runCode: BuiltinTool = {
   },
 };
 
-const fetchJsonParams = z.object({
-  url: z.string().describe("The URL to fetch JSON from"),
-  headers: z.record(z.string(), z.string()).optional().describe(
-    "Optional HTTP headers to include in the request",
-  ),
-});
+const fetchJsonParams: ToolParameters = {
+  type: "object",
+  properties: {
+    url: { type: "string", description: "The URL to fetch JSON from" },
+    headers: {
+      type: "object",
+      description: "Optional HTTP headers to include in the request",
+      additionalProperties: { type: "string" },
+    },
+  },
+  required: ["url"],
+};
 
 const fetchJson: BuiltinTool = {
   name: "fetch_json",
@@ -257,7 +280,8 @@ const fetchJson: BuiltinTool = {
     "Fetch a URL via HTTP GET and return the JSON response. Useful for calling REST APIs that return JSON data.",
   parameters: fetchJsonParams,
   execute: async (args, _env, fetchFn) => {
-    const { url, headers } = args as z.infer<typeof fetchJsonParams>;
+    const url = args.url as string;
+    const headers = args.headers as Record<string, string> | undefined;
 
     log.info("fetch_json", { url });
 
@@ -285,9 +309,16 @@ const fetchJson: BuiltinTool = {
   },
 };
 
-const userInputParams = z.object({
-  question: z.string().describe("The question to ask the user"),
-});
+const userInputParams: ToolParameters = {
+  type: "object",
+  properties: {
+    question: {
+      type: "string",
+      description: "The question to ask the user",
+    },
+  },
+  required: ["question"],
+};
 
 const userInput: BuiltinTool = {
   name: "user_input",
@@ -300,11 +331,17 @@ const userInput: BuiltinTool = {
   },
 };
 
-const finalAnswerParams = z.object({
-  answer: z.string().describe(
-    "Your final response to the user. This will be spoken aloud.",
-  ),
-});
+const finalAnswerParams: ToolParameters = {
+  type: "object",
+  properties: {
+    answer: {
+      type: "string",
+      description:
+        "Your final response to the user. This will be spoken aloud.",
+    },
+  },
+  required: ["answer"],
+};
 
 const finalAnswer: BuiltinTool = {
   name: "final_answer",
@@ -312,8 +349,7 @@ const finalAnswer: BuiltinTool = {
     "Provide your final answer to the user. You MUST call this tool to deliver every response — it is the only way to complete the task, otherwise you will be stuck in a loop.",
   parameters: finalAnswerParams,
   execute: (args, _env, _fetchFn) => {
-    const { answer } = args as z.infer<typeof finalAnswerParams>;
-    return answer;
+    return args.answer as string;
   },
 };
 
@@ -339,7 +375,7 @@ export function getBuiltinToolSchemas(names: string[]): ToolSchema[] {
     return [{
       name: tool.name,
       description: tool.description,
-      parameters: z.toJSONSchema(tool.parameters) as Record<string, unknown>,
+      parameters: tool.parameters,
     }];
   });
 }
@@ -353,10 +389,15 @@ export async function executeBuiltinTool(
   const tool = BUILTIN_TOOLS[name];
   if (!tool) return null;
 
-  const parsed = tool.parameters.safeParse(args);
+  const validator = z.fromJSONSchema(tool.parameters as JSONSchemaParam);
+  const parsed = validator.safeParse(args);
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => i.message).join(", ");
-    return `Error: invalid arguments — ${issues}`;
+    // deno-lint-ignore no-explicit-any
+    const issues = ((parsed as any).error?.issues ?? [])
+      .map((i: { path: (string | number)[]; message: string }) =>
+        `${i.path.join(".")}: ${i.message}`
+      ).join(", ");
+    return `Error: Invalid arguments for tool "${name}": ${issues}`;
   }
 
   try {
