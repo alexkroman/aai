@@ -25,7 +25,8 @@ declare global {
   const Transcript: typeof import("@aai/ui").Transcript;
   const SessionProvider: typeof import("@aai/ui").SessionProvider;
   const createSessionControls: typeof import("@aai/ui").createSessionControls;
-  const VoiceSession: typeof import("@aai/ui").VoiceSession;
+  const createVoiceSession: typeof import("@aai/ui").createVoiceSession;
+  type VoiceSession = import("@aai/ui").VoiceSession;
   type AgentState = import("@aai/ui").AgentState;
   type Message = import("@aai/ui").Message;
   type SessionError = import("@aai/ui").SessionError;

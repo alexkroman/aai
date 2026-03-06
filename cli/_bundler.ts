@@ -5,6 +5,7 @@ import {
   initialize,
   type Plugin,
 } from "esbuild";
+import type { InitializeOptions } from "esbuild-wasm-types";
 import { denoPlugin } from "@deno/esbuild-plugin";
 import { dirname, fromFileUrl, resolve, toFileUrl } from "@std/path";
 import type { AgentEntry } from "./_discover.ts";
@@ -45,8 +46,6 @@ let esbuildReady: Promise<void> | null = null;
 function ensureInit() {
   if (!esbuildReady) {
     esbuildReady = (async () => {
-      // The browser ESM build of esbuild-wasm needs the WASM binary loaded
-      // explicitly. Provide it as a compiled WebAssembly.Module.
       const wasmPath = resolve(
         dirname(fromFileUrl(import.meta.url)),
         "..",
@@ -59,9 +58,10 @@ function ensureInit() {
       );
       const wasmBytes = await Deno.readFile(wasmPath);
       const wasmModule = new WebAssembly.Module(wasmBytes);
-      await initialize({ wasmModule, worker: false });
+      await initialize(
+        { wasmModule, worker: false } as unknown as InitializeOptions,
+      );
     })().catch(() => {
-      // Already initialized — ignore
       esbuildReady = null;
     });
   }
@@ -71,14 +71,11 @@ function ensureInit() {
 let cacheWarmed = false;
 
 /** Pre-populate Deno's npm cache so esbuild resolution doesn't trigger noisy
- *  download logs mid-build. Safe to call multiple times — only runs once. */
+ *  download logs mid-build. Safe to call multiple times -- only runs once. */
 export async function warmNpmCache(): Promise<void> {
   if (cacheWarmed) return;
   cacheWarmed = true;
   await ensureInit();
-  // Dynamic imports trigger Deno's npm resolution and cache the packages.
-  // These are the npm specifiers from the root deno.json import map that
-  // denoPlugin will resolve during bundling.
   await Promise.allSettled([
     import("preact"),
     import("preact/hooks"),
@@ -152,8 +149,6 @@ export function clientBuildOptions(
 }
 
 async function precomputeSchemas(agent: AgentEntry) {
-  // Agents with npm deps can't be dynamically imported in this process —
-  // return null and let the worker compute schemas at runtime.
   if (agent.hasNpmDeps) return null;
 
   const { agentToolsToSchemas } = await import("../server/agent_types.ts");
@@ -191,9 +186,6 @@ export async function bundleAgent(
 
   const agentAbsolute = resolve(agent.entryPoint);
   const workerEntryAbsolute = resolve(AAI_ROOT, "server/worker_entry.ts");
-
-  // Write temp shims that expose SDK/UI symbols as globals so import-free
-  // agent files can reference defineAgent, z, fetchJSON, mount, etc. at runtime.
   const agentModAbsolute = resolve(AAI_ROOT, "server/agent.ts");
   const fetchJsonAbsolute = resolve(AAI_ROOT, "server/fetch_json.ts");
 
@@ -208,28 +200,25 @@ export async function bundleAgent(
   const clientShimPath = resolve(outDir, "_client_shim.ts");
   await Deno.writeTextFile(
     clientShimPath,
-    `import { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, VoiceSession } from "@aai/ui";\n` +
+    `import { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, createVoiceSession } from "@aai/ui";\n` +
       `import { useEffect, useRef, useState, useCallback, useMemo } from "preact/hooks";\n` +
-      `Object.assign(globalThis, { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, VoiceSession, useEffect, useRef, useState, useCallback, useMemo });\n`,
+      `Object.assign(globalThis, { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, createVoiceSession, useEffect, useRef, useState, useCallback, useMemo });\n`,
   );
 
   // Plugin to resolve bare npm imports from the agent's node_modules
-  // before denoPlugin (which only knows the aai project's import map).
   const agentNpmPlugin: Plugin = {
     name: "agent-npm",
     setup(b) {
       if (!agent.hasNpmDeps) return;
       const nmDir = resolve(agent.dir, "node_modules");
       b.onResolve({ filter: /^[^./]/ }, async (args) => {
-        // Only intercept imports originating from the agent's directory
         if (!args.resolveDir.startsWith(agent.dir)) return undefined;
         const pkgDir = resolve(nmDir, args.path);
         try {
           await Deno.stat(pkgDir);
         } catch {
-          return undefined; // fall through to denoPlugin
+          return undefined;
         }
-        // Read the package.json to find the entry point
         try {
           const raw = await Deno.readTextFile(resolve(pkgDir, "package.json"));
           const pkg = JSON.parse(raw);
@@ -271,8 +260,6 @@ export async function bundleAgent(
 
   let clientBytes = 0;
   if (!opts?.skipClient) {
-    // If the user's custom client.tsx exports a default component but doesn't
-    // call mount(), generate a wrapper entry that auto-mounts it for them.
     let effectiveClientEntry = agent.clientEntry;
     const clientShimEntryPath = resolve(outDir, "_client_entry.tsx");
     if (agent.clientEntry.startsWith(agent.dir)) {

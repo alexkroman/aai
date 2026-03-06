@@ -1,7 +1,7 @@
 import { expect } from "@std/expect";
 import type { ToolDef } from "./agent_types.ts";
 import { startWorker } from "./worker_entry.ts";
-import { createWorkerRpc } from "./worker_pool.ts";
+import { createWorkerRpc } from "./rpc.ts";
 
 function createHarness(
   agent: {

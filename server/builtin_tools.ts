@@ -1,66 +1,13 @@
 import { z } from "zod";
 import { getLogger } from "./logger.ts";
-import { createSandboxRpc } from "./worker_pool.ts";
+import { createSandboxRpc } from "./rpc.ts";
 import type { ToolSchema } from "./types.ts";
 import type { ToolParameters } from "./agent_types.ts";
+import { htmlToMarkdown } from "./html.ts";
 
 const log = getLogger("builtin-tools");
 
 type JSONSchemaParam = Parameters<typeof z.fromJSONSchema>[0];
-
-const ENTITY: Record<string, string> = {
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&#39;": "'",
-  "&apos;": "'",
-  "&nbsp;": " ",
-};
-
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(
-      /&#x([0-9a-fA-F]+);/g,
-      (_, n) => String.fromCharCode(parseInt(n, 16)),
-    )
-    .replace(/&\w+;/g, (m) => ENTITY[m] ?? m);
-}
-
-export function htmlToMarkdown(html: string): string {
-  let s = html;
-  // Strip script, style, head
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
-  s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
-  s = s.replace(/<head[\s\S]*?<\/head>/gi, "");
-  // Headings
-  for (let i = 6; i >= 1; i--) {
-    const re = new RegExp(`<h${i}[^>]*>(.*?)<\\/h${i}>`, "gi");
-    s = s.replace(
-      re,
-      (_, c) => `\n${"#".repeat(i)} ${decodeEntities(c.trim())}\n`,
-    );
-  }
-  // Bold
-  s = s.replace(/<(b|strong)[^>]*>(.*?)<\/\1>/gi, (_, _t, c) => `**${c}**`);
-  // Italic
-  s = s.replace(/<(i|em)[^>]*>(.*?)<\/\1>/gi, (_, _t, c) => `_${c}_`);
-  // Links
-  s = s.replace(
-    /<a[^>]+href="([^"]*)"[^>]*>(.*?)<\/a>/gi,
-    (_, href, text) => `[${text}](${href})`,
-  );
-  // List items
-  s = s.replace(/<li[^>]*>(.*?)<\/li>/gi, (_, c) => `* ${c.trim()}\n`);
-  // Remove remaining tags
-  s = s.replace(/<[^>]+>/g, "");
-  // Decode entities
-  s = decodeEntities(s);
-  // Collapse blank lines
-  s = s.replace(/\n{3,}/g, "\n\n");
-  return s.trim();
-}
 
 interface BuiltinTool {
   name: string;

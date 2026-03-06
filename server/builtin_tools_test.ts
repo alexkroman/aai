@@ -1,9 +1,6 @@
 import { expect } from "@std/expect";
-import {
-  executeBuiltinTool,
-  getBuiltinToolSchemas,
-  htmlToMarkdown,
-} from "./builtin_tools.ts";
+import { executeBuiltinTool, getBuiltinToolSchemas } from "./builtin_tools.ts";
+import { htmlToMarkdown } from "./html.ts";
 
 Deno.test("htmlToMarkdown", async (t) => {
   await t.step("strips script tags", () => {
