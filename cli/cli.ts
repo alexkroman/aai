@@ -3,6 +3,7 @@ import { exists } from "@std/fs/exists";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { error } from "./_output.ts";
+import { promptUpgradeIfAvailable } from "./_update.ts";
 
 const denoConfig = await import("../deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;
@@ -51,6 +52,8 @@ export async function main(args: string[]): Promise<number> {
     console.log(VERSION);
     return 0;
   }
+
+  await promptUpgradeIfAvailable(VERSION);
 
   const { getApiKey } = await import("./_discover.ts");
   const cwd = Deno.env.get("INIT_CWD") || Deno.cwd();
