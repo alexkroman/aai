@@ -4,7 +4,7 @@ import {
   DEFAULT_TTS_SAMPLE_RATE,
   type ErrorMessage,
   type ServerMessage,
-} from "@aai/server/protocol";
+} from "@aai/sdk/protocol";
 
 import {
   type AgentState,
@@ -280,6 +280,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
           break;
         case "tts_done":
           streamingMessage = false;
+          voiceIO?.done();
           state.value = "listening";
           break;
         case "cancelled":
