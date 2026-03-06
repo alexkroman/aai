@@ -317,14 +317,6 @@ export async function bundleAgent(
             `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`,
         );
         effectiveClientEntry = clientShimEntryPath;
-      } else if (!hasMount && !hasDefaultExport) {
-        throw new BundleError(
-          "client.tsx must export a default component:\n\n" +
-            "  export default function App() {\n" +
-            "    const session = useSession();\n" +
-            "    return <div>...</div>;\n" +
-            "  }\n",
-        );
       }
     }
 

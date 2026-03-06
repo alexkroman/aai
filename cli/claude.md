@@ -328,7 +328,7 @@ export default function App() {
 
 **Rules for `client.tsx`:**
 
-- Must have a `export default` function component — this is required
+- Export a default function component — the framework auto-mounts it for you
 - No imports needed — `useSession`, `css`, `keyframes`, `styled`, and Preact
   hooks (`useEffect`, `useRef`, `useState`, `useCallback`, `useMemo`) are
   provided as globals by the framework
