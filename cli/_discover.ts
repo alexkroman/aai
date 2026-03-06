@@ -153,10 +153,12 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   }
 
   if (missing.length > 0) {
+    const hasEnvFile = await exists(join(dir, ".env"));
+    const hint = hasEnvFile
+      ? `Add them to .env:\n\n${missing.map((k) => `  ${k}=`).join("\n")}\n`
+      : `Create a .env file:\n\n${missing.map((k) => `  ${k}=`).join("\n")}\n`;
     throw new Error(
-      `agent requires env vars not found in .env or process env: ${
-        missing.join(", ")
-      }`,
+      `missing env vars required by agent: ${missing.join(", ")}\n\n${hint}`,
     );
   }
 
