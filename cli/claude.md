@@ -386,18 +386,24 @@ ASSEMBLYAI_API_KEY=<user needs to add>
 
 ## Running and deploying the agent
 
-After creating files, tell the user to run:
+The `aai` CLI handles type-checking, validation, bundling, and deployment in a
+single command. There is no separate build step or deploy tool.
 
 ```sh
 aai
 ```
 
-This single command runs the agent locally in dev mode. To type-check, validate,
-and bundle without deploying:
+This type-checks your agent, validates the config, bundles the code, and deploys
+it to the dev server. Use it every time you make changes.
+
+To type-check and validate without deploying:
 
 ```sh
 aai --dry-run
 ```
+
+Use `--dry-run` to catch type errors and config issues before deploying. It runs
+the same checks as a full deploy but skips the upload.
 
 If they don't have aai installed:
 
