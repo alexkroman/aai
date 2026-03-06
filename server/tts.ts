@@ -145,7 +145,7 @@ export function createTtsClient(config: TTSConfig) {
 
   return {
     async synthesizeStream(
-      chunks: AsyncIterable<string>,
+      chunks: string | AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
     ): Promise<void> {
@@ -157,9 +157,13 @@ export function createTtsClient(config: TTSConfig) {
       if (signal?.aborted) return;
 
       onAudioCb = onAudio;
-      for await (const text of chunks) {
-        if (signal?.aborted) return;
-        conn.send(text);
+      if (typeof chunks === "string") {
+        conn.send(chunks);
+      } else {
+        for await (const text of chunks) {
+          if (signal?.aborted) return;
+          conn.send(text);
+        }
       }
       conn.send("<FLUSH>");
       await waitForCompletion(signal);

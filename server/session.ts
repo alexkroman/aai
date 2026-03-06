@@ -43,7 +43,7 @@ export interface SessionOptions {
   callLLM?(opts: CallLLMOptions): Promise<LLMResponse>;
   ttsClient?: {
     synthesizeStream(
-      chunks: AsyncIterable<string>,
+      chunks: string | AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
     ): Promise<void>;
@@ -130,24 +130,14 @@ export function createSession(opts: SessionOptions): Session {
     return builtin ?? await executeTool(name, args, id);
   }
 
-  function trySendJson(data: Record<string, unknown>): void {
+  function trySend(data: string | Uint8Array): void {
     try {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(data));
-      }
-    } catch (err: unknown) {
-      console.error("trySendJson failed", { err });
-    }
+      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    } catch { /* ws closed between check and send */ }
   }
 
-  function trySendBytes(data: Uint8Array): void {
-    try {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
-      }
-    } catch (err: unknown) {
-      console.error("trySendBytes failed", { err });
-    }
+  function trySendJson(data: Record<string, unknown>): void {
+    trySend(JSON.stringify(data));
   }
 
   function cancelInflight(): void {
@@ -252,10 +242,8 @@ export function createSession(opts: SessionOptions): Session {
       if (result) {
         trySendJson({ type: "chat", text: result });
         await tts.synthesizeStream(
-          (async function* () {
-            yield result;
-          })(),
-          (chunk) => trySendBytes(chunk),
+          result,
+          (chunk) => trySend(chunk),
           abort.signal,
         );
         if (!abort.signal.aborted) trySendJson({ type: "tts_done" });
@@ -275,11 +263,8 @@ export function createSession(opts: SessionOptions): Session {
   function speakText(text: string): void {
     const abort = new AbortController();
     turnAbort = abort;
-    async function* oneShot() {
-      yield text;
-    }
     const p = tts
-      .synthesizeStream(oneShot(), (chunk) => trySendBytes(chunk), abort.signal)
+      .synthesizeStream(text, (chunk) => trySend(chunk), abort.signal)
       .then(() => {
         if (!abort.signal.aborted) trySendJson({ type: "tts_done" });
       })

@@ -87,7 +87,7 @@ export interface MockTtsClient {
   streamedText: string[];
   closeCalled: boolean;
   synthesizeStream(
-    chunks: AsyncIterable<string>,
+    chunks: string | AsyncIterable<string>,
     onAudio: (chunk: Uint8Array) => void,
     signal?: AbortSignal,
   ): Promise<void>;
@@ -100,13 +100,17 @@ export function createMockTtsClient(): MockTtsClient {
     streamedText: [],
     closeCalled: false,
     async synthesizeStream(
-      chunks: AsyncIterable<string>,
+      chunks: string | AsyncIterable<string>,
       _onAudio: (chunk: Uint8Array) => void,
       _signal?: AbortSignal,
     ): Promise<void> {
       this.synthesizeStreamCalls++;
-      for await (const text of chunks) {
-        this.streamedText.push(text);
+      if (typeof chunks === "string") {
+        this.streamedText.push(chunks);
+      } else {
+        for await (const text of chunks) {
+          this.streamedText.push(text);
+        }
       }
     },
     close() {
