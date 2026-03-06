@@ -87,7 +87,7 @@ export async function promptUpgradeIfAvailable(
     }`,
   );
   const answer = prompt("Upgrade now? (Y/n)");
-  if (answer !== null && answer !== "" && answer.toLowerCase() !== "y") {
+  if (answer === null || (answer !== "" && answer.toLowerCase() !== "y")) {
     console.log(dim(`Run aai again to upgrade later.\n`));
     return;
   }

@@ -43,6 +43,12 @@ export async function main(args: string[]): Promise<number> {
     boolean: ["help", "version", "watch", "yes", "dry-run"],
   });
 
+  // Skip update check when running via `deno run` (aai-dev) — only check for compiled binary
+  const isCompiled = !Deno.execPath().endsWith("deno");
+  if (isCompiled) {
+    await promptUpgradeIfAvailable(VERSION);
+  }
+
   if (flags.help) {
     printUsage();
     return 0;
@@ -51,12 +57,6 @@ export async function main(args: string[]): Promise<number> {
   if (flags.version) {
     console.log(VERSION);
     return 0;
-  }
-
-  // Skip update check when running via `deno run` (aai-dev) — only check for compiled binary
-  const isCompiled = !Deno.execPath().endsWith("deno");
-  if (isCompiled) {
-    await promptUpgradeIfAvailable(VERSION);
   }
 
   const { getApiKey } = await import("./_discover.ts");
