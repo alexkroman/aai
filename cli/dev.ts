@@ -67,20 +67,27 @@ async function typeCheck(agent: AgentEntry): Promise<string | null> {
   if (agent.clientEntry.startsWith(agent.dir)) {
     files.push(agent.clientEntry);
   }
-  const cmd = new Deno.Command("deno", {
-    args: ["check", ...files],
-    cwd: agent.dir,
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const { success, stderr } = await cmd.output();
-  if (success) return null;
-  return new TextDecoder().decode(stderr)
-    .split("\n")
-    // deno-lint-ignore no-control-regex
-    .filter((l) => !l.replace(/\x1b\[[0-9;]*m/g, "").match(/^\s*Check\s/))
-    .join("\n")
-    .trim();
+  try {
+    const cmd = new Deno.Command("deno", {
+      args: ["check", ...files],
+      cwd: agent.dir,
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const { success, stderr } = await cmd.output();
+    if (success) return null;
+    return new TextDecoder().decode(stderr)
+      .split("\n")
+      // deno-lint-ignore no-control-regex
+      .filter((l) => !l.replace(/\x1b\[[0-9;]*m/g, "").match(/^\s*Check\s/))
+      .join("\n")
+      .trim();
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 /** Type-check, validate, bundle, and optionally deploy an agent. */

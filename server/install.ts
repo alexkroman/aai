@@ -78,6 +78,10 @@ case ":\$PATH:" in
 esac
 
 echo "Run 'aai' to get started"
+
+if ! command -v deno >/dev/null 2>&1; then
+  echo "Tip: Install Deno for TypeScript type-checking: https://deno.land/#installation"
+fi
 `;
 
 export function handleInstall(): Response {
