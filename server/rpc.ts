@@ -20,9 +20,14 @@ export function createWorkerRpc(port: Worker | MessagePort): WorkerApi {
     executeTool: async (
       name: string,
       args: Record<string, unknown>,
+      sessionId?: string,
       timeoutMs?: number,
     ): Promise<string> => {
-      const raw = await call("executeTool", { name, args }, timeoutMs);
+      const raw = await call(
+        "executeTool",
+        { name, args, sessionId },
+        timeoutMs,
+      );
       return typeof raw === "string" ? raw : String(raw ?? "");
     },
     invokeHook: async (

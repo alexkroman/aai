@@ -5,26 +5,13 @@ const TYPES_TEMPLATE = Deno.readTextFileSync(
   new URL("./types.template", import.meta.url),
 );
 
-function buildDenoJson(dir: string): string {
-  // deno-lint-ignore no-explicit-any
-  const config: Record<string, any> = {
+function buildDenoJson(): string {
+  const config = {
     compilerOptions: {
       jsx: "react-jsx",
       jsxImportSource: "preact",
     },
   };
-  try {
-    const pkgRaw = Deno.readTextFileSync(join(dir, "package.json"));
-    const pkg = JSON.parse(pkgRaw);
-    const deps = pkg.dependencies ?? {};
-    if (Object.keys(deps).length > 0) {
-      config.nodeModulesDir = "auto";
-      config.imports = {};
-      for (const name of Object.keys(deps)) {
-        config.imports[name] = `npm:${name}`;
-      }
-    }
-  } catch { /* no package.json */ }
   return JSON.stringify(config, null, 2) + "\n";
 }
 
@@ -47,7 +34,7 @@ export async function generateTypes(dir: string): Promise<string> {
     } catch { /* missing */ }
   }
   if (!hasConfig) {
-    await Deno.writeTextFile(denoJsonPath, buildDenoJson(dir));
+    await Deno.writeTextFile(denoJsonPath, buildDenoJson());
   }
 
   return dest;

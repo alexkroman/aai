@@ -33,7 +33,7 @@ export interface SessionOptions {
   toolSchemas: ToolSchema[];
   platformConfig: PlatformConfig;
   executeTool: ExecuteTool;
-  secrets?: Record<string, string | undefined>;
+  env?: Record<string, string | undefined>;
   workerApi?: WorkerApi;
   skipGreeting?: boolean;
   connectStt?(
@@ -80,9 +80,9 @@ export function createSession(opts: SessionOptions): Session {
     ? { ...opts.agentConfig, greeting: "" }
     : opts.agentConfig;
 
-  const secrets: Record<string, string | undefined> = {
-    ...opts.secrets,
-    BRAVE_API_KEY: platformConfig.braveApiKey || opts.secrets?.BRAVE_API_KEY,
+  const env: Record<string, string | undefined> = {
+    ...opts.env,
+    BRAVE_API_KEY: platformConfig.braveApiKey || opts.env?.BRAVE_API_KEY,
   };
   const logger = getLogger(`session:${id.slice(0, 8)}`);
 
@@ -103,7 +103,7 @@ export function createSession(opts: SessionOptions): Session {
   const tts = opts.ttsClient ?? createTtsClient(config.ttsConfig);
   const doExecuteBuiltinTool = opts.executeBuiltinTool ??
     ((name: string, args: Record<string, unknown>) =>
-      defaultExecuteBuiltinTool(name, args, secrets));
+      defaultExecuteBuiltinTool(name, args, env));
 
   let stt: SttHandle | null = null;
   let turnAbort: AbortController | null = null;
@@ -130,7 +130,7 @@ export function createSession(opts: SessionOptions): Session {
     args: Record<string, unknown>,
   ): Promise<string> {
     const builtin = await doExecuteBuiltinTool(name, args);
-    return builtin ?? await executeTool(name, args);
+    return builtin ?? await executeTool(name, args, id);
   }
 
   function trySendJson(data: Record<string, unknown>): void {

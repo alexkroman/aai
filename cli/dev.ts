@@ -1,6 +1,7 @@
 import { debounce } from "@std/async/debounce";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
+import { cyan, dim, green, red, yellow } from "@std/fmt/colors";
 import { error, spinner, step, stepInfo } from "./_output.ts";
 import { type AgentEntry, loadAgent } from "./_discover.ts";
 import { bundleAgent, BundleError, warmNpmCache } from "./_bundler.ts";
@@ -49,7 +50,7 @@ async function printSummary(
   }
 
   const files: string[] = [];
-  for (const name of ["agent.ts", "agent.json", "client.tsx", ".env"]) {
+  for (const name of ["agent.ts", "client.tsx", ".env"]) {
     if (await exists(join(agent.dir, name))) {
       files.push(name);
     }
@@ -58,7 +59,6 @@ async function printSummary(
     stepInfo("Files", files.join(", "));
   }
   stepInfo("Docs", "CLAUDE.md -- aai agent API reference");
-  stepInfo("GitHub", "https://github.com/alexkroman/aai");
 }
 
 /** Validate, bundle, and optionally deploy an agent. */
@@ -76,6 +76,26 @@ async function buildAndDeploy(
       error(`${e.field}: ${e.message}`);
     }
     throw new Error("agent validation failed -- fix the errors above");
+  }
+
+  if (validation.toolTests && validation.toolTests.length > 0) {
+    step("Tools", "testing custom tools...");
+    for (const t of validation.toolTests) {
+      if (t.ok && t.skipped) {
+        console.log(
+          `  ${yellow("○")} ${cyan(t.name)} ${dim("skipped (requires args)")}`,
+        );
+      } else if (t.ok) {
+        const preview = t.result !== undefined
+          ? dim(" → " + JSON.stringify(t.result).slice(0, 80))
+          : "";
+        console.log(`  ${green("✓")} ${cyan(t.name)}${preview}`);
+      } else {
+        console.log(
+          `  ${red("✗")} ${cyan(t.name)} ${red(t.error ?? "unknown error")}`,
+        );
+      }
+    }
   }
 
   step("Bundle", agent.slug);
@@ -104,11 +124,15 @@ async function buildAndDeploy(
 }
 
 export async function runDev(opts: DevOpts): Promise<void> {
+  const sp = spinner("Setup", "preparing bundler...");
+  await warmNpmCache();
+  sp.stop();
+
   let agent: AgentEntry;
   try {
     const result = await loadAgent(opts.agentDir);
     if (!result) {
-      error("no agent found -- needs agent.ts + agent.json");
+      error("no agent found -- needs agent.ts");
       throw new Error("missing agent files");
     }
     agent = result;
@@ -135,10 +159,6 @@ export async function runDev(opts: DevOpts): Promise<void> {
   }
 
   const tmpDir = await Deno.makeTempDir({ prefix: "aai-dev-" });
-
-  const sp = spinner("Setup", "preparing bundler...");
-  await warmNpmCache();
-  sp.stop();
 
   const validation = await buildAndDeploy(
     agent,

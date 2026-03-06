@@ -31,6 +31,7 @@ export interface WorkerApi {
   executeTool(
     name: string,
     args: Record<string, unknown>,
+    sessionId?: string,
     timeoutMs?: number,
   ): Promise<string>;
   invokeHook(
@@ -43,7 +44,7 @@ export interface WorkerApi {
 
 export function startWorker(
   agent: AgentLike,
-  secrets: Record<string, string>,
+  env: Record<string, string>,
   precomputedSchemas?: ToolSchema[],
   endpoint?: MessageTarget,
 ): void {
@@ -64,14 +65,15 @@ export function startWorker(
   serveRpc(port, {
     getConfig: () => ({ config, toolSchemas }),
 
-    executeTool: ({ name, args }: Record<string, unknown>) => {
+    executeTool: ({ name, args, sessionId }: Record<string, unknown>) => {
       const tool = toolHandlers.get(name as string);
       if (!tool) return `Error: Unknown tool "${name}"`;
       return executeToolCall(
         name as string,
         args as Record<string, unknown>,
         tool,
-        secrets,
+        env,
+        sessionId as string | undefined,
       );
     },
 
@@ -83,7 +85,7 @@ export function startWorker(
     }: Record<string, unknown>) => {
       const ctx: HookContext = {
         sessionId: sessionId as string,
-        secrets: { ...secrets },
+        env: { ...env },
       };
       if (hook === "onConnect") {
         await agent.onConnect?.(ctx);

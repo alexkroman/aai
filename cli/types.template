@@ -2,19 +2,66 @@
 /// <reference lib="dom" />
 
 // -- Zod (provided as a global by the framework) -----------------------------
+interface ZodTypeDef {}
+interface ZodType<Output = unknown> {
+  _output: Output;
+  optional(): ZodType<Output | undefined>;
+  describe(description: string): this;
+}
+interface ZodString extends ZodType<string> {
+  min(len: number, msg?: string): ZodString;
+  max(len: number, msg?: string): ZodString;
+  email(msg?: string): ZodString;
+  url(msg?: string): ZodString;
+  optional(): ZodType<string | undefined>;
+  describe(description: string): ZodString;
+}
+interface ZodNumber extends ZodType<number> {
+  min(value: number, msg?: string): ZodNumber;
+  max(value: number, msg?: string): ZodNumber;
+  int(msg?: string): ZodNumber;
+  positive(msg?: string): ZodNumber;
+  optional(): ZodType<number | undefined>;
+  describe(description: string): ZodNumber;
+}
+interface ZodBoolean extends ZodType<boolean> {
+  optional(): ZodType<boolean | undefined>;
+  describe(description: string): ZodBoolean;
+}
 // deno-lint-ignore no-explicit-any
-declare const z: any;
+interface ZodObject<T extends Record<string, any> = Record<string, any>> extends ZodType<{
+  [K in keyof T]: T[K] extends ZodType<infer O> ? O : never;
+}> {
+  describe(description: string): this;
+}
+// deno-lint-ignore no-explicit-any
+interface ZodArray<T extends ZodType = ZodType<any>> extends ZodType<T["_output"][]> {
+  min(len: number, msg?: string): this;
+  max(len: number, msg?: string): this;
+  describe(description: string): this;
+}
+interface ZodEnum<T extends string> extends ZodType<T> {
+  describe(description: string): ZodEnum<T>;
+}
+declare const z: {
+  string(): ZodString;
+  number(): ZodNumber;
+  boolean(): ZodBoolean;
+  object<T extends Record<string, ZodType>>(shape: T): ZodObject<T>;
+  array<T extends ZodType>(schema: T): ZodArray<T>;
+  enum<T extends string>(values: readonly [T, ...T[]]): ZodEnum<T>;
+};
 
 // -- Server -------------------------------------------------------------------
 interface ToolContext {
-  secrets: Record<string, string>;
-  fetch: typeof globalThis.fetch;
+  sessionId: string;
+  env: Record<string, string>;
   signal?: AbortSignal;
 }
 
 interface HookContext {
   sessionId: string;
-  secrets: Record<string, string>;
+  env: Record<string, string>;
 }
 
 interface ToolDef {
@@ -26,6 +73,9 @@ interface ToolDef {
 
 interface AgentOptions {
   name: string;
+  slug?: string;
+  env?: string[];
+  transport?: string | string[];
   instructions?: string;
   greeting?: string;
   voice?: string;
@@ -40,6 +90,9 @@ interface AgentOptions {
 
 interface AgentDef {
   readonly name: string;
+  readonly slug: string;
+  readonly env: readonly string[];
+  readonly transport: readonly string[];
   readonly instructions: string;
   readonly greeting: string;
   readonly voice: string;
@@ -56,7 +109,7 @@ declare function defineAgent(options: AgentOptions): AgentDef;
 
 declare function fetchJSON<T = unknown>(
   url: string,
-  init?: RequestInit & { fetch?: typeof globalThis.fetch },
+  init?: RequestInit,
 ): Promise<T>;
 
 // -- UI types -----------------------------------------------------------------

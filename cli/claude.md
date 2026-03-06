@@ -68,18 +68,21 @@ interface ToolDef {
 }
 
 interface ToolContext {
-  secrets: Record<string, string>; // env vars from .env
-  fetch: typeof globalThis.fetch; // HTTP client
+  sessionId: string; // unique per-connection session ID
+  env: Record<string, string>; // env vars from .env
   signal?: AbortSignal;
 }
 
 interface HookContext {
   sessionId: string;
-  secrets: Record<string, string>; // env vars from .env — same as ToolContext.secrets
+  env: Record<string, string>; // env vars from .env — same as ToolContext.env
 }
 
 interface AgentOptions {
   name: string; // Required: display name
+  slug?: string; // URL identifier (auto-derived from name if omitted)
+  env?: string[]; // Env var names to load (default: ["ASSEMBLYAI_API_KEY"])
+  transport?: Transport | Transport[]; // "websocket" | "twilio" (default: ["websocket"])
   instructions?: string; // System prompt (voice-first default provided)
   greeting?: string; // Spoken on connect
   voice?: Voice; // Rime TTS voice (default: "luna")
@@ -91,6 +94,8 @@ interface AgentOptions {
   onError?: (error: Error, ctx?: HookContext) => void;
   onTurn?: (text: string, ctx: HookContext) => void | Promise<void>;
 }
+
+type Transport = "websocket" | "twilio";
 ```
 
 ## Custom tools
@@ -107,8 +112,7 @@ tools: {
       param: z.string().describe("What this param is"),
     }),
     execute: async ({ param }, ctx) => {
-      // ctx.fetch for HTTP requests
-      // ctx.secrets for environment variables (from .env)
+      // ctx.env for environment variables (from .env)
       return { result: param };
     },
   },
@@ -142,27 +146,26 @@ parameter for type-safe responses:
 ```ts
 interface SearchResult { items: { title: string; url: string }[] }
 
-execute: async ({ query }, ctx) => {
-  const data = await fetchJSON<SearchResult>("https://api.example.com/data?q=" + encodeURIComponent(query), {
-    fetch: ctx.fetch,
-  });
+execute: async ({ query }) => {
+  const data = await fetchJSON<SearchResult>("https://api.example.com/data?q=" + encodeURIComponent(query));
   return data.items;
 },
 ```
 
-## Environment variables and secrets
+## Environment variables
 
-Variables listed in `agent.json`'s `env` array are loaded from `.env` (or the
-process environment) and passed as `ctx.secrets` — a `Record<string, string>` —
-in both tool `execute` functions and lifecycle hooks. They are **not** available
-via `Deno.env` inside agent code.
+Variables listed in the `env` array in `defineAgent()` are loaded from `.env`
+(or the process environment) and passed as `ctx.env` — a
+`Record<string, string>` — in both tool `execute` functions and lifecycle hooks.
+They are **not** available via `Deno.env` inside agent code. The default is
+`["ASSEMBLYAI_API_KEY"]`.
 
 ```ts
-// agent.json: { "env": ["ASSEMBLYAI_API_KEY", "MY_API_KEY"] }
-// .env:       MY_API_KEY=sk-abc123
+// .env: MY_API_KEY=sk-abc123
 
 export default defineAgent({
   name: "My Agent",
+  env: ["ASSEMBLYAI_API_KEY", "MY_API_KEY"],
   tools: {
     call_api: {
       description: "Call an external API",
@@ -170,9 +173,9 @@ export default defineAgent({
         query: z.string().describe("search query"),
       }),
       execute: async ({ query }, ctx) => {
-        // Access env vars via ctx.secrets
-        const key = ctx.secrets.MY_API_KEY;
-        const res = await ctx.fetch(`https://api.example.com?q=${query}`, {
+        // Access env vars via ctx.env
+        const key = ctx.env.MY_API_KEY;
+        const res = await fetch(`https://api.example.com?q=${query}`, {
           headers: { Authorization: `Bearer ${key}` },
         });
         return res.json();
@@ -180,8 +183,8 @@ export default defineAgent({
     },
   },
   onConnect: (ctx) => {
-    // Same secrets available in hooks
-    console.log("Connected:", ctx.sessionId, ctx.secrets.MY_API_KEY);
+    // Same env available in hooks
+    console.log("Connected:", ctx.sessionId, ctx.env.MY_API_KEY);
   },
 });
 ```
@@ -224,9 +227,9 @@ guess.
 
 ### API-powered agent (external data)
 
-Use `fetch_json` and/or custom tools with `ctx.fetch`. Good for weather,
-finance, health data, or any REST API. Include the API endpoint URLs and
-expected response shapes in the instructions.
+Use `fetch_json` and/or custom tools with `fetch`. Good for weather, finance,
+health data, or any REST API. Include the API endpoint URLs and expected
+response shapes in the instructions.
 
 ### Embedded knowledge agent (local data)
 
@@ -256,26 +259,28 @@ export default defineAgent({
 
 ### Phone agent (Twilio integration)
 
-Same as any agent, but `agent.json` includes a transport array:
+Same as any agent, but with a `transport` field in `defineAgent()`:
 
-```json
-{
-  "slug": "phone-agent",
-  "transport": ["websocket", "twilio"],
-  "env": ["ASSEMBLYAI_API_KEY"]
-}
+```ts
+export default defineAgent({
+  name: "Phone Agent",
+  transport: ["websocket", "twilio"],
+  builtinTools: ["web_search", "visit_webpage"],
+});
 ```
 
-### npm dependencies agent
+### npm/jsr dependencies agent
 
-When an agent needs npm packages, declare them in `agent.json`:
+When an agent needs external packages, add them to `deno.json` imports:
 
 ```json
 {
-  "slug": "my-agent",
-  "env": ["ASSEMBLYAI_API_KEY"],
-  "npm": {
-    "lodash-es": "^4.17.21"
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  },
+  "imports": {
+    "lodash-es": "npm:lodash-es@^4"
   }
 }
 ```
@@ -298,6 +303,8 @@ export default defineAgent({
   },
 });
 ```
+
+Both `npm:` and `jsr:` specifiers are supported in the import map.
 
 ### Custom UI agent
 
@@ -322,7 +329,7 @@ export default function App() {
 
 **Rules for `client.tsx`:**
 
-- Must have a `export default` function component — this is required
+- Export a default function component — the framework auto-mounts it for you
 - No imports needed — `useSession`, `css`, `keyframes`, `styled`, and Preact
   hooks (`useEffect`, `useRef`, `useState`, `useCallback`, `useMemo`) are
   provided as globals by the framework
@@ -352,36 +359,13 @@ export default function App() {
 
 After creating `agent.ts`, also create:
 
-1. **`agent.json`** with agent metadata:
-
-```json
-{
-  "slug": "agent-slug-name",
-  "env": ["ASSEMBLYAI_API_KEY"]
-}
-```
-
-**agent.json schema:**
-
-- `slug` (string, required) — Unique agent identifier used in URLs
-- `env` (string[], required) — Environment variable names required by the agent.
-  Must include `"ASSEMBLYAI_API_KEY"`. Values are read from `.env` or the
-  process environment. These are passed as `ctx.secrets` in both tool `execute`
-  functions and lifecycle hooks (`onConnect`, `onDisconnect`, `onTurn`,
-  `onError`). They are **not** injected into `Deno.env`.
-- `transport` (optional) — Either a single transport string or an array:
-  `"websocket"` | `"twilio"`. Defaults to `["websocket"]`.
-- `npm` (optional) — Object mapping npm package names to version ranges. When
-  present, the CLI generates a `package.json`, runs `npm install`, and
-  configures esbuild to resolve bare imports from `node_modules`.
-
-2. **`.env`** with required API keys:
+1. **`.env`** with required API keys:
 
 ```
 ASSEMBLYAI_API_KEY=<user needs to add>
 ```
 
-3. **`env.example`** — same as `.env` but without values, for version control.
+2. **`.env.example`** — same as `.env` but without values, for version control.
 
 ## Running and deploying the agent
 

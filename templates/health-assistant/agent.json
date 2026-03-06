@@ -1,4 +1,0 @@
-{
-  "slug": "health-assistant",
-  "env": ["ASSEMBLYAI_API_KEY"]
-}

@@ -203,7 +203,7 @@ export async function handleTwilioStream(
     platformConfig: loadPlatformConfig(slot.env),
     executeTool: createRpcToolExecutor(info.workerApi),
     workerApi: info.workerApi,
-    secrets: slot.env,
+    env: slot.env,
   });
 
   trackSessionOpen(slot);

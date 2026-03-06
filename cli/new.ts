@@ -73,44 +73,18 @@ export async function runNew(opts: NewOptions): Promise<string> {
     }
   }
 
-  // Update slug in agent.json
-  const agentJsonPath = join(targetDir, "agent.json");
+  // Update slug in agent.ts defineAgent() call
+  const agentTsPath = join(targetDir, "agent.ts");
   try {
-    const raw = await Deno.readTextFile(agentJsonPath);
-    const config = JSON.parse(raw);
-    config.slug = slug;
-    await Deno.writeTextFile(
-      agentJsonPath,
-      JSON.stringify(config, null, 2) + "\n",
+    const src = await Deno.readTextFile(agentTsPath);
+    // Insert slug as first field after defineAgent({
+    const updated = src.replace(
+      /defineAgent\(\{/,
+      `defineAgent({\n  slug: "${slug}",`,
     );
+    await Deno.writeTextFile(agentTsPath, updated);
   } catch {
-    // No agent.json to update
-  }
-
-  // Install npm dependencies if agent.json declares them
-  const agentRaw = await Deno.readTextFile(agentJsonPath).catch(() => "{}");
-  const agentConfig = JSON.parse(agentRaw);
-  if (agentConfig.npm && Object.keys(agentConfig.npm).length > 0) {
-    const pkgJson = {
-      private: true,
-      dependencies: agentConfig.npm,
-    };
-    await Deno.writeTextFile(
-      join(targetDir, "package.json"),
-      JSON.stringify(pkgJson, null, 2) + "\n",
-    );
-    step("Install", "npm dependencies");
-    const npm = new Deno.Command("npm", {
-      args: ["install", "--silent"],
-      cwd: targetDir,
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const { success, stderr } = await npm.output();
-    if (!success) {
-      const err = new TextDecoder().decode(stderr).trim();
-      throw new Error(`npm install failed: ${err}`);
-    }
+    // No agent.ts to update
   }
 
   await generateTypes(targetDir);

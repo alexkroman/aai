@@ -10,22 +10,22 @@ const VERSION: string = denoConfig.default.version;
 
 function printUsage(): void {
   const dryRun = cyan("-n, --dry-run");
-  console.log(`${green(bold("aai"))} ${dim(VERSION)}
+  console.log(
+    `${green(bold("aai"))} ${dim(VERSION)}
 Voice agent development kit
 
 ${bold("USAGE:")}
-    ${cyan("aai")}                Run dev server (scaffolds new agent if needed)
+  ${cyan("aai")}              Run dev server (scaffolds new agent if needed)
 
 ${bold("OPTIONS:")}
-    ${cyan("-h, --help")}       Show this help message
-    ${cyan("-V, --version")}    Show version number
-    ${cyan("-w, --watch")}      Watch for changes and auto-reload
-    ${cyan("-y, --yes")}        Skip confirmation prompts (for automation)
-    ${cyan("-t, --template")}   Template to use for new agents (default: simple)
-    ${dryRun}    Type-check, validate, and bundle without deploying
-
-${dim("https://github.com/alexkroman/aai")}
-`);
+  ${cyan("-h, --help")}       Show this help message
+  ${cyan("-V, --version")}    Show version number
+  ${cyan("--no-watch")}       Disable file watching (watch is on by default)
+  ${cyan("-y, --yes")}        Skip confirmation prompts (for automation)
+  ${cyan("-t, --template")}   Template to use for new agents (default: simple)
+  ${dryRun}    Type-check, validate, and bundle without deploying
+`,
+  );
 }
 
 export async function main(args: string[]): Promise<number> {
@@ -35,12 +35,12 @@ export async function main(args: string[]): Promise<number> {
       u: "url",
       h: "help",
       V: "version",
-      w: "watch",
       y: "yes",
       t: "template",
       n: "dry-run",
     },
     boolean: ["help", "version", "watch", "yes", "dry-run"],
+    default: { watch: true },
   });
 
   // Skip update check when running via `deno run` (aai-dev) — only check for compiled binary
@@ -87,19 +87,37 @@ export async function main(args: string[]): Promise<number> {
     const templatesDir = join(cliDir, "..", "templates");
     const { generateSlug, runNew } = await import("./new.ts");
 
+    const template = flags.template || "simple";
     await runNew({
       slug: generateSlug(),
       targetDir: cwd,
-      template: flags.template || "simple",
+      template,
       templatesDir,
     });
+
+    const templates: string[] = [];
+    for await (const entry of Deno.readDir(templatesDir)) {
+      if (entry.isDirectory) templates.push(entry.name);
+    }
+    templates.sort();
+
+    console.log(`\n${bold("Templates:")}`);
+    for (const t of templates) {
+      const marker = t === template ? green("●") : dim("○");
+      console.log(`  ${marker} ${t === template ? bold(t) : t}`);
+    }
+    console.log(
+      dim(
+        `\n  Re-run with --template <name> to start from a different template\n`,
+      ),
+    );
   }
 
   const { runDev } = await import("./dev.ts");
   await runDev({
     agentDir: cwd,
     serverUrl,
-    watch: flags.watch,
+    watch: flags["dry-run"] ? false : flags.watch,
     openBrowser: isNewAgent,
     dryRun: flags["dry-run"],
   });

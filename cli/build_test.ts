@@ -15,11 +15,8 @@ Deno.test(
       try {
         await runBuild({ outDir: tmpOut, agentDir });
 
-        // Find the slug from the template's agent.json
-        const agentJson = JSON.parse(
-          await Deno.readTextFile(join(agentDir, "agent.json")),
-        );
-        const slug = agentJson.slug;
+        // The slug is derived from the agent name in defineAgent()
+        const slug = "simple-assistant";
         const outDir = join(tmpOut, slug);
 
         expect(await exists(join(outDir, "worker.js"))).toBe(true);

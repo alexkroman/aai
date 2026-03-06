@@ -44,7 +44,8 @@ export interface AgentSlot {
 export function createRpcToolExecutor(
   workerApi: WorkerApi,
 ): ExecuteTool {
-  return (name, args) => workerApi.executeTool(name, args, TOOL_TIMEOUT_MS);
+  return (name, args, sessionId) =>
+    workerApi.executeTool(name, args, sessionId, TOOL_TIMEOUT_MS);
 }
 
 export async function spawnAgent(
