@@ -164,7 +164,7 @@ const runCodeParams = z.object({
   ),
 });
 
-const TIMEOUT_MS = 5_000;
+const TIMEOUT_MS = 30_000;
 
 const SANDBOX_WORKER_URL = import.meta.resolve("./sandbox_worker.ts");
 
