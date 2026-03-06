@@ -58,7 +58,6 @@ async function printSummary(
     stepInfo("Files", files.join(", "));
   }
   stepInfo("Docs", "CLAUDE.md -- aai agent API reference");
-  stepInfo("GitHub", "https://github.com/alexkroman/aai");
 }
 
 /** Validate, bundle, and optionally deploy an agent. */

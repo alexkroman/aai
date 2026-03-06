@@ -20,7 +20,7 @@ ${bold("USAGE:")}
 ${bold("OPTIONS:")}
   ${cyan("-h, --help")}       Show this help message
   ${cyan("-V, --version")}    Show version number
-  ${cyan("-w, --watch")}      Watch for changes and auto-reload
+  ${cyan("--no-watch")}       Disable file watching (watch is on by default)
   ${cyan("-y, --yes")}        Skip confirmation prompts (for automation)
   ${cyan("-t, --template")}   Template to use for new agents (default: simple)
   ${dryRun}    Type-check, validate, and bundle without deploying
@@ -35,12 +35,12 @@ export async function main(args: string[]): Promise<number> {
       u: "url",
       h: "help",
       V: "version",
-      w: "watch",
       y: "yes",
       t: "template",
       n: "dry-run",
     },
     boolean: ["help", "version", "watch", "yes", "dry-run"],
+    default: { watch: true },
   });
 
   // Skip update check when running via `deno run` (aai-dev) — only check for compiled binary
@@ -99,7 +99,7 @@ export async function main(args: string[]): Promise<number> {
   await runDev({
     agentDir: cwd,
     serverUrl,
-    watch: flags.watch,
+    watch: flags["dry-run"] ? false : flags.watch,
     openBrowser: isNewAgent,
     dryRun: flags["dry-run"],
   });
