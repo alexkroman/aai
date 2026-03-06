@@ -77,7 +77,7 @@ claude "add a weather lookup tool to my agent"</code></pre>
       <h2>API Reference</h2>
 
       <h3>defineAgent</h3>
-      <p>Every agent exports a default <code>defineAgent()</code> call. No imports needed &mdash; <code>defineAgent</code>, <code>z</code>, and <code>fetchJSON</code> are ambient globals.</p>
+      <p>Every agent exports a default <code>defineAgent()</code> call. No imports needed &mdash; <code>defineAgent</code> and <code>fetchJSON</code> are ambient globals.</p>
       <pre><code>export default defineAgent({
   name: "Agent Name",
   instructions: "...",        <span class="dim">// system prompt for the LLM</span>
@@ -167,7 +167,7 @@ aai deploy</code></pre>
       <ul>
         <li>Use <code>ctx.secrets.VAR</code> not <code>Deno.env.get()</code> or <code>process.env</code></li>
         <li>Use <code>ctx.fetch</code> not global <code>fetch</code> inside tools</li>
-        <li>Don't type-annotate <code>execute</code> args &mdash; types are inferred from the zod schema</li>
+        <li>Don't type-annotate <code>execute</code> args &mdash; types are inferred from the JSON Schema parameters</li>
         <li>Every env var must be listed in <code>agent.json</code> <code>env</code> array</li>
         <li>Tools is a Record, not an array: <code>tools: { my_tool: { ... } }</code></li>
       </ul>
