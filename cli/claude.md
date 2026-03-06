@@ -389,12 +389,7 @@ After creating files, tell the user to run:
 aai
 ```
 
-This single command runs the agent locally in dev mode. To point at a local
-server:
-
-```sh
-aai --url http://localhost:3100
-```
+This single command runs the agent locally in dev mode.
 
 If they don't have aai installed:
 
