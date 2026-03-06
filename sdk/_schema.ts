@@ -26,14 +26,12 @@ export type AgentJson = {
   slug: string;
   env: string[];
   transport?: Transport | Transport[];
-  npm?: Record<string, string>;
 };
 
 export const AgentJsonSchema: z.ZodType<AgentJson> = z.object({
   slug: z.string().min(1),
   env: z.array(z.string()),
   transport: TransportFieldSchema,
-  npm: z.record(z.string(), z.string()).optional(),
 });
 
 // ── Deploy request body ─────────────────────────────────────────

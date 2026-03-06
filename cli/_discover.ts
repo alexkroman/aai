@@ -66,7 +66,6 @@ export interface AgentEntry {
   env: Record<string, string>;
   clientEntry: string;
   transport: ("websocket" | "twilio")[];
-  hasNpmDeps: boolean;
 }
 
 export async function loadAgent(dir: string): Promise<AgentEntry | null> {
@@ -124,8 +123,6 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
     ? join(dir, "client.tsx")
     : resolve(AAI_ROOT, "ui/client.tsx");
 
-  const hasNpmDeps = await exists(join(dir, "node_modules"));
-
   return {
     slug,
     dir,
@@ -133,6 +130,5 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
     env,
     clientEntry,
     transport,
-    hasNpmDeps,
   };
 }

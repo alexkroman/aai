@@ -3,14 +3,13 @@
 import { z } from "zod";
 
 export interface ToolContext {
-  secrets: Record<string, string>;
-  fetch: typeof globalThis.fetch;
+  env: Record<string, string>;
   signal?: AbortSignal;
 }
 
 export interface HookContext {
   sessionId: string;
-  secrets: Record<string, string>;
+  env: Record<string, string>;
 }
 
 export interface ToolDef {

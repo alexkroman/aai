@@ -65,7 +65,7 @@ Deno.test("defineAgent - tools are accessible for testing", async () => {
   });
   const result = await agent.tools.echo.execute(
     { text: "hello" },
-    { secrets: {}, fetch: globalThis.fetch },
+    { env: {} },
   );
   expect(result).toBe("hello");
 });

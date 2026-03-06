@@ -8,6 +8,7 @@ import {
 } from "esbuild";
 import type { InitializeOptions } from "esbuild-wasm-types";
 import { denoPlugin } from "@deno/esbuild-plugin";
+import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join, resolve, toFileUrl } from "@std/path";
 import type { AgentEntry } from "./_discover.ts";
 
@@ -95,7 +96,40 @@ export async function stripTypes(source: string): Promise<string> {
 
 /** Root of the aai framework (parent of cli/). */
 const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
-const configPath = resolve(AAI_ROOT, "deno.json");
+const baseConfigPath = resolve(AAI_ROOT, "deno.json");
+
+/**
+ * Read the agent's deno.json imports and return an esbuild plugin that rewrites
+ * bare specifiers to their mapped npm:/jsr: URLs so denoPlugin can resolve them.
+ */
+async function agentImportsPlugin(agentDir: string): Promise<Plugin | null> {
+  const imports: Record<string, string> = {};
+  try {
+    const raw = JSON.parse(
+      await Deno.readTextFile(join(agentDir, "deno.json")),
+    );
+    Object.assign(imports, raw.imports ?? {});
+  } catch { /* no agent deno.json */ }
+
+  if (Object.keys(imports).length === 0) return null;
+
+  return {
+    name: "agent-imports",
+    setup(b) {
+      // Rewrite bare specifiers to their mapped npm:/jsr: URLs, then
+      // re-resolve so denoPlugin handles them.
+      b.onResolve({ filter: /^[^./]/ }, async (args) => {
+        const mapped = imports[args.path];
+        if (!mapped) return undefined;
+        const result = await b.resolve(mapped, {
+          resolveDir: args.resolveDir,
+          kind: args.kind,
+        });
+        return result;
+      });
+    },
+  };
+}
 
 /** Loads .worklet.js files as text strings so they can be passed to
  *  AudioContext.audioWorklet.addModule() at runtime. Must be listed
@@ -148,7 +182,7 @@ export function clientBuildOptions(
 ): BuildOptions {
   return {
     ...BASE,
-    plugins: [workletTextPlugin, denoPlugin({ configPath })],
+    plugins: [workletTextPlugin, denoPlugin({ configPath: baseConfigPath })],
     entryPoints: [clientEntry],
     outfile,
     jsx: "automatic",
@@ -156,8 +190,19 @@ export function clientBuildOptions(
   };
 }
 
+async function hasExternalImports(dir: string): Promise<boolean> {
+  const denoJsonPath = join(dir, "deno.json");
+  if (!await exists(denoJsonPath)) return false;
+  try {
+    const raw = JSON.parse(await Deno.readTextFile(denoJsonPath));
+    return raw.imports && Object.keys(raw.imports).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function precomputeSchemas(agent: AgentEntry) {
-  if (agent.hasNpmDeps) return null;
+  if (await hasExternalImports(agent.dir)) return null;
 
   const { agentToolsToSchemas } = await import("../sdk/types.ts");
   const { defineAgent } = await import("../sdk/define_agent.ts");
@@ -201,6 +246,7 @@ export async function bundleAgent(
   await Deno.mkdir(outDir, { recursive: true });
 
   const schemas = await precomputeSchemas(agent);
+  const agentPlugin = await agentImportsPlugin(agent.dir);
 
   const agentAbsolute = resolve(agent.entryPoint);
   const workerEntryAbsolute = resolve(AAI_ROOT, "sdk/_worker_entry.ts");
@@ -224,43 +270,20 @@ export async function bundleAgent(
       `Object.assign(globalThis, { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, createVoiceSession, useEffect, useRef, useState, useCallback, useMemo });\n`,
   );
 
-  // Plugin to resolve bare npm imports from the agent's node_modules
-  const agentNpmPlugin: Plugin = {
-    name: "agent-npm",
-    setup(b) {
-      if (!agent.hasNpmDeps) return;
-      const nmDir = resolve(agent.dir, "node_modules");
-      b.onResolve({ filter: /^[^./]/ }, async (args) => {
-        if (!args.resolveDir.startsWith(agent.dir)) return undefined;
-        const pkgDir = resolve(nmDir, args.path);
-        try {
-          await Deno.stat(pkgDir);
-        } catch {
-          return undefined;
-        }
-        try {
-          const raw = await Deno.readTextFile(resolve(pkgDir, "package.json"));
-          const pkg = JSON.parse(raw);
-          const entry = pkg.module ?? pkg.main ?? "index.js";
-          return { path: resolve(pkgDir, entry) };
-        } catch {
-          return { path: resolve(pkgDir, "index.js") };
-        }
-      });
-    },
-  };
+  const plugins = [
+    ...(agentPlugin ? [agentPlugin] : []),
+    denoPlugin({ configPath: baseConfigPath }),
+  ];
 
   const workerResult = await buildWithCleanErrors({
     ...BASE,
-    plugins: [agentNpmPlugin, denoPlugin({ configPath })],
+    plugins,
     stdin: {
       contents: `import agent from "${agentAbsolute}";\n` +
         `import { startWorker } from "${workerEntryAbsolute}";\n` +
-        `const secrets: Record<string, string> = ${
-          JSON.stringify(agent.env)
-        };\n` +
+        `const env: Record<string, string> = ${JSON.stringify(agent.env)};\n` +
         `const schemas = ${JSON.stringify(schemas)};\n` +
-        `startWorker(agent, secrets, schemas);\n`,
+        `startWorker(agent, env, schemas);\n`,
       loader: "ts",
       resolveDir: AAI_ROOT,
     },

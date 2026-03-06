@@ -59,13 +59,12 @@ Deno.test("executeToolCall - catches handler errors", async () => {
   expect(await executeToolCall("x", {}, t, {})).toContain("boom");
 });
 
-Deno.test("executeToolCall - passes secrets and fetch in context", async () => {
+Deno.test("executeToolCall - passes env in context", async () => {
   let captured: Record<string, unknown> = {};
   const t = makeTool(EMPTY, (_args, ctx) => {
-    captured = { secrets: ctx.secrets, hasFetch: !!ctx.fetch };
+    captured = { env: ctx.env };
     return "ok";
   });
   await executeToolCall("x", {}, t, { KEY: "val" });
-  expect(captured.secrets).toEqual({ KEY: "val" });
-  expect(captured.hasFetch).toBe(true);
+  expect(captured.env).toEqual({ KEY: "val" });
 });

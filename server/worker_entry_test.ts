@@ -14,10 +14,10 @@ function createHarness(
     builtinTools?: readonly BuiltinTool[];
     tools: Record<string, ToolDef>;
   },
-  secrets: Record<string, string> = {},
+  env: Record<string, string> = {},
 ) {
   const channel = new MessageChannel();
-  startWorker(agent, secrets, undefined, channel.port1);
+  startWorker(agent, env, undefined, channel.port1);
   const workerApi = createWorkerRpc(channel.port2);
 
   return {

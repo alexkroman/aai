@@ -12,7 +12,7 @@ export async function executeToolCall(
   name: string,
   args: Record<string, unknown>,
   tool: ToolDef,
-  secrets: Record<string, string>,
+  env: Record<string, string>,
 ): Promise<string> {
   const schema = tool.parameters ?? z.object({});
   const parsed = schema.safeParse(args);
@@ -26,8 +26,7 @@ export async function executeToolCall(
   try {
     const signal = AbortSignal.timeout(TOOL_HANDLER_TIMEOUT);
     const ctx: ToolContext = {
-      secrets: { ...secrets },
-      fetch: globalThis.fetch,
+      env: { ...env },
       signal,
     };
     const result = await Promise.resolve(

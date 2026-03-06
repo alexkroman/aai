@@ -11,22 +11,6 @@ import {
   createMemoryS3Client,
 } from "./bundle_store_tigris.ts";
 
-import type { ToolContext } from "../sdk/types.ts";
-
-export function createTestContext(
-  overrides?: Partial<ToolContext>,
-): ToolContext {
-  return {
-    secrets: {},
-    fetch: globalThis.fetch,
-    ...overrides,
-  };
-}
-
-export function testCtx(fetch?: typeof globalThis.fetch): ToolContext {
-  return createTestContext(fetch ? { fetch } : undefined);
-}
-
 export function stubFetchJson(data: unknown): typeof globalThis.fetch {
   return (() => Promise.resolve(Response.json(data))) as typeof fetch;
 }

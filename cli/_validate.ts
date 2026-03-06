@@ -1,5 +1,6 @@
 import { dirname, join, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
+import { exists } from "@std/fs/exists";
 import type { AgentEntry } from "./_discover.ts";
 import { stripTypes } from "./_bundler.ts";
 
@@ -16,6 +17,18 @@ export interface ValidationResult {
   builtinTools?: string[];
 }
 
+/** Check if the agent has external imports in its deno.json. */
+async function hasExternalImports(dir: string): Promise<boolean> {
+  const denoJsonPath = join(dir, "deno.json");
+  if (!await exists(denoJsonPath)) return false;
+  try {
+    const raw = JSON.parse(await Deno.readTextFile(denoJsonPath));
+    return raw.imports && Object.keys(raw.imports).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Validate an agent by dynamically importing agent.ts.
  * defineAgent() already validates fields -- we just check that
@@ -24,12 +37,13 @@ export interface ValidationResult {
  * Uses esbuild to strip types before importing because compiled
  * Deno binaries cannot dynamically import TypeScript files.
  *
- * Agents with npm deps skip validation here -- esbuild catches errors during bundling.
+ * Agents with external imports in deno.json skip validation here --
+ * esbuild catches errors during bundling.
  */
 export async function validateAgent(
   agent: AgentEntry,
 ): Promise<ValidationResult> {
-  if (agent.hasNpmDeps) {
+  if (await hasExternalImports(agent.dir)) {
     return { errors: [] };
   }
 

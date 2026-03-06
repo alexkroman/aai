@@ -140,7 +140,7 @@ export async function handleWebSocket(
         platformConfig: loadPlatformConfig(slot.env),
         executeTool: createRpcToolExecutor(info.workerApi),
         workerApi: info.workerApi,
-        secrets: slot.env,
+        env: slot.env,
         skipGreeting: resume,
       }),
     logContext: { slug: info.slug },

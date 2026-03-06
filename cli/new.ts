@@ -87,32 +87,6 @@ export async function runNew(opts: NewOptions): Promise<string> {
     // No agent.json to update
   }
 
-  // Install npm dependencies if agent.json declares them
-  const agentRaw = await Deno.readTextFile(agentJsonPath).catch(() => "{}");
-  const agentConfig = JSON.parse(agentRaw);
-  if (agentConfig.npm && Object.keys(agentConfig.npm).length > 0) {
-    const pkgJson = {
-      private: true,
-      dependencies: agentConfig.npm,
-    };
-    await Deno.writeTextFile(
-      join(targetDir, "package.json"),
-      JSON.stringify(pkgJson, null, 2) + "\n",
-    );
-    step("Install", "npm dependencies");
-    const npm = new Deno.Command("npm", {
-      args: ["install", "--silent"],
-      cwd: targetDir,
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const { success, stderr } = await npm.output();
-    if (!success) {
-      const err = new TextDecoder().decode(stderr).trim();
-      throw new Error(`npm install failed: ${err}`);
-    }
-  }
-
   await generateTypes(targetDir);
 
   // Copy .env.example as .env

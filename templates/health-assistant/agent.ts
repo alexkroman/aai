@@ -4,14 +4,12 @@ function first(field: unknown): string | undefined {
 
 async function lookupDrug(
   name: string,
-  ctx: ToolContext,
 ): Promise<Record<string, unknown>> {
   const q = encodeURIComponent(name.toLowerCase());
   let raw: Record<string, unknown>;
   try {
     raw = await fetchJSON<Record<string, unknown>>(
       `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${q}"+openfda.brand_name:"${q}"&limit=1`,
-      { fetch: ctx.fetch },
     );
   } catch {
     return { error: `Drug not found: ${name}` };
@@ -40,14 +38,12 @@ interface RxCui {
 
 async function resolveRxCui(
   name: string,
-  ctx: ToolContext,
 ): Promise<RxCui | null> {
   try {
     const raw = await fetchJSON<{ idGroup: { rxnormId?: string[] } }>(
       `https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${
         encodeURIComponent(name)
       }`,
-      { fetch: ctx.fetch },
     );
     const id = raw.idGroup.rxnormId?.[0];
     return id ? { name, rxcui: id } : null;
@@ -58,11 +54,10 @@ async function resolveRxCui(
 
 async function checkInteractions(
   drugs: string,
-  ctx: ToolContext,
 ): Promise<Record<string, unknown>> {
   const names = drugs.split(",").map((d) => d.trim().toLowerCase());
 
-  const resolved = (await Promise.all(names.map((n) => resolveRxCui(n, ctx))))
+  const resolved = (await Promise.all(names.map((n) => resolveRxCui(n))))
     .filter((r): r is RxCui => r !== null);
 
   if (resolved.length < 2) {
@@ -78,7 +73,6 @@ async function checkInteractions(
   try {
     raw = await fetchJSON<Record<string, unknown>>(
       `https://rxnav.nlm.nih.gov/REST/interaction/list.json?rxcuis=${rxcuiList}`,
-      { fetch: ctx.fetch },
     );
   } catch {
     return { error: "Interaction lookup failed" };
@@ -137,7 +131,7 @@ Use run_code for health calculations:
           "Medication name (generic or brand, e.g. 'ibuprofen' or 'Advil')",
         ),
       }),
-      execute: (args, ctx) => lookupDrug(args.name as string, ctx),
+      execute: (args) => lookupDrug(args.name as string),
     },
     check_interaction: {
       description:
@@ -147,7 +141,7 @@ Use run_code for health calculations:
           "Comma-separated medication names (e.g. 'ibuprofen, warfarin')",
         ),
       }),
-      execute: (args, ctx) => checkInteractions(args.drugs as string, ctx),
+      execute: (args) => checkInteractions(args.drugs as string),
     },
   },
 });

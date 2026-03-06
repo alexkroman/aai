@@ -34,8 +34,7 @@
     "goober": "npm:goober@^2.1.18",
     "zod": "jsr:@zod/zod@^4.3.6",
     "esbuild": "npm:esbuild-wasm@^0.27.3",
-    "unique-names-generator": "npm:unique-names-generator@^4.7.1",
-    "lodash-es": "npm:lodash-es@^4.17.21"
+    "unique-names-generator": "npm:unique-names-generator@^4.7.1"
   },
   "nodeModulesDir": "auto",
   "compilerOptions": {
