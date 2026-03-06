@@ -29,24 +29,9 @@ case "\$ARCH" in
 esac
 
 ARTIFACT="aai-\${os}-\${arch}"
+URL="https://github.com/\$REPO/releases/download/latest/\${ARTIFACT}.tar.gz"
 
-# Get latest version from GitHub (retry up to 3 times)
-n=0
-VERSION=""
-while [ -z "\$VERSION" ] && [ "\$n" -lt 3 ]; do
-  VERSION="\$(curl -fsSL "https://api.github.com/repos/\$REPO/releases/latest" | grep '"tag_name"' | sed 's/.*"v\\(.*\\)".*/\\1/')" || true
-  n=\$((n + 1))
-  [ -z "\$VERSION" ] && [ "\$n" -lt 3 ] && sleep 2
-done
-
-if [ -z "\$VERSION" ]; then
-  echo "Failed to get latest version" >&2
-  exit 1
-fi
-
-URL="https://github.com/\$REPO/releases/download/v\${VERSION}/\${ARTIFACT}.tar.gz"
-
-echo "Installing aai v\$VERSION (\$os/\$arch)..."
+echo "Installing aai (\$os/\$arch)..."
 
 # Download and extract
 mkdir -p "\$INSTALL_DIR"

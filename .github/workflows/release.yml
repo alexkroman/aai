@@ -12,24 +12,7 @@ env:
   DENO_VERSION: "2.x"
 
 jobs:
-  version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get.outputs.version }}
-      tag: ${{ steps.get.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Get version from source
-        id: get
-        run: |
-          VERSION=$(jq -r '.version' deno.json)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Detected version: $VERSION"
-
   build:
-    needs: version
     strategy:
       matrix:
         include:
@@ -80,7 +63,7 @@ jobs:
             dist/${{ matrix.artifact }}.sha256
 
   release:
-    needs: [version, build]
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -94,12 +77,19 @@ jobs:
           cat *.sha256 > checksums.txt
           cat checksums.txt
 
+      - name: Delete existing latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release delete latest --yes --cleanup-tag || true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.version.outputs.tag }}
+          tag_name: latest
           target_commitish: ${{ github.sha }}
-          generate_release_notes: true
+          name: Latest
+          body: Latest build from main
           make_latest: true
           files: |
             artifacts/*.tar.gz
