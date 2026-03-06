@@ -130,7 +130,7 @@ export function createSession(opts: SessionOptions): Session {
     args: Record<string, unknown>,
   ): Promise<string> {
     const builtin = await doExecuteBuiltinTool(name, args);
-    return builtin ?? await executeTool(name, args);
+    return builtin ?? await executeTool(name, args, id);
   }
 
   function trySendJson(data: Record<string, unknown>): void {

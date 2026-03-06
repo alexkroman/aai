@@ -68,6 +68,7 @@ interface ToolDef {
 }
 
 interface ToolContext {
+  sessionId: string; // unique per-connection session ID
   env: Record<string, string>; // env vars from .env
   signal?: AbortSignal;
 }

@@ -6,6 +6,7 @@ export const TOOL_HANDLER_TIMEOUT = 30_000;
 export type ExecuteTool = (
   name: string,
   args: Record<string, unknown>,
+  sessionId?: string,
 ) => Promise<string>;
 
 export async function executeToolCall(
@@ -13,6 +14,7 @@ export async function executeToolCall(
   args: Record<string, unknown>,
   tool: ToolDef,
   env: Record<string, string>,
+  sessionId?: string,
 ): Promise<string> {
   const schema = tool.parameters ?? z.object({});
   const parsed = schema.safeParse(args);
@@ -26,6 +28,7 @@ export async function executeToolCall(
   try {
     const signal = AbortSignal.timeout(TOOL_HANDLER_TIMEOUT);
     const ctx: ToolContext = {
+      sessionId: sessionId ?? "",
       env: { ...env },
       signal,
     };

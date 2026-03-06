@@ -7,6 +7,7 @@ declare const z: any;
 
 // -- Server -------------------------------------------------------------------
 interface ToolContext {
+  sessionId: string;
   env: Record<string, string>;
   signal?: AbortSignal;
 }

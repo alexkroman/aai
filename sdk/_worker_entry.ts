@@ -31,6 +31,7 @@ export interface WorkerApi {
   executeTool(
     name: string,
     args: Record<string, unknown>,
+    sessionId?: string,
     timeoutMs?: number,
   ): Promise<string>;
   invokeHook(
@@ -64,7 +65,7 @@ export function startWorker(
   serveRpc(port, {
     getConfig: () => ({ config, toolSchemas }),
 
-    executeTool: ({ name, args }: Record<string, unknown>) => {
+    executeTool: ({ name, args, sessionId }: Record<string, unknown>) => {
       const tool = toolHandlers.get(name as string);
       if (!tool) return `Error: Unknown tool "${name}"`;
       return executeToolCall(
@@ -72,6 +73,7 @@ export function startWorker(
         args as Record<string, unknown>,
         tool,
         env,
+        sessionId as string | undefined,
       );
     },
 

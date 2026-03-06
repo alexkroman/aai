@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Transport } from "./_schema.ts";
 
 export interface ToolContext {
+  sessionId: string;
   env: Record<string, string>;
   signal?: AbortSignal;
 }
