@@ -10,22 +10,22 @@ const VERSION: string = denoConfig.default.version;
 
 function printUsage(): void {
   const dryRun = cyan("-n, --dry-run");
-  console.log(`${green(bold("aai"))} ${dim(VERSION)}
+  console.log(
+    `${green(bold("aai"))} ${dim(VERSION)}
 Voice agent development kit
 
 ${bold("USAGE:")}
-    ${cyan("aai")}                Run dev server (scaffolds new agent if needed)
+  ${cyan("aai")}              Run dev server (scaffolds new agent if needed)
 
 ${bold("OPTIONS:")}
-    ${cyan("-h, --help")}       Show this help message
-    ${cyan("-V, --version")}    Show version number
-    ${cyan("-w, --watch")}      Watch for changes and auto-reload
-    ${cyan("-y, --yes")}        Skip confirmation prompts (for automation)
-    ${cyan("-t, --template")}   Template to use for new agents (default: simple)
-    ${dryRun}    Type-check, validate, and bundle without deploying
-
-${dim("https://github.com/alexkroman/aai")}
-`);
+  ${cyan("-h, --help")}       Show this help message
+  ${cyan("-V, --version")}    Show version number
+  ${cyan("-w, --watch")}      Watch for changes and auto-reload
+  ${cyan("-y, --yes")}        Skip confirmation prompts (for automation)
+  ${cyan("-t, --template")}   Template to use for new agents (default: simple)
+  ${dryRun}    Type-check, validate, and bundle without deploying
+`,
+  );
 }
 
 export async function main(args: string[]): Promise<number> {
