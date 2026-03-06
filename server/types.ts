@@ -12,13 +12,8 @@ export {
   type BuiltinTool,
   DEFAULT_GREETING,
   DEFAULT_INSTRUCTIONS,
-  type JSONSchemaProperty,
-  normalizeParameters,
-  type ParamShorthand,
-  type SimpleToolParameters,
   type ToolContext,
   type ToolDef,
-  type ToolParameters,
   type ToolSchema,
   type Voice,
 } from "../sdk/types.ts";
