@@ -168,20 +168,6 @@ async function writeOutputFiles(
   }
 }
 
-export function clientBuildOptions(
-  clientEntry: string,
-  outfile: string,
-): BuildOptions {
-  return {
-    ...BASE,
-    plugins: [workletTextPlugin, denoPlugin({ configPath: baseConfigPath })],
-    entryPoints: [clientEntry],
-    outfile,
-    jsx: "automatic",
-    jsxImportSource: "preact",
-  };
-}
-
 async function hasExternalImports(dir: string): Promise<boolean> {
   const denoJsonPath = join(dir, "deno.json");
   if (!await exists(denoJsonPath)) return false;
@@ -245,22 +231,15 @@ export async function bundleAgent(
   const agentModAbsolute = resolve(AAI_ROOT, "sdk/define_agent.ts");
   const fetchJsonAbsolute = resolve(AAI_ROOT, "sdk/fetch_json.ts");
 
-  const workerShimPath = resolve(outDir, "_worker_shim.ts");
-  await Deno.writeTextFile(
-    workerShimPath,
-    `import { defineAgent } from "${agentModAbsolute}";\n` +
-      `import { fetchJSON } from "${fetchJsonAbsolute}";\n` +
-      `import { z } from "zod";\n` +
-      `Object.assign(globalThis, { defineAgent, fetchJSON, z });\n`,
-  );
+  const workerShim = `import { defineAgent } from "${agentModAbsolute}";\n` +
+    `import { fetchJSON } from "${fetchJsonAbsolute}";\n` +
+    `import { z } from "zod";\n` +
+    `Object.assign(globalThis, { defineAgent, fetchJSON, z });\n`;
 
-  const clientShimPath = resolve(outDir, "_client_shim.ts");
-  await Deno.writeTextFile(
-    clientShimPath,
+  const clientShim =
     `import { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, createVoiceSession } from "@aai/ui";\n` +
-      `import { useEffect, useRef, useState, useCallback, useMemo } from "preact/hooks";\n` +
-      `Object.assign(globalThis, { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, createVoiceSession, useEffect, useRef, useState, useCallback, useMemo });\n`,
-  );
+    `import { useEffect, useRef, useState, useCallback, useMemo } from "preact/hooks";\n` +
+    `Object.assign(globalThis, { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, createVoiceSession, useEffect, useRef, useState, useCallback, useMemo });\n`;
 
   const plugins = [
     ...(agentPlugin ? [agentPlugin] : []),
@@ -271,7 +250,8 @@ export async function bundleAgent(
     ...BASE,
     plugins,
     stdin: {
-      contents: `import agent from "${agentAbsolute}";\n` +
+      contents: workerShim +
+        `import agent from "${agentAbsolute}";\n` +
         `import { startWorker } from "${workerEntryAbsolute}";\n` +
         `const env: Record<string, string> = ${JSON.stringify(agent.env)};\n` +
         `const schemas = ${JSON.stringify(schemas)};\n` +
@@ -279,7 +259,6 @@ export async function bundleAgent(
       loader: "ts",
       resolveDir: AAI_ROOT,
     },
-    inject: [workerShimPath],
     outfile: `${outDir}/worker.js`,
     metafile: true,
     loader: {
@@ -296,36 +275,33 @@ export async function bundleAgent(
   if (!opts?.skipClient) {
     // If the user's custom client.tsx exports a default component but doesn't
     // call mount(), generate a wrapper entry that auto-mounts it for them.
-    let effectiveClientEntry = agent.clientEntry;
-    const clientShimEntryPath = resolve(outDir, "_client_entry.tsx");
+    let clientEntry = `import "${resolve(agent.clientEntry)}";\n`;
     if (agent.clientEntry.startsWith(agent.dir)) {
       const clientSrc = await Deno.readTextFile(agent.clientEntry);
       const hasMount = /\bmount\s*\(/.test(clientSrc);
       const hasDefaultExport = /export\s+default\b/.test(clientSrc);
       if (!hasMount && hasDefaultExport) {
-        await Deno.writeTextFile(
-          clientShimEntryPath,
-          `import App from "${resolve(agent.clientEntry)}";\n` +
-            `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`,
-        );
-        effectiveClientEntry = clientShimEntryPath;
+        clientEntry = `import App from "${resolve(agent.clientEntry)}";\n` +
+          `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`;
       }
     }
 
     const clientResult = await buildWithCleanErrors({
-      ...clientBuildOptions(effectiveClientEntry, `${outDir}/client.js`),
-      inject: [clientShimPath],
+      ...BASE,
+      plugins: [workletTextPlugin, denoPlugin({ configPath: baseConfigPath })],
+      stdin: {
+        contents: clientShim + clientEntry,
+        loader: "tsx",
+        resolveDir: AAI_ROOT,
+      },
+      outfile: `${outDir}/client.js`,
+      jsx: "automatic",
+      jsxImportSource: "preact",
       metafile: true,
     });
     await writeOutputFiles(clientResult);
     clientBytes = jsBytes(clientResult.metafile!);
-
-    await Deno.remove(clientShimEntryPath).catch(() => {});
   }
-
-  // Clean up temp shims
-  await Deno.remove(workerShimPath).catch(() => {});
-  await Deno.remove(clientShimPath).catch(() => {});
 
   await Deno.writeTextFile(
     `${outDir}/manifest.json`,
