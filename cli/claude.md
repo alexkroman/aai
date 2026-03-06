@@ -246,22 +246,52 @@ export default defineAgent({
 
 ### Custom UI agent
 
-Add a `client.tsx` file alongside `agent.ts`. It receives the session via
-`useSession()`:
+Add a `client.tsx` file alongside `agent.ts`. Just export a default component —
+the framework auto-mounts it for you:
 
 ```tsx
-import { useSession } from "aai/client";
-
 export default function App() {
-  const { messages, transcript, status, stop, resume, reset } = useSession();
+  const session = useSession();
+  const msgs = session.messages.value;
+  const tx = session.transcript.value;
   return (
     <div>
-      {messages.map((m, i) => <p key={i}>{m.text}</p>)}
-      <p>{transcript}</p>
+      {msgs.map((m, i) => <p key={i}>{m.text}</p>)}
+      {tx && <p>{tx}</p>}
+      <button onClick={() => session.toggle()}>Toggle</button>
+      <button onClick={() => session.reset()}>Reset</button>
     </div>
   );
 }
 ```
+
+**Rules for `client.tsx`:**
+
+- Must have a `export default` function component — this is required
+- No imports needed — `useSession`, `css`, `keyframes`, `styled`, and Preact
+  hooks (`useEffect`, `useRef`, `useState`, `useCallback`, `useMemo`) are
+  provided as globals by the framework
+- The component is auto-mounted to the page — do not call `mount()` yourself
+
+**Available globals for styling (from goober):**
+
+- `css` — tagged template for class names: ``const myClass = css`color: red`;``
+- `keyframes` — tagged template for animations:
+  ``const fade = keyframes`from { opacity: 0 } to { opacity: 1 }`;``
+- `styled` — styled-components API: `const Box = styled('div')`...``
+
+**Available session signals via `useSession()`:**
+
+- `session.state.value` — `AgentState`: "connecting" | "ready" | "listening" |
+  "thinking" | "speaking" | "error"
+- `session.messages.value` — `Message[]`: array of `{ role, text }` objects
+- `session.transcript.value` — `string`: live speech-to-text transcript
+- `session.error.value` — `SessionError | null`: `{ code, message }` if errored
+- `session.started.value` / `session.running.value` — `boolean` flags
+- `session.start()` — begin the session
+- `session.toggle()` — pause/resume
+- `session.reset()` — restart the session
+- `session.dispose()` — clean up
 
 ## Required files
 

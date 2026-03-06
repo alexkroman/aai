@@ -271,13 +271,41 @@ export async function bundleAgent(
 
   let clientBytes = 0;
   if (!opts?.skipClient) {
+    // If the user's custom client.tsx exports a default component but doesn't
+    // call mount(), generate a wrapper entry that auto-mounts it for them.
+    let effectiveClientEntry = agent.clientEntry;
+    const clientShimEntryPath = resolve(outDir, "_client_entry.tsx");
+    if (agent.clientEntry.startsWith(agent.dir)) {
+      const clientSrc = await Deno.readTextFile(agent.clientEntry);
+      const hasMount = /\bmount\s*\(/.test(clientSrc);
+      const hasDefaultExport = /export\s+default\b/.test(clientSrc);
+      if (!hasMount && hasDefaultExport) {
+        await Deno.writeTextFile(
+          clientShimEntryPath,
+          `import App from "${resolve(agent.clientEntry)}";\n` +
+            `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`,
+        );
+        effectiveClientEntry = clientShimEntryPath;
+      } else if (!hasMount && !hasDefaultExport) {
+        throw new BundleError(
+          "client.tsx must export a default component:\n\n" +
+            "  export default function App() {\n" +
+            "    const session = useSession();\n" +
+            "    return <div>...</div>;\n" +
+            "  }\n",
+        );
+      }
+    }
+
     const clientResult = await buildWithCleanErrors({
-      ...clientBuildOptions(agent.clientEntry, `${outDir}/client.js`),
+      ...clientBuildOptions(effectiveClientEntry, `${outDir}/client.js`),
       inject: [clientShimPath],
       metafile: true,
     });
     await writeOutputFiles(clientResult);
     clientBytes = jsBytes(clientResult.metafile!);
+
+    await Deno.remove(clientShimEntryPath).catch(() => {});
   }
 
   // Clean up temp shims
