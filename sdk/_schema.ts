@@ -20,20 +20,6 @@ const TransportFieldSchema = z.union([
   z.array(TransportSchema),
 ]).optional();
 
-// ── agent.json ──────────────────────────────────────────────────
-
-export type AgentJson = {
-  slug: string;
-  env: string[];
-  transport?: Transport | Transport[];
-};
-
-export const AgentJsonSchema: z.ZodType<AgentJson> = z.object({
-  slug: z.string().min(1),
-  env: z.array(z.string()),
-  transport: TransportFieldSchema,
-});
-
 // ── Deploy request body ─────────────────────────────────────────
 
 export type DeployBody = {

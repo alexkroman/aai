@@ -41,7 +41,7 @@ The `deno.json` workspace has three packages: `server/`, `ui/`, `cli/`.
   optionally watches for changes
 - `_bundler.ts` → esbuild bundling of agent.ts and client.tsx into worker.js and
   client.js
-- `_discover.ts` → finds and loads agent.ts + agent.json from user's directory
+- `_discover.ts` → finds and imports agent.ts to extract config from defineAgent()
 - `_validate.ts` → validates the agent config at build time
 - `deploy.ts` → production deploy (persists to Tigris/S3)
 - `new.ts` → scaffolds new agent from templates/

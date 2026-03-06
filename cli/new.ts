@@ -73,18 +73,18 @@ export async function runNew(opts: NewOptions): Promise<string> {
     }
   }
 
-  // Update slug in agent.json
-  const agentJsonPath = join(targetDir, "agent.json");
+  // Update slug in agent.ts defineAgent() call
+  const agentTsPath = join(targetDir, "agent.ts");
   try {
-    const raw = await Deno.readTextFile(agentJsonPath);
-    const config = JSON.parse(raw);
-    config.slug = slug;
-    await Deno.writeTextFile(
-      agentJsonPath,
-      JSON.stringify(config, null, 2) + "\n",
+    const src = await Deno.readTextFile(agentTsPath);
+    // Insert slug as first field after defineAgent({
+    const updated = src.replace(
+      /defineAgent\(\{/,
+      `defineAgent({\n  slug: "${slug}",`,
     );
+    await Deno.writeTextFile(agentTsPath, updated);
   } catch {
-    // No agent.json to update
+    // No agent.ts to update
   }
 
   await generateTypes(targetDir);

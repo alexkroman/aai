@@ -9,16 +9,16 @@ export interface BuildOpts {
 }
 
 export async function runBuild(opts: BuildOpts): Promise<void> {
-  const agent = await loadAgent(opts.agentDir);
-  if (!agent) {
-    throw new Error(
-      `no agent found in ${opts.agentDir} -- needs agent.ts + agent.json`,
-    );
-  }
-
   const sp = spinner("Setup", "preparing bundler...");
   await warmNpmCache();
   sp.stop();
+
+  const agent = await loadAgent(opts.agentDir);
+  if (!agent) {
+    throw new Error(
+      `no agent found in ${opts.agentDir} -- needs agent.ts`,
+    );
+  }
 
   step("Check", agent.slug);
   const validation = await validateAgent(agent);

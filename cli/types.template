@@ -25,6 +25,9 @@ interface ToolDef {
 
 interface AgentOptions {
   name: string;
+  slug?: string;
+  env?: string[];
+  transport?: string | string[];
   instructions?: string;
   greeting?: string;
   voice?: string;
@@ -39,6 +42,9 @@ interface AgentOptions {
 
 interface AgentDef {
   readonly name: string;
+  readonly slug: string;
+  readonly env: readonly string[];
+  readonly transport: readonly string[];
   readonly instructions: string;
   readonly greeting: string;
   readonly voice: string;

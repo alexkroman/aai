@@ -63,7 +63,7 @@ export async function handleDeploy(
     return Response.json(
       {
         error:
-          'Slug already taken by another owner. Change the "name" field in agent.json to use a different slug.',
+          'Slug already taken by another owner. Change the "slug" field in defineAgent() to use a different slug.',
       },
       { status: 403 },
     );

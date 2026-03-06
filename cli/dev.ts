@@ -49,7 +49,7 @@ async function printSummary(
   }
 
   const files: string[] = [];
-  for (const name of ["agent.ts", "agent.json", "client.tsx", ".env"]) {
+  for (const name of ["agent.ts", "client.tsx", ".env"]) {
     if (await exists(join(agent.dir, name))) {
       files.push(name);
     }
@@ -104,11 +104,15 @@ async function buildAndDeploy(
 }
 
 export async function runDev(opts: DevOpts): Promise<void> {
+  const sp = spinner("Setup", "preparing bundler...");
+  await warmNpmCache();
+  sp.stop();
+
   let agent: AgentEntry;
   try {
     const result = await loadAgent(opts.agentDir);
     if (!result) {
-      error("no agent found -- needs agent.ts + agent.json");
+      error("no agent found -- needs agent.ts");
       throw new Error("missing agent files");
     }
     agent = result;
@@ -135,10 +139,6 @@ export async function runDev(opts: DevOpts): Promise<void> {
   }
 
   const tmpDir = await Deno.makeTempDir({ prefix: "aai-dev-" });
-
-  const sp = spinner("Setup", "preparing bundler...");
-  await warmNpmCache();
-  sp.stop();
 
   const validation = await buildAndDeploy(
     agent,

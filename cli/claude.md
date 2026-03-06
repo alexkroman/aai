@@ -79,6 +79,9 @@ interface HookContext {
 
 interface AgentOptions {
   name: string; // Required: display name
+  slug?: string; // URL identifier (auto-derived from name if omitted)
+  env?: string[]; // Env var names to load (default: ["ASSEMBLYAI_API_KEY"])
+  transport?: Transport | Transport[]; // "websocket" | "twilio" (default: ["websocket"])
   instructions?: string; // System prompt (voice-first default provided)
   greeting?: string; // Spoken on connect
   voice?: Voice; // Rime TTS voice (default: "luna")
@@ -90,6 +93,8 @@ interface AgentOptions {
   onError?: (error: Error, ctx?: HookContext) => void;
   onTurn?: (text: string, ctx: HookContext) => void | Promise<void>;
 }
+
+type Transport = "websocket" | "twilio";
 ```
 
 ## Custom tools
@@ -148,17 +153,18 @@ execute: async ({ query }) => {
 
 ## Environment variables
 
-Variables listed in `agent.json`'s `env` array are loaded from `.env` (or the
-process environment) and passed as `ctx.env` — a `Record<string, string>` — in
-both tool `execute` functions and lifecycle hooks. They are **not** available
-via `Deno.env` inside agent code.
+Variables listed in the `env` array in `defineAgent()` are loaded from `.env`
+(or the process environment) and passed as `ctx.env` — a
+`Record<string, string>` — in both tool `execute` functions and lifecycle hooks.
+They are **not** available via `Deno.env` inside agent code. The default is
+`["ASSEMBLYAI_API_KEY"]`.
 
 ```ts
-// agent.json: { "env": ["ASSEMBLYAI_API_KEY", "MY_API_KEY"] }
-// .env:       MY_API_KEY=sk-abc123
+// .env: MY_API_KEY=sk-abc123
 
 export default defineAgent({
   name: "My Agent",
+  env: ["ASSEMBLYAI_API_KEY", "MY_API_KEY"],
   tools: {
     call_api: {
       description: "Call an external API",
@@ -252,14 +258,14 @@ export default defineAgent({
 
 ### Phone agent (Twilio integration)
 
-Same as any agent, but `agent.json` includes a transport array:
+Same as any agent, but with a `transport` field in `defineAgent()`:
 
-```json
-{
-  "slug": "phone-agent",
-  "transport": ["websocket", "twilio"],
-  "env": ["ASSEMBLYAI_API_KEY"]
-}
+```ts
+export default defineAgent({
+  name: "Phone Agent",
+  transport: ["websocket", "twilio"],
+  builtinTools: ["web_search", "visit_webpage"],
+});
 ```
 
 ### npm/jsr dependencies agent
@@ -352,33 +358,13 @@ export default function App() {
 
 After creating `agent.ts`, also create:
 
-1. **`agent.json`** with agent metadata:
-
-```json
-{
-  "slug": "agent-slug-name",
-  "env": ["ASSEMBLYAI_API_KEY"]
-}
-```
-
-**agent.json schema:**
-
-- `slug` (string, required) — Unique agent identifier used in URLs
-- `env` (string[], required) — Environment variable names required by the agent.
-  Must include `"ASSEMBLYAI_API_KEY"`. Values are read from `.env` or the
-  process environment. These are passed as `ctx.env` in both tool `execute`
-  functions and lifecycle hooks (`onConnect`, `onDisconnect`, `onTurn`,
-  `onError`). They are **not** injected into `Deno.env`.
-- `transport` (optional) — Either a single transport string or an array:
-  `"websocket"` | `"twilio"`. Defaults to `["websocket"]`.
-
-2. **`.env`** with required API keys:
+1. **`.env`** with required API keys:
 
 ```
 ASSEMBLYAI_API_KEY=<user needs to add>
 ```
 
-3. **`env.example`** — same as `.env` but without values, for version control.
+2. **`.env.example`** — same as `.env` but without values, for version control.
 
 ## Running and deploying the agent
 

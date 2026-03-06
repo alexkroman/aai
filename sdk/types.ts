@@ -1,6 +1,7 @@
 // --- Agent types (stable SDK surface baked into deployed bundles) ---
 
 import { z } from "zod";
+import type { Transport } from "./_schema.ts";
 
 export interface ToolContext {
   env: Record<string, string>;
@@ -59,6 +60,9 @@ export type Voice =
 
 export interface AgentOptions {
   name: string;
+  slug?: string;
+  env?: string[];
+  transport?: Transport | Transport[];
   instructions?: string;
   greeting?: string;
   voice?: Voice;
@@ -123,6 +127,9 @@ export interface AgentConfig {
 /** Frozen agent definition returned by defineAgent(). */
 export interface AgentDef {
   readonly name: string;
+  readonly slug: string;
+  readonly env: readonly string[];
+  readonly transport: readonly Transport[];
   readonly instructions: string;
   readonly greeting: string;
   readonly voice: string;
