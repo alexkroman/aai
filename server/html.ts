@@ -39,7 +39,7 @@ export function renderLandingPage(): string {
       .cmd{position:relative;background:#161616;border:1px solid #262626;border-radius:10px;padding:1.25rem 4rem 1.25rem 1.5rem;font-size:1.2rem;line-height:1.7;margin-bottom:1.5rem}
       .cmd code{font-family:'SF Mono',Menlo,monospace;white-space:pre}
       .cmd-label{font-size:1rem;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}
-      .copy-btn{position:absolute;top:1rem;right:1rem;background:none;border:1px solid #333;border-radius:4px;color:#666;cursor:pointer;padding:6px 10px;font-size:.9rem;font-family:'SF Mono',Menlo,monospace;transition:color .15s,border-color .15s}
+      .copy-btn{position:absolute;top:50%;right:1rem;transform:translateY(-50%);background:none;border:1px solid #333;border-radius:4px;color:#666;cursor:pointer;padding:6px 10px;font-size:.9rem;font-family:'SF Mono',Menlo,monospace;transition:color .15s,border-color .15s}
       .copy-btn:hover{color:#e5e5e5;border-color:#555}
       .copy-btn.copied{color:#4ade80;border-color:#4ade80}
       a{color:#60a5fa;text-decoration:none;font-size:1.1rem}
