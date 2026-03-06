@@ -7,10 +7,31 @@ import {
 
 function sanitizeMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.map((msg) => {
-    if (typeof msg.content === "string" && !msg.content.trim()) {
-      return { ...msg, content: "..." };
+    let result = msg;
+    if (typeof result.content === "string" && !result.content.trim()) {
+      result = { ...result, content: "..." };
     }
-    return msg;
+    // Ensure tool_calls always have valid JSON arguments for the gateway
+    if (result.tool_calls?.length) {
+      result = {
+        ...result,
+        tool_calls: result.tool_calls.map((tc) => {
+          const args = tc.function.arguments;
+          let safeArgs = args || "{}";
+          try {
+            JSON.parse(safeArgs);
+          } catch {
+            safeArgs = "{}";
+          }
+          if (safeArgs === args) return tc;
+          return {
+            ...tc,
+            function: { ...tc.function, arguments: safeArgs },
+          };
+        }),
+      };
+    }
+    return result;
   });
 }
 

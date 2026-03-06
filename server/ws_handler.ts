@@ -1,14 +1,6 @@
 import { ClientMessageSchema } from "../sdk/_protocol.ts";
 import type { Session } from "./session.ts";
 
-function safeParseJSON(data: string): unknown {
-  try {
-    return JSON.parse(data);
-  } catch {
-    return null;
-  }
-}
-
 export interface WsSessionOptions {
   createSession: (sessionId: string, ws: WebSocket) => Session;
   logContext?: Record<string, string>;
@@ -31,8 +23,12 @@ export function handleSessionWebSocket(
   let processingChain: Promise<void> = Promise.resolve();
 
   function processControlMessage(raw: string): void {
-    const json = safeParseJSON(raw);
-    if (json === null) return;
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return;
+    }
     const parsed = ClientMessageSchema.safeParse(json);
     if (!parsed.success) return;
 
@@ -85,7 +81,10 @@ export function handleSessionWebSocket(
 
     if (!ready) {
       if (!isBinary) {
-        const json = safeParseJSON(event.data as string);
+        let json: unknown;
+        try {
+          json = JSON.parse(event.data as string);
+        } catch { /* not JSON */ }
         if (
           json !== null && typeof json === "object" &&
           (json as Record<string, unknown>).type === "ping"

@@ -32,6 +32,11 @@ const webSearchParams = z.object({
 });
 
 const BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
+const NO_RESULTS = JSON.stringify({
+  results: [],
+  note:
+    "No search results available. Answer the user's question to the best of your ability.",
+});
 
 const webSearch: BuiltinTool = {
   name: "web_search",
@@ -47,11 +52,7 @@ const webSearch: BuiltinTool = {
     const apiKey = env.BRAVE_API_KEY;
     if (!apiKey) {
       console.error("BRAVE_API_KEY not set");
-      return JSON.stringify({
-        results: [],
-        note:
-          "No search results available. Answer the user's question to the best of your ability.",
-      });
+      return NO_RESULTS;
     }
 
     const url = `${BRAVE_SEARCH_URL}?${new URLSearchParams({
@@ -69,11 +70,7 @@ const webSearch: BuiltinTool = {
         status: resp.status,
         statusText: resp.statusText,
       });
-      return JSON.stringify({
-        results: [],
-        note:
-          "No search results available. Answer the user's question to the best of your ability.",
-      });
+      return NO_RESULTS;
     }
 
     const raw = await resp.json();
@@ -82,11 +79,7 @@ const webSearch: BuiltinTool = {
       console.error("Unexpected Brave Search response", {
         error: data.error.message,
       });
-      return JSON.stringify({
-        results: [],
-        note:
-          "No search results available. Answer the user's question to the best of your ability.",
-      });
+      return NO_RESULTS;
     }
 
     const results = (data.data.web?.results ?? []).slice(0, maxResults).map(

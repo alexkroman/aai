@@ -10,14 +10,6 @@ function createWebSocket(
   return new WebSocket(url, headers ? { headers } : undefined);
 }
 
-function safeParseJSON(data: string): unknown {
-  try {
-    return JSON.parse(data);
-  } catch {
-    return null;
-  }
-}
-
 const STT_CONNECTION_TIMEOUT = 10_000;
 
 export interface SttEvents {
@@ -98,22 +90,15 @@ export async function connectStt(
             });
             return;
           }
-          const parsed = safeParseJSON(event.data);
-          if (parsed === null) {
-            console.warn("Failed to parse STT message", {
-              raw: (event.data as string).slice(0, 200),
-            });
+          let json: unknown;
+          try {
+            json = JSON.parse(event.data);
+          } catch {
             return;
           }
 
-          const result = SttMessageSchema.safeParse(parsed);
-          if (!result.success) {
-            console.warn("Invalid STT message, skipping", {
-              error: result.error.message,
-              raw: JSON.stringify(parsed).slice(0, 200),
-            });
-            return;
-          }
+          const result = SttMessageSchema.safeParse(json);
+          if (!result.success) return;
 
           const msg = result.data;
           msgCount++;

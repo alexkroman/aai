@@ -3,6 +3,35 @@ import type { ChatMessage, LLMResponse, ToolSchema } from "./types.ts";
 
 const MAX_TOOL_ITERATIONS = 5;
 
+/** Ensure arguments is always a valid JSON object string for the gateway. */
+function safeJsonArgs(args: string | undefined | null): string {
+  if (!args) return "{}";
+  try {
+    const parsed = JSON.parse(args);
+    if (
+      typeof parsed !== "object" || parsed === null || Array.isArray(parsed)
+    ) {
+      return "{}";
+    }
+    return args;
+  } catch {
+    return "{}";
+  }
+}
+
+function parseToolArg(
+  tc: { function: { arguments: string } },
+  field: string,
+): string {
+  try {
+    return (JSON.parse(tc.function.arguments) as Record<string, unknown>)[
+      field
+    ] as string ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export type ToolChoiceParam =
   | "auto"
   | "required"
@@ -78,15 +107,7 @@ export async function executeTurn(
       c.function.name === FINAL_ANSWER_TOOL
     );
     if (answerTc) {
-      let answer: string;
-      try {
-        answer =
-          (JSON.parse(answerTc.function.arguments) as Record<string, unknown>)[
-            "answer"
-          ] as string ?? "";
-      } catch {
-        answer = "";
-      }
+      const answer = parseToolArg(answerTc, "answer");
       messages.push({ role: "assistant", content: answer });
       logger.info("turn complete (final_answer)", {
         responseLength: answer.length,
@@ -99,15 +120,7 @@ export async function executeTurn(
       c.function.name === USER_INPUT_TOOL
     );
     if (questionTc) {
-      let question: string;
-      try {
-        question = (JSON.parse(questionTc.function.arguments) as Record<
-          string,
-          unknown
-        >)["question"] as string ?? "";
-      } catch {
-        question = "";
-      }
+      const question = parseToolArg(questionTc, "question");
       messages.push({ role: "assistant", content: question });
       logger.info("turn complete (user_input)", {
         questionLength: question.length,
@@ -133,7 +146,7 @@ export async function executeTurn(
       }
     } else if (msg.tool_calls?.length) {
       // Execute tool calls — sanitize tool_calls so the gateway can
-      // round-trip them (arguments must always be valid JSON).
+      // round-trip them (arguments must always be valid JSON object).
       messages.push({
         role: "assistant",
         content: msg.content,
@@ -142,7 +155,7 @@ export async function executeTurn(
           type: tc.type,
           function: {
             name: tc.function.name,
-            arguments: tc.function.arguments || "{}",
+            arguments: safeJsonArgs(tc.function.arguments),
           },
         })),
       });
