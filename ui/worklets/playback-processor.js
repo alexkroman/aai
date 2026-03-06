@@ -10,6 +10,8 @@ class PlaybackProcessor extends AudioWorkletProcessor {
     this.hasInterrupted = false;
     this.outputBuffers = [];
     this.bufferLength = 128;
+    // Buffer ~200ms at 24kHz before starting playback (24000/128 * 0.2 ≈ 37)
+    this.minBufferCount = 37;
     this.write = { buffer: new Float32Array(this.bufferLength) };
     this.writeOffset = 0;
     this.port.onmessage = (e) => {
@@ -48,7 +50,7 @@ class PlaybackProcessor extends AudioWorkletProcessor {
     if (this.hasInterrupted) {
       this.port.postMessage({ event: 'stop' });
       return false;
-    } else if (this.outputBuffers.length) {
+    } else if (this.outputBuffers.length && (this.hasStarted || this.outputBuffers.length >= this.minBufferCount)) {
       this.hasStarted = true;
       const { buffer } = this.outputBuffers.shift();
       for (let i = 0; i < outputChannelData.length; i++) {

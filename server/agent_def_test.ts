@@ -1,5 +1,4 @@
 import { expect } from "@std/expect";
-import { z } from "zod";
 import { defineAgent } from "./agent.ts";
 import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "./agent_types.ts";
 
@@ -42,7 +41,11 @@ Deno.test("defineAgent - preserves tools and hooks", () => {
     tools: {
       greet: {
         description: "Greet",
-        parameters: z.object({ name: z.string() }),
+        parameters: {
+          type: "object",
+          properties: { name: { type: "string" } },
+          required: ["name"],
+        },
         execute: ({ name }) => `Hello, ${name}!`,
       },
     },
@@ -58,7 +61,11 @@ Deno.test("defineAgent - tools are accessible for testing", async () => {
     tools: {
       echo: {
         description: "Echo input",
-        parameters: z.object({ text: z.string() }),
+        parameters: {
+          type: "object",
+          properties: { text: { type: "string" } },
+          required: ["text"],
+        },
         execute: ({ text }) => text,
       },
     },

@@ -1,5 +1,5 @@
 import { getLogger } from "./logger.ts";
-import type { ToolContext, ToolDef } from "./agent_types.ts";
+import type { ToolContext, ToolDef, ToolParameters } from "./agent_types.ts";
 
 const log = getLogger("tool-executor");
 export const TOOL_HANDLER_TIMEOUT = 30_000;
@@ -9,18 +9,40 @@ export type ExecuteTool = (
   args: Record<string, unknown>,
 ) => Promise<string>;
 
+/** Lightweight JSON Schema validation for tool parameters. */
+function validateArgs(
+  params: ToolParameters,
+  args: Record<string, unknown>,
+): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
+  const errors: string[] = [];
+  for (const key of params.required ?? []) {
+    if (!(key in args) || args[key] === undefined) {
+      errors.push(`${key}: required`);
+    }
+  }
+  for (const [key, value] of Object.entries(args)) {
+    const schema = params.properties[key];
+    if (!schema) continue;
+    if (schema.type && typeof value !== schema.type && value !== undefined) {
+      // Allow "number" type for actual numbers
+      if (!(schema.type === "number" && typeof value === "number")) {
+        errors.push(`${key}: expected ${schema.type}`);
+      }
+    }
+  }
+  if (errors.length > 0) return { ok: false, error: errors.join(", ") };
+  return { ok: true, data: args };
+}
+
 export async function executeToolCall(
   name: string,
   args: Record<string, unknown>,
   tool: ToolDef,
   secrets: Record<string, string>,
 ): Promise<string> {
-  const parsed = tool.parameters.safeParse(args);
-  if (!parsed.success) {
-    const errors = parsed.error.issues
-      .map((i) => `${i.path.join(".")}: ${i.message}`)
-      .join(", ");
-    return `Error: Invalid arguments for tool "${name}": ${errors}`;
+  const result = validateArgs(tool.parameters, args);
+  if (!result.ok) {
+    return `Error: Invalid arguments for tool "${name}": ${result.error}`;
   }
 
   try {
@@ -30,11 +52,11 @@ export async function executeToolCall(
       fetch: globalThis.fetch,
       signal,
     };
-    const result = await Promise.resolve(
-      tool.execute(parsed.data as Record<string, unknown>, ctx),
+    const value = await Promise.resolve(
+      tool.execute(result.data, ctx),
     );
-    if (result == null) return "null";
-    return typeof result === "string" ? result : JSON.stringify(result);
+    if (value == null) return "null";
+    return typeof value === "string" ? value : JSON.stringify(value);
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === "TimeoutError") {
       log.warn("Tool execution timed out", { tool: name });

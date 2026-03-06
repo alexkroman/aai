@@ -1,5 +1,4 @@
 import { expect } from "@std/expect";
-import { z } from "zod";
 import type { ToolDef } from "./agent_types.ts";
 import { startWorker } from "./worker_entry.ts";
 import { createWorkerRpc } from "./worker_pool.ts";
@@ -43,7 +42,11 @@ Deno.test("getConfig returns agent config and tool schemas", async () => {
     tools: {
       greet: {
         description: "Greet someone",
-        parameters: z.object({ name: z.string() }),
+        parameters: {
+          type: "object",
+          properties: { name: { type: "string" } },
+          required: ["name"],
+        },
         execute: ({ name }) => `Hi ${name}`,
       },
     },
@@ -67,7 +70,11 @@ Deno.test("executeTool runs handler through worker RPC", async () => {
     tools: {
       greet: {
         description: "Greet",
-        parameters: z.object({ name: z.string() }),
+        parameters: {
+          type: "object",
+          properties: { name: { type: "string" } },
+          required: ["name"],
+        },
         execute: ({ name }) => `Hello, ${name}!`,
       },
     },

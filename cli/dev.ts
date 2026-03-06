@@ -2,7 +2,7 @@ import { debounce } from "@std/async/debounce";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { log } from "./_output.ts";
 import { type AgentEntry, loadAgent } from "./_discover.ts";
-import { bundleAgent, BundleError } from "./_bundler.ts";
+import { bundleAgent, BundleError, warmNpmCache } from "./_bundler.ts";
 import { validateAgent, type ValidationResult } from "./_validate.ts";
 import { generateTypes } from "./types.ts";
 
@@ -196,6 +196,10 @@ export async function runDev(opts: DevOpts): Promise<void> {
   }
 
   const tmpDir = await Deno.makeTempDir({ prefix: "aai-dev-" });
+
+  const spinner = log.spinner("Setup", "preparing bundler...");
+  await warmNpmCache();
+  spinner.stop();
 
   const validation = await buildAndDeploy(agent, opts.serverUrl, tmpDir);
   log.step("Ready", agent.slug);

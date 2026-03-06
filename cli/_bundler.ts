@@ -68,6 +68,26 @@ function ensureInit() {
   return esbuildReady;
 }
 
+let cacheWarmed = false;
+
+/** Pre-populate Deno's npm cache so esbuild resolution doesn't trigger noisy
+ *  download logs mid-build. Safe to call multiple times — only runs once. */
+export async function warmNpmCache(): Promise<void> {
+  if (cacheWarmed) return;
+  cacheWarmed = true;
+  await ensureInit();
+  // Dynamic imports trigger Deno's npm resolution and cache the packages.
+  // These are the npm specifiers from the root deno.json import map that
+  // denoPlugin will resolve during bundling.
+  await Promise.allSettled([
+    import("preact"),
+    import("preact/hooks"),
+    import("preact/compat"),
+    import("@preact/signals"),
+    import("goober"),
+  ]);
+}
+
 /** Root of the aai framework (parent of cli/). */
 const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
 const configPath = resolve(AAI_ROOT, "deno.json");
