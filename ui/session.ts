@@ -1,10 +1,23 @@
 import { batch, type Signal, signal } from "@preact/signals";
-import {
-  DEFAULT_STT_SAMPLE_RATE,
-  DEFAULT_TTS_SAMPLE_RATE,
-  type ErrorMessage,
-  type ServerMessage,
-} from "@aai/core/protocol";
+// Inlined from core/_protocol.ts to avoid dependency on unpublished @aai/core.
+const DEFAULT_STT_SAMPLE_RATE = 16_000;
+const DEFAULT_TTS_SAMPLE_RATE = 24_000;
+
+type ErrorMessage = { type: "error"; message: string; details?: string[] };
+
+type ServerMessage =
+  | { type: "ready"; sample_rate: number; tts_sample_rate: number }
+  | { type: "partial_transcript"; text: string }
+  | { type: "final_transcript"; text: string; turn_order?: number }
+  | { type: "turn"; text: string; turn_order?: number }
+  | { type: "chat"; text: string }
+  | { type: "chat_delta"; text: string }
+  | { type: "chat_done"; text: string }
+  | { type: "tts_done" }
+  | { type: "cancelled" }
+  | { type: "reset" }
+  | ErrorMessage
+  | { type: "pong" };
 
 import {
   type AgentState,
