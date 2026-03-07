@@ -183,10 +183,6 @@ async function precomputeSchemas(agent: AgentEntry) {
   if (await hasExternalImports(agent.dir)) return null;
 
   const { agentToolsToSchemas } = await import("../aai/types.ts");
-  const { defineAgent } = await import("../aai/define_agent.ts");
-  const { fetchJSON } = await import("../aai/fetch_json.ts");
-  const { z } = await import("zod");
-  Object.assign(globalThis, { defineAgent, fetchJSON, z });
 
   const source = await Deno.readTextFile(resolve(agent.entryPoint));
   const js = await stripTypes(source);
@@ -228,13 +224,6 @@ export async function bundleAgent(
 
   const agentAbsolute = resolve(agent.entryPoint);
   const workerEntryAbsolute = resolve(AAI_ROOT, "core/_worker_entry.ts");
-  const agentModAbsolute = resolve(AAI_ROOT, "aai/define_agent.ts");
-  const fetchJsonAbsolute = resolve(AAI_ROOT, "aai/fetch_json.ts");
-
-  const workerShim = `import { defineAgent } from "${agentModAbsolute}";\n` +
-    `import { fetchJSON } from "${fetchJsonAbsolute}";\n` +
-    `import { z } from "zod";\n` +
-    `Object.assign(globalThis, { defineAgent, fetchJSON, z });\n`;
 
   const clientShim =
     `import { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, createVoiceSession } from "@aai/ui";\n` +
@@ -250,8 +239,7 @@ export async function bundleAgent(
     ...BASE,
     plugins,
     stdin: {
-      contents: workerShim +
-        `import agent from "${agentAbsolute}";\n` +
+      contents: `import agent from "${agentAbsolute}";\n` +
         `import { startWorker } from "${workerEntryAbsolute}";\n` +
         `const env: Record<string, string> = ${JSON.stringify(agent.env)};\n` +
         `const schemas = ${JSON.stringify(schemas)};\n` +

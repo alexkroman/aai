@@ -1,6 +1,6 @@
 import { join } from "@std/path";
 import { step } from "./_output.ts";
-import { generateTypes } from "./types.ts";
+
 import {
   adjectives,
   animals,
@@ -86,8 +86,6 @@ export async function runNew(opts: NewOptions): Promise<string> {
   } catch {
     // No agent.ts to update
   }
-
-  await generateTypes(targetDir);
 
   // Copy .env.example as .env
   try {

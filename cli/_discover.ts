@@ -87,19 +87,8 @@ async function importAgentDef(dir: string): Promise<AgentDef | null> {
   if (await hasExternalImports(dir)) return null;
 
   const entryPoint = join(dir, "agent.ts");
-  const saved = {
-    defineAgent: (globalThis as Record<string, unknown>).defineAgent,
-    fetchJSON: (globalThis as Record<string, unknown>).fetchJSON,
-    z: (globalThis as Record<string, unknown>).z,
-  };
-
   const tmpPath = join(dir, `.aai-discover-${Date.now()}.js`);
   try {
-    const { defineAgent } = await import("../aai/define_agent.ts");
-    const { fetchJSON } = await import("../aai/fetch_json.ts");
-    const { z } = await import("zod");
-    Object.assign(globalThis, { defineAgent, fetchJSON, z });
-
     const source = await Deno.readTextFile(resolve(entryPoint));
     const js = await stripTypes(source);
     await Deno.writeTextFile(tmpPath, js);
@@ -107,13 +96,6 @@ async function importAgentDef(dir: string): Promise<AgentDef | null> {
     return mod.default as AgentDef;
   } finally {
     await Deno.remove(tmpPath).catch(() => {});
-    for (const [k, v] of Object.entries(saved)) {
-      if (v === undefined) {
-        delete (globalThis as Record<string, unknown>)[k];
-      } else {
-        (globalThis as Record<string, unknown>)[k] = v;
-      }
-    }
   }
 }
 

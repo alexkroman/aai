@@ -59,23 +59,12 @@ export async function validateAgent(
 
   const errors: ValidationError[] = [];
 
-  const saved = {
-    defineAgent: (globalThis as Record<string, unknown>).defineAgent,
-    fetchJSON: (globalThis as Record<string, unknown>).fetchJSON,
-    z: (globalThis as Record<string, unknown>).z,
-  };
-
   let mod: Record<string, unknown>;
   const tmpPath = join(
     dirname(resolve(agent.entryPoint)),
     `.aai-validate-${Date.now()}.js`,
   );
   try {
-    const { defineAgent } = await import("../aai/define_agent.ts");
-    const { fetchJSON } = await import("../aai/fetch_json.ts");
-    const { z } = await import("zod");
-    Object.assign(globalThis, { defineAgent, fetchJSON, z });
-
     const source = await Deno.readTextFile(resolve(agent.entryPoint));
     const js = await stripTypes(source);
     await Deno.writeTextFile(tmpPath, js);
@@ -90,13 +79,6 @@ export async function validateAgent(
     return { errors };
   } finally {
     await Deno.remove(tmpPath).catch(() => {});
-    for (const [k, v] of Object.entries(saved)) {
-      if (v === undefined) {
-        delete (globalThis as Record<string, unknown>)[k];
-      } else {
-        (globalThis as Record<string, unknown>)[k] = v;
-      }
-    }
   }
 
   if (!mod.default) {

@@ -5,8 +5,7 @@
     "setup": "git config core.hooksPath .githooks",
     "dev": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run --unstable-worker-options cli/cli.ts dev",
     "serve": "deno run --allow-net --allow-env --allow-read --allow-write --unstable-worker-options server/main.ts",
-    "types": "deno run --allow-write --allow-env --allow-read cli/cli.ts types",
-    "deploy": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run cli/cli.ts deploy",
+"deploy": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run cli/cli.ts deploy",
     "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options",
     "check": "deno check server/**/*.ts ui/**/*.ts ui/**/*.tsx cli/**/*.ts aai/**/*.ts core/**/*.ts $(find templates -name '*.ts' ! -path 'templates/npm-tools/*') && deno lint && deno fmt --check && deno task check:boundaries && deno test --quiet --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options && deno task test:templates",
     "check:boundaries": "deno run --allow-read scripts/check_boundaries.ts",
@@ -40,7 +39,6 @@
   "nodeModulesDir": "auto",
   "compilerOptions": {
     "strict": true,
-    "types": ["./types.d.ts"],
     "lib": [
       "deno.ns",
       "deno.unstable",

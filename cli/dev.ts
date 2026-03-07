@@ -7,7 +7,6 @@ import { type AgentEntry, loadAgent } from "./_discover.ts";
 import { bundleAgent, BundleError, warmNpmCache } from "./_bundler.ts";
 import { validateAgent, type ValidationResult } from "./_validate.ts";
 import { runDeploy } from "./deploy.ts";
-import { generateTypes } from "./types.ts";
 
 export interface DevOpts {
   agentDir: string;
@@ -136,8 +135,6 @@ export async function runDev(opts: DevOpts): Promise<void> {
       throw new Error("missing agent files");
     }
     agent = result;
-
-    await generateTypes(opts.agentDir);
 
     // Write CLAUDE.md if missing
     const claudePath = join(opts.agentDir, "CLAUDE.md");
