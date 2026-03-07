@@ -4,7 +4,7 @@ import { dirname, fromFileUrl, join, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
 import { step } from "./_output.ts";
 import { stripTypes } from "./_bundler.ts";
-import type { AgentDef } from "../aai/types.ts";
+import type { AgentDef } from "../sdk/types.ts";
 
 /** Root of the aai framework (parent of cli/). */
 const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
@@ -20,6 +20,8 @@ const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 
 interface CliConfig {
   assemblyai_api_key?: string;
+  rime_api_key?: string;
+  brave_api_key?: string;
 }
 
 async function readConfig(): Promise<CliConfig> {
@@ -38,13 +40,82 @@ async function writeConfig(config: CliConfig): Promise<void> {
   );
 }
 
-/** Get the stored API key, prompting the user if not set. */
+interface KeySpec {
+  envVar: string;
+  configKey: keyof CliConfig;
+  label: string;
+  prompt: string;
+  signupUrl: string;
+}
+
+const KEYS: KeySpec[] = [
+  {
+    envVar: "ASSEMBLYAI_API_KEY",
+    configKey: "assemblyai_api_key",
+    label: "AssemblyAI API key required for speech-to-text",
+    prompt: "Enter your ASSEMBLYAI_API_KEY:",
+    signupUrl: "https://www.assemblyai.com/dashboard/signup",
+  },
+  {
+    envVar: "RIME_API_KEY",
+    configKey: "rime_api_key",
+    label: "Rime API key required for text-to-speech",
+    prompt: "Enter your RIME_API_KEY:",
+    signupUrl: "https://rime.ai",
+  },
+  {
+    envVar: "BRAVE_API_KEY",
+    configKey: "brave_api_key",
+    label: "Brave API key required for web search",
+    prompt: "Enter your BRAVE_API_KEY:",
+    signupUrl: "https://brave.com/search/api/",
+  },
+];
+
+/** Ensure all required API keys are available, prompting if needed.
+ *  Sets env vars so the embedded server can read them. */
+export async function getApiKeys(): Promise<void> {
+  const config = await readConfig();
+  let dirty = false;
+
+  for (const spec of KEYS) {
+    const envVal = Deno.env.get(spec.envVar);
+    if (envVal) continue;
+
+    const stored = config[spec.configKey];
+    if (stored) {
+      Deno.env.set(spec.envVar, stored);
+      continue;
+    }
+
+    step("Setup", spec.label);
+    console.log(`Get one at ${spec.signupUrl}\n`);
+    const key = prompt(spec.prompt)?.trim();
+    if (!key) {
+      throw new Error(`${spec.envVar} is required`);
+    }
+
+    config[spec.configKey] = key;
+    Deno.env.set(spec.envVar, key);
+    dirty = true;
+  }
+
+  if (dirty) {
+    await writeConfig(config);
+    step("Saved", CONFIG_FILE);
+  }
+}
+
+/** Get the AssemblyAI API key, prompting if not set. */
 export async function getApiKey(): Promise<string> {
   const envKey = Deno.env.get("ASSEMBLYAI_API_KEY");
   if (envKey) return envKey;
 
   const config = await readConfig();
-  if (config.assemblyai_api_key) return config.assemblyai_api_key;
+  if (config.assemblyai_api_key) {
+    Deno.env.set("ASSEMBLYAI_API_KEY", config.assemblyai_api_key);
+    return config.assemblyai_api_key;
+  }
 
   step("Setup", "AssemblyAI API key required for speech-to-text");
   console.log("Get one at https://www.assemblyai.com/dashboard/signup\n");
@@ -54,6 +125,7 @@ export async function getApiKey(): Promise<string> {
   }
 
   config.assemblyai_api_key = key;
+  Deno.env.set("ASSEMBLYAI_API_KEY", key);
   await writeConfig(config);
   step("Saved", CONFIG_FILE);
   return key;
@@ -70,13 +142,17 @@ export interface AgentEntry {
   transport: ("websocket" | "twilio")[];
 }
 
+/** Imports that the workspace already resolves — not truly "external". */
+const WORKSPACE_IMPORTS = new Set(["@aai/sdk", "@aai/ui", "zod"]);
+
 /** Check if the agent has external imports in its deno.json. */
 async function hasExternalImports(dir: string): Promise<boolean> {
   const denoJsonPath = join(dir, "deno.json");
   if (!await exists(denoJsonPath)) return false;
   try {
     const raw = JSON.parse(await Deno.readTextFile(denoJsonPath));
-    return raw.imports && Object.keys(raw.imports).length > 0;
+    const imports = raw.imports ?? {};
+    return Object.keys(imports).some((k) => !WORKSPACE_IMPORTS.has(k));
   } catch {
     return false;
   }
@@ -90,7 +166,14 @@ async function importAgentDef(dir: string): Promise<AgentDef | null> {
   const tmpPath = join(dir, `.aai-discover-${Date.now()}.js`);
   try {
     const source = await Deno.readTextFile(resolve(entryPoint));
-    const js = await stripTypes(source);
+    let js = await stripTypes(source);
+    // Rewrite @aai/sdk imports to absolute paths so the tmp file resolves
+    // correctly even when the agent dir is outside the workspace.
+    const sdkPath = toFileUrl(resolve(AAI_ROOT, "sdk/mod.ts")).href;
+    js = js.replace(
+      /from\s*["']@aai\/sdk["']/g,
+      `from "${sdkPath}"`,
+    );
     await Deno.writeTextFile(tmpPath, js);
     const mod = await import(toFileUrl(tmpPath).href);
     return mod.default as AgentDef;

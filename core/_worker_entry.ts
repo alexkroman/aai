@@ -6,7 +6,7 @@ import {
   type HookContext,
   type ToolDef,
   type ToolSchema,
-} from "../aai/types.ts";
+} from "../sdk/types.ts";
 import { executeToolCall } from "./_tool_executor.ts";
 import { type MessageTarget, serveRpc } from "./_rpc.ts";
 

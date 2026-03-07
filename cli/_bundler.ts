@@ -168,12 +168,16 @@ async function writeOutputFiles(
   }
 }
 
+/** Imports that the workspace already resolves — not truly "external". */
+const WORKSPACE_IMPORTS = new Set(["@aai/sdk", "@aai/ui", "zod"]);
+
 async function hasExternalImports(dir: string): Promise<boolean> {
   const denoJsonPath = join(dir, "deno.json");
   if (!await exists(denoJsonPath)) return false;
   try {
     const raw = JSON.parse(await Deno.readTextFile(denoJsonPath));
-    return raw.imports && Object.keys(raw.imports).length > 0;
+    const imports = raw.imports ?? {};
+    return Object.keys(imports).some((k) => !WORKSPACE_IMPORTS.has(k));
   } catch {
     return false;
   }
@@ -182,10 +186,14 @@ async function hasExternalImports(dir: string): Promise<boolean> {
 async function precomputeSchemas(agent: AgentEntry) {
   if (await hasExternalImports(agent.dir)) return null;
 
-  const { agentToolsToSchemas } = await import("../aai/types.ts");
+  const { agentToolsToSchemas } = await import("../sdk/types.ts");
 
   const source = await Deno.readTextFile(resolve(agent.entryPoint));
-  const js = await stripTypes(source);
+  let js = await stripTypes(source);
+  // Rewrite @aai/sdk imports to absolute paths so the tmp file resolves
+  // correctly even when the agent dir is outside the workspace.
+  const sdkPath = toFileUrl(resolve(AAI_ROOT, "sdk/mod.ts")).href;
+  js = js.replace(/from\s*["']@aai\/sdk["']/g, `from "${sdkPath}"`);
   const tmpPath = join(
     dirname(resolve(agent.entryPoint)),
     `.aai-schemas-${Date.now()}.js`,

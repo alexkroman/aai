@@ -51,8 +51,9 @@ const webSearch: BuiltinTool = {
 
     const apiKey = env.BRAVE_API_KEY;
     if (!apiKey) {
-      console.error("BRAVE_API_KEY not set");
-      return NO_RESULTS;
+      return JSON.stringify({
+        error: "BRAVE_API_KEY is not set — web search unavailable",
+      });
     }
 
     const url = `${BRAVE_SEARCH_URL}?${new URLSearchParams({

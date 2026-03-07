@@ -3,7 +3,7 @@ import { toFileUrl } from "@std/path/to-file-url";
 import { exists } from "@std/fs/exists";
 import type { AgentEntry } from "./_discover.ts";
 import { stripTypes } from "./_bundler.ts";
-import type { AgentDef, ToolContext, ToolDef } from "../aai/types.ts";
+import type { AgentDef, ToolContext, ToolDef } from "../sdk/types.ts";
 
 interface ValidationError {
   field: string;

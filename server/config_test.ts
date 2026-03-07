@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import { loadPlatformConfig, validateServerEnv } from "./config.ts";
+import { loadPlatformConfig } from "./config.ts";
 import { DEFAULT_MODEL } from "./types.ts";
 
 Deno.test("loadPlatformConfig", async (t) => {
@@ -42,35 +42,5 @@ Deno.test("loadPlatformConfig", async (t) => {
       LLM_MODEL: "custom-model",
     });
     expect(config.model).toBe("custom-model");
-  });
-});
-
-Deno.test("validateServerEnv", async (t) => {
-  await t.step("throws when RIME_API_KEY is missing", () => {
-    const orig = Deno.env.get("RIME_API_KEY");
-    const origBrave = Deno.env.get("BRAVE_API_KEY");
-    try {
-      Deno.env.delete("RIME_API_KEY");
-      Deno.env.delete("BRAVE_API_KEY");
-      expect(() => validateServerEnv()).toThrow();
-    } finally {
-      if (orig) Deno.env.set("RIME_API_KEY", orig);
-      if (origBrave) Deno.env.set("BRAVE_API_KEY", origBrave);
-    }
-  });
-
-  await t.step("passes when all required vars are set", () => {
-    const orig = Deno.env.get("RIME_API_KEY");
-    const origBrave = Deno.env.get("BRAVE_API_KEY");
-    try {
-      Deno.env.set("RIME_API_KEY", "test-key");
-      Deno.env.set("BRAVE_API_KEY", "test-brave-key");
-      expect(() => validateServerEnv()).not.toThrow();
-    } finally {
-      if (orig) Deno.env.set("RIME_API_KEY", orig);
-      else Deno.env.delete("RIME_API_KEY");
-      if (origBrave) Deno.env.set("BRAVE_API_KEY", origBrave);
-      else Deno.env.delete("BRAVE_API_KEY");
-    }
   });
 });

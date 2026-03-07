@@ -1,23 +1,29 @@
+import { cyan, dim, green, red, yellow } from "@std/fmt/colors";
 import { error, spinner, step } from "./_output.ts";
-import { loadAgent } from "./_discover.ts";
-import { bundleAgent, warmNpmCache } from "./_bundler.ts";
-import { validateAgent } from "./_validate.ts";
+import { type AgentEntry, loadAgent } from "./_discover.ts";
+import { bundleAgent, BundleError, warmNpmCache } from "./_bundler.ts";
+import { validateAgent, type ValidationResult } from "./_validate.ts";
 
-export interface BuildOpts {
+export interface BuildResult {
+  agent: AgentEntry;
+  validation: ValidationResult;
   outDir: string;
-  agentDir: string;
 }
 
-export async function runBuild(opts: BuildOpts): Promise<void> {
+export interface BuildOpts {
+  agentDir: string;
+  outDir: string;
+}
+
+/** Validate, bundle, and print warnings. Used by both dev and deploy. */
+export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
   const sp = spinner("Setup", "preparing bundler...");
   await warmNpmCache();
   sp.stop();
 
   const agent = await loadAgent(opts.agentDir);
   if (!agent) {
-    throw new Error(
-      `no agent found in ${opts.agentDir} -- needs agent.ts`,
-    );
+    throw new Error("no agent found — run `aai new` first");
   }
 
   step("Check", agent.slug);
@@ -26,10 +32,40 @@ export async function runBuild(opts: BuildOpts): Promise<void> {
     for (const e of validation.errors) {
       error(`${e.field}: ${e.message}`);
     }
-    throw new Error("agent validation failed -- fix the errors above");
+    throw new Error("agent validation failed — fix the errors above");
+  }
+
+  if (validation.toolTests && validation.toolTests.length > 0) {
+    step("Tools", "testing custom tools...");
+    for (const t of validation.toolTests) {
+      if (t.ok && t.skipped) {
+        console.log(
+          `  ${yellow("○")} ${cyan(t.name)} ${dim("skipped (requires args)")}`,
+        );
+      } else if (t.ok) {
+        const preview = t.result !== undefined
+          ? dim(" → " + JSON.stringify(t.result).slice(0, 80))
+          : "";
+        console.log(`  ${green("✓")} ${cyan(t.name)}${preview}`);
+      } else {
+        console.log(
+          `  ${red("✗")} ${cyan(t.name)} ${red(t.error ?? "unknown error")}`,
+        );
+      }
+    }
   }
 
   const outDir = `${opts.outDir}/${agent.slug}`;
-  await bundleAgent(agent, outDir);
   step("Bundle", agent.slug);
+  try {
+    await bundleAgent(agent, outDir);
+  } catch (err) {
+    if (err instanceof BundleError) {
+      console.error(err.message);
+      throw new Error("bundle failed — fix the errors above");
+    }
+    throw err;
+  }
+
+  return { agent, validation, outDir };
 }

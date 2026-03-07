@@ -16,7 +16,7 @@ import type {
   STTConfig,
   ToolSchema,
 } from "./types.ts";
-import { DEFAULT_GREETING } from "../aai/types.ts";
+import { DEFAULT_GREETING } from "../sdk/types.ts";
 import type { WorkerApi } from "../core/_worker_entry.ts";
 import { buildSystemPrompt } from "./system_prompt.ts";
 
@@ -181,10 +181,10 @@ export function createSession(opts: SessionOptions): Session {
         console.info("STT termination", { audioDuration, sessionDuration });
       },
       onError: (err) => {
-        console.error("STT error", { err });
+        console.error("STT error:", err.message);
         trySendJson({
           type: "error",
-          message: "Speech recognition disconnected",
+          message: err.message,
         });
       },
       onClose: () => {
@@ -192,8 +192,10 @@ export function createSession(opts: SessionOptions): Session {
         stt = null;
         if (!stopped) {
           console.info("Attempting STT reconnect");
-          doConnectSttWithEvents().catch((err) => {
-            console.error("STT reconnect failed", { err });
+          doConnectSttWithEvents().catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error("STT reconnect failed:", msg);
+            trySendJson({ type: "error", message: msg });
           });
         }
       },
@@ -203,11 +205,8 @@ export function createSession(opts: SessionOptions): Session {
       stt = await doConnectStt(config.apiKey, config.sttConfig, events);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("Failed to connect STT", { error: msg });
-      trySendJson({
-        type: "error",
-        message: "Failed to connect to speech recognition",
-      });
+      console.error("STT connect failed:", msg);
+      trySendJson({ type: "error", message: msg });
     }
   }
 
@@ -253,8 +252,8 @@ export function createSession(opts: SessionOptions): Session {
     } catch (err: unknown) {
       if (abort.signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("Chat failed", { error: msg });
-      trySendJson({ type: "error", message: "Chat failed" });
+      console.error("Turn failed:", msg);
+      trySendJson({ type: "error", message: msg });
     } finally {
       if (turnAbort === abort) turnAbort = null;
     }
@@ -268,7 +267,12 @@ export function createSession(opts: SessionOptions): Session {
       .then(() => {
         if (!abort.signal.aborted) trySendJson({ type: "tts_done" });
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        if (abort.signal.aborted) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("TTS failed:", msg);
+        trySendJson({ type: "error", message: msg });
+      })
       .finally(() => {
         if (turnAbort === abort) turnAbort = null;
         if (turnPromise === p) turnPromise = null;

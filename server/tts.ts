@@ -72,19 +72,25 @@ export function createTtsClient(config: TTSConfig) {
     }
   }
 
+  /** Last error message from a WebSocket close/error, surfaced on connect. */
+  let lastError: string | null = null;
+
   function handleClose(event: CloseEvent): void {
     if (event.code !== 1000 && event.code !== 1005) {
-      console.error("TTS WebSocket closed unexpectedly", {
-        code: event.code,
-        reason: event.reason,
-      });
+      lastError = event.reason
+        ? `TTS connection closed: ${event.reason} (code ${event.code})`
+        : `TTS connection closed unexpectedly (code ${event.code})`;
+      console.error(lastError);
     }
     ws = null;
     finishSynthesis();
   }
 
   function handleError(): void {
-    console.error("TTS WebSocket error");
+    lastError = config.apiKey
+      ? "TTS WebSocket error — check RIME_API_KEY"
+      : "TTS WebSocket error — RIME_API_KEY is not set";
+    console.error(lastError);
     ws = null;
     finishSynthesis();
   }
@@ -110,11 +116,12 @@ export function createTtsClient(config: TTSConfig) {
 
     return new Promise<WebSocket>((resolve, reject) => {
       newWs.addEventListener("open", () => {
+        lastError = null;
         console.info("TTS WebSocket connected");
         resolve(newWs);
       }, { once: true });
       newWs.addEventListener("error", () => {
-        reject(new Error("TTS WebSocket connection failed"));
+        reject(new Error(lastError ?? "TTS WebSocket connection failed"));
       }, { once: true });
     });
   }

@@ -385,24 +385,18 @@ ASSEMBLYAI_API_KEY=<user needs to add>
 
 ## Running and deploying the agent
 
-The `aai` CLI handles validation, bundling, and deployment in a single command.
-There is no separate build step or deploy tool.
-
 ```sh
-aai
+aai dev       # Run local dev server with file watching
+aai deploy    # Bundle and deploy to production
+aai new       # Scaffold a new agent project
 ```
 
-This validates the config, bundles the code, and deploys it to the dev server.
-Use it every time you make changes.
+`aai dev` starts a local server, bundles and deploys the agent to it, and
+watches for file changes. Use it during development.
 
-To validate and bundle without deploying:
+`aai deploy` bundles and deploys to the production server.
 
-```sh
-aai --dry-run
-```
-
-Use `--dry-run` to catch config issues before deploying. It runs the same checks
-as a full deploy but skips the upload.
+`aai deploy --dry-run` validates and bundles without deploying.
 
 If they don't have aai installed:
 

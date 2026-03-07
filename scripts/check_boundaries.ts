@@ -1,6 +1,6 @@
 /**
  * Verify that cli/, server/, and ui/ do not import from each other.
- * Only aai/ and core/ are allowed as cross-package dependencies.
+ * Only sdk/ and core/ are allowed as cross-package dependencies.
  *
  * Catches both relative imports (../server/) and workspace imports (@aai/server).
  * Skips test files for workspace imports (test utils may share helpers).
@@ -8,14 +8,14 @@
  */
 
 const RULES: { dirs: string[]; forbidden: RegExp; skipTests: boolean }[] = [
-  // No relative cross-imports
-  { dirs: ["cli", "ui"], forbidden: /from\s+["']\.\.\/server\//, skipTests: false },
+  // No relative cross-imports (cli/ CAN import server/ for embedded dev server)
+  { dirs: ["ui"], forbidden: /from\s+["']\.\.\/server\//, skipTests: false },
   { dirs: ["server", "ui"], forbidden: /from\s+["']\.\.\/cli\//, skipTests: false },
-  { dirs: ["cli", "server"], forbidden: /from\s+["']\.\.\/ui\//, skipTests: false },
+  { dirs: ["server"], forbidden: /from\s+["']\.\.\/ui\//, skipTests: false },
   // No workspace cross-imports (except in test files)
-  { dirs: ["cli", "ui"], forbidden: /^import\b.*from\s+["']@aai\/server/, skipTests: true },
+  { dirs: ["ui"], forbidden: /^import\b.*from\s+["']@aai\/server/, skipTests: true },
   { dirs: ["server", "ui"], forbidden: /^import\b.*from\s+["']@aai\/cli/, skipTests: true },
-  { dirs: ["cli", "server"], forbidden: /^import\b.*from\s+["']@aai\/ui/, skipTests: true },
+  { dirs: ["server"], forbidden: /^import\b.*from\s+["']@aai\/ui/, skipTests: true },
 ];
 
 let violations = 0;
@@ -43,7 +43,7 @@ for (const rule of RULES) {
 
 if (violations > 0) {
   console.error(`\nFound ${violations} import boundary violation(s).`);
-  console.error("cli/, server/, and ui/ may only import from aai/ and core/.");
+  console.error("cli/, server/, and ui/ may only import from sdk/ and core/.");
   Deno.exit(1);
 } else {
   console.log("Import boundaries OK");

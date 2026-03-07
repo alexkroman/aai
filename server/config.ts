@@ -1,4 +1,3 @@
-import { z } from "zod";
 import {
   DEFAULT_MODEL,
   DEFAULT_STT_CONFIG,
@@ -6,29 +5,7 @@ import {
   type STTConfig,
   type TTSConfig,
 } from "./types.ts";
-import { EnvSchema } from "../aai/_schema.ts";
-
-const ServerEnvSchema = z.object({
-  RIME_API_KEY: z.string().min(
-    1,
-    "RIME_API_KEY is required",
-  ),
-  BRAVE_API_KEY: z.string().min(1, "BRAVE_API_KEY is required"),
-});
-
-/** Validate that all required server environment variables are set. Throws on failure. */
-export function validateServerEnv(): void {
-  const result = ServerEnvSchema.safeParse({
-    RIME_API_KEY: Deno.env.get("RIME_API_KEY"),
-    BRAVE_API_KEY: Deno.env.get("BRAVE_API_KEY"),
-  });
-  if (!result.success) {
-    const missing = result.error.issues.map((i) => i.path.join(".")).join(", ");
-    throw new Error(
-      `Missing required environment variables: ${missing}\nSee .env.example for the required keys.`,
-    );
-  }
-}
+import { EnvSchema } from "../sdk/_schema.ts";
 
 export interface PlatformConfig {
   apiKey: string;

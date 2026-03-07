@@ -16,7 +16,7 @@ export {
   type ToolDef,
   type ToolSchema,
   type Voice,
-} from "../aai/types.ts";
+} from "../sdk/types.ts";
 
 // --- Config types (plain interfaces — not validated at boundaries) ---
 

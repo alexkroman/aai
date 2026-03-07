@@ -133,9 +133,11 @@ export async function connectStt(
 
         ws.addEventListener("error", (event: Event) => {
           ac.abort();
-          const err = event instanceof ErrorEvent
-            ? new Error(event.message)
-            : new Error("WebSocket error");
+          const detail = event instanceof ErrorEvent ? event.message : "";
+          const msg = apiKey
+            ? `STT connection failed${detail ? `: ${detail}` : ""}`
+            : "STT connection failed — ASSEMBLYAI_API_KEY is not set";
+          const err = new Error(msg);
           events.onError(err);
           reject(err);
         });

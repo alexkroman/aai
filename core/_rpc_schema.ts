@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "../aai/types.ts";
+import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "../sdk/types.ts";
 
 // ── BuiltinTool enum (single source of truth for validation) ────
 

@@ -1,9 +1,7 @@
 import {
   css,
-  darkTheme,
   ErrorBanner,
   MessageBubble,
-  mount,
   StateIndicator,
   Transcript,
   useSession,
@@ -98,7 +96,7 @@ const chat = css`
   }
 `;
 
-function NightOwl() {
+export default function NightOwl() {
   const {
     state,
     messages,
@@ -170,8 +168,3 @@ function NightOwl() {
     </div>
   );
 }
-
-mount(NightOwl, {
-  theme: darkTheme,
-  platformUrl: new URL(".", globalThis.location.href).href.replace(/\/$/, ""),
-});

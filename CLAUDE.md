@@ -31,7 +31,7 @@ by git hooks.
 
 ### Three Workspaces
 
-The `deno.json` workspace has three packages: `server/`, `ui/`, `cli/`.
+The `deno.json` workspace has five packages: `sdk/`, `core/`, `server/`, `ui/`, `cli/`.
 
 **`cli/`** — The `aai` CLI tool. Entry point: `cli/cli.ts`.
 
@@ -92,7 +92,7 @@ tool `execute` functions run inside the worker; built-in tools run on the host.
 
 The `cli/claude.md` file is copied into user agent directories as their
 CLAUDE.md. It documents the `defineAgent()` API. When modifying the agent API
-surface (`aai/types.ts`), update `cli/claude.md` to match.
+surface (`sdk/types.ts`), update `cli/claude.md` to match.
 
 ## Key Conventions
 
@@ -102,8 +102,8 @@ surface (`aai/types.ts`), update `cli/claude.md` to match.
 - Test files are co-located: `foo.ts` → `foo_test.ts`
 - The CLI should only open the browser when scaffolding a new agent, not when
   running dev on an existing agent
-- `aai/` is the public agent SDK (publishable to jsr as `@aai/sdk`): types,
+- `sdk/` is the public agent SDK (published to jsr as `@aai/sdk`): types,
   defineAgent, fetchJSON. `core/` contains internal plumbing: worker entry,
-  protocol, RPC, and JSON schemas. cli/, server/, and ui/ depend on aai/ and
+  protocol, RPC, and JSON schemas. cli/, server/, and ui/ depend on sdk/ and
   core/ but never on each other
 - `templates/` contains agent scaffolding templates (simple, etc.)

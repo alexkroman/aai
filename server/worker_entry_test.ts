@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { expect } from "@std/expect";
-import type { BuiltinTool, ToolDef } from "../aai/types.ts";
+import type { BuiltinTool, ToolDef } from "../sdk/types.ts";
 import { startWorker } from "../core/_worker_entry.ts";
 import { createWorkerRpc } from "./rpc.ts";
 
