@@ -1,4 +1,4 @@
-import { ClientMessageSchema } from "../sdk/_protocol.ts";
+import { ClientMessageSchema } from "../core/_protocol.ts";
 import type { Session } from "./session.ts";
 
 export interface WsSessionOptions {

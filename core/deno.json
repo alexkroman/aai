@@ -1,14 +1,15 @@
 {
-  "name": "@aai/sdk",
+  "name": "@aai/core",
   "version": "0.1.0",
   "exports": {
-    "./types": "./types.ts",
-    "./define-agent": "./define_agent.ts",
-    "./fetch-json": "./fetch_json.ts",
     "./worker-entry": "./_worker_entry.ts",
     "./tool-executor": "./_tool_executor.ts",
-    "./schema": "./_schema.ts",
     "./protocol": "./_protocol.ts",
     "./rpc": "./_rpc.ts"
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-slow-types"]
+    }
   }
 }

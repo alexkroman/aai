@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import { ClientMessageSchema } from "../sdk/_protocol.ts";
+import { ClientMessageSchema } from "../core/_protocol.ts";
 import { LLMResponseSchema, SttMessageSchema } from "./types.ts";
 
 Deno.test("SttMessageSchema", async (t) => {

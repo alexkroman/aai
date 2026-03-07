@@ -3,7 +3,7 @@ import { toFileUrl } from "@std/path/to-file-url";
 import { exists } from "@std/fs/exists";
 import type { AgentEntry } from "./_discover.ts";
 import { stripTypes } from "./_bundler.ts";
-import type { AgentDef, ToolContext, ToolDef } from "../sdk/types.ts";
+import type { AgentDef, ToolContext, ToolDef } from "../aai/types.ts";
 
 interface ValidationError {
   field: string;
@@ -71,8 +71,8 @@ export async function validateAgent(
     `.aai-validate-${Date.now()}.js`,
   );
   try {
-    const { defineAgent } = await import("../sdk/define_agent.ts");
-    const { fetchJSON } = await import("../sdk/fetch_json.ts");
+    const { defineAgent } = await import("../aai/define_agent.ts");
+    const { fetchJSON } = await import("../aai/fetch_json.ts");
     const { z } = await import("zod");
     Object.assign(globalThis, { defineAgent, fetchJSON, z });
 

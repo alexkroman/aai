@@ -4,7 +4,7 @@ import {
   DEFAULT_TTS_SAMPLE_RATE,
   type ErrorMessage,
   type ServerMessage,
-} from "@aai/sdk/protocol";
+} from "@aai/core/protocol";
 
 import {
   type AgentState,

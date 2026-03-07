@@ -1,7 +1,7 @@
 import type { AgentConfig, ToolSchema } from "./types.ts";
-import type { WorkerApi } from "../sdk/_worker_entry.ts";
-import { GetConfigResponseSchema } from "../sdk/_rpc_schema.ts";
-import { createRpcCaller } from "../sdk/_rpc.ts";
+import type { WorkerApi } from "../core/_worker_entry.ts";
+import { GetConfigResponseSchema } from "../core/_rpc_schema.ts";
+import { createRpcCaller } from "../core/_rpc.ts";
 
 export { createRpcCaller as createRpcCall };
 

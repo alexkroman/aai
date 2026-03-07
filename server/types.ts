@@ -2,9 +2,9 @@ import { z } from "zod";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-} from "../sdk/_protocol.ts";
+} from "../core/_protocol.ts";
 
-// Re-export agent types from sdk/
+// Re-export agent types from aai/
 export {
   type AgentConfig,
   type AgentOptions,
@@ -16,7 +16,7 @@ export {
   type ToolDef,
   type ToolSchema,
   type Voice,
-} from "../sdk/types.ts";
+} from "../aai/types.ts";
 
 // --- Config types (plain interfaces — not validated at boundaries) ---
 

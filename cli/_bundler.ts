@@ -182,9 +182,9 @@ async function hasExternalImports(dir: string): Promise<boolean> {
 async function precomputeSchemas(agent: AgentEntry) {
   if (await hasExternalImports(agent.dir)) return null;
 
-  const { agentToolsToSchemas } = await import("../sdk/types.ts");
-  const { defineAgent } = await import("../sdk/define_agent.ts");
-  const { fetchJSON } = await import("../sdk/fetch_json.ts");
+  const { agentToolsToSchemas } = await import("../aai/types.ts");
+  const { defineAgent } = await import("../aai/define_agent.ts");
+  const { fetchJSON } = await import("../aai/fetch_json.ts");
   const { z } = await import("zod");
   Object.assign(globalThis, { defineAgent, fetchJSON, z });
 
@@ -227,9 +227,9 @@ export async function bundleAgent(
   const agentPlugin = await agentImportsPlugin(agent.dir);
 
   const agentAbsolute = resolve(agent.entryPoint);
-  const workerEntryAbsolute = resolve(AAI_ROOT, "sdk/_worker_entry.ts");
-  const agentModAbsolute = resolve(AAI_ROOT, "sdk/define_agent.ts");
-  const fetchJsonAbsolute = resolve(AAI_ROOT, "sdk/fetch_json.ts");
+  const workerEntryAbsolute = resolve(AAI_ROOT, "core/_worker_entry.ts");
+  const agentModAbsolute = resolve(AAI_ROOT, "aai/define_agent.ts");
+  const fetchJsonAbsolute = resolve(AAI_ROOT, "aai/fetch_json.ts");
 
   const workerShim = `import { defineAgent } from "${agentModAbsolute}";\n` +
     `import { fetchJSON } from "${fetchJsonAbsolute}";\n` +

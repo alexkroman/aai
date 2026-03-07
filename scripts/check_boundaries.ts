@@ -1,6 +1,6 @@
 /**
  * Verify that cli/, server/, and ui/ do not import from each other.
- * Only sdk/ is allowed as a cross-package dependency.
+ * Only aai/ and core/ are allowed as cross-package dependencies.
  *
  * Catches both relative imports (../server/) and workspace imports (@aai/server).
  * Skips test files for workspace imports (test utils may share helpers).
@@ -43,7 +43,7 @@ for (const rule of RULES) {
 
 if (violations > 0) {
   console.error(`\nFound ${violations} import boundary violation(s).`);
-  console.error("cli/, server/, and ui/ may only import from sdk/.");
+  console.error("cli/, server/, and ui/ may only import from aai/ and core/.");
   Deno.exit(1);
 } else {
   console.log("Import boundaries OK");

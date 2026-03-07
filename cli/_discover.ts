@@ -4,7 +4,7 @@ import { dirname, fromFileUrl, join, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
 import { step } from "./_output.ts";
 import { stripTypes } from "./_bundler.ts";
-import type { AgentDef } from "../sdk/types.ts";
+import type { AgentDef } from "../aai/types.ts";
 
 /** Root of the aai framework (parent of cli/). */
 const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
@@ -95,8 +95,8 @@ async function importAgentDef(dir: string): Promise<AgentDef | null> {
 
   const tmpPath = join(dir, `.aai-discover-${Date.now()}.js`);
   try {
-    const { defineAgent } = await import("../sdk/define_agent.ts");
-    const { fetchJSON } = await import("../sdk/fetch_json.ts");
+    const { defineAgent } = await import("../aai/define_agent.ts");
+    const { fetchJSON } = await import("../aai/fetch_json.ts");
     const { z } = await import("zod");
     Object.assign(globalThis, { defineAgent, fetchJSON, z });
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ToolContext, ToolDef } from "./types.ts";
+import type { ToolContext, ToolDef } from "../aai/types.ts";
 
 export const TOOL_HANDLER_TIMEOUT = 30_000;
 

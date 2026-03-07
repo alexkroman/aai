@@ -1,6 +1,6 @@
 import type { SessionOptions, SessionTransport } from "./session.ts";
 import type { SttEvents, SttHandle } from "./stt.ts";
-import type { ExecuteTool } from "../sdk/_tool_executor.ts";
+import type { ExecuteTool } from "../core/_tool_executor.ts";
 import type { PlatformConfig } from "./config.ts";
 import type { CallLLMOptions } from "./llm.ts";
 import type { ChatMessage, LLMResponse, ToolSchema } from "./types.ts";

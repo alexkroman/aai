@@ -1,7 +1,7 @@
 // Worker entry point for sandboxed code execution.
 // Spawned with all permissions denied for isolation.
 
-import { serveRpc } from "../sdk/_rpc.ts";
+import { serveRpc } from "../core/_rpc.ts";
 
 serveRpc(
   self as unknown as {

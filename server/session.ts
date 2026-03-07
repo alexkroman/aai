@@ -1,6 +1,6 @@
 import type { PlatformConfig } from "./config.ts";
 import { callLLM as defaultCallLLM, type CallLLMOptions } from "./llm.ts";
-import type { ExecuteTool } from "../sdk/_tool_executor.ts";
+import type { ExecuteTool } from "../core/_tool_executor.ts";
 import {
   connectStt as defaultConnectStt,
   type SttEvents,
@@ -16,8 +16,8 @@ import type {
   STTConfig,
   ToolSchema,
 } from "./types.ts";
-import { DEFAULT_GREETING } from "../sdk/types.ts";
-import type { WorkerApi } from "../sdk/_worker_entry.ts";
+import { DEFAULT_GREETING } from "../aai/types.ts";
+import type { WorkerApi } from "../core/_worker_entry.ts";
 import { buildSystemPrompt } from "./system_prompt.ts";
 
 export interface SessionTransport {

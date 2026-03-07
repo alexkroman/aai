@@ -1,0 +1,18 @@
+{
+  "name": "@aai/sdk",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./types": "./types.ts",
+    "./define-agent": "./define_agent.ts",
+    "./fetch-json": "./fetch_json.ts"
+  },
+  "publish": {
+    "exclude": ["*_test.ts"]
+  },
+  "lint": {
+    "rules": {
+      "include": ["no-slow-types"]
+    }
+  }
+}

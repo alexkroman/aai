@@ -13,7 +13,7 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-} from "../sdk/_protocol.ts";
+} from "../core/_protocol.ts";
 import { mulawToPcm16, pcm16ToMulaw, resample } from "./mulaw.ts";
 import { z } from "zod";
 

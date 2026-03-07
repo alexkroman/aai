@@ -6,7 +6,7 @@ import {
   type STTConfig,
   type TTSConfig,
 } from "./types.ts";
-import { EnvSchema } from "../sdk/_schema.ts";
+import { EnvSchema } from "../aai/_schema.ts";
 
 const ServerEnvSchema = z.object({
   RIME_API_KEY: z.string().min(

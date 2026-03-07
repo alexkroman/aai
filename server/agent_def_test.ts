@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { expect } from "@std/expect";
-import { defineAgent } from "../sdk/define_agent.ts";
-import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "../sdk/types.ts";
+import { defineAgent } from "../aai/define_agent.ts";
+import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "../aai/types.ts";
 
 Deno.test("defineAgent - fills defaults", () => {
   const agent = defineAgent({ name: "Minimal" });
