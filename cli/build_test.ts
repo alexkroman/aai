@@ -17,7 +17,8 @@ Deno.test(
       expect(result.bundle.manifest.length).toBeGreaterThan(0);
 
       const manifest = JSON.parse(result.bundle.manifest);
-      expect(manifest.slug).toBe("simple-assistant");
+      expect(manifest.config.name).toBe("Simple Assistant");
+      expect(result.agent.slug).toBe("simple");
     });
   },
 );

@@ -43,8 +43,11 @@ ${bold("OPTIONS:")}
   const port = parseInt(flags.port ?? "3100");
   const serverUrl = flags.server ?? DEFAULT_SERVER;
 
-  const { getApiKey } = await import("./_discover.ts");
+  const { getApiKey, getNamespace, resolveSlug, saveAgentLink } = await import(
+    "./_discover.ts"
+  );
   const apiKey = await getApiKey();
+  const namespace = await getNamespace();
 
   // Write CLAUDE.md if missing
   const claudePath = join(cwd, "CLAUDE.md");
@@ -67,10 +70,16 @@ ${bold("OPTIONS:")}
     return 1;
   }
 
+  const slug = await resolveSlug(cwd, namespace, result.agent.slug);
+  const fullPath = `${namespace}/${slug}`;
+
+  // Save the link between this directory and the namespace/slug
+  await saveAgentLink(cwd, { namespace, slug, apiKey });
+
   // Spawn local worker for tool execution
   let localWorker = spawnLocalWorker(
     result.bundle.worker,
-    result.agent.slug,
+    slug,
   );
 
   // Read agent config from manifest (extracted at build time)
@@ -82,6 +91,7 @@ ${bold("OPTIONS:")}
   let controlWs = await connectAndRegister(
     wsUrl,
     apiKey,
+    namespace,
     result.agent,
     manifest,
     clientCode,
@@ -91,14 +101,19 @@ ${bold("OPTIONS:")}
   // Start local proxy server
   const proxyServer = startLocalProxy(
     port,
-    result.agent.slug,
-    manifest.config?.name ?? result.agent.slug,
+    fullPath,
+    manifest.config?.name ?? slug,
     serverUrl,
     () => clientCode,
   );
 
-  step("Ready", result.agent.slug);
-  printSummary(result.agent, result.validation, `http://localhost:${port}`);
+  step("Ready", fullPath);
+  printSummary(
+    result.agent,
+    result.validation,
+    namespace,
+    `http://localhost:${port}`,
+  );
   stepInfo("Watch", "for changes...");
 
   // Watch for file changes
@@ -131,7 +146,7 @@ ${bold("OPTIONS:")}
       localWorker.terminate();
       localWorker = spawnLocalWorker(
         freshResult.bundle.worker,
-        freshResult.agent.slug,
+        slug,
       );
       manifest = JSON.parse(freshResult.bundle.manifest);
       clientCode = freshResult.bundle.client;
@@ -141,16 +156,18 @@ ${bold("OPTIONS:")}
       controlWs = await connectAndRegister(
         wsUrl,
         apiKey,
+        namespace,
         freshResult.agent,
         manifest,
         clientCode,
         localWorker,
       );
 
-      step("Ready", freshResult.agent.slug);
+      step("Ready", fullPath);
       printSummary(
         freshResult.agent,
         freshResult.validation,
+        namespace,
         `http://localhost:${port}`,
       );
     } catch (err: unknown) {
@@ -192,6 +209,7 @@ ${bold("OPTIONS:")}
 function connectAndRegister(
   wsUrl: string,
   apiKey: string,
+  namespace: string,
   agent: AgentEntry,
   manifest: {
     config?: {
@@ -211,8 +229,8 @@ function connectAndRegister(
   clientCode: string,
   localWorker: ReturnType<typeof spawnLocalWorker>,
 ): Promise<WebSocket> {
-  const slug = agent.slug;
-  const url = `${wsUrl}/${slug}/dev?token=${encodeURIComponent(apiKey)}`;
+  const fullPath = `${namespace}/${agent.slug}`;
+  const url = `${wsUrl}/${fullPath}/dev?token=${encodeURIComponent(apiKey)}`;
 
   return new Promise<WebSocket>((resolve, reject) => {
     const ws = new WebSocket(url);
@@ -248,7 +266,10 @@ function connectAndRegister(
 
       if (msg.type === "dev_registered") {
         ws.removeEventListener("message", onRegAck);
-        step("Connected", `${wsUrl.replace(/^ws/, "http")}/${slug}`);
+        step(
+          "Connected",
+          `${wsUrl.replace(/^ws/, "http")}/${fullPath}`,
+        );
 
         // Switch to RPC mode — serve executeTool/invokeHook over this
         // WebSocket using the same RPC protocol as Worker postMessage.
@@ -298,7 +319,7 @@ function connectAndRegister(
 
 function startLocalProxy(
   port: number,
-  slug: string,
+  fullPath: string,
   agentName: string,
   serverUrl: string,
   getClientCode: () => string,
@@ -314,17 +335,20 @@ function startLocalProxy(
       const path = url.pathname;
 
       // Serve agent HTML page
-      if (path === `/${slug}`) {
-        return Response.redirect(`http://localhost:${port}/${slug}/`, 301);
+      if (path === `/${fullPath}`) {
+        return Response.redirect(
+          `http://localhost:${port}/${fullPath}/`,
+          301,
+        );
       }
-      if (path === `/${slug}/`) {
-        return new Response(renderDevPage(agentName, `/${slug}`), {
+      if (path === `/${fullPath}/`) {
+        return new Response(renderDevPage(agentName, `/${fullPath}`), {
           headers: { "Content-Type": "text/html; charset=utf-8" },
         });
       }
 
       // Serve client.js from in-memory build
-      if (path === `/${slug}/client.js`) {
+      if (path === `/${fullPath}/client.js`) {
         return new Response(getClientCode(), {
           headers: {
             "Content-Type": "application/javascript",
@@ -334,7 +358,7 @@ function startLocalProxy(
       }
 
       // Proxy WebSocket to production server
-      if (path === `/${slug}/websocket`) {
+      if (path === `/${fullPath}/websocket`) {
         if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
           return Response.json(
             { error: "Expected WebSocket upgrade" },
@@ -343,7 +367,7 @@ function startLocalProxy(
         }
 
         const { socket: clientWs, response } = Deno.upgradeWebSocket(req);
-        const targetUrl = `${wsUrl}/${slug}/websocket${url.search}`;
+        const targetUrl = `${wsUrl}/${fullPath}/websocket${url.search}`;
         const serverWs = new WebSocket(targetUrl);
         serverWs.binaryType = "arraybuffer";
 
@@ -414,6 +438,7 @@ function renderDevPage(name: string, basePath: string): string {
 function printSummary(
   agent: AgentEntry,
   validation: ValidationResult,
+  namespace: string,
   serverUrl: string,
 ): void {
   const tools = [
@@ -421,8 +446,10 @@ function printSummary(
     ...(validation.tools ?? []),
   ];
 
+  const fullPath = `${namespace}/${agent.slug}`;
+
   if (agent.transport.includes("websocket")) {
-    stepInfo("App", `${serverUrl}/${agent.slug}/`);
+    stepInfo("App", `${serverUrl}/${fullPath}/`);
   }
   if (agent.transport.includes("twilio")) {
     stepInfo("Twilio", `(via production server)`);

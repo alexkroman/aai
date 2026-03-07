@@ -13,6 +13,8 @@ export async function hashApiKey(apiKey: string): Promise<string> {
 
 export async function handleDeploy(
   req: Request,
+  namespace: string,
+  slug: string,
   ctx: { slots: Map<string, AgentSlot>; store: BundleStore },
 ): Promise<Response> {
   const { slots, store } = ctx;
@@ -20,7 +22,7 @@ export async function handleDeploy(
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return Response.json(
-      { error: "Missing Authorization header (Bearer <ASSEMBLYAI_API_KEY>)" },
+      { error: "Missing Authorization header (Bearer <API_KEY>)" },
       { status: 400 },
     );
   }
@@ -52,23 +54,23 @@ export async function handleDeploy(
     );
   }
 
-  // Check slug ownership
-  const existingManifest = await store.getManifest(body.slug);
-  if (
-    existingManifest?.owner_hash && existingManifest.owner_hash !== ownerHash
-  ) {
+  // Check namespace ownership — claim implicitly on first deploy
+  const nsOwner = await store.getNamespaceOwner(namespace);
+  if (nsOwner && nsOwner !== ownerHash) {
     return Response.json(
-      {
-        error:
-          'Slug already taken by another owner. Change the "slug" field in defineAgent() to use a different slug.',
-      },
+      { error: `Namespace "${namespace}" is owned by another user.` },
       { status: 403 },
     );
   }
+  if (!nsOwner) {
+    await store.putNamespaceOwner(namespace, ownerHash);
+  }
 
-  const existing = slots.get(body.slug);
+  const compositeSlug = `${namespace}/${slug}`;
+
+  const existing = slots.get(compositeSlug);
   if (existing?.live) {
-    console.info("Replacing existing deploy", { slug: body.slug });
+    console.info("Replacing existing deploy", { slug: compositeSlug });
     existing.live.worker.terminate();
     existing.live = undefined;
     existing.initializing = undefined;
@@ -81,7 +83,7 @@ export async function handleDeploy(
     : body.transport;
 
   await store.putAgent({
-    slug: body.slug,
+    slug: compositeSlug,
     env: body.env,
     transport,
     worker: body.worker,
@@ -92,7 +94,7 @@ export async function handleDeploy(
   });
 
   const slot: AgentSlot = {
-    slug: body.slug,
+    slug: compositeSlug,
     env: body.env,
     transport,
     config: body.config as AgentSlot["config"],
@@ -100,9 +102,12 @@ export async function handleDeploy(
     toolSchemas: body.toolSchemas,
     activeSessions: 0,
   };
-  slots.set(body.slug, slot);
+  slots.set(compositeSlug, slot);
 
-  console.info("Deploy received", { slug: body.slug, transport });
+  console.info("Deploy received", { slug: compositeSlug, transport });
 
-  return Response.json({ ok: true, message: `Deployed ${body.slug}` });
+  return Response.json({
+    ok: true,
+    message: `Deployed ${compositeSlug}`,
+  });
 }

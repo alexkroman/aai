@@ -61,7 +61,6 @@ export type Voice =
 
 export interface AgentOptions {
   name: string;
-  slug?: string;
   env?: string[];
   transport?: Transport | Transport[];
   instructions?: string;
@@ -128,7 +127,6 @@ export interface AgentConfig {
 /** Frozen agent definition returned by defineAgent(). */
 export interface AgentDef {
   readonly name: string;
-  readonly slug: string;
   readonly env: readonly string[];
   readonly transport: readonly Transport[];
   readonly instructions: string;

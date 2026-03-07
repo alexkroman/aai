@@ -1,7 +1,12 @@
 import { parse as parseDotenv } from "@std/dotenv/parse";
 import { exists } from "@std/fs/exists";
-import { dirname, fromFileUrl, join, resolve } from "@std/path";
+import { basename, dirname, fromFileUrl, join, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
+import _slugify from "slugify";
+const slugify = _slugify as unknown as (
+  str: string,
+  opts?: { lower?: boolean; strict?: boolean },
+) => string;
 import { step } from "./_output.ts";
 import { stripTypes } from "./_bundler.ts";
 import { type AgentDef, agentToolsToSchemas } from "../sdk/types.ts";
@@ -18,10 +23,19 @@ const CONFIG_DIR = join(
 );
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 
+interface AgentLink {
+  namespace: string;
+  slug: string;
+  apiKey: string;
+}
+
 interface CliConfig {
   assemblyai_api_key?: string;
   rime_api_key?: string;
   brave_api_key?: string;
+  namespace?: string;
+  /** Maps agent directory paths to their namespace/slug/apiKey. */
+  agents?: Record<string, AgentLink>;
 }
 
 async function readConfig(): Promise<CliConfig> {
@@ -83,7 +97,7 @@ export async function getApiKeys(): Promise<void> {
     if (envVal) continue;
 
     const stored = config[spec.configKey];
-    if (stored) {
+    if (stored && typeof stored === "string") {
       Deno.env.set(spec.envVar, stored);
       continue;
     }
@@ -95,7 +109,7 @@ export async function getApiKeys(): Promise<void> {
       throw new Error(`${spec.envVar} is required`);
     }
 
-    config[spec.configKey] = key;
+    (config as Record<string, unknown>)[spec.configKey] = key;
     Deno.env.set(spec.envVar, key);
     dirty = true;
   }
@@ -126,6 +140,113 @@ export async function getApiKey(): Promise<string> {
   await writeConfig(config);
   step("Saved", CONFIG_FILE);
   return key;
+}
+
+// -- Namespace ----------------------------------------------------------------
+
+/** Get or prompt for the user's namespace. Saved to CLI config. */
+export async function getNamespace(): Promise<string> {
+  const config = await readConfig();
+  if (config.namespace) return config.namespace;
+
+  step("Setup", "Choose a namespace for your agents");
+  console.log(
+    "Your agents will be deployed to https://aai-agent.fly.dev/<namespace>/\n",
+  );
+
+  const ns = prompt("Enter your namespace:")?.trim();
+  if (!ns) {
+    throw new Error("Namespace is required");
+  }
+
+  const slug = slugify(ns, { lower: true, strict: true });
+  if (!slug) {
+    throw new Error("Invalid namespace — must contain alphanumeric characters");
+  }
+
+  config.namespace = slug;
+  await writeConfig(config);
+  step("Saved", `namespace: ${slug}`);
+  return slug;
+}
+
+/** Update the saved namespace (e.g. after auto-increment on conflict). */
+export async function saveNamespace(namespace: string): Promise<void> {
+  const config = await readConfig();
+  config.namespace = namespace;
+  await writeConfig(config);
+  step("Saved", `namespace: ${namespace}`);
+}
+
+/** Derive a slug from the agent's directory name. */
+export function slugFromDir(dir: string): string {
+  const dirName = basename(resolve(dir));
+  const slug = slugify(dirName, { lower: true, strict: true });
+  return slug || "agent";
+}
+
+/** Append or increment a numeric suffix: "foo" -> "foo-1" -> "foo-2" */
+function incrementName(name: string): string {
+  const match = name.match(/^(.+)-(\d+)$/);
+  if (match) {
+    return `${match[1]}-${Number(match[2]) + 1}`;
+  }
+  return `${name}-1`;
+}
+
+/**
+ * Resolve a unique slug for this agent directory within a namespace.
+ * If another directory already uses the same namespace+slug in config,
+ * auto-increment the slug until a free one is found.
+ */
+export async function resolveSlug(
+  dir: string,
+  namespace: string,
+  baseSlug: string,
+): Promise<string> {
+  const config = await readConfig();
+  const agents = config.agents ?? {};
+  const resolvedDir = resolve(dir);
+
+  // Check if this directory already has a saved slug — reuse it
+  const existing = agents[resolvedDir];
+  if (existing && existing.namespace === namespace) {
+    return existing.slug;
+  }
+
+  // Find a slug that isn't taken by another directory in this namespace
+  let slug = baseSlug;
+  for (let i = 0; i < 100; i++) {
+    const taken = Object.entries(agents).some(
+      ([agentDir, link]) =>
+        agentDir !== resolvedDir &&
+        link.namespace === namespace &&
+        link.slug === slug,
+    );
+    if (!taken) return slug;
+    slug = incrementName(slug);
+  }
+
+  return slug;
+}
+
+/** Save the link between an agent directory and its namespace/slug. */
+export async function saveAgentLink(
+  dir: string,
+  link: AgentLink,
+): Promise<void> {
+  const config = await readConfig();
+  if (!config.agents) config.agents = {};
+  config.agents[resolve(dir)] = link;
+  await writeConfig(config);
+}
+
+/** Get the saved agent link for a directory. */
+export async function getAgentLink(
+  dir: string,
+): Promise<AgentLink | undefined> {
+  const config = await readConfig();
+  return config.agents?.[resolve(dir)];
 }
 
 // -- Agent discovery ----------------------------------------------------------
@@ -212,12 +333,11 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   const hasAgentTs = await exists(join(dir, "agent.ts"));
   if (!hasAgentTs) return null;
 
-  // Try to import agent.ts to read slug/env/transport from defineAgent()
+  // Try to import agent.ts to read env/transport from defineAgent()
   const def = await importAgentDef(dir);
 
-  // For agents with external imports, fall back to directory name for slug
-  const slug = def?.slug ?? dirname(resolve(dir)).split("/").pop() ??
-    "agent";
+  // Derive slug from directory name
+  const slug = slugFromDir(dir);
   const declared: readonly string[] = def?.env ?? ["ASSEMBLYAI_API_KEY"];
   const transport = def?.transport
     ? [...def.transport] as ("websocket" | "twilio")[]

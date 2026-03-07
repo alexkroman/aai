@@ -179,7 +179,6 @@ export async function bundleAgent(
 
   const manifest = JSON.stringify(
     {
-      slug: agent.slug,
       env: agent.env,
       transport: agent.transport,
       config: agent.config,

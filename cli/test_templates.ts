@@ -33,7 +33,6 @@ for (const template of templates) {
   try {
     // Scaffold the template
     await runNew({
-      slug: `test-${template}`,
       targetDir: tmpDir,
       template,
       templatesDir: TEMPLATES_DIR,

@@ -23,7 +23,6 @@ const TransportFieldSchema = z.union([
 // ── Deploy request body ─────────────────────────────────────────
 
 export type DeployBody = {
-  slug: string;
   env: Record<string, string>;
   worker: string;
   client: string;
@@ -44,7 +43,6 @@ export type DeployBody = {
 };
 
 export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
-  slug: z.string().min(1),
   env: z.record(z.string(), z.string()),
   worker: z.string().min(1),
   client: z.string().min(1),

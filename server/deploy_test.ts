@@ -9,18 +9,17 @@ function setup() {
   return { store, slots };
 }
 
-function deployRequest(slug: string, apiKey?: string) {
+function deployRequest(apiKey?: string) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
   if (apiKey) {
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
-  return new Request("http://localhost/deploy", {
+  return new Request("http://localhost/ns/my-agent/deploy", {
     method: "POST",
     headers,
     body: JSON.stringify({
-      slug,
       env: VALID_ENV,
       worker: "console.log('w');",
       client: "console.log('c');",
@@ -31,71 +30,96 @@ function deployRequest(slug: string, apiKey?: string) {
 Deno.test("deploy ownership", async (t) => {
   await t.step("rejects missing Authorization header", async () => {
     const { store, slots } = setup();
-    const res = await handleDeploy(deployRequest("my-agent"), { slots, store });
+    const res = await handleDeploy(
+      deployRequest(),
+      "ns",
+      "my-agent",
+      { slots, store },
+    );
     expect(res.status).toBe(400);
     const text = await res.text();
     expect(text).toContain("Missing Authorization header");
   });
 
-  await t.step("new slug succeeds and stores owner_hash", async () => {
+  await t.step("new deploy succeeds and stores owner_hash", async () => {
     const { store, slots } = setup();
-    const res = await handleDeploy(deployRequest("my-agent", "key1"), {
-      slots,
-      store,
-    });
+    const res = await handleDeploy(
+      deployRequest("key1"),
+      "ns",
+      "my-agent",
+      { slots, store },
+    );
     expect(res.status).toBe(200);
 
-    const manifest = await store.getManifest("my-agent");
+    const manifest = await store.getManifest("ns/my-agent");
     expect(manifest).not.toBeNull();
     expect(manifest!.owner_hash).toBe(await hashApiKey("key1"));
   });
 
-  await t.step("same key can redeploy to same slug", async () => {
+  await t.step("same key can redeploy", async () => {
     const { store, slots } = setup();
-    const res1 = await handleDeploy(deployRequest("my-agent", "key1"), {
-      slots,
-      store,
-    });
+    const res1 = await handleDeploy(
+      deployRequest("key1"),
+      "ns",
+      "my-agent",
+      { slots, store },
+    );
     expect(res1.status).toBe(200);
 
-    const res2 = await handleDeploy(deployRequest("my-agent", "key1"), {
-      slots,
-      store,
-    });
+    const res2 = await handleDeploy(
+      deployRequest("key1"),
+      "ns",
+      "my-agent",
+      { slots, store },
+    );
     expect(res2.status).toBe(200);
   });
 
-  await t.step("different key is rejected for existing slug", async () => {
-    const { store, slots } = setup();
-    const res1 = await handleDeploy(deployRequest("my-agent", "key1"), {
-      slots,
-      store,
-    });
-    expect(res1.status).toBe(200);
+  await t.step(
+    "different key is rejected for namespace owned by another",
+    async () => {
+      const { store, slots } = setup();
+      const res1 = await handleDeploy(
+        deployRequest("key1"),
+        "ns",
+        "my-agent",
+        { slots, store },
+      );
+      expect(res1.status).toBe(200);
 
-    const res2 = await handleDeploy(deployRequest("my-agent", "key2"), {
-      slots,
-      store,
-    });
-    expect(res2.status).toBe(403);
-    const text = await res2.text();
-    expect(text).toContain("Slug already taken");
-  });
+      const res2 = await handleDeploy(
+        deployRequest("key2"),
+        "ns",
+        "other-agent",
+        { slots, store },
+      );
+      expect(res2.status).toBe(403);
+      const text = await res2.text();
+      expect(text).toContain("owned by another");
+    },
+  );
 
-  await t.step("different slugs with different keys both succeed", async () => {
-    const { store, slots } = setup();
-    const res1 = await handleDeploy(deployRequest("agent-a", "key1"), {
-      slots,
-      store,
-    });
-    expect(res1.status).toBe(200);
+  await t.step(
+    "different namespaces with different keys both succeed",
+    async () => {
+      const { store, slots } = setup();
+      const res1 = await handleDeploy(
+        deployRequest("key1"),
+        "ns-a",
+        "agent",
+        { slots, store },
+      );
+      expect(res1.status).toBe(200);
 
-    const res2 = await handleDeploy(deployRequest("agent-b", "key2"), {
-      slots,
-      store,
-    });
-    expect(res2.status).toBe(200);
-  });
+      const res2 = await handleDeploy(
+        deployRequest("key2"),
+        "ns-b",
+        "agent",
+        { slots, store },
+      );
+      expect(res2.status).toBe(200);
+    },
+  );
 });
 
 Deno.test("hashApiKey produces consistent hex output", async () => {

@@ -93,7 +93,6 @@ interface HookContext {
 
 interface AgentOptions {
   name: string; // Required: display name
-  slug?: string; // URL identifier (auto-derived from name if omitted)
   env?: string[]; // Env var names to load (default: ["ASSEMBLYAI_API_KEY"])
   transport?: Transport | Transport[]; // "websocket" | "twilio" (default: ["websocket"])
   instructions?: string; // System prompt (voice-first default provided)

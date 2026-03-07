@@ -36,6 +36,8 @@ export interface BundleStore {
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;
   deleteAgent(slug: string): Promise<void>;
+  getNamespaceOwner(namespace: string): Promise<string | null>;
+  putNamespaceOwner(namespace: string, ownerHash: string): Promise<void>;
   close(): void;
   [Symbol.dispose](): void;
 }
@@ -210,6 +212,28 @@ export function createBundleStore(
     },
 
     deleteAgent,
+
+    async getNamespaceOwner(namespace: string): Promise<string | null> {
+      const data = await get(`namespaces/${namespace}/owner.json`);
+      if (!data) return null;
+      try {
+        const parsed = JSON.parse(data);
+        return parsed.owner_hash ?? null;
+      } catch {
+        return null;
+      }
+    },
+
+    async putNamespaceOwner(
+      namespace: string,
+      ownerHash: string,
+    ): Promise<void> {
+      await put(
+        `namespaces/${namespace}/owner.json`,
+        JSON.stringify({ owner_hash: ownerHash }),
+        "application/json",
+      );
+    },
 
     close() {
       // S3 client has no close

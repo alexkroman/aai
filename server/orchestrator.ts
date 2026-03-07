@@ -39,6 +39,11 @@ export interface App {
   ) => Promise<Response>;
 }
 
+/** Helper to extract the composite slug from namespace + slug path params. */
+function compositeSlug(groups: Record<string, string | undefined>): string {
+  return `${groups.namespace}/${groups.slug}`;
+}
+
 export function createOrchestrator(opts: {
   store: BundleStore;
 }): { app: App } {
@@ -76,58 +81,98 @@ export function createOrchestrator(opts: {
           })),
         }),
     },
-    // Deploy
+    // Deploy (under namespace/slug path)
     {
-      pattern: new URLPattern({ pathname: "/deploy" }),
+      pattern: new URLPattern({ pathname: "/:namespace/:slug/deploy" }),
       method: "POST",
-      handler: (req) => handleDeploy(req, { slots, store }),
+      handler: (req, m) =>
+        handleDeploy(
+          req,
+          m.pathname.groups.namespace!,
+          m.pathname.groups.slug!,
+          { slots, store },
+        ),
     },
     // Twilio
     {
-      pattern: new URLPattern({ pathname: "/:slug/twilio/voice" }),
+      pattern: new URLPattern({ pathname: "/:namespace/:slug/twilio/voice" }),
       method: "POST",
       handler: (req, m) =>
-        handleTwilioVoice(req, m.pathname.groups.slug!, twilioCtx),
+        handleTwilioVoice(
+          req,
+          compositeSlug(m.pathname.groups),
+          twilioCtx,
+        ),
     },
     {
-      pattern: new URLPattern({ pathname: "/:slug/twilio/stream" }),
+      pattern: new URLPattern({ pathname: "/:namespace/:slug/twilio/stream" }),
       handler: (req, m) =>
-        handleTwilioStream(req, m.pathname.groups.slug!, twilioCtx),
+        handleTwilioStream(
+          req,
+          compositeSlug(m.pathname.groups),
+          twilioCtx,
+        ),
     },
     // Dev control WebSocket
     {
-      pattern: new URLPattern({ pathname: "/:slug/dev" }),
+      pattern: new URLPattern({ pathname: "/:namespace/:slug/dev" }),
       handler: (req, m) =>
-        handleDevWebSocket(req, m.pathname.groups.slug!, devCtx),
+        handleDevWebSocket(
+          req,
+          compositeSlug(m.pathname.groups),
+          devCtx,
+        ),
     },
     // Agent WebSocket routes
     {
-      pattern: new URLPattern({ pathname: "/:slug/health" }),
+      pattern: new URLPattern({ pathname: "/:namespace/:slug/health" }),
       handler: (req, m) =>
-        handleAgentHealth(req, m.pathname.groups.slug!, wsCtx),
+        handleAgentHealth(
+          req,
+          compositeSlug(m.pathname.groups),
+          wsCtx,
+        ),
     },
     {
-      pattern: new URLPattern({ pathname: "/:slug/websocket" }),
-      handler: (req, m) => handleWebSocket(req, m.pathname.groups.slug!, wsCtx),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/client.js" }),
+      pattern: new URLPattern({ pathname: "/:namespace/:slug/websocket" }),
       handler: (req, m) =>
-        handleStaticFile(req, m.pathname.groups.slug!, "client.js", wsCtx),
+        handleWebSocket(req, compositeSlug(m.pathname.groups), wsCtx),
     },
     {
-      pattern: new URLPattern({ pathname: "/:slug/client.js.map" }),
+      pattern: new URLPattern({ pathname: "/:namespace/:slug/client.js" }),
       handler: (req, m) =>
-        handleStaticFile(req, m.pathname.groups.slug!, "client.js.map", wsCtx),
+        handleStaticFile(
+          req,
+          compositeSlug(m.pathname.groups),
+          "client.js",
+          wsCtx,
+        ),
     },
     {
-      pattern: new URLPattern({ pathname: "/:slug/" }),
-      handler: (req, m) => handleAgentPage(req, m.pathname.groups.slug!, wsCtx),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug" }),
+      pattern: new URLPattern({
+        pathname: "/:namespace/:slug/client.js.map",
+      }),
       handler: (req, m) =>
-        handleAgentRedirect(req, m.pathname.groups.slug!, wsCtx),
+        handleStaticFile(
+          req,
+          compositeSlug(m.pathname.groups),
+          "client.js.map",
+          wsCtx,
+        ),
+    },
+    {
+      pattern: new URLPattern({ pathname: "/:namespace/:slug/" }),
+      handler: (req, m) =>
+        handleAgentPage(req, compositeSlug(m.pathname.groups), wsCtx),
+    },
+    {
+      pattern: new URLPattern({ pathname: "/:namespace/:slug" }),
+      handler: (req, m) =>
+        handleAgentRedirect(
+          req,
+          compositeSlug(m.pathname.groups),
+          wsCtx,
+        ),
     },
     // Landing page
     {

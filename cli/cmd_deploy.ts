@@ -31,8 +31,12 @@ ${bold("OPTIONS:")}
   const cwd = Deno.env.get("INIT_CWD") || Deno.cwd();
   const serverUrl = flags.url || "https://aai-agent.fly.dev";
 
-  const { getApiKey } = await import("./_discover.ts");
-  await getApiKey();
+  const { getApiKey, getNamespace, resolveSlug, saveAgentLink, saveNamespace } =
+    await import(
+      "./_discover.ts"
+    );
+  const apiKey = await getApiKey();
+  const namespace = await getNamespace();
 
   let result;
   try {
@@ -43,14 +47,29 @@ ${bold("OPTIONS:")}
   }
 
   const { agent, validation } = result;
+  const slug = await resolveSlug(cwd, namespace, agent.slug);
+  const fullPath = `${namespace}/${slug}`;
 
-  step("Deploy", agent.slug);
-  await runDeploy({
+  step("Deploy", fullPath);
+  const deployed = await runDeploy({
     url: serverUrl,
     bundle: result.bundle,
-    slug: agent.slug,
+    namespace,
+    slug,
     dryRun: false,
-    apiKey: agent.env.ASSEMBLYAI_API_KEY,
+    apiKey,
+  });
+
+  // Save the resolved namespace (may have been incremented on 403)
+  if (deployed.namespace !== namespace) {
+    await saveNamespace(deployed.namespace);
+  }
+
+  // Save the link between this directory and the namespace/slug
+  await saveAgentLink(cwd, {
+    namespace: deployed.namespace,
+    slug: deployed.slug,
+    apiKey,
   });
 
   const tools = [
@@ -58,14 +77,15 @@ ${bold("OPTIONS:")}
     ...(validation.tools ?? []),
   ];
 
+  const deployedPath = `${deployed.namespace}/${deployed.slug}`;
   if (agent.transport.includes("websocket")) {
-    stepInfo("App", `${serverUrl}/${agent.slug}/`);
+    stepInfo("App", `${serverUrl}/${deployedPath}/`);
   }
   if (agent.transport.includes("twilio")) {
-    stepInfo("Twilio", `${serverUrl}/twilio/${agent.slug}/voice`);
+    stepInfo("Twilio", `${serverUrl}/${deployedPath}/twilio/voice`);
   }
 
-  stepInfo("Agent", validation.name ?? agent.slug);
+  stepInfo("Agent", validation.name ?? deployed.slug);
   if (tools.length > 0) {
     stepInfo("Tools", tools.join(", "));
   }

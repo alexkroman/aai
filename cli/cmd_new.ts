@@ -52,11 +52,10 @@ ${bold("OPTIONS:")}
 
   const cliDir = dirname(fromFileUrl(import.meta.url));
   const templatesDir = join(cliDir, "..", "templates");
-  const { generateSlug, runNew } = await import("./new.ts");
+  const { runNew } = await import("./new.ts");
 
   const template = flags.template || "simple";
   await runNew({
-    slug: generateSlug(),
     targetDir: cwd,
     template,
     templatesDir,
