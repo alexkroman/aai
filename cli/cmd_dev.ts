@@ -1,9 +1,7 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { debounce } from "@std/async/debounce";
-import { exists } from "@std/fs/exists";
-import { dirname, fromFileUrl, join } from "@std/path";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
-import { error, step, stepInfo } from "./_output.ts";
+import { error, stepInfo } from "./_output.ts";
 import { runBuild } from "./build.ts";
 import type { AgentEntry } from "./_discover.ts";
 import { spawnLocalWorker } from "./_local_worker.ts";
@@ -49,23 +47,19 @@ ${bold("OPTIONS:")}
   const port = parseInt(flags.port ?? "3000");
   const serverUrl = flags.server ?? DEFAULT_SERVER;
 
-  const { getApiKey, getNamespace, resolveSlug, saveAgentLink } = await import(
+  const {
+    ensureClaudeMd,
+    getApiKey,
+    getNamespace,
+    resolveSlug,
+    saveAgentLink,
+  } = await import(
     "./_discover.ts"
   );
   const apiKey = await getApiKey();
   const namespace = await getNamespace();
 
-  // Write CLAUDE.md if missing
-  const claudePath = join(cwd, "CLAUDE.md");
-  if (!await exists(claudePath)) {
-    const cliDir = dirname(fromFileUrl(import.meta.url));
-    const srcClaude = join(cliDir, "claude.md");
-    await Deno.copyFile(srcClaude, claudePath);
-    step(
-      "Wrote",
-      "CLAUDE.md — read this file for the aai agent API reference",
-    );
-  }
+  await ensureClaudeMd(cwd);
 
   // Initial build
   let result;

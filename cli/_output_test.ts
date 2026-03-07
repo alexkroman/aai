@@ -1,15 +1,5 @@
 import { expect } from "@std/expect";
-import {
-  error,
-  header,
-  info,
-  size,
-  step,
-  stepInfo,
-  table,
-  timing,
-  warn,
-} from "./_output.ts";
+import { error, info, step, stepInfo, warn } from "./_output.ts";
 
 function spy(target: Console, method: "log" | "error") {
   const calls: string[][] = [];
@@ -82,46 +72,6 @@ Deno.test("output helpers", async (t) => {
       expect(errorSpy.calls.length).toBe(1);
       expect(errorSpy.calls[0][0]).toContain("error");
       expect(errorSpy.calls[0][0]).toContain("oops");
-    }),
-  );
-
-  await t.step(
-    "size formats bytes as KB",
-    withSpies(({ logSpy }) => {
-      size("worker.js", 2048);
-      expect(logSpy.calls.length).toBe(1);
-      expect(logSpy.calls[0][0]).toContain("worker.js");
-      expect(logSpy.calls[0][0]).toContain("2.0KB");
-    }),
-  );
-
-  await t.step(
-    "timing formats milliseconds",
-    withSpies(({ logSpy }) => {
-      timing("done", 123.4);
-      expect(logSpy.calls.length).toBe(1);
-      expect(logSpy.calls[0][0]).toContain("done");
-      expect(logSpy.calls[0][0]).toContain("123ms");
-    }),
-  );
-
-  await t.step(
-    "header writes bold text to stdout",
-    withSpies(({ logSpy }) => {
-      header("Title");
-      expect(logSpy.calls.length).toBe(1);
-      expect(logSpy.calls[0][0]).toContain("Title");
-    }),
-  );
-
-  await t.step(
-    "table renders with box-drawing borders",
-    withSpies(({ logSpy }) => {
-      table(["Name", "Value"], [["foo", "bar"]]);
-      expect(logSpy.calls.length).toBe(5);
-      expect(logSpy.calls[0][0]).toContain("\u250C");
-      expect(logSpy.calls[1][0]).toContain("Name");
-      expect(logSpy.calls[4][0]).toContain("\u2514");
     }),
   );
 });

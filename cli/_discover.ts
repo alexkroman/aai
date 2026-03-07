@@ -1,17 +1,13 @@
 import { parse as parseDotenv } from "@std/dotenv/parse";
 import { exists } from "@std/fs/exists";
-import { basename, dirname, fromFileUrl, join, resolve } from "@std/path";
-import { toFileUrl } from "@std/path/to-file-url";
+import { basename, join, resolve } from "@std/path";
 /** ASCII-only slugify: lowercase, replace non-alnum runs with "-", trim dashes. */
 function slugify(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 import { step } from "./_output.ts";
-import { stripTypes } from "./_bundler.ts";
+import { AAI_ROOT, importTempModule } from "./_bundler.ts";
 import { type AgentDef, agentToolsToSchemas } from "../sdk/types.ts";
-
-/** Root of the aai framework (parent of cli/). */
-const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
 
 // -- API key config -----------------------------------------------------------
 
@@ -51,72 +47,6 @@ async function writeConfig(config: CliConfig): Promise<void> {
     CONFIG_FILE,
     JSON.stringify(config, null, 2) + "\n",
   );
-}
-
-interface KeySpec {
-  envVar: string;
-  configKey: keyof CliConfig;
-  label: string;
-  prompt: string;
-  signupUrl: string;
-}
-
-const KEYS: KeySpec[] = [
-  {
-    envVar: "ASSEMBLYAI_API_KEY",
-    configKey: "assemblyai_api_key",
-    label: "AssemblyAI API key required for speech-to-text",
-    prompt: "Enter your ASSEMBLYAI_API_KEY:",
-    signupUrl: "https://www.assemblyai.com/dashboard/signup",
-  },
-  {
-    envVar: "RIME_API_KEY",
-    configKey: "rime_api_key",
-    label: "Rime API key required for text-to-speech",
-    prompt: "Enter your RIME_API_KEY:",
-    signupUrl: "https://rime.ai",
-  },
-  {
-    envVar: "BRAVE_API_KEY",
-    configKey: "brave_api_key",
-    label: "Brave API key required for web search",
-    prompt: "Enter your BRAVE_API_KEY:",
-    signupUrl: "https://brave.com/search/api/",
-  },
-];
-
-/** Ensure all required API keys are available, prompting if needed.
- *  Sets env vars so the embedded server can read them. */
-export async function getApiKeys(): Promise<void> {
-  const config = await readConfig();
-  let dirty = false;
-
-  for (const spec of KEYS) {
-    const envVal = Deno.env.get(spec.envVar);
-    if (envVal) continue;
-
-    const stored = config[spec.configKey];
-    if (stored && typeof stored === "string") {
-      Deno.env.set(spec.envVar, stored);
-      continue;
-    }
-
-    step("Setup", spec.label);
-    console.log(`Get one at ${spec.signupUrl}\n`);
-    const key = prompt(spec.prompt)?.trim();
-    if (!key) {
-      throw new Error(`${spec.envVar} is required`);
-    }
-
-    (config as Record<string, unknown>)[spec.configKey] = key;
-    Deno.env.set(spec.envVar, key);
-    dirty = true;
-  }
-
-  if (dirty) {
-    await writeConfig(config);
-    step("Saved", CONFIG_FILE);
-  }
 }
 
 /** Get the AssemblyAI API key, prompting if not set. */
@@ -310,25 +240,10 @@ export async function hasExternalImports(dir: string): Promise<boolean> {
 /** Import agent.ts and return the AgentDef, or null if external imports prevent it. */
 async function importAgentDef(dir: string): Promise<AgentDef | null> {
   if (await hasExternalImports(dir)) return null;
-
-  const entryPoint = join(dir, "agent.ts");
-  const tmpPath = join(dir, `.aai-discover-${Date.now()}.js`);
-  try {
-    const source = await Deno.readTextFile(resolve(entryPoint));
-    let js = await stripTypes(source);
-    // Rewrite @aai/sdk imports to absolute paths so the tmp file resolves
-    // correctly even when the agent dir is outside the workspace.
-    const sdkPath = toFileUrl(resolve(AAI_ROOT, "sdk/mod.ts")).href;
-    js = js.replace(
-      /from\s*["']@aai\/sdk["']/g,
-      `from "${sdkPath}"`,
-    );
-    await Deno.writeTextFile(tmpPath, js);
-    const mod = await import(toFileUrl(tmpPath).href);
-    return mod.default as AgentDef;
-  } finally {
-    await Deno.remove(tmpPath).catch(() => {});
-  }
+  const mod = await importTempModule(join(dir, "agent.ts"), {
+    rewriteSdkImports: true,
+  });
+  return mod.default as AgentDef;
 }
 
 export async function loadAgent(dir: string): Promise<AgentEntry | null> {
@@ -404,4 +319,14 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
     config,
     toolSchemas,
   };
+}
+
+/** Copy cli/claude.md into the target directory as CLAUDE.md if it doesn't exist. */
+export async function ensureClaudeMd(targetDir: string): Promise<void> {
+  const claudePath = join(targetDir, "CLAUDE.md");
+  if (!await exists(claudePath)) {
+    const srcClaude = join(AAI_ROOT, "cli", "claude.md");
+    await Deno.copyFile(srcClaude, claudePath);
+    step("Wrote", "CLAUDE.md — read this file for the aai agent API reference");
+  }
 }

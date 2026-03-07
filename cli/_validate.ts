@@ -1,8 +1,6 @@
-import { dirname, join, resolve } from "@std/path";
-import { toFileUrl } from "@std/path/to-file-url";
 import { hasExternalImports } from "./_discover.ts";
 import type { AgentEntry } from "./_discover.ts";
-import { stripTypes } from "./_bundler.ts";
+import { importTempModule } from "./_bundler.ts";
 import type { AgentDef, ToolContext, ToolDef } from "../sdk/types.ts";
 
 interface ValidationError {
@@ -48,15 +46,8 @@ export async function validateAgent(
   const errors: ValidationError[] = [];
 
   let mod: Record<string, unknown>;
-  const tmpPath = join(
-    dirname(resolve(agent.entryPoint)),
-    `.aai-validate-${Date.now()}.js`,
-  );
   try {
-    const source = await Deno.readTextFile(resolve(agent.entryPoint));
-    const js = await stripTypes(source);
-    await Deno.writeTextFile(tmpPath, js);
-    mod = await import(toFileUrl(tmpPath).href);
+    mod = await importTempModule(agent.entryPoint);
   } catch (cause) {
     errors.push({
       field: "agent.ts",
@@ -65,8 +56,6 @@ export async function validateAgent(
       }`,
     });
     return { errors };
-  } finally {
-    await Deno.remove(tmpPath).catch(() => {});
   }
 
   if (!mod.default) {

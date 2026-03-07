@@ -2,6 +2,7 @@ import { parseArgs } from "@std/cli/parse-args";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
+import { ensureClaudeMd } from "./_discover.ts";
 
 export async function runNewCommand(
   args: string[],
@@ -41,7 +42,7 @@ ${bold("OPTIONS:")}
 
   const cliDir = dirname(fromFileUrl(import.meta.url));
   const templatesDir = join(cliDir, "..", "templates");
-  const { runNew } = await import("./new.ts");
+  const { listTemplates, runNew } = await import("./new.ts");
 
   const template = flags.template || "simple";
   await runNew({
@@ -50,11 +51,7 @@ ${bold("OPTIONS:")}
     templatesDir,
   });
 
-  const templates: string[] = [];
-  for await (const entry of Deno.readDir(templatesDir)) {
-    if (entry.isDirectory) templates.push(entry.name);
-  }
-  templates.sort();
+  const templates = await listTemplates(templatesDir);
 
   console.log(`\n${bold("Templates:")}`);
   for (const t of templates) {
@@ -67,12 +64,7 @@ ${bold("OPTIONS:")}
     ),
   );
 
-  // Write CLAUDE.md if missing
-  const claudePath = join(cwd, "CLAUDE.md");
-  if (!await exists(claudePath)) {
-    const srcClaude = join(cliDir, "claude.md");
-    await Deno.copyFile(srcClaude, claudePath);
-  }
+  await ensureClaudeMd(cwd);
 
   console.log(`Run ${cyan("aai dev")} to start developing.\n`);
 
