@@ -1,8 +1,6 @@
 import type { WorkerApi } from "../core/_worker_entry.ts";
 import { createRpcCaller, type MessageTarget } from "../core/_rpc.ts";
 
-export { createRpcCaller as createRpcCall };
-
 export function createWorkerRpc(
   port: Worker | MessagePort | MessageTarget,
 ): WorkerApi {

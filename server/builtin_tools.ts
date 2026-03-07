@@ -32,11 +32,7 @@ const webSearchParams = z.object({
 });
 
 const BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
-const NO_RESULTS = JSON.stringify({
-  results: [],
-  note:
-    "No search results available. Answer the user's question to the best of your ability.",
-});
+const NO_RESULTS = "[]";
 
 const webSearch: BuiltinTool = {
   name: "web_search",

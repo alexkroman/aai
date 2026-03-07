@@ -1,17 +1,15 @@
-import { loadPlatformConfig } from "./config.ts";
-import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import { renderAgentPage } from "./html.ts";
 import { handleSessionWebSocket } from "./ws_handler.ts";
 import { createSession, type Session } from "./session.ts";
 import {
   type AgentSlot,
-  createLazyToolExecutor,
-  createLazyWorkerApi,
+  buildSlotSessionOpts,
   registerSlot,
   trackSessionClose,
   trackSessionOpen,
 } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
+import type { ServerContext } from "./transport_twilio.ts";
 
 async function discoverSlot(
   slug: string,
@@ -30,10 +28,8 @@ async function discoverSlot(
   return slots.get(slug) ?? null;
 }
 
-export interface WebSocketContext {
-  slots: Map<string, AgentSlot>;
+export interface WebSocketContext extends ServerContext {
   sessions: Map<string, Session>;
-  store: BundleStore;
 }
 
 async function resolveSlot(
@@ -46,11 +42,10 @@ async function resolveSlot(
 }
 
 export async function handleAgentHealth(
-  req: Request,
+  _req: Request,
   slug: string,
   ctx: WebSocketContext,
 ): Promise<Response> {
-  void req;
   const slot = await resolveSlot(slug, ctx);
   if (!slot) {
     return Response.json({ error: "Not found", slug }, { status: 404 });
@@ -63,11 +58,10 @@ export async function handleAgentHealth(
 }
 
 export async function handleAgentPage(
-  req: Request,
+  _req: Request,
   slug: string,
   ctx: WebSocketContext,
 ): Promise<Response> {
-  void req;
   const slot = await resolveSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
   const name = slot.name ?? slug;
@@ -81,7 +75,6 @@ export async function handleAgentRedirect(
   slug: string,
   ctx: WebSocketContext,
 ): Promise<Response> {
-  void req;
   const slot = await resolveSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
   return Response.redirect(new URL(`/${slug}/`, req.url).href, 301);
@@ -101,14 +94,10 @@ export async function handleWebSocket(
     );
   }
 
-  const config = slot.config!;
-  const customTools = slot.toolSchemas ?? [];
-  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
-  const toolSchemas = [...customTools, ...builtinTools];
-  const getWorkerCode = (s: string) => ctx.store.getFile(s, "worker");
-  const getWorkerApi = customTools.length > 0
-    ? createLazyWorkerApi(slot, getWorkerCode)
-    : undefined;
+  const slotOpts = buildSlotSessionOpts(
+    slot,
+    (s) => ctx.store.getFile(s, "worker"),
+  );
 
   const resume = new URL(req.url).searchParams.has("resume");
   const { socket, response } = Deno.upgradeWebSocket(req);
@@ -117,14 +106,7 @@ export async function handleWebSocket(
       createSession({
         id: sessionId,
         transport: ws,
-        agentConfig: config,
-        toolSchemas,
-        platformConfig: loadPlatformConfig(slot.env),
-        executeTool: getWorkerApi
-          ? createLazyToolExecutor(getWorkerApi)
-          : (_name, _args) => Promise.resolve("Error: No custom tools"),
-        getWorkerApi,
-        env: slot.env,
+        ...slotOpts,
         skipGreeting: resume,
       }),
     logContext: { slug },
@@ -135,12 +117,11 @@ export async function handleWebSocket(
 }
 
 export async function handleStaticFile(
-  req: Request,
+  _req: Request,
   slug: string,
   file: string,
   ctx: WebSocketContext,
 ): Promise<Response> {
-  void req;
   const slot = await resolveSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
 

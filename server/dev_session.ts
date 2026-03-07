@@ -4,15 +4,10 @@ import { createWorkerRpc } from "./rpc.ts";
 import type { AgentConfig, ToolSchema } from "./types.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { AgentInfo, AgentSlot, WorkerHandle } from "./worker_pool.ts";
-import type { Session } from "./session.ts";
-import type { BundleStore } from "./bundle_store_tigris.ts";
+import type { ServerContext } from "./transport_twilio.ts";
 import { hashApiKey } from "./deploy.ts";
 
-export interface DevSessionContext {
-  slots: Map<string, AgentSlot>;
-  sessions: Map<string, Session>;
-  store: BundleStore;
-}
+export type DevSessionContext = ServerContext;
 
 export function handleDevWebSocket(
   req: Request,

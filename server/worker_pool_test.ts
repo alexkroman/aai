@@ -5,7 +5,7 @@ import {
   trackSessionClose,
   trackSessionOpen,
 } from "./worker_pool.ts";
-import { createRpcCall } from "./rpc.ts";
+import { createRpcCaller as createRpcCall } from "../core/_rpc.ts";
 import { VALID_ENV } from "./_test_utils.ts";
 
 function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {

@@ -46,13 +46,6 @@ export interface AgentSlot {
   _dev?: boolean;
 }
 
-export function createRpcToolExecutor(
-  workerApi: WorkerApi,
-): ExecuteTool {
-  return (name, args, sessionId) =>
-    workerApi.executeTool(name, args, sessionId, TOOL_TIMEOUT_MS);
-}
-
 /** Returns a lazy accessor that spawns the worker on first call. */
 export function createLazyWorkerApi(
   slot: AgentSlot,
@@ -75,7 +68,7 @@ export function createLazyToolExecutor(
   };
 }
 
-export async function spawnAgent(
+async function spawnAgent(
   slot: AgentSlot,
   getWorkerCode?: (slug: string) => Promise<string | null>,
 ): Promise<AgentInfo> {
@@ -192,6 +185,37 @@ export function trackSessionClose(
     Deno.unrefTimer(timerId);
     slot.idleTimer = timerId;
   }
+}
+
+export function buildSlotSessionOpts(
+  slot: AgentSlot,
+  getWorkerCode: (slug: string) => Promise<string | null>,
+): {
+  agentConfig: AgentConfig;
+  toolSchemas: ToolSchema[];
+  platformConfig: ReturnType<typeof loadPlatformConfig>;
+  executeTool: ExecuteTool;
+  getWorkerApi?: () => Promise<WorkerApi>;
+  env: Record<string, string>;
+} {
+  const config = slot.config!;
+  const customTools = slot.toolSchemas ?? [];
+  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
+  const toolSchemas = [...customTools, ...builtinTools];
+  const getWorkerApi = customTools.length > 0
+    ? createLazyWorkerApi(slot, getWorkerCode)
+    : undefined;
+
+  return {
+    agentConfig: config,
+    toolSchemas,
+    platformConfig: loadPlatformConfig(slot.env),
+    executeTool: getWorkerApi
+      ? createLazyToolExecutor(getWorkerApi)
+      : (_name, _args) => Promise.resolve("Error: No custom tools"),
+    getWorkerApi,
+    env: slot.env,
+  };
 }
 
 export function registerSlot(

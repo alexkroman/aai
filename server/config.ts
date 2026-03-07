@@ -16,16 +16,6 @@ export interface PlatformConfig {
   braveApiKey: string;
 }
 
-/** Read the TTS API key from the server's own process environment. */
-export function getServerTtsKey(): string {
-  return Deno.env.get("RIME_API_KEY") ?? "";
-}
-
-/** Read the Brave Search API key from the server's own process environment. */
-export function getServerBraveKey(): string {
-  return Deno.env.get("BRAVE_API_KEY") ?? "";
-}
-
 export function loadPlatformConfig(
   env: Record<string, string | undefined>,
   ttsApiKey?: string,
@@ -37,10 +27,10 @@ export function loadPlatformConfig(
     sttConfig: { ...DEFAULT_STT_CONFIG },
     ttsConfig: {
       ...DEFAULT_TTS_CONFIG,
-      apiKey: ttsApiKey ?? getServerTtsKey(),
+      apiKey: ttsApiKey ?? Deno.env.get("RIME_API_KEY") ?? "",
     },
     model: parsed.LLM_MODEL ?? DEFAULT_MODEL,
     llmGatewayBase: "https://llm-gateway.assemblyai.com/v1",
-    braveApiKey: getServerBraveKey(),
+    braveApiKey: Deno.env.get("BRAVE_API_KEY") ?? "",
   };
 }

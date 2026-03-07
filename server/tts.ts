@@ -1,13 +1,5 @@
 import type { TTSConfig } from "./types.ts";
-
-/** Deno supports headers in WebSocket constructor at runtime. */
-function createWebSocket(
-  url: string,
-  headers?: Record<string, string>,
-): WebSocket {
-  // @ts-expect-error Deno runtime supports { headers } but types say string | string[]
-  return new WebSocket(url, headers ? { headers } : undefined);
-}
+import { createWebSocket } from "./_ws.ts";
 
 function safeClose(ws: WebSocket): void {
   try {
@@ -192,5 +184,3 @@ export function createTtsClient(config: TTSConfig) {
     },
   };
 }
-
-export type TtsClient = ReturnType<typeof createTtsClient>;

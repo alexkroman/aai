@@ -1,14 +1,11 @@
 import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import { loadPlatformConfig } from "./config.ts";
 import {
   type AgentSlot,
-  createLazyToolExecutor,
-  createLazyWorkerApi,
+  buildSlotSessionOpts,
   trackSessionClose,
   trackSessionOpen,
 } from "./worker_pool.ts";
-import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import { createSession, type SessionTransport } from "./session.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import {
@@ -126,14 +123,15 @@ export function decodeTwilioFrame(payload: string): Uint8Array {
 
 // Route handlers
 
-export interface TwilioContext {
+export interface ServerContext {
   slots: Map<string, AgentSlot>;
+  sessions?: Map<string, unknown>;
   store: BundleStore;
 }
 
 function getTwilioSlot(
   slug: string,
-  ctx: TwilioContext,
+  ctx: ServerContext,
 ): AgentSlot | null {
   const slot = ctx.slots.get(slug);
   return slot?.transport.includes("twilio") ? slot : null;
@@ -142,7 +140,7 @@ function getTwilioSlot(
 export function handleTwilioVoice(
   req: Request,
   slug: string,
-  ctx: TwilioContext,
+  ctx: ServerContext,
 ): Response {
   const slot = getTwilioSlot(slug, ctx);
   if (!slot) return twiml("<Say>Agent not found. Goodbye.</Say>");
@@ -156,7 +154,7 @@ export function handleTwilioVoice(
 export function handleTwilioStream(
   req: Request,
   slug: string,
-  ctx: TwilioContext,
+  ctx: ServerContext,
 ): Response {
   const slot = getTwilioSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
@@ -167,14 +165,10 @@ export function handleTwilioStream(
     );
   }
 
-  const config = slot.config!;
-  const customTools = slot.toolSchemas ?? [];
-  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
-  const toolSchemas = [...customTools, ...builtinTools];
-  const getWorkerCode = (s: string) => ctx.store.getFile(s, "worker");
-  const getWorkerApi = customTools.length > 0
-    ? createLazyWorkerApi(slot, getWorkerCode)
-    : undefined;
+  const slotOpts = buildSlotSessionOpts(
+    slot,
+    (s) => ctx.store.getFile(s, "worker"),
+  );
 
   const { socket, response } = Deno.upgradeWebSocket(req);
   const transport = createTwilioTransport(socket);
@@ -182,14 +176,7 @@ export function handleTwilioStream(
   const session = createSession({
     id: `twilio-${crypto.randomUUID().slice(0, 8)}`,
     transport,
-    agentConfig: config,
-    toolSchemas,
-    platformConfig: loadPlatformConfig(slot.env),
-    executeTool: getWorkerApi
-      ? createLazyToolExecutor(getWorkerApi)
-      : (_name, _args) => Promise.resolve("Error: No custom tools"),
-    getWorkerApi,
-    env: slot.env,
+    ...slotOpts,
   });
 
   trackSessionOpen(slot);

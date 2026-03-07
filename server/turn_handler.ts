@@ -3,22 +3,6 @@ import type { ChatMessage, LLMResponse, ToolSchema } from "./types.ts";
 
 const MAX_TOOL_ITERATIONS = 5;
 
-/** Ensure arguments is always a valid JSON object string for the gateway. */
-function safeJsonArgs(args: string | undefined | null): string {
-  if (!args) return "{}";
-  try {
-    const parsed = JSON.parse(args);
-    if (
-      typeof parsed !== "object" || parsed === null || Array.isArray(parsed)
-    ) {
-      return "{}";
-    }
-    return args;
-  } catch {
-    return "{}";
-  }
-}
-
 function parseToolArg(
   tc: { function: { arguments: string } },
   field: string,
@@ -143,19 +127,10 @@ export async function executeTurn(
         messages.push({ role: "assistant", content: msg.content });
       }
     } else if (msg.tool_calls?.length) {
-      // Execute tool calls — sanitize tool_calls so the gateway can
-      // round-trip them (arguments must always be valid JSON object).
       messages.push({
         role: "assistant",
         content: msg.content,
-        tool_calls: msg.tool_calls.map((tc) => ({
-          id: tc.id,
-          type: tc.type,
-          function: {
-            name: tc.function.name,
-            arguments: safeJsonArgs(tc.function.arguments),
-          },
-        })),
+        tool_calls: msg.tool_calls,
       });
       console.info("executing tools", {
         tools: msg.tool_calls.map((tc) => tc.function.name),
