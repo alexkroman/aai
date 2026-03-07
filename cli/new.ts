@@ -7,7 +7,7 @@ export interface NewOptions {
   templatesDir: string;
 }
 
-async function listTemplates(dir: string): Promise<string[]> {
+export async function listTemplates(dir: string): Promise<string[]> {
   const templates: string[] = [];
   for await (const entry of Deno.readDir(dir)) {
     if (entry.isDirectory) templates.push(entry.name);

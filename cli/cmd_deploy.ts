@@ -29,7 +29,8 @@ ${bold("OPTIONS:")}
   }
 
   const cwd = Deno.env.get("INIT_CWD") || Deno.cwd();
-  const serverUrl = flags.server || "https://aai-agent.fly.dev";
+  const { DEFAULT_SERVER } = await import("./_discover.ts");
+  const serverUrl = flags.server || DEFAULT_SERVER;
 
   const { getApiKey, getNamespace, resolveSlug, saveAgentLink, saveNamespace } =
     await import(

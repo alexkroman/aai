@@ -51,8 +51,7 @@
     "npm:goober@^2.1.18": "2.1.18_csstype@3.2.3",
     "npm:lodash-es@4": "4.17.23",
     "npm:preact@10.28.4": "10.28.4",
-    "npm:preact@^10.28.4": "10.28.4",
-    "npm:slugify@^1.6.6": "1.6.6"
+    "npm:preact@^10.28.4": "10.28.4"
   },
   "jsr": {
     "@astral/astral@0.5.5": {
@@ -1356,9 +1355,6 @@
     "preact@10.28.4": {
       "integrity": "sha512-uKFfOHWuSNpRFVTnljsCluEFq57OKT+0QdOiQo8XWnQ/pSvg7OpX5eNOejELXJMWy+BwM2nobz0FkvzmnpCNsQ=="
     },
-    "slugify@1.6.6": {
-      "integrity": "sha512-h+z7HKHYXj6wJU+AnS/+IH8Uh9fdcX1Lrhg1/VMdf9PwoBQXFcXiAdsy2tSK0P6gKwJLXp02r90ahUCqHk9rrw=="
-    },
     "strnum@2.2.0": {
       "integrity": "sha512-Y7Bj8XyJxnPAORMZj/xltsfo55uOiyHcU2tnAVzHUnSJR/KsEX+9RoDeXEnsXtl/CX4fAcrt64gZ13aGaWPeBg=="
     },
@@ -1405,8 +1401,7 @@
       "npm:esbuild-wasm@~0.27.3",
       "npm:goober@^2.1.18",
       "npm:lodash-es@4",
-      "npm:preact@^10.28.4",
-      "npm:slugify@^1.6.6"
+      "npm:preact@^10.28.4"
     ],
     "members": {
       "cli": {

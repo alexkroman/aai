@@ -9,7 +9,14 @@ import type { AgentEntry } from "./_discover.ts";
 import { spawnLocalWorker } from "./_local_worker.ts";
 import { createWebSocketTarget, serveRpc } from "../core/_rpc.ts";
 
-const DEFAULT_SERVER = "https://aai-agent.fly.dev";
+import { DEFAULT_SERVER } from "./_discover.ts";
+
+/** Convert an HTTP(S) URL to its WebSocket equivalent. */
+function toWsUrl(httpUrl: string): string {
+  const u = new URL(httpUrl);
+  u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+  return u.toString().replace(/\/$/, "");
+}
 
 export async function runDevCommand(args: string[]): Promise<number> {
   const flags = parseArgs(args, {
@@ -86,7 +93,7 @@ ${bold("OPTIONS:")}
   let clientCode = result.bundle.client;
 
   // Connect control WebSocket to production server
-  const wsUrl = serverUrl.replace(/^http/, "ws");
+  const wsUrl = toWsUrl(serverUrl);
   let controlWs = await connectAndRegister(
     wsUrl,
     apiKey,
@@ -306,7 +313,7 @@ function startLocalProxy(
   serverUrl: string,
   getClientCode: () => string,
 ): Deno.HttpServer {
-  const wsUrl = serverUrl.replace(/^http/, "ws");
+  const wsUrl = toWsUrl(serverUrl);
 
   return Deno.serve(
     { port, hostname: "0.0.0.0", onListen: () => {} },

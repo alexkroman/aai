@@ -6,18 +6,11 @@ import { promptUpgradeIfAvailable } from "./_update.ts";
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;
 
-async function listTemplates(): Promise<string[]> {
+async function printUsage(): Promise<void> {
   const cliDir = dirname(fromFileUrl(import.meta.url));
   const templatesDir = join(cliDir, "..", "templates");
-  const templates: string[] = [];
-  for await (const entry of Deno.readDir(templatesDir)) {
-    if (entry.isDirectory) templates.push(entry.name);
-  }
-  return templates.sort();
-}
-
-async function printUsage(): Promise<void> {
-  const templates = await listTemplates();
+  const { listTemplates } = await import("./new.ts");
+  const templates = await listTemplates(templatesDir);
   const templateList = templates.map((t) => `    ${t}`).join("\n");
   console.log(
     `${green(bold("aai"))} ${dim(VERSION)}

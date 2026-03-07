@@ -1,6 +1,6 @@
 import { dirname, join, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
-import { exists } from "@std/fs/exists";
+import { hasExternalImports } from "./_discover.ts";
 import type { AgentEntry } from "./_discover.ts";
 import { stripTypes } from "./_bundler.ts";
 import type { AgentDef, ToolContext, ToolDef } from "../sdk/types.ts";
@@ -25,18 +25,6 @@ export interface ValidationResult {
   tools?: string[];
   builtinTools?: string[];
   toolTests?: ToolTestResult[];
-}
-
-/** Check if the agent has external imports in its deno.json. */
-async function hasExternalImports(dir: string): Promise<boolean> {
-  const denoJsonPath = join(dir, "deno.json");
-  if (!await exists(denoJsonPath)) return false;
-  try {
-    const raw = JSON.parse(await Deno.readTextFile(denoJsonPath));
-    return raw.imports && Object.keys(raw.imports).length > 0;
-  } catch {
-    return false;
-  }
 }
 
 /**

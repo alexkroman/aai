@@ -1,5 +1,6 @@
 import { info, step, stepInfo, warn } from "./_output.ts";
 import type { BundleOutput } from "./_bundler.ts";
+import { incrementName } from "./_discover.ts";
 
 export interface DeployOpts {
   url: string;
@@ -41,15 +42,6 @@ async function attemptDeploy(
       toolSchemas: manifest.toolSchemas,
     }),
   });
-}
-
-/** Append or increment a numeric suffix: "foo" -> "foo-1" -> "foo-2" */
-function increment(name: string): string {
-  const match = name.match(/^(.+)-(\d+)$/);
-  if (match) {
-    return `${match[1]}-${Number(match[2]) + 1}`;
-  }
-  return `${name}-1`;
 }
 
 const MAX_RETRIES = 20;
@@ -121,7 +113,7 @@ export async function runDeploy(
       const text = await resp.text();
       // Namespace conflict — increment and retry
       if (text.includes("Namespace")) {
-        const next = increment(namespace);
+        const next = incrementName(namespace);
         step("Retry", `namespace "${namespace}" taken, trying "${next}"`);
         namespace = next;
         continue;

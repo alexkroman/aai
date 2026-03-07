@@ -2,11 +2,10 @@ import { parse as parseDotenv } from "@std/dotenv/parse";
 import { exists } from "@std/fs/exists";
 import { basename, dirname, fromFileUrl, join, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
-import _slugify from "slugify";
-const slugify = _slugify as unknown as (
-  str: string,
-  opts?: { lower?: boolean; strict?: boolean },
-) => string;
+/** ASCII-only slugify: lowercase, replace non-alnum runs with "-", trim dashes. */
+function slugify(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 import { step } from "./_output.ts";
 import { stripTypes } from "./_bundler.ts";
 import { type AgentDef, agentToolsToSchemas } from "../sdk/types.ts";
@@ -159,7 +158,7 @@ export async function getNamespace(): Promise<string> {
     throw new Error("Namespace is required");
   }
 
-  const slug = slugify(ns, { lower: true, strict: true });
+  const slug = slugify(ns);
   if (!slug) {
     throw new Error("Invalid namespace — must contain alphanumeric characters");
   }
@@ -181,12 +180,12 @@ export async function saveNamespace(namespace: string): Promise<void> {
 /** Derive a slug from the agent's directory name. */
 export function slugFromDir(dir: string): string {
   const dirName = basename(resolve(dir));
-  const slug = slugify(dirName, { lower: true, strict: true });
+  const slug = slugify(dirName);
   return slug || "agent";
 }
 
 /** Append or increment a numeric suffix: "foo" -> "foo-1" -> "foo-2" */
-function incrementName(name: string): string {
+export function incrementName(name: string): string {
   const match = name.match(/^(.+)-(\d+)$/);
   if (match) {
     return `${match[1]}-${Number(match[2]) + 1}`;
@@ -277,11 +276,14 @@ export interface AgentEntry {
   toolSchemas?: AgentToolSchema[];
 }
 
+/** Default production server URL. */
+export const DEFAULT_SERVER = "https://aai-agent.fly.dev";
+
 /** Imports that the workspace already resolves — not truly "external". */
 const WORKSPACE_IMPORTS = new Set(["@aai/sdk", "@aai/ui", "zod"]);
 
 /** Check if the agent has external imports beyond workspace packages. */
-async function hasExternalImports(dir: string): Promise<boolean> {
+export async function hasExternalImports(dir: string): Promise<boolean> {
   // Check deno.json imports
   try {
     const raw = JSON.parse(
