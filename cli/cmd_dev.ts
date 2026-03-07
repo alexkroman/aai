@@ -5,7 +5,6 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
 import { error, step, stepInfo } from "./_output.ts";
 import { runBuild } from "./build.ts";
-import type { ValidationResult } from "./_validate.ts";
 import type { AgentEntry } from "./_discover.ts";
 import { spawnLocalWorker } from "./_local_worker.ts";
 import { createWebSocketTarget, serveRpc } from "../core/_rpc.ts";
@@ -29,7 +28,7 @@ ${bold("USAGE:")}
 ${bold("OPTIONS:")}
   ${cyan("-p, --port")} ${
         dim("<number>")
-      }   Port for local proxy server (default: 3100)
+      }   Port for local proxy server (default: 3000)
   ${cyan("-s, --server")} ${
         dim("<url>")
       } Production server URL (default: ${DEFAULT_SERVER})
@@ -40,7 +39,7 @@ ${bold("OPTIONS:")}
   }
 
   const cwd = Deno.env.get("INIT_CWD") || Deno.cwd();
-  const port = parseInt(flags.port ?? "3100");
+  const port = parseInt(flags.port ?? "3000");
   const serverUrl = flags.server ?? DEFAULT_SERVER;
 
   const { getApiKey, getNamespace, resolveSlug, saveAgentLink } = await import(
@@ -107,14 +106,7 @@ ${bold("OPTIONS:")}
     () => clientCode,
   );
 
-  step("Ready", fullPath);
-  printSummary(
-    result.agent,
-    result.validation,
-    namespace,
-    `http://localhost:${port}`,
-  );
-  stepInfo("Watch", "for changes...");
+  printReady(result.agent, namespace, port);
 
   // Watch for file changes
   const ac = new AbortController();
@@ -163,13 +155,7 @@ ${bold("OPTIONS:")}
         localWorker,
       );
 
-      step("Ready", fullPath);
-      printSummary(
-        freshResult.agent,
-        freshResult.validation,
-        namespace,
-        `http://localhost:${port}`,
-      );
+      printReady(freshResult.agent, namespace, port);
     } catch (err: unknown) {
       error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -266,10 +252,6 @@ function connectAndRegister(
 
       if (msg.type === "dev_registered") {
         ws.removeEventListener("message", onRegAck);
-        step(
-          "Connected",
-          `${wsUrl.replace(/^ws/, "http")}/${fullPath}`,
-        );
 
         // Switch to RPC mode — serve executeTool/invokeHook over this
         // WebSocket using the same RPC protocol as Worker postMessage.
@@ -325,8 +307,6 @@ function startLocalProxy(
   getClientCode: () => string,
 ): Deno.HttpServer {
   const wsUrl = serverUrl.replace(/^http/, "ws");
-
-  step("Server", `http://localhost:${port}`);
 
   return Deno.serve(
     { port, hostname: "0.0.0.0", onListen: () => {} },
@@ -435,31 +415,13 @@ function renderDevPage(name: string, basePath: string): string {
 </html>`;
 }
 
-function printSummary(
+function printReady(
   agent: AgentEntry,
-  validation: ValidationResult,
   namespace: string,
-  serverUrl: string,
+  port: number,
 ): void {
-  const tools = [
-    ...(validation.builtinTools ?? []),
-    ...(validation.tools ?? []),
-  ];
-
   const fullPath = `${namespace}/${agent.slug}`;
-
-  if (agent.transport.includes("websocket")) {
-    stepInfo("App", `${serverUrl}/${fullPath}/`);
-  }
-  if (agent.transport.includes("twilio")) {
-    stepInfo("Twilio", `(via production server)`);
-  }
-
-  stepInfo("Agent", validation.name ?? agent.slug);
-  if (validation.voice) {
-    stepInfo("Voice", validation.voice);
-  }
-  if (tools.length > 0) {
-    stepInfo("Tools", tools.join(", "));
-  }
+  const url = `http://localhost:${port}/${fullPath}/`;
+  console.log(`\n  ${green(bold(url))}\n`);
+  stepInfo("Watch", "for changes...");
 }

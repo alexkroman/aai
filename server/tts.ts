@@ -40,6 +40,9 @@ export function createTtsClient(config: TTSConfig) {
       audioFormat: config.audioFormat,
       samplingRate: String(config.samplingRate),
     });
+    if (config.speedAlpha != null) {
+      params.set("speedAlpha", String(config.speedAlpha));
+    }
     return `${config.wssUrl}?${params}`;
   }
 

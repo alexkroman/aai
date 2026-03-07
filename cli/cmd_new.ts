@@ -5,12 +5,11 @@ import { bold, cyan, dim, green } from "@std/fmt/colors";
 
 export async function runNewCommand(
   args: string[],
-  version: string,
 ): Promise<number> {
   const flags = parseArgs(args, {
     string: ["template"],
-    alias: { h: "help", t: "template", y: "yes" },
-    boolean: ["help", "yes"],
+    alias: { h: "help", t: "template" },
+    boolean: ["help"],
   });
 
   if (flags.help) {
@@ -25,7 +24,6 @@ ${bold("OPTIONS:")}
   ${cyan("-t, --template")} ${
         dim("<name>")
       }    Template to use (default: simple)
-  ${cyan("-y, --yes")}                Skip confirmation prompts
   ${cyan("-h, --help")}               Show this help message
 `,
     );
@@ -39,15 +37,6 @@ ${bold("OPTIONS:")}
   if (await exists(join(cwd, "agent.ts"))) {
     console.log("agent.ts already exists in this directory.");
     return 1;
-  }
-
-  if (!flags.yes) {
-    console.log(`\n${green(bold("aai"))} ${dim(version)}`);
-    console.log("Voice agent development kit\n");
-
-    const answer = prompt(`Set up a new agent in "${cwd}"? (Y/n)`);
-    if (answer === null) return 0;
-    if (answer !== "" && answer.toLowerCase() !== "y") return 0;
   }
 
   const cliDir = dirname(fromFileUrl(import.meta.url));

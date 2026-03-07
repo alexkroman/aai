@@ -3,11 +3,12 @@ import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
 import {
   type AgentSlot,
-  createRpcToolExecutor,
-  ensureAgent,
+  createLazyToolExecutor,
+  createLazyWorkerApi,
   trackSessionClose,
   trackSessionOpen,
 } from "./worker_pool.ts";
+import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import { createSession, type SessionTransport } from "./session.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import {
@@ -138,25 +139,13 @@ function getTwilioSlot(
   return slot?.transport.includes("twilio") ? slot : null;
 }
 
-export async function handleTwilioVoice(
+export function handleTwilioVoice(
   req: Request,
   slug: string,
   ctx: TwilioContext,
-): Promise<Response> {
+): Response {
   const slot = getTwilioSlot(slug, ctx);
   if (!slot) return twiml("<Say>Agent not found. Goodbye.</Say>");
-
-  try {
-    await ensureAgent(slot, (s) => ctx.store.getFile(s, "worker"));
-  } catch (err: unknown) {
-    console.error("Failed to start agent for call", {
-      slug,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return twiml(
-      "<Say>Sorry, the agent is unavailable. Please try again later.</Say>",
-    );
-  }
 
   const host = req.headers.get("host") ?? "localhost";
   const streamUrl = `wss://${host}/${slug}/twilio/stream`;
@@ -164,11 +153,11 @@ export async function handleTwilioVoice(
   return twiml(`<Connect><Stream url="${streamUrl}" /></Connect>`);
 }
 
-export async function handleTwilioStream(
+export function handleTwilioStream(
   req: Request,
   slug: string,
   ctx: TwilioContext,
-): Promise<Response> {
+): Response {
   const slot = getTwilioSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
@@ -178,16 +167,14 @@ export async function handleTwilioStream(
     );
   }
 
-  let info;
-  try {
-    info = await ensureAgent(slot, (s) => ctx.store.getFile(s, "worker"));
-  } catch (err: unknown) {
-    console.error("Failed to initialize agent for media stream", { slug, err });
-    return Response.json(
-      { error: "Agent failed to initialize" },
-      { status: 500 },
-    );
-  }
+  const config = slot.config!;
+  const customTools = slot.toolSchemas ?? [];
+  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
+  const toolSchemas = [...customTools, ...builtinTools];
+  const getWorkerCode = (s: string) => ctx.store.getFile(s, "worker");
+  const getWorkerApi = customTools.length > 0
+    ? createLazyWorkerApi(slot, getWorkerCode)
+    : undefined;
 
   const { socket, response } = Deno.upgradeWebSocket(req);
   const transport = createTwilioTransport(socket);
@@ -195,11 +182,13 @@ export async function handleTwilioStream(
   const session = createSession({
     id: `twilio-${crypto.randomUUID().slice(0, 8)}`,
     transport,
-    agentConfig: info.config,
-    toolSchemas: info.toolSchemas,
+    agentConfig: config,
+    toolSchemas,
     platformConfig: loadPlatformConfig(slot.env),
-    executeTool: createRpcToolExecutor(info.workerApi),
-    workerApi: info.workerApi,
+    executeTool: getWorkerApi
+      ? createLazyToolExecutor(getWorkerApi)
+      : (_name, _args) => Promise.resolve("Error: No custom tools"),
+    getWorkerApi,
     env: slot.env,
   });
 

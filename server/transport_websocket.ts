@@ -1,11 +1,12 @@
 import { loadPlatformConfig } from "./config.ts";
+import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import { renderAgentPage } from "./html.ts";
 import { handleSessionWebSocket } from "./ws_handler.ts";
 import { createSession, type Session } from "./session.ts";
 import {
   type AgentSlot,
-  createRpcToolExecutor,
-  ensureAgent,
+  createLazyToolExecutor,
+  createLazyWorkerApi,
   registerSlot,
   trackSessionClose,
   trackSessionOpen,
@@ -100,16 +101,14 @@ export async function handleWebSocket(
     );
   }
 
-  let info;
-  try {
-    info = await ensureAgent(slot, (s) => ctx.store.getFile(s, "worker"));
-  } catch (err: unknown) {
-    console.error("Failed to initialize agent for session", { slug, err });
-    return Response.json(
-      { error: "Agent failed to initialize" },
-      { status: 500 },
-    );
-  }
+  const config = slot.config!;
+  const customTools = slot.toolSchemas ?? [];
+  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
+  const toolSchemas = [...customTools, ...builtinTools];
+  const getWorkerCode = (s: string) => ctx.store.getFile(s, "worker");
+  const getWorkerApi = customTools.length > 0
+    ? createLazyWorkerApi(slot, getWorkerCode)
+    : undefined;
 
   const resume = new URL(req.url).searchParams.has("resume");
   const { socket, response } = Deno.upgradeWebSocket(req);
@@ -118,15 +117,17 @@ export async function handleWebSocket(
       createSession({
         id: sessionId,
         transport: ws,
-        agentConfig: info.config,
-        toolSchemas: info.toolSchemas,
+        agentConfig: config,
+        toolSchemas,
         platformConfig: loadPlatformConfig(slot.env),
-        executeTool: createRpcToolExecutor(info.workerApi),
-        workerApi: info.workerApi,
+        executeTool: getWorkerApi
+          ? createLazyToolExecutor(getWorkerApi)
+          : (_name, _args) => Promise.resolve("Error: No custom tools"),
+        getWorkerApi,
         env: slot.env,
         skipGreeting: resume,
       }),
-    logContext: { slug: info.slug },
+    logContext: { slug },
     onOpen: () => trackSessionOpen(slot),
     onClose: () => trackSessionClose(slot),
   });

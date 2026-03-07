@@ -6,8 +6,8 @@ import { runDeploy } from "./deploy.ts";
 
 export async function runDeployCommand(args: string[]): Promise<number> {
   const flags = parseArgs(args, {
-    string: ["url"],
-    alias: { h: "help", u: "url" },
+    string: ["server"],
+    alias: { h: "help", s: "server" },
     boolean: ["help"],
   });
 
@@ -19,9 +19,9 @@ ${bold("USAGE:")}
   ${cyan("aai deploy")}
 
 ${bold("OPTIONS:")}
-  ${cyan("-u, --url")} ${
+  ${cyan("-s, --server")} ${
         dim("<url>")
-      }       Server URL (default: https://aai-agent.fly.dev)
+      }    Server URL (default: https://aai-agent.fly.dev)
   ${cyan("-h, --help")}             Show this help message
 `,
     );
@@ -29,7 +29,7 @@ ${bold("OPTIONS:")}
   }
 
   const cwd = Deno.env.get("INIT_CWD") || Deno.cwd();
-  const serverUrl = flags.url || "https://aai-agent.fly.dev";
+  const serverUrl = flags.server || "https://aai-agent.fly.dev";
 
   const { getApiKey, getNamespace, resolveSlug, saveAgentLink, saveNamespace } =
     await import(

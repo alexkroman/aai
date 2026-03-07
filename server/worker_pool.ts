@@ -53,6 +53,28 @@ export function createRpcToolExecutor(
     workerApi.executeTool(name, args, sessionId, TOOL_TIMEOUT_MS);
 }
 
+/** Returns a lazy accessor that spawns the worker on first call. */
+export function createLazyWorkerApi(
+  slot: AgentSlot,
+  getWorkerCode?: (slug: string) => Promise<string | null>,
+): () => Promise<WorkerApi> {
+  return async () => {
+    const info = await ensureAgent(slot, getWorkerCode);
+    return info.workerApi;
+  };
+}
+
+/** Creates a tool executor that lazily spawns the worker on first call. */
+export function createLazyToolExecutor(
+  getWorkerApi: () => Promise<WorkerApi>,
+): ExecuteTool {
+  let cached: WorkerApi | undefined;
+  return async (name, args, sessionId) => {
+    cached ??= await getWorkerApi();
+    return cached.executeTool(name, args, sessionId, TOOL_TIMEOUT_MS);
+  };
+}
+
 export async function spawnAgent(
   slot: AgentSlot,
   getWorkerCode?: (slug: string) => Promise<string | null>,

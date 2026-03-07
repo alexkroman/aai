@@ -110,8 +110,9 @@ async function registerDevAgent(
     builtinTools: msg.config.builtinTools as AgentConfig["builtinTools"],
   };
 
+  const customToolSchemas = msg.toolSchemas as ToolSchema[];
   const allToolSchemas: ToolSchema[] = [
-    ...msg.toolSchemas as ToolSchema[],
+    ...customToolSchemas,
     ...getBuiltinToolSchemas(agentConfig.builtinTools ?? []),
   ];
 
@@ -138,7 +139,7 @@ async function registerDevAgent(
     transport: msg.transport,
     config: agentConfig,
     name: agentConfig.name ?? slug,
-    toolSchemas: allToolSchemas,
+    toolSchemas: customToolSchemas,
     activeSessions: existing?.activeSessions ?? 0,
     live: agentInfo,
     _dev: true,

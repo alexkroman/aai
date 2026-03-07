@@ -40,7 +40,7 @@ export const DEFAULT_STT_CONFIG: STTConfig = {
   formatTurns: true,
   minEndOfTurnSilenceWhenConfident: 100,
   maxTurnSilence: 1000,
-  vadThreshold: 0.4,
+  vadThreshold: 0.5,
 };
 
 export interface TTSConfig {
@@ -51,6 +51,7 @@ export interface TTSConfig {
   audioFormat: string;
   samplingRate: number;
   sampleRate: number;
+  speedAlpha?: number;
 }
 
 export const DEFAULT_TTS_CONFIG: TTSConfig = {
@@ -61,6 +62,7 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
   audioFormat: "pcm",
   samplingRate: DEFAULT_TTS_SAMPLE_RATE,
   sampleRate: DEFAULT_TTS_SAMPLE_RATE,
+  speedAlpha: 1.2,
 };
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";

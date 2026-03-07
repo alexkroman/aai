@@ -33,7 +33,8 @@ export interface SessionOptions {
   platformConfig: PlatformConfig;
   executeTool: ExecuteTool;
   env?: Record<string, string | undefined>;
-  workerApi?: WorkerApi;
+  /** Lazy accessor — called on first hook invocation. */
+  getWorkerApi?: () => Promise<WorkerApi>;
   skipGreeting?: boolean;
   connectStt?(
     apiKey: string,
@@ -73,7 +74,23 @@ export function createSession(opts: SessionOptions): Session {
     toolSchemas,
     platformConfig,
     executeTool,
+    getWorkerApi,
   } = opts;
+
+  // Lazy-resolve workerApi on first hook call
+  let cachedWorkerApi: WorkerApi | undefined;
+  async function invokeHook(
+    hook: string,
+    extra?: { text?: string; error?: string },
+  ): Promise<void> {
+    if (!getWorkerApi) return;
+    try {
+      cachedWorkerApi ??= await getWorkerApi();
+      await cachedWorkerApi.invokeHook(hook, id, extra, 5_000);
+    } catch (err: unknown) {
+      console.error(`${hook} hook failed`, { err });
+    }
+  }
 
   const agentConfig = opts.skipGreeting
     ? { ...opts.agentConfig, greeting: "" }
@@ -219,11 +236,7 @@ export function createSession(opts: SessionOptions): Session {
       ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
     });
 
-    if (opts.workerApi) {
-      opts.workerApi.invokeHook("onTurn", id, { text }, 5_000).catch(
-        (err: unknown) => console.error("onTurn hook failed", { err }),
-      );
-    }
+    invokeHook("onTurn", { text });
 
     const abort = new AbortController();
     turnAbort = abort;
@@ -285,13 +298,7 @@ export function createSession(opts: SessionOptions): Session {
       const greeting = agentConfig.greeting ?? DEFAULT_GREETING;
       if (greeting) pendingGreeting = greeting;
 
-      if (opts.workerApi) {
-        try {
-          await opts.workerApi.invokeHook("onConnect", id, undefined, 5_000);
-        } catch (err: unknown) {
-          console.error("onConnect hook failed", { err });
-        }
-      }
+      invokeHook("onConnect");
 
       await doConnectSttWithEvents();
       trySendJson({
@@ -310,13 +317,7 @@ export function createSession(opts: SessionOptions): Session {
       stt?.close();
       tts.close();
 
-      if (opts.workerApi) {
-        try {
-          await opts.workerApi.invokeHook("onDisconnect", id, undefined, 5_000);
-        } catch (err: unknown) {
-          console.error("onDisconnect hook failed", { err });
-        }
-      }
+      invokeHook("onDisconnect");
     },
 
     onAudio(data: Uint8Array): void {

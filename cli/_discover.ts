@@ -149,12 +149,12 @@ export async function getNamespace(): Promise<string> {
   const config = await readConfig();
   if (config.namespace) return config.namespace;
 
-  step("Setup", "Choose a namespace for your agents");
   console.log(
-    "Your agents will be deployed to https://aai-agent.fly.dev/<namespace>/\n",
+    "\nChoose a namespace for your agents.\n" +
+      "Agents deploy to https://aai-agent.fly.dev/<namespace>/\n",
   );
 
-  const ns = prompt("Enter your namespace:")?.trim();
+  const ns = prompt("Namespace:")?.trim();
   if (!ns) {
     throw new Error("Namespace is required");
   }

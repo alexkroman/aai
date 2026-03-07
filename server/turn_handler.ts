@@ -51,7 +51,6 @@ export interface ExecuteTurnOptions {
   callLLM: (opts: TurnCallLLMOptions) => Promise<LLMResponse>;
   executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
   signal: AbortSignal;
-  logger?: Pick<Console, "debug" | "info" | "warn" | "error">;
 }
 
 export async function executeTurn(
@@ -64,7 +63,6 @@ export async function executeTurn(
     callLLM,
     executeTool,
     signal,
-    logger = console,
   } = opts;
   messages.push({ role: "user", content: text });
 
@@ -81,7 +79,7 @@ export async function executeTurn(
   for (let iteration = 0; iteration <= MAX_TOOL_ITERATIONS; iteration++) {
     if (signal.aborted) break;
 
-    logger.debug("LLM call", {
+    console.debug("LLM call", {
       callNum: iteration + 1,
       messageCount: messages.length,
       toolChoice: choice ?? "auto",
@@ -93,7 +91,7 @@ export async function executeTurn(
       toolChoice: choice,
       signal,
     });
-    logger.debug("LLM response", {
+    console.debug("LLM response", {
       callNum: iteration + 1,
       finishReason: response.choices[0]?.finish_reason,
     });
@@ -109,7 +107,7 @@ export async function executeTurn(
     if (answerTc) {
       const answer = parseToolArg(answerTc, "answer");
       messages.push({ role: "assistant", content: answer });
-      logger.info("turn complete (final_answer)", {
+      console.info("turn complete (final_answer)", {
         responseLength: answer.length,
       });
       return answer;
@@ -122,7 +120,7 @@ export async function executeTurn(
     if (questionTc) {
       const question = parseToolArg(questionTc, "question");
       messages.push({ role: "assistant", content: question });
-      logger.info("turn complete (user_input)", {
+      console.info("turn complete (user_input)", {
         questionLength: question.length,
       });
       return question;
@@ -137,7 +135,7 @@ export async function executeTurn(
 
     // Truncated tool calls — LLM ran out of tokens mid-generation, retry
     if (res.finish_reason === "max_tokens" && msg.tool_calls?.length) {
-      logger.warn("tool call truncated by max_tokens, retrying", {
+      console.warn("tool call truncated by max_tokens, retrying", {
         tools: msg.tool_calls.map((tc) => tc.function.name),
         iteration: iteration + 1,
       });
@@ -159,7 +157,7 @@ export async function executeTurn(
           },
         })),
       });
-      logger.info("executing tools", {
+      console.info("executing tools", {
         tools: msg.tool_calls.map((tc) => tc.function.name),
         iteration: iteration + 1,
       });
@@ -170,15 +168,15 @@ export async function executeTurn(
           try {
             args = JSON.parse(tc.function.arguments) as Record<string, unknown>;
           } catch (err: unknown) {
-            logger.error("Failed to parse tool arguments", {
+            console.error("Failed to parse tool arguments", {
               err,
               tool: tc.function.name,
             });
             return `Error: Invalid JSON arguments for tool "${tc.function.name}"`;
           }
-          logger.debug("tool call", { tool: tc.function.name, args });
+          console.debug("tool call", { tool: tc.function.name, args });
           const result = await executeTool(tc.function.name, args);
-          logger.debug("tool result", {
+          console.debug("tool result", {
             tool: tc.function.name,
             resultLength: result.length,
           });
@@ -198,7 +196,7 @@ export async function executeTurn(
       res.finish_reason === "tool_use" ||
       res.finish_reason === "tool_calls"
     ) {
-      logger.warn(
+      console.warn(
         "finish_reason indicates tool use but no tool_calls present, retrying",
         { finishReason: res.finish_reason },
       );
@@ -210,7 +208,7 @@ export async function executeTurn(
       const responseText = msg.content ??
         "Sorry, I couldn't generate a response.";
       messages.push({ role: "assistant", content: responseText });
-      logger.info("turn complete", { responseLength: responseText.length });
+      console.info("turn complete", { responseLength: responseText.length });
       return responseText;
     }
 
