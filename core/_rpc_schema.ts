@@ -12,7 +12,7 @@ const BuiltinToolSchema = z.enum([
   "final_answer",
 ]);
 
-// ── Agent config returned by getConfig RPC ──────────────────────
+// ── Agent config (stored in manifest, no longer fetched via RPC) ─
 
 const AgentConfigSchema = z.object({
   name: z.string().optional(),
@@ -29,22 +29,18 @@ const ToolSchemaSchema = z.object({
   parameters: z.record(z.string(), z.unknown()),
 });
 
-export const GetConfigResponseSchema = z.object({
-  config: AgentConfigSchema,
-  toolSchemas: z.array(ToolSchemaSchema).default([]),
-});
-
 export const AgentMetadataSchema = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
   transport: z.array(z.enum(["websocket", "twilio"])).default(["websocket"]),
   owner_hash: z.string().optional(),
+  config: AgentConfigSchema.optional(),
+  toolSchemas: z.array(ToolSchemaSchema).optional(),
 });
 
 // ── RPC wire-format types (worker ↔ host postMessage) ───────────
 
 export const RpcRequestSchema = z.discriminatedUnion("type", [
-  z.object({ id: z.number(), type: z.literal("getConfig") }),
   z.object({
     id: z.number(),
     type: z.literal("executeTool"),

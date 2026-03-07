@@ -1,6 +1,4 @@
-import type { AgentConfig, ToolSchema } from "./types.ts";
 import type { WorkerApi } from "../core/_worker_entry.ts";
-import { GetConfigResponseSchema } from "../core/_rpc_schema.ts";
 import { createRpcCaller, type MessageTarget } from "../core/_rpc.ts";
 
 export { createRpcCaller as createRpcCall };
@@ -10,15 +8,6 @@ export function createWorkerRpc(
 ): WorkerApi {
   const call = createRpcCaller(port);
   return {
-    getConfig: async (
-      timeoutMs?: number,
-    ): Promise<{ config: AgentConfig; toolSchemas: ToolSchema[] }> => {
-      const raw = await call("getConfig", undefined, timeoutMs);
-      return GetConfigResponseSchema.parse(raw) as {
-        config: AgentConfig;
-        toolSchemas: ToolSchema[];
-      };
-    },
     executeTool: async (
       name: string,
       args: Record<string, unknown>,

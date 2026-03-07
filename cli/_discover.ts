@@ -4,7 +4,7 @@ import { dirname, fromFileUrl, join, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
 import { step } from "./_output.ts";
 import { stripTypes } from "./_bundler.ts";
-import type { AgentDef } from "../sdk/types.ts";
+import { type AgentDef, agentToolsToSchemas } from "../sdk/types.ts";
 
 /** Root of the aai framework (parent of cli/). */
 const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
@@ -133,6 +133,21 @@ export async function getApiKey(): Promise<string> {
 
 // -- Agent discovery ----------------------------------------------------------
 
+export interface AgentManifestConfig {
+  name?: string;
+  instructions: string;
+  greeting: string;
+  voice: string;
+  prompt?: string;
+  builtinTools?: string[];
+}
+
+export interface AgentToolSchema {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 export interface AgentEntry {
   slug: string;
   dir: string;
@@ -140,22 +155,36 @@ export interface AgentEntry {
   env: Record<string, string>;
   clientEntry: string;
   transport: ("websocket" | "twilio")[];
+  config?: AgentManifestConfig;
+  toolSchemas?: AgentToolSchema[];
 }
 
 /** Imports that the workspace already resolves — not truly "external". */
 const WORKSPACE_IMPORTS = new Set(["@aai/sdk", "@aai/ui", "zod"]);
 
-/** Check if the agent has external imports in its deno.json. */
+/** Check if the agent has external imports beyond workspace packages. */
 async function hasExternalImports(dir: string): Promise<boolean> {
-  const denoJsonPath = join(dir, "deno.json");
-  if (!await exists(denoJsonPath)) return false;
+  // Check deno.json imports
   try {
-    const raw = JSON.parse(await Deno.readTextFile(denoJsonPath));
+    const raw = JSON.parse(
+      await Deno.readTextFile(join(dir, "deno.json")),
+    );
     const imports = raw.imports ?? {};
-    return Object.keys(imports).some((k) => !WORKSPACE_IMPORTS.has(k));
-  } catch {
-    return false;
-  }
+    if (Object.keys(imports).some((k) => !WORKSPACE_IMPORTS.has(k))) {
+      return true;
+    }
+  } catch { /* no deno.json */ }
+
+  // Check package.json dependencies
+  try {
+    const raw = JSON.parse(
+      await Deno.readTextFile(join(dir, "package.json")),
+    );
+    const deps = raw.dependencies ?? {};
+    if (Object.keys(deps).length > 0) return true;
+  } catch { /* no package.json */ }
+
+  return false;
 }
 
 /** Import agent.ts and return the AgentDef, or null if external imports prevent it. */
@@ -231,6 +260,21 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
     ? join(dir, "client.tsx")
     : resolve(AAI_ROOT, "ui/client.tsx");
 
+  const config: AgentManifestConfig | undefined = def
+    ? {
+      name: def.name,
+      instructions: def.instructions,
+      greeting: def.greeting,
+      voice: def.voice,
+      prompt: def.prompt,
+      builtinTools: def.builtinTools ? [...def.builtinTools] : undefined,
+    }
+    : undefined;
+
+  const toolSchemas: AgentToolSchema[] | undefined = def
+    ? agentToolsToSchemas(def.tools)
+    : undefined;
+
   return {
     slug,
     dir,
@@ -238,5 +282,7 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
     env,
     clientEntry,
     transport,
+    config,
+    toolSchemas,
   };
 }

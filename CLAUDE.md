@@ -52,8 +52,8 @@ The `deno.json` workspace has five packages: `sdk/`, `core/`, `server/`, `ui/`, 
   landing page
 - `worker_pool.ts` → spawns agent code in sandboxed Deno Workers with restricted
   permissions (net only); manages agent lifecycle with idle eviction
-- `worker_entry.ts` → runs inside the Worker; exposes `getConfig` and
-  `executeTool` via RPC
+- `worker_entry.ts` → runs inside the Worker; exposes `executeTool` and
+  `invokeHook` via RPC
 - `session.ts` → per-connection session: wires STT → turn handler → TTS, manages
   interruptions
 - `turn_handler.ts` → agentic loop: sends messages to LLM, executes tool calls

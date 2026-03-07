@@ -87,12 +87,17 @@ export async function handleDeploy(
     worker: body.worker,
     client: body.client,
     owner_hash: ownerHash,
+    config: body.config,
+    toolSchemas: body.toolSchemas,
   });
 
   const slot: AgentSlot = {
     slug: body.slug,
     env: body.env,
     transport,
+    config: body.config as AgentSlot["config"],
+    name: body.config?.name,
+    toolSchemas: body.toolSchemas,
     activeSessions: 0,
   };
   slots.set(body.slug, slot);

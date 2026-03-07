@@ -1,23 +1,17 @@
 import { z } from "zod";
 import { expect } from "@std/expect";
-import type { BuiltinTool, ToolDef } from "../sdk/types.ts";
+import type { ToolDef } from "../sdk/types.ts";
 import { startWorker } from "../core/_worker_entry.ts";
 import { createWorkerRpc } from "./rpc.ts";
 
 function createHarness(
   agent: {
-    name: string;
-    instructions: string;
-    greeting: string;
-    voice: string;
-    prompt?: string;
-    builtinTools?: readonly BuiltinTool[];
     tools: Record<string, ToolDef>;
   },
   env: Record<string, string> = {},
 ) {
   const channel = new MessageChannel();
-  startWorker(agent, env, undefined, channel.port1);
+  startWorker(agent, env, channel.port1);
   const workerApi = createWorkerRpc(channel.port2);
 
   return {
@@ -29,41 +23,8 @@ function createHarness(
   };
 }
 
-const BASE_AGENT = {
-  name: "TestBot",
-  instructions: "Test instructions",
-  greeting: "Hi!",
-  voice: "luna",
-  tools: {},
-};
-
-Deno.test("getConfig returns agent config and tool schemas", async () => {
-  const h = createHarness({
-    ...BASE_AGENT,
-    tools: {
-      greet: {
-        description: "Greet someone",
-        parameters: z.object({ name: z.string() }),
-        execute: ({ name }) => `Hi ${name}`,
-      },
-    },
-  });
-  try {
-    const { config, toolSchemas } = await h.workerApi.getConfig();
-    expect(config.name).toBe("TestBot");
-    expect(config.instructions).toBe("Test instructions");
-    expect(config.greeting).toBe("Hi!");
-    expect(config.voice).toBe("luna");
-    expect(toolSchemas.length).toBe(1);
-    expect(toolSchemas[0].name).toBe("greet");
-  } finally {
-    h.close();
-  }
-});
-
 Deno.test("executeTool runs handler through worker RPC", async () => {
   const h = createHarness({
-    ...BASE_AGENT,
     tools: {
       greet: {
         description: "Greet",
@@ -82,7 +43,7 @@ Deno.test("executeTool runs handler through worker RPC", async () => {
 });
 
 Deno.test("executeTool returns error string for unknown tool", async () => {
-  const h = createHarness(BASE_AGENT);
+  const h = createHarness({ tools: {} });
   try {
     expect(
       await h.workerApi.executeTool("nope", {}),

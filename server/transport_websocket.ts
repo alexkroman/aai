@@ -54,15 +54,11 @@ export async function handleAgentHealth(
   if (!slot) {
     return Response.json({ error: "Not found", slug }, { status: 404 });
   }
-  try {
-    const info = await ensureAgent(slot, (s) => ctx.store.getFile(s, "worker"));
-    return Response.json({ status: "ok", slug, name: info.name });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return Response.json({ status: "error", slug, error: msg }, {
-      status: 500,
-    });
-  }
+  return Response.json({
+    status: "ok",
+    slug,
+    name: slot.name ?? slug,
+  });
 }
 
 export async function handleAgentPage(
@@ -73,18 +69,8 @@ export async function handleAgentPage(
   void req;
   const slot = await resolveSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
-
-  let info;
-  try {
-    info = await ensureAgent(slot, (s) => ctx.store.getFile(s, "worker"));
-  } catch (err: unknown) {
-    console.error("Failed to initialize agent", { slug, err });
-    return Response.json(
-      { error: "Agent failed to initialize" },
-      { status: 500 },
-    );
-  }
-  return new Response(renderAgentPage(info.name, `/${slug}`), {
+  const name = slot.name ?? slug;
+  return new Response(renderAgentPage(name, `/${slug}`), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
@@ -116,7 +102,7 @@ export async function handleWebSocket(
 
   let info;
   try {
-    info = await ensureAgent(slot);
+    info = await ensureAgent(slot, (s) => ctx.store.getFile(s, "worker"));
   } catch (err: unknown) {
     console.error("Failed to initialize agent for session", { slug, err });
     return Response.json(

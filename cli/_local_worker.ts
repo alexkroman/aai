@@ -1,7 +1,5 @@
-import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import type { WorkerApi } from "../core/_worker_entry.ts";
 import { createRpcCaller } from "../core/_rpc.ts";
-import { GetConfigResponseSchema } from "../core/_rpc_schema.ts";
 
 /** Spawn a local Deno Worker from bundled code and return a WorkerApi. */
 export function spawnLocalWorker(
@@ -30,15 +28,6 @@ export function spawnLocalWorker(
   const call = createRpcCaller(worker);
 
   const workerApi: WorkerApi = {
-    async getConfig(
-      timeoutMs?: number,
-    ): Promise<{ config: AgentConfig; toolSchemas: ToolSchema[] }> {
-      const raw = await call("getConfig", undefined, timeoutMs);
-      return GetConfigResponseSchema.parse(raw) as {
-        config: AgentConfig;
-        toolSchemas: ToolSchema[];
-      };
-    },
     async executeTool(
       name: string,
       args: Record<string, unknown>,

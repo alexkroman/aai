@@ -75,8 +75,10 @@ ${bold("OPTIONS:")}
     result.agent.slug,
   );
 
-  // Get agent config from local worker
-  let agentInfo = await localWorker.workerApi.getConfig(15_000);
+  // Read agent config from manifest (extracted at build time)
+  let manifest = JSON.parse(
+    await Deno.readTextFile(`${result.outDir}/manifest.json`),
+  );
 
   // Connect control WebSocket to production server
   const wsUrl = serverUrl.replace(/^http/, "ws");
@@ -84,7 +86,7 @@ ${bold("OPTIONS:")}
     wsUrl,
     apiKey,
     result.agent,
-    agentInfo,
+    manifest,
     await Deno.readTextFile(`${result.outDir}/client.js`),
     localWorker,
   );
@@ -93,7 +95,7 @@ ${bold("OPTIONS:")}
   const proxyServer = startLocalProxy(
     port,
     result.agent.slug,
-    agentInfo.config.name ?? result.agent.slug,
+    manifest.config?.name ?? result.agent.slug,
     serverUrl,
     result.outDir,
   );
@@ -134,7 +136,9 @@ ${bold("OPTIONS:")}
         await Deno.readTextFile(`${freshResult.outDir}/worker.js`),
         freshResult.agent.slug,
       );
-      agentInfo = await localWorker.workerApi.getConfig(15_000);
+      manifest = JSON.parse(
+        await Deno.readTextFile(`${freshResult.outDir}/manifest.json`),
+      );
 
       // Reconnect control WS with updated config
       controlWs.close();
@@ -142,7 +146,7 @@ ${bold("OPTIONS:")}
         wsUrl,
         apiKey,
         freshResult.agent,
-        agentInfo,
+        manifest,
         await Deno.readTextFile(`${freshResult.outDir}/client.js`),
         localWorker,
       );
@@ -194,16 +198,16 @@ function connectAndRegister(
   wsUrl: string,
   apiKey: string,
   agent: AgentEntry,
-  agentInfo: {
-    config: {
+  manifest: {
+    config?: {
       name?: string;
       instructions: string;
       greeting: string;
       voice: string;
       prompt?: string;
-      builtinTools?: readonly string[];
+      builtinTools?: string[];
     };
-    toolSchemas: {
+    toolSchemas?: {
       name: string;
       description: string;
       parameters: Record<string, unknown>;
@@ -222,8 +226,12 @@ function connectAndRegister(
       // Send registration (non-RPC message)
       ws.send(JSON.stringify({
         type: "dev_register",
-        config: agentInfo.config,
-        toolSchemas: agentInfo.toolSchemas,
+        config: manifest.config ?? {
+          instructions: "",
+          greeting: "",
+          voice: "luna",
+        },
+        toolSchemas: manifest.toolSchemas ?? [],
         env: agent.env,
         transport: agent.transport,
         client: clientCode,
@@ -247,15 +255,10 @@ function connectAndRegister(
         ws.removeEventListener("message", onRegAck);
         step("Connected", `${wsUrl.replace(/^ws/, "http")}/${slug}`);
 
-        // Switch to RPC mode — serve the same methods as a Worker would.
-        // The server will call executeTool/invokeHook/getConfig over this
-        // WebSocket using the exact same RPC protocol as postMessage.
+        // Switch to RPC mode — serve executeTool/invokeHook over this
+        // WebSocket using the same RPC protocol as Worker postMessage.
         const target = createWebSocketTarget(ws);
         serveRpc(target, {
-          getConfig: () => ({
-            config: agentInfo.config,
-            toolSchemas: agentInfo.toolSchemas,
-          }),
           executeTool: ({ name, args, sessionId }: Record<string, unknown>) =>
             localWorker.workerApi.executeTool(
               name as string,

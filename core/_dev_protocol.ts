@@ -6,8 +6,8 @@ import { z } from "zod";
 // After a one-time registration handshake, the WebSocket becomes
 // a transparent RPC channel using the same protocol as Worker
 // postMessage (core/_rpc.ts). The server calls executeTool /
-// invokeHook / getConfig over this channel exactly as it would
-// call a local Worker.
+// invokeHook over this channel exactly as it would call a local
+// Worker.
 
 // ── Registration handshake (before RPC starts) ──────────────────
 

@@ -9,6 +9,8 @@ export interface AgentMetadata {
   env: Record<string, string>;
   transport: ("websocket" | "twilio")[];
   owner_hash?: string;
+  config?: AgentConfig;
+  toolSchemas?: ToolSchema[];
 }
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -32,6 +34,10 @@ export interface AgentSlot {
   slug: string;
   env: Record<string, string>;
   transport: ("websocket" | "twilio")[];
+  /** Static config from manifest (available without spawning a Worker). */
+  config?: AgentConfig;
+  name?: string;
+  toolSchemas?: ToolSchema[];
   live?: AgentInfo;
   initializing?: Promise<AgentInfo>;
   activeSessions: number;
@@ -89,30 +95,15 @@ export async function spawnAgent(
 
   const workerApi = createWorkerRpc(worker);
 
-  let info;
-  try {
-    info = await workerApi.getConfig(15_000);
-  } catch (err: unknown) {
-    worker.terminate();
-    throw err;
-  }
-
-  const agentConfig: AgentConfig = {
-    instructions: info.config.instructions,
-    greeting: info.config.greeting,
-    voice: info.config.voice,
-    prompt: info.config.prompt,
-    builtinTools: info.config.builtinTools,
-  };
-
+  const agentConfig = slot.config!;
   const allToolSchemas = [
-    ...info.toolSchemas,
+    ...slot.toolSchemas!,
     ...getBuiltinToolSchemas(agentConfig.builtinTools ?? []),
   ];
 
   const agentInfo: AgentInfo = {
     slug,
-    name: info.config.name ?? slug,
+    name: slot.name ?? slug,
     worker,
     workerApi,
     config: agentConfig,
@@ -199,6 +190,9 @@ export function registerSlot(
     slug: metadata.slug,
     env: metadata.env,
     transport: metadata.transport,
+    config: metadata.config,
+    name: metadata.config?.name,
+    toolSchemas: metadata.toolSchemas,
     activeSessions: 0,
   });
   return true;

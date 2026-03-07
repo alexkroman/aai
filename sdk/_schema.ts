@@ -28,6 +28,19 @@ export type DeployBody = {
   worker: string;
   client: string;
   transport?: Transport | Transport[];
+  config?: {
+    name?: string;
+    instructions: string;
+    greeting: string;
+    voice: string;
+    prompt?: string;
+    builtinTools?: string[];
+  };
+  toolSchemas?: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  }[];
 };
 
 export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
@@ -36,6 +49,19 @@ export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
   worker: z.string().min(1),
   client: z.string().min(1),
   transport: TransportFieldSchema,
+  config: z.object({
+    name: z.string().optional(),
+    instructions: z.string(),
+    greeting: z.string(),
+    voice: z.string(),
+    prompt: z.string().optional(),
+    builtinTools: z.array(z.string()).optional(),
+  }).optional(),
+  toolSchemas: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    parameters: z.record(z.string(), z.unknown()),
+  })).optional(),
 });
 
 // ── Agent environment variables ─────────────────────────────────

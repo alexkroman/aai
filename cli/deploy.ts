@@ -15,6 +15,19 @@ export async function runDeploy(opts: DeployOpts): Promise<void> {
     slug: string;
     env: Record<string, string>;
     transport?: string[];
+    config?: {
+      name?: string;
+      instructions: string;
+      greeting: string;
+      voice: string;
+      prompt?: string;
+      builtinTools?: string[];
+    };
+    toolSchemas?: {
+      name: string;
+      description: string;
+      parameters: Record<string, unknown>;
+    }[];
   };
   let worker: string;
   let client: string;
@@ -47,6 +60,8 @@ export async function runDeploy(opts: DeployOpts): Promise<void> {
       worker,
       client,
       transport: manifest.transport,
+      config: manifest.config,
+      toolSchemas: manifest.toolSchemas,
     }),
   });
 
