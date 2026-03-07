@@ -11,11 +11,11 @@ files based on the user's description in `$ARGUMENTS`.
 
 ## Agent structure
 
-Every agent exports a default `defineAgent()` call. No imports needed —
-`defineAgent`, `fetchJSON`, and `z` (Zod) are ambient globals provided by the
-framework:
+Every agent imports from `@aai/sdk` and exports a default `defineAgent()` call:
 
 ```ts
+import { defineAgent } from "@aai/sdk";
+
 export default defineAgent({
   name: "Agent Name",
   instructions: "...",
@@ -26,7 +26,20 @@ export default defineAgent({
 });
 ```
 
-## TypeScript types (enforced by types.d.ts)
+For tools with parameters, also import Zod:
+
+```ts
+import { defineAgent } from "@aai/sdk";
+import { z } from "zod";
+```
+
+For tools that call external APIs, import `fetchJSON`:
+
+```ts
+import { defineAgent, fetchJSON } from "@aai/sdk";
+```
+
+## TypeScript types
 
 ```ts
 type BuiltinTool =
@@ -100,9 +113,8 @@ type Transport = "websocket" | "twilio";
 
 ## Custom tools
 
-Tool parameters are defined using Zod schemas. The `z` global is provided by the
-framework — no import needed. Use `z.object({...})` to define the parameter
-schema:
+Tool parameters are defined using Zod schemas. Import `z` from `"zod"` and use
+`z.object({...})` to define the parameter schema:
 
 ```ts
 tools: {
@@ -308,10 +320,13 @@ Both `npm:` and `jsr:` specifiers are supported in the import map.
 
 ### Custom UI agent
 
-Add a `client.tsx` file alongside `agent.ts`. Just export a default component —
-the framework auto-mounts it for you:
+Add a `client.tsx` file alongside `agent.ts`. Import from `@aai/ui` and
+`preact/hooks`, then export a default component — the framework auto-mounts it
+for you:
 
 ```tsx
+import { useSession } from "@aai/ui";
+
 export default function App() {
   const session = useSession();
   const msgs = session.messages.value;
@@ -330,12 +345,13 @@ export default function App() {
 **Rules for `client.tsx`:**
 
 - Export a default function component — the framework auto-mounts it for you
-- No imports needed — `useSession`, `css`, `keyframes`, `styled`, and Preact
-  hooks (`useEffect`, `useRef`, `useState`, `useCallback`, `useMemo`) are
-  provided as globals by the framework
+- Import `useSession`, `css`, `keyframes`, `styled`, and UI components from
+  `@aai/ui`
+- Import Preact hooks (`useEffect`, `useRef`, `useState`, etc.) from
+  `preact/hooks`
 - The component is auto-mounted to the page — do not call `mount()` yourself
 
-**Available globals for styling (from goober):**
+**Available styling imports from `@aai/ui` (powered by goober):**
 
 - `css` — tagged template for class names: ``const myClass = css`color: red`;``
 - `keyframes` — tagged template for animations:

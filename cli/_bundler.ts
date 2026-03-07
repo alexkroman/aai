@@ -225,11 +225,6 @@ export async function bundleAgent(
   const agentAbsolute = resolve(agent.entryPoint);
   const workerEntryAbsolute = resolve(AAI_ROOT, "core/_worker_entry.ts");
 
-  const clientShim =
-    `import { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, createVoiceSession } from "@aai/ui";\n` +
-    `import { useEffect, useRef, useState, useCallback, useMemo } from "preact/hooks";\n` +
-    `Object.assign(globalThis, { mount, useSession, css, keyframes, styled, darkTheme, defaultTheme, applyTheme, App, ChatView, ErrorBanner, MessageBubble, StateIndicator, Transcript, SessionProvider, createSessionControls, createVoiceSession, useEffect, useRef, useState, useCallback, useMemo });\n`;
-
   const plugins = [
     ...(agentPlugin ? [agentPlugin] : []),
     denoPlugin({ configPath: baseConfigPath }),
@@ -269,7 +264,8 @@ export async function bundleAgent(
       const hasMount = /\bmount\s*\(/.test(clientSrc);
       const hasDefaultExport = /export\s+default\b/.test(clientSrc);
       if (!hasMount && hasDefaultExport) {
-        clientEntry = `import App from "${resolve(agent.clientEntry)}";\n` +
+        clientEntry = `import { mount } from "@aai/ui";\n` +
+          `import App from "${resolve(agent.clientEntry)}";\n` +
           `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`;
       }
     }
@@ -278,7 +274,7 @@ export async function bundleAgent(
       ...BASE,
       plugins: [workletTextPlugin, denoPlugin({ configPath: baseConfigPath })],
       stdin: {
-        contents: clientShim + clientEntry,
+        contents: clientEntry,
         loader: "tsx",
         resolveDir: AAI_ROOT,
       },
