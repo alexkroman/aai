@@ -1,7 +1,7 @@
 import { expect } from "@std/expect";
 import { main } from "./cli.ts";
 
-const denoConfig = await import("../deno.json", { with: { type: "json" } });
+const denoConfig = await import("./deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;
 
 function withConsoleSpy(

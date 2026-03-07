@@ -2,7 +2,7 @@ import { bold, cyan, dim, green } from "@std/fmt/colors";
 import { error } from "./_output.ts";
 import { promptUpgradeIfAvailable } from "./_update.ts";
 
-const denoConfig = await import("../deno.json", { with: { type: "json" } });
+const denoConfig = await import("./deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;
 
 function printUsage(): void {
