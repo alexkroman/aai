@@ -1,26 +1,23 @@
 import { cyan, dim, green, red, yellow } from "@std/fmt/colors";
-import { error, spinner, step } from "./_output.ts";
+import { error, step } from "./_output.ts";
 import { type AgentEntry, loadAgent } from "./_discover.ts";
-import { bundleAgent, BundleError, warmNpmCache } from "./_bundler.ts";
+import { bundleAgent, BundleError, type BundleOutput } from "./_bundler.ts";
 import { validateAgent, type ValidationResult } from "./_validate.ts";
+
+export type { BundleOutput } from "./_bundler.ts";
 
 export interface BuildResult {
   agent: AgentEntry;
   validation: ValidationResult;
-  outDir: string;
+  bundle: BundleOutput;
 }
 
 export interface BuildOpts {
   agentDir: string;
-  outDir: string;
 }
 
 /** Validate, bundle, and print warnings. Used by both dev and deploy. */
 export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
-  const sp = spinner("Setup", "preparing bundler...");
-  await warmNpmCache();
-  sp.stop();
-
   const agent = await loadAgent(opts.agentDir);
   if (!agent) {
     throw new Error("no agent found — run `aai new` first");
@@ -55,10 +52,10 @@ export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
     }
   }
 
-  const outDir = `${opts.outDir}/${agent.slug}`;
   step("Bundle", agent.slug);
+  let bundle: BundleOutput;
   try {
-    await bundleAgent(agent, outDir);
+    bundle = await bundleAgent(agent);
   } catch (err) {
     if (err instanceof BundleError) {
       console.error(err.message);
@@ -67,5 +64,5 @@ export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
     throw err;
   }
 
-  return { agent, validation, outDir };
+  return { agent, validation, bundle };
 }

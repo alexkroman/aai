@@ -86,16 +86,6 @@ const BASE: BuildOptions = {
   logOverride: { "commonjs-variable-in-esm": "silent" },
 };
 
-/** Write esbuild output files to disk (esbuild-wasm doesn't support write:true). */
-async function writeOutputFiles(
-  result: { outputFiles?: { path: string; contents: Uint8Array }[] },
-): Promise<void> {
-  if (!result.outputFiles) return;
-  for (const file of result.outputFiles) {
-    await Deno.writeFile(file.path, file.contents);
-  }
-}
-
 function jsBytes(metafile: { outputs: Record<string, { bytes: number }> }) {
   for (const [file, info] of Object.entries(metafile.outputs)) {
     if (file.endsWith(".js")) return info.bytes;
@@ -103,18 +93,25 @@ function jsBytes(metafile: { outputs: Record<string, { bytes: number }> }) {
   return 0;
 }
 
-export interface BundleResult {
+function getOutputText(
+  result: { outputFiles?: { path: string; text: string }[] },
+): string {
+  return result.outputFiles?.[0]?.text ?? "";
+}
+
+export interface BundleOutput {
+  worker: string;
+  client: string;
+  manifest: string;
   workerBytes: number;
   clientBytes: number;
 }
 
 export async function bundleAgent(
   agent: AgentEntry,
-  outDir: string,
   opts?: { skipClient?: boolean },
-): Promise<BundleResult> {
+): Promise<BundleOutput> {
   await ensureInit();
-  await Deno.mkdir(outDir, { recursive: true });
 
   const agentAbsolute = resolve(agent.entryPoint);
   const workerEntryAbsolute = resolve(AAI_ROOT, "core/_worker_entry.ts");
@@ -136,7 +133,7 @@ export async function bundleAgent(
       loader: "ts",
       resolveDir: AAI_ROOT,
     },
-    outfile: `${outDir}/worker.js`,
+    outfile: "worker.js",
     metafile: true,
     loader: {
       ".json": "json",
@@ -146,8 +143,8 @@ export async function bundleAgent(
       ".html": "text",
     },
   });
-  await writeOutputFiles(workerResult);
 
+  let client = "";
   let clientBytes = 0;
   if (!opts?.skipClient) {
     let clientEntry = `import "${resolve(agent.clientEntry)}";\n`;
@@ -171,31 +168,31 @@ export async function bundleAgent(
         loader: "tsx",
         resolveDir: AAI_ROOT,
       },
-      outfile: `${outDir}/client.js`,
+      outfile: "client.js",
       jsx: "automatic",
       jsxImportSource: "preact",
       metafile: true,
     });
-    await writeOutputFiles(clientResult);
+    client = getOutputText(clientResult);
     clientBytes = jsBytes(clientResult.metafile!);
   }
 
-  await Deno.writeTextFile(
-    `${outDir}/manifest.json`,
-    JSON.stringify(
-      {
-        slug: agent.slug,
-        env: agent.env,
-        transport: agent.transport,
-        config: agent.config,
-        toolSchemas: agent.toolSchemas,
-      },
-      null,
-      2,
-    ) + "\n",
+  const manifest = JSON.stringify(
+    {
+      slug: agent.slug,
+      env: agent.env,
+      transport: agent.transport,
+      config: agent.config,
+      toolSchemas: agent.toolSchemas,
+    },
+    null,
+    2,
   );
 
   return {
+    worker: getOutputText(workerResult),
+    client,
+    manifest,
     workerBytes: jsBytes(workerResult.metafile!),
     clientBytes,
   };

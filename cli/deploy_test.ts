@@ -1,25 +1,15 @@
 import { expect } from "@std/expect";
-import { join } from "@std/path";
 import { runDeploy } from "./deploy.ts";
+import type { BundleOutput } from "./_bundler.ts";
 
-async function withTempBundle(
-  slug: string,
-  fn: (bundleDir: string) => Promise<void>,
-) {
-  const tmpDir = await Deno.makeTempDir({ prefix: "aai-deploy-test-" });
-  const dir = join(tmpDir, slug);
-  await Deno.mkdir(dir, { recursive: true });
-  await Deno.writeTextFile(
-    join(dir, "manifest.json"),
-    JSON.stringify({ slug, env: { SLUG: slug } }),
-  );
-  await Deno.writeTextFile(join(dir, "worker.js"), "// worker");
-  await Deno.writeTextFile(join(dir, "client.js"), "// client");
-  try {
-    await fn(tmpDir);
-  } finally {
-    await Deno.remove(tmpDir, { recursive: true });
-  }
+function makeBundle(slug: string): BundleOutput {
+  return {
+    worker: "// worker",
+    client: "// client",
+    manifest: JSON.stringify({ slug, env: { SLUG: slug } }),
+    workerBytes: 9,
+    clientBytes: 9,
+  };
 }
 
 Deno.test("runDeploy", async (t) => {
@@ -50,14 +40,12 @@ Deno.test("runDeploy", async (t) => {
     }) as typeof fetch;
 
     try {
-      await withTempBundle("agent-a", async (bundleDir) => {
-        await runDeploy({
-          url: "http://localhost:3000",
-          bundleDir,
-          slug: "agent-a",
-          dryRun: false,
-          apiKey: "test-key",
-        });
+      await runDeploy({
+        url: "http://localhost:3000",
+        bundle: makeBundle("agent-a"),
+        slug: "agent-a",
+        dryRun: false,
+        apiKey: "test-key",
       });
       expect(fetched[0].url).toBe("http://localhost:3000/deploy");
       expect(fetched[0].authHeader).toBe("Bearer test-key");
@@ -75,14 +63,12 @@ Deno.test("runDeploy", async (t) => {
     }) as typeof fetch;
 
     try {
-      await withTempBundle("agent-a", async (bundleDir) => {
-        await runDeploy({
-          url: "http://localhost:3000",
-          bundleDir,
-          slug: "agent-a",
-          dryRun: true,
-          apiKey: "test-key",
-        });
+      await runDeploy({
+        url: "http://localhost:3000",
+        bundle: makeBundle("agent-a"),
+        slug: "agent-a",
+        dryRun: true,
+        apiKey: "test-key",
       });
       expect(fetchCalled).toBe(false);
     } finally {

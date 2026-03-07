@@ -1,46 +1,18 @@
 import { info, step, stepInfo, warn } from "./_output.ts";
+import type { BundleOutput } from "./_bundler.ts";
 
 export interface DeployOpts {
   url: string;
-  bundleDir: string;
+  bundle: BundleOutput;
   slug: string;
   dryRun: boolean;
   apiKey: string;
 }
 
 export async function runDeploy(opts: DeployOpts): Promise<void> {
-  const dir = `${opts.bundleDir}/${opts.slug}`;
-
-  let manifest: {
-    slug: string;
-    env: Record<string, string>;
-    transport?: string[];
-    config?: {
-      name?: string;
-      instructions: string;
-      greeting: string;
-      voice: string;
-      prompt?: string;
-      builtinTools?: string[];
-    };
-    toolSchemas?: {
-      name: string;
-      description: string;
-      parameters: Record<string, unknown>;
-    }[];
-  };
-  let worker: string;
-  let client: string;
-  try {
-    manifest = JSON.parse(await Deno.readTextFile(`${dir}/manifest.json`));
-    worker = await Deno.readTextFile(`${dir}/worker.js`);
-    client = await Deno.readTextFile(`${dir}/client.js`);
-  } catch (cause) {
-    throw new Error(
-      `no bundle found for ${opts.slug} in ${opts.bundleDir}/ -- run "aai build" first`,
-      { cause },
-    );
-  }
+  const manifest = JSON.parse(opts.bundle.manifest);
+  const worker = opts.bundle.worker;
+  const client = opts.bundle.client;
 
   if (opts.dryRun) {
     stepInfo("Dry run", "would deploy:");

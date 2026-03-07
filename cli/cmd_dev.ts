@@ -58,12 +58,10 @@ ${bold("OPTIONS:")}
     );
   }
 
-  const tmpDir = await Deno.makeTempDir({ prefix: "aai-dev-" });
-
   // Initial build
   let result;
   try {
-    result = await runBuild({ agentDir: cwd, outDir: tmpDir });
+    result = await runBuild({ agentDir: cwd });
   } catch (err) {
     error(err instanceof Error ? err.message : String(err));
     return 1;
@@ -71,14 +69,13 @@ ${bold("OPTIONS:")}
 
   // Spawn local worker for tool execution
   let localWorker = spawnLocalWorker(
-    await Deno.readTextFile(`${result.outDir}/worker.js`),
+    result.bundle.worker,
     result.agent.slug,
   );
 
   // Read agent config from manifest (extracted at build time)
-  let manifest = JSON.parse(
-    await Deno.readTextFile(`${result.outDir}/manifest.json`),
-  );
+  let manifest = JSON.parse(result.bundle.manifest);
+  let clientCode = result.bundle.client;
 
   // Connect control WebSocket to production server
   const wsUrl = serverUrl.replace(/^http/, "ws");
@@ -87,7 +84,7 @@ ${bold("OPTIONS:")}
     apiKey,
     result.agent,
     manifest,
-    await Deno.readTextFile(`${result.outDir}/client.js`),
+    clientCode,
     localWorker,
   );
 
@@ -97,7 +94,7 @@ ${bold("OPTIONS:")}
     result.agent.slug,
     manifest.config?.name ?? result.agent.slug,
     serverUrl,
-    result.outDir,
+    () => clientCode,
   );
 
   step("Ready", result.agent.slug);
@@ -128,17 +125,16 @@ ${bold("OPTIONS:")}
     }
     building = true;
     try {
-      const freshResult = await runBuild({ agentDir: cwd, outDir: tmpDir });
+      const freshResult = await runBuild({ agentDir: cwd });
 
       // Respawn local worker
       localWorker.terminate();
       localWorker = spawnLocalWorker(
-        await Deno.readTextFile(`${freshResult.outDir}/worker.js`),
+        freshResult.bundle.worker,
         freshResult.agent.slug,
       );
-      manifest = JSON.parse(
-        await Deno.readTextFile(`${freshResult.outDir}/manifest.json`),
-      );
+      manifest = JSON.parse(freshResult.bundle.manifest);
+      clientCode = freshResult.bundle.client;
 
       // Reconnect control WS with updated config
       controlWs.close();
@@ -147,7 +143,7 @@ ${bold("OPTIONS:")}
         apiKey,
         freshResult.agent,
         manifest,
-        await Deno.readTextFile(`${freshResult.outDir}/client.js`),
+        clientCode,
         localWorker,
       );
 
@@ -174,7 +170,6 @@ ${bold("OPTIONS:")}
     localWorker.terminate();
     controlWs.close();
     proxyServer.shutdown();
-    Deno.removeSync(tmpDir, { recursive: true });
   };
 
   Deno.addSignalListener("SIGINT", cleanup);
@@ -306,7 +301,7 @@ function startLocalProxy(
   slug: string,
   agentName: string,
   serverUrl: string,
-  outDir: string,
+  getClientCode: () => string,
 ): Deno.HttpServer {
   const wsUrl = serverUrl.replace(/^http/, "ws");
 
@@ -328,34 +323,14 @@ function startLocalProxy(
         });
       }
 
-      // Serve client.js from local build
+      // Serve client.js from in-memory build
       if (path === `/${slug}/client.js`) {
-        try {
-          const content = await Deno.readTextFile(`${outDir}/client.js`);
-          return new Response(content, {
-            headers: {
-              "Content-Type": "application/javascript",
-              "Cache-Control": "no-cache",
-            },
-          });
-        } catch {
-          return Response.json({ error: "Not found" }, { status: 404 });
-        }
-      }
-
-      // Serve source map from local build
-      if (path === `/${slug}/client.js.map`) {
-        try {
-          const content = await Deno.readTextFile(`${outDir}/client.js.map`);
-          return new Response(content, {
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "no-cache",
-            },
-          });
-        } catch {
-          return Response.json({ error: "Not found" }, { status: 404 });
-        }
+        return new Response(getClientCode(), {
+          headers: {
+            "Content-Type": "application/javascript",
+            "Cache-Control": "no-cache",
+          },
+        });
       }
 
       // Proxy WebSocket to production server

@@ -34,14 +34,11 @@ ${bold("OPTIONS:")}
   const { getApiKey } = await import("./_discover.ts");
   await getApiKey();
 
-  const tmpDir = await Deno.makeTempDir({ prefix: "aai-deploy-" });
-
   let result;
   try {
-    result = await runBuild({ agentDir: cwd, outDir: tmpDir });
+    result = await runBuild({ agentDir: cwd });
   } catch (err) {
     error(err instanceof Error ? err.message : String(err));
-    Deno.removeSync(tmpDir, { recursive: true });
     return 1;
   }
 
@@ -50,13 +47,11 @@ ${bold("OPTIONS:")}
   step("Deploy", agent.slug);
   await runDeploy({
     url: serverUrl,
-    bundleDir: tmpDir,
+    bundle: result.bundle,
     slug: agent.slug,
     dryRun: false,
     apiKey: agent.env.ASSEMBLYAI_API_KEY,
   });
-
-  Deno.removeSync(tmpDir, { recursive: true });
 
   const tools = [
     ...(validation.builtinTools ?? []),

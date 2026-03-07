@@ -29,7 +29,6 @@ if (!Deno.env.get("ASSEMBLYAI_API_KEY")) {
 
 for (const template of templates) {
   const tmpDir = await Deno.makeTempDir({ prefix: `aai-test-${template}-` });
-  const tmpOut = await Deno.makeTempDir({ prefix: `aai-test-out-` });
 
   try {
     // Scaffold the template
@@ -51,8 +50,20 @@ for (const template of templates) {
       "ASSEMBLYAI_API_KEY=test\n",
     );
 
+    // Install npm deps if package.json exists
+    try {
+      await Deno.stat(join(tmpDir, "package.json"));
+      const cmd = new Deno.Command("deno", {
+        args: ["install"],
+        cwd: tmpDir,
+        stdout: "null",
+        stderr: "null",
+      });
+      await cmd.output();
+    } catch { /* no package.json */ }
+
     // Build it
-    await runBuild({ agentDir: tmpDir, outDir: tmpOut });
+    await runBuild({ agentDir: tmpDir });
 
     console.log(`  ${green("✓")} ${template}`);
     results.push({ name: template, ok: true });
@@ -63,7 +74,6 @@ for (const template of templates) {
     results.push({ name: template, ok: false, error: msg });
   } finally {
     await Deno.remove(tmpDir, { recursive: true });
-    await Deno.remove(tmpOut, { recursive: true });
   }
 }
 
