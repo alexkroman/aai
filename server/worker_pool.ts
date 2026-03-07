@@ -36,6 +36,8 @@ export interface AgentSlot {
   initializing?: Promise<AgentInfo>;
   activeSessions: number;
   idleTimer?: ReturnType<typeof setTimeout>;
+  /** True when this slot is owned by a dev control WebSocket. */
+  _dev?: boolean;
 }
 
 export function createRpcToolExecutor(

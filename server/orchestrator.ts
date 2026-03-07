@@ -18,6 +18,7 @@ import {
   handleTwilioVoice,
   type TwilioContext,
 } from "./transport_twilio.ts";
+import { type DevSessionContext, handleDevWebSocket } from "./dev_session.ts";
 
 type Handler = (req: Request) => Response | Promise<Response>;
 
@@ -47,6 +48,7 @@ export function createOrchestrator(opts: {
   const sessions = new Map<string, Session>();
   const wsCtx: WebSocketContext = { slots, sessions, store };
   const twilioCtx: TwilioContext = { slots, store };
+  const devCtx: DevSessionContext = { slots, sessions, store };
 
   const routes: Route[] = [
     // Static routes
@@ -91,6 +93,12 @@ export function createOrchestrator(opts: {
       pattern: new URLPattern({ pathname: "/:slug/twilio/stream" }),
       handler: (req, m) =>
         handleTwilioStream(req, m.pathname.groups.slug!, twilioCtx),
+    },
+    // Dev control WebSocket
+    {
+      pattern: new URLPattern({ pathname: "/:slug/dev" }),
+      handler: (req, m) =>
+        handleDevWebSocket(req, m.pathname.groups.slug!, devCtx),
     },
     // Agent WebSocket routes
     {

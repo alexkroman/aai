@@ -44,6 +44,34 @@ export function serveRpc(
   };
 }
 
+// ── WebSocket adapter ───────────────────────────────────────────
+
+/** Wraps a WebSocket as a MessageTarget so RPC works over WebSocket
+ *  using the same protocol as Worker postMessage. */
+export function createWebSocketTarget(ws: WebSocket): MessageTarget {
+  const target: MessageTarget = {
+    onmessage: null,
+    postMessage(message: unknown) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+      }
+    },
+  };
+
+  ws.addEventListener("message", (event) => {
+    if (typeof event.data !== "string") return;
+    try {
+      const data = JSON.parse(event.data);
+      // Only forward RPC messages (have numeric id field)
+      if (typeof data.id === "number") {
+        target.onmessage?.({ data } as MessageEvent);
+      }
+    } catch { /* ignore non-JSON */ }
+  });
+
+  return target;
+}
+
 // ── Host side: call RPC methods ──────────────────────────────────────
 
 export type RpcCall = (
@@ -52,7 +80,7 @@ export type RpcCall = (
   timeoutMs?: number,
 ) => Promise<unknown>;
 
-export function createRpcCaller(port: Worker | MessagePort): RpcCall {
+export function createRpcCaller(port: MessageTarget): RpcCall {
   let nextId = 0;
   const pending = new Map<number, PendingCall>();
 

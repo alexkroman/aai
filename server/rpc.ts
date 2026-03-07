@@ -1,11 +1,13 @@
 import type { AgentConfig, ToolSchema } from "./types.ts";
 import type { WorkerApi } from "../core/_worker_entry.ts";
 import { GetConfigResponseSchema } from "../core/_rpc_schema.ts";
-import { createRpcCaller } from "../core/_rpc.ts";
+import { createRpcCaller, type MessageTarget } from "../core/_rpc.ts";
 
 export { createRpcCaller as createRpcCall };
 
-export function createWorkerRpc(port: Worker | MessagePort): WorkerApi {
+export function createWorkerRpc(
+  port: Worker | MessagePort | MessageTarget,
+): WorkerApi {
   const call = createRpcCaller(port);
   return {
     getConfig: async (
