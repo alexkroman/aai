@@ -1,7 +1,6 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@astral/astral@*": "0.5.5",
     "jsr:@astral/astral@~0.5.5": "0.5.5",
     "jsr:@b-fuze/deno-dom@~0.1.56": "0.1.56",
     "jsr:@deno-library/progress@^1.5.1": "1.5.1",
