@@ -108,9 +108,6 @@ export async function getApiKeys(): Promise<void> {
 
 /** Get the AssemblyAI API key, prompting if not set. */
 export async function getApiKey(): Promise<string> {
-  const envKey = Deno.env.get("ASSEMBLYAI_API_KEY");
-  if (envKey) return envKey;
-
   const config = await readConfig();
   if (config.assemblyai_api_key) {
     Deno.env.set("ASSEMBLYAI_API_KEY", config.assemblyai_api_key);
