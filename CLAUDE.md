@@ -16,7 +16,7 @@ Twilio.
 deno task setup          # Configure git hooks (run after clone)
 deno task check          # Full CI: type-check + lint + fmt check + tests
 deno task test           # Run all tests
-deno test server/session_test.ts  # Run a single test file (needs --allow-all --unstable-worker-options for most)
+deno test server/session_test.ts  # Single test file (needs --allow-all)
 deno task dev            # Run CLI dev server locally
 deno task serve          # Run the orchestrator server directly
 deno lint                # Lint only

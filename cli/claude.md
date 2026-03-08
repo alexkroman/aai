@@ -152,7 +152,9 @@ parameter for type-safe responses:
 interface SearchResult { items: { title: string; url: string }[] }
 
 execute: async ({ query }) => {
-  const data = await fetchJSON<SearchResult>("https://api.example.com/data?q=" + encodeURIComponent(query));
+  const url = "https://api.example.com/data?q=" +
+    encodeURIComponent(query);
+  const data = await fetchJSON<SearchResult>(url);
   return data.items;
 },
 ```
@@ -370,11 +372,11 @@ After creating `agent.ts`, also create:
 
 1. **`.env`** with required API keys:
 
-```
+```sh
 ASSEMBLYAI_API_KEY=<user needs to add>
 ```
 
-2. **`.env.example`** — same as `.env` but without values, for version control.
+1. **`.env.example`** — same as `.env` but without values, for version control.
 
 ## Running and deploying the agent
 
