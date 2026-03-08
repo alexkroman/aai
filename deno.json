@@ -72,9 +72,7 @@
       "core/",
       "templates/"
     ],
-    "rules": {
-      "exclude": ["no-slow-types"]
-    }
+    "rules": {}
   },
   "license": "MIT"
 }

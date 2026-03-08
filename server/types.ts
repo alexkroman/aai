@@ -53,7 +53,20 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
-export const SttMessageSchema = z
+export type SttMessage = {
+  type: string;
+  transcript?: string;
+  is_final?: boolean;
+  turn_is_formatted?: boolean;
+  turn_order?: number;
+  end_of_turn?: boolean;
+  timestamp?: number;
+  audio_duration_seconds?: number;
+  session_duration_seconds?: number;
+  [key: string]: unknown;
+};
+
+export const SttMessageSchema: z.ZodType<SttMessage> = z
   .object({
     type: z.string(),
     transcript: z.string().optional(),
@@ -67,9 +80,20 @@ export const SttMessageSchema = z
   })
   .passthrough();
 
-export type SttMessage = z.infer<typeof SttMessageSchema>;
+export type ChatMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: {
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string; [key: string]: unknown };
+    [key: string]: unknown;
+  }[];
+  tool_call_id?: string;
+  [key: string]: unknown;
+};
 
-const ChatMessageSchema = z.object({
+const ChatMessageSchema: z.ZodType<ChatMessage> = z.object({
   role: z.enum(["system", "user", "assistant", "tool"]),
   content: z.string().nullable(),
   tool_calls: z.array(
@@ -83,9 +107,17 @@ const ChatMessageSchema = z.object({
   tool_call_id: z.string().optional(),
 }).passthrough();
 
-export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+export type LLMResponse = {
+  id?: string;
+  choices: {
+    index?: number;
+    message: ChatMessage;
+    finish_reason: string;
+  }[];
+  [key: string]: unknown;
+};
 
-export const LLMResponseSchema = z
+export const LLMResponseSchema: z.ZodType<LLMResponse> = z
   .object({
     id: z.string().optional(),
     choices: z.array(z.object({
@@ -95,8 +127,6 @@ export const LLMResponseSchema = z
     })).nullable().transform((v) => v ?? []),
   })
   .passthrough();
-
-export type LLMResponse = z.infer<typeof LLMResponseSchema>;
 
 export type ServerContext = {
   slots: Map<string, AgentSlot>;

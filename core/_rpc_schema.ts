@@ -1,11 +1,23 @@
 import { z } from "zod";
 import {
+  type AgentConfig,
   AgentConfigSchema,
+  type ToolSchema,
   ToolSchemaSchema,
+  type Transport,
   TransportSchema,
 } from "../sdk/_schema.ts";
 
-export const AgentMetadataSchema = z.object({
+export type AgentMetadata = {
+  slug: string;
+  env: Record<string, string>;
+  transport: Transport[];
+  owner_hash?: string;
+  config?: AgentConfig;
+  toolSchemas?: ToolSchema[];
+};
+
+export const AgentMetadataSchema: z.ZodType<AgentMetadata> = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
   transport: z.array(TransportSchema).default(["websocket"]),
@@ -14,36 +26,56 @@ export const AgentMetadataSchema = z.object({
   toolSchemas: z.array(ToolSchemaSchema).optional(),
 });
 
-export type AgentMetadata = z.infer<typeof AgentMetadataSchema>;
+export type RpcRequest =
+  | {
+    id: number;
+    type: "executeTool";
+    name: string;
+    args: Record<string, unknown>;
+  }
+  | {
+    id: number;
+    type: "invokeHook";
+    hook: "onConnect" | "onDisconnect" | "onError" | "onTurn";
+    sessionId: string;
+    text?: string;
+    error?: string;
+  }
+  | { id: number; type: "execute"; code: string };
 
-export const RpcRequestSchema = z.discriminatedUnion("type", [
-  z.object({
-    id: z.number(),
-    type: z.literal("executeTool"),
-    name: z.string(),
-    args: z.record(z.string(), z.unknown()),
-  }),
-  z.object({
-    id: z.number(),
-    type: z.literal("invokeHook"),
-    hook: z.enum(["onConnect", "onDisconnect", "onError", "onTurn"]),
-    sessionId: z.string(),
-    text: z.string().optional(),
-    error: z.string().optional(),
-  }),
-  z.object({
-    id: z.number(),
-    type: z.literal("execute"),
-    code: z.string(),
-  }),
-]);
+export const RpcRequestSchema: z.ZodType<RpcRequest> = z.discriminatedUnion(
+  "type",
+  [
+    z.object({
+      id: z.number(),
+      type: z.literal("executeTool"),
+      name: z.string(),
+      args: z.record(z.string(), z.unknown()),
+    }),
+    z.object({
+      id: z.number(),
+      type: z.literal("invokeHook"),
+      hook: z.enum(["onConnect", "onDisconnect", "onError", "onTurn"]),
+      sessionId: z.string(),
+      text: z.string().optional(),
+      error: z.string().optional(),
+    }),
+    z.object({
+      id: z.number(),
+      type: z.literal("execute"),
+      code: z.string(),
+    }),
+  ],
+);
 
-export type RpcRequest = z.infer<typeof RpcRequestSchema>;
+export type RpcResponse = {
+  id: number;
+  result?: unknown;
+  error?: string;
+};
 
-export const RpcResponseSchema = z.object({
+export const RpcResponseSchema: z.ZodType<RpcResponse> = z.object({
   id: z.number(),
   result: z.unknown().optional(),
   error: z.string().optional(),
 });
-
-export type RpcResponse = z.infer<typeof RpcResponseSchema>;
