@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
 import { executeTurn, type TurnCallLLMOptions } from "./turn_handler.ts";
-import { createMockLLMResponse, responses } from "./_test_utils.ts";
+import { createMockLLMResponse, resolvesNext } from "./_test_utils.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";
 import type { ToolSchema } from "../sdk/types.ts";
 
@@ -64,7 +64,7 @@ Deno.test("passes signal to callLLM", async () => {
 });
 
 Deno.test("returns fallback text when LLM content is null", async () => {
-  const c = ctx({ callLLM: responses(createMockLLMResponse(null)) });
+  const c = ctx({ callLLM: resolvesNext([createMockLLMResponse(null)]) });
   const result = await run(c, "Hi");
   expect(result).toBe("Sorry, I couldn't generate a response.");
 });
@@ -89,14 +89,14 @@ Deno.test("mutates the messages array in-place", async () => {
 
 Deno.test("executes tool and re-calls LLM with results", async () => {
   const c = ctx({
-    callLLM: responses(
+    callLLM: resolvesNext([
       createMockLLMResponse(null, [{
         id: "c1",
         name: "get_weather",
         arguments: '{"city":"NYC"}',
       }]),
       createMockLLMResponse("Sunny in NYC."),
-    ),
+    ]),
   });
   const result = await run(c, "Weather?");
   expect(result).toBe("Sunny in NYC.");
@@ -106,14 +106,14 @@ Deno.test("executes tool and re-calls LLM with results", async () => {
 
 Deno.test("handles invalid JSON tool arguments gracefully", async () => {
   const c = ctx({
-    callLLM: responses(
+    callLLM: resolvesNext([
       createMockLLMResponse(null, [{
         id: "c1",
         name: "bad_tool",
         arguments: "not json",
       }]),
       createMockLLMResponse("Recovered."),
-    ),
+    ]),
   });
   const result = await run(c, "Test");
   expect(result).toBe("Recovered.");
@@ -126,14 +126,14 @@ Deno.test("handles invalid JSON tool arguments gracefully", async () => {
 
 Deno.test("handles rejected tool execution", async () => {
   const c = ctx({
-    callLLM: responses(
+    callLLM: resolvesNext([
       createMockLLMResponse(null, [{
         id: "c1",
         name: "failing",
         arguments: "{}",
       }]),
       createMockLLMResponse("Handled."),
-    ),
+    ]),
     executeTool: () => Promise.reject(new Error("tool boom")),
   });
   const result = await run(c, "Go");
@@ -145,13 +145,13 @@ Deno.test("handles rejected tool execution", async () => {
 
 Deno.test("executes multiple tool calls in parallel", async () => {
   const c = ctx({
-    callLLM: responses(
+    callLLM: resolvesNext([
       createMockLLMResponse(null, [
         { id: "c1", name: "tool_a", arguments: '{"a":1}' },
         { id: "c2", name: "tool_b", arguments: '{"b":2}' },
       ]),
       createMockLLMResponse("Both done."),
-    ),
+    ]),
   });
   const result = await run(c, "Go");
   expect(result).toBe("Both done.");
@@ -218,14 +218,14 @@ Deno.test("skips truncated tool calls on max_tokens and retries", async () => {
     }],
   };
   const c = ctx({
-    callLLM: responses(
+    callLLM: resolvesNext([
       truncatedResp,
       createMockLLMResponse(null, [{
         id: "c2",
         name: "final_answer",
         arguments: '{"answer":"Here you go."}',
       }]),
-    ),
+    ]),
   });
   const result = await run(c, "Run code");
   expect(result).toBe("Here you go.");
@@ -262,7 +262,7 @@ for (
 
   Deno.test(`${toolName} wins over other tool calls`, async () => {
     const c = ctx({
-      callLLM: responses(
+      callLLM: resolvesNext([
         createMockLLMResponse(null, [
           { id: "c1", name: "web_search", arguments: '{"query":"test"}' },
           {
@@ -271,7 +271,7 @@ for (
             arguments: JSON.stringify({ [field]: expected }),
           },
         ]),
-      ),
+      ]),
     });
     const result = await run(c, "Search");
     expect(result).toBe(expected);
@@ -280,13 +280,13 @@ for (
 
   Deno.test(`${toolName} returns empty string for malformed arguments`, async () => {
     const c = ctx({
-      callLLM: responses(
+      callLLM: resolvesNext([
         createMockLLMResponse(null, [{
           id: "c1",
           name: toolName,
           arguments: "not json",
         }]),
-      ),
+      ]),
     });
     const result = await run(c, "Hi");
     expect(result).toBe("");
@@ -295,7 +295,7 @@ for (
 
 Deno.test("final_answer works after other tools execute first", async () => {
   const c = ctx({
-    callLLM: responses(
+    callLLM: resolvesNext([
       createMockLLMResponse(null, [{
         id: "c1",
         name: "web_search",
@@ -306,7 +306,7 @@ Deno.test("final_answer works after other tools execute first", async () => {
         name: "final_answer",
         arguments: '{"answer":"It is sunny."}',
       }]),
-    ),
+    ]),
   });
   const result = await run(c, "Weather?");
   expect(result).toBe("It is sunny.");
@@ -314,13 +314,13 @@ Deno.test("final_answer works after other tools execute first", async () => {
 
 Deno.test("user_input adds question to messages as assistant content", async () => {
   const c = ctx({
-    callLLM: responses(
+    callLLM: resolvesNext([
       createMockLLMResponse(null, [{
         id: "c1",
         name: "user_input",
         arguments: '{"question":"How many?"}',
       }]),
-    ),
+    ]),
   });
   await run(c, "Count things");
   const lastMsg = c.messages[c.messages.length - 1];
@@ -331,13 +331,13 @@ Deno.test("user_input adds question to messages as assistant content", async () 
 Deno.test("stops tool loop when signal is aborted mid-iteration", async () => {
   const abort = new AbortController();
   const c = ctx({
-    callLLM: responses(
+    callLLM: resolvesNext([
       createMockLLMResponse(null, [{
         id: "c1",
         name: "slow",
         arguments: "{}",
       }]),
-    ),
+    ]),
     executeTool: () => {
       abort.abort();
       return Promise.resolve("done");

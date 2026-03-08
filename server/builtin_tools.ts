@@ -4,6 +4,10 @@ import type { ToolSchema } from "../sdk/types.ts";
 import { htmlToMarkdown } from "./html.ts";
 import { createDenoWorker } from "../core/_deno_worker.ts";
 
+export const _internals = {
+  fetch: globalThis.fetch,
+};
+
 const BraveSearchResponseSchema = z.object({
   web: z.object({
     results: z.array(z.object({
@@ -21,7 +25,6 @@ type BuiltinTool = {
   execute: (
     args: Record<string, unknown>,
     env: Record<string, string | undefined>,
-    fetch: typeof globalThis.fetch,
   ) => string | Promise<string>;
 };
 
@@ -32,7 +35,6 @@ function defineTool<T extends z.ZodObject<z.ZodRawShape>>(tool: {
   execute: (
     args: z.infer<T>,
     env: Record<string, string | undefined>,
-    fetch: typeof globalThis.fetch,
   ) => string | Promise<string>;
 }): BuiltinTool {
   return tool as unknown as BuiltinTool;
@@ -53,7 +55,7 @@ const webSearch = defineTool({
   description:
     "Search the web using Brave Search. Returns a list of results with title, URL, and description.",
   parameters: webSearchParams,
-  execute: async (args, env, fetchFn) => {
+  execute: async (args, env) => {
     const { query, max_results: maxResults = 5 } = args;
 
     console.info("web_search", { query, maxResults });
@@ -70,7 +72,7 @@ const webSearch = defineTool({
       count: String(maxResults),
     })}`;
 
-    const resp = await fetchFn(url, {
+    const resp = await _internals.fetch(url, {
       headers: { "X-Subscription-Token": apiKey },
       signal: AbortSignal.timeout(15_000),
     });
@@ -118,12 +120,12 @@ const visitWebpage = defineTool({
   description:
     "Fetch a webpage URL and return its content as clean Markdown. Useful for reading articles, documentation, or any web page found via search.",
   parameters: visitWebpageParams,
-  execute: async (args, _env, fetchFn) => {
+  execute: async (args) => {
     const { url } = args;
 
     console.info("visit_webpage", { url });
 
-    const resp = await fetchFn(url, {
+    const resp = await _internals.fetch(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; VoiceAgent/1.0; +https://github.com/AssemblyAI/aai)",
@@ -173,7 +175,7 @@ const runCode = defineTool({
   description:
     "Execute JavaScript in a sandboxed Deno Worker with no permissions. Use console.log() for output. No network or filesystem access.",
   parameters: runCodeParams,
-  execute: async (args, _env, _fetchFn) => {
+  execute: async (args) => {
     const { code } = args;
 
     console.info("run_code", { codeLength: code.length });
@@ -219,12 +221,12 @@ const fetchJson = defineTool({
   description:
     "Fetch a URL via HTTP GET and return the JSON response. Useful for calling REST APIs that return JSON data.",
   parameters: fetchJsonParams,
-  execute: async (args, _env, fetchFn) => {
+  execute: async (args) => {
     const { url, headers } = args;
 
     console.info("fetch_json", { url });
 
-    const resp = await fetchFn(url, {
+    const resp = await _internals.fetch(url, {
       headers,
       signal: AbortSignal.timeout(15_000),
     });
@@ -258,7 +260,7 @@ const userInput = defineTool({
     "Ask the user a follow-up question and wait for their spoken response. Use this when you need clarification, a preference, or any additional input from the user before proceeding.",
   parameters: userInputParams,
   // Intercepted by the turn handler before execute is called (like final_answer).
-  execute: (_args, _env, _fetchFn) => {
+  execute: () => {
     throw new Error("user_input is handled by the turn handler");
   },
 });
@@ -274,7 +276,7 @@ const finalAnswer = defineTool({
   description:
     "Provide your final answer to the user. You MUST call this tool to deliver every response — it is the only way to complete the task, otherwise you will be stuck in a loop.",
   parameters: finalAnswerParams,
-  execute: (args, _env, _fetchFn) => {
+  execute: (args) => {
     return args.answer;
   },
 });
@@ -310,7 +312,6 @@ export async function executeBuiltinTool(
   name: string,
   args: Record<string, unknown>,
   env: Record<string, string | undefined> = {},
-  fetchFn: typeof globalThis.fetch = globalThis.fetch,
 ): Promise<string | null> {
   const tool = BUILTIN_TOOLS[name];
   if (!tool) return null;
@@ -324,7 +325,7 @@ export async function executeBuiltinTool(
   }
 
   try {
-    return await tool.execute(parsed.data, env, fetchFn);
+    return await tool.execute(parsed.data, env);
   } catch (err: unknown) {
     console.error("Built-in tool execution failed", { err, tool: name });
     return `Error: ${err instanceof Error ? err.message : String(err)}`;

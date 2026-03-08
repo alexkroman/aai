@@ -1,5 +1,17 @@
 import { expect } from "@std/expect";
-import { executeBuiltinTool, getBuiltinToolSchemas } from "./builtin_tools.ts";
+import { stub } from "@std/testing/mock";
+import {
+  _internals,
+  executeBuiltinTool,
+  getBuiltinToolSchemas,
+} from "./builtin_tools.ts";
+
+function mockFetch(body: string, status = 200, statusText = "OK") {
+  return (() =>
+    Promise.resolve(
+      new Response(body, { status, statusText }),
+    )) as typeof globalThis.fetch;
+}
 
 // --- getBuiltinToolSchemas ---
 
@@ -50,16 +62,14 @@ Deno.test("executeBuiltinTool returns error for invalid args", async () => {
 });
 
 Deno.test("executeBuiltinTool passes Zod-parsed data to execute", async () => {
-  const mockFetch = (() =>
-    Promise.resolve(
-      new Response("<html><body>OK</body></html>", { status: 200 }),
-    )) as typeof globalThis.fetch;
-
+  using _ = stub(
+    _internals,
+    "fetch",
+    mockFetch("<html><body>OK</body></html>"),
+  );
   const result = await executeBuiltinTool(
     "visit_webpage",
     { url: "https://example.com" },
-    {},
-    mockFetch,
   );
   expect(result).not.toBeNull();
   const parsed = JSON.parse(result!);
@@ -67,34 +77,28 @@ Deno.test("executeBuiltinTool passes Zod-parsed data to execute", async () => {
 });
 
 Deno.test("visit_webpage fetches and converts HTML", async () => {
-  const mockFetch = (() =>
-    Promise.resolve(
-      new Response("<html><body><p>Hello World</p></body></html>", {
-        status: 200,
-      }),
-    )) as typeof globalThis.fetch;
-
+  using _ = stub(
+    _internals,
+    "fetch",
+    mockFetch("<html><body><p>Hello World</p></body></html>"),
+  );
   const result = await executeBuiltinTool(
     "visit_webpage",
     { url: "https://example.com" },
-    {},
-    mockFetch,
   );
   const parsed = JSON.parse(result!);
   expect(parsed.content).toContain("Hello World");
 });
 
 Deno.test("visit_webpage handles non-OK response", async () => {
-  const mockFetch = (() =>
-    Promise.resolve(
-      new Response("Not Found", { status: 404, statusText: "Not Found" }),
-    )) as typeof globalThis.fetch;
-
+  using _ = stub(
+    _internals,
+    "fetch",
+    mockFetch("Not Found", 404, "Not Found"),
+  );
   const result = await executeBuiltinTool(
     "visit_webpage",
     { url: "https://example.com/missing" },
-    {},
-    mockFetch,
   );
   const parsed = JSON.parse(result!);
   expect(parsed.error).toContain("404");
@@ -130,19 +134,14 @@ Deno.test("user_input returns error (handled by turn handler)", async () => {
 });
 
 Deno.test("fetch_json fetches and returns JSON", async () => {
-  const mockFetch = (() =>
-    Promise.resolve(
-      new Response(JSON.stringify({ name: "test", value: 42 }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
-    )) as typeof globalThis.fetch;
-
+  using _ = stub(
+    _internals,
+    "fetch",
+    mockFetch(JSON.stringify({ name: "test", value: 42 })),
+  );
   const result = await executeBuiltinTool(
     "fetch_json",
     { url: "https://api.example.com/data" },
-    {},
-    mockFetch,
   );
   const parsed = JSON.parse(result!);
   expect(parsed.name).toBe("test");
@@ -150,32 +149,28 @@ Deno.test("fetch_json fetches and returns JSON", async () => {
 });
 
 Deno.test("fetch_json handles non-OK response", async () => {
-  const mockFetch = (() =>
-    Promise.resolve(
-      new Response("Server Error", { status: 500, statusText: "ISE" }),
-    )) as typeof globalThis.fetch;
-
+  using _ = stub(
+    _internals,
+    "fetch",
+    mockFetch("Server Error", 500, "ISE"),
+  );
   const result = await executeBuiltinTool(
     "fetch_json",
     { url: "https://api.example.com/fail" },
-    {},
-    mockFetch,
   );
   const parsed = JSON.parse(result!);
   expect(parsed.error).toContain("500");
 });
 
 Deno.test("fetch_json handles non-JSON response", async () => {
-  const mockFetch = (() =>
-    Promise.resolve(
-      new Response("this is not json", { status: 200 }),
-    )) as typeof globalThis.fetch;
-
+  using _ = stub(
+    _internals,
+    "fetch",
+    mockFetch("this is not json"),
+  );
   const result = await executeBuiltinTool(
     "fetch_json",
     { url: "https://api.example.com/text" },
-    {},
-    mockFetch,
   );
   const parsed = JSON.parse(result!);
   expect(parsed.error).toContain("not valid JSON");

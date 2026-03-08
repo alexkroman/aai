@@ -1,5 +1,6 @@
 import { expect } from "@std/expect";
-import { callLLM } from "./llm.ts";
+import { stub } from "@std/testing/mock";
+import { _internals, callLLM } from "./llm.ts";
 import type { ChatMessage } from "./types.ts";
 import type { ToolSchema } from "../sdk/types.ts";
 
@@ -44,12 +45,12 @@ const okResponse = {
 
 Deno.test("callLLM sends correct request shape", async () => {
   const ctx = mockFetch(okResponse);
+  using _ = stub(_internals, "fetch", ctx.fetch);
   await callLLM({
     messages,
     tools: [],
     apiKey: "test-key",
     model: "test-model",
-    fetch: ctx.fetch,
   });
   const lastRequest = ctx.lastRequest();
   expect(lastRequest!.url).toContain("/chat/completions");
@@ -59,18 +60,19 @@ Deno.test("callLLM sends correct request shape", async () => {
 
 Deno.test("callLLM returns parsed response", async () => {
   const ctx = mockFetch(okResponse);
+  using _ = stub(_internals, "fetch", ctx.fetch);
   const result = await callLLM({
     messages,
     tools: [],
     apiKey: "key",
     model: "model",
-    fetch: ctx.fetch,
   });
   expect(result.choices[0].message.content).toBe("Hello!");
 });
 
 Deno.test("callLLM includes tools when provided", async () => {
   const ctx = mockFetch(okResponse);
+  using _ = stub(_internals, "fetch", ctx.fetch);
   const tools: ToolSchema[] = [
     {
       name: "get_weather",
@@ -83,7 +85,6 @@ Deno.test("callLLM includes tools when provided", async () => {
     tools,
     apiKey: "key",
     model: "model",
-    fetch: ctx.fetch,
   });
   const reqBody = JSON.parse(ctx.lastRequest()!.init.body as string);
   expect(reqBody.tools).toHaveLength(1);
@@ -92,19 +93,20 @@ Deno.test("callLLM includes tools when provided", async () => {
 
 Deno.test("callLLM throws on non-OK response", async () => {
   const ctx = mockFetch("Unauthorized", 401);
+  using _ = stub(_internals, "fetch", ctx.fetch);
   await expect(
     callLLM({
       messages,
       tools: [],
       apiKey: "key",
       model: "model",
-      fetch: ctx.fetch,
     }),
   ).rejects.toThrow(/401/);
 });
 
 Deno.test("callLLM sanitizes empty message content", async () => {
   const ctx = mockFetch(okResponse);
+  using _ = stub(_internals, "fetch", ctx.fetch);
   const msgs: ChatMessage[] = [
     { role: "user", content: "" },
     { role: "user", content: "   " },
@@ -114,7 +116,6 @@ Deno.test("callLLM sanitizes empty message content", async () => {
     tools: [],
     apiKey: "key",
     model: "model",
-    fetch: ctx.fetch,
   });
   const reqBody = JSON.parse(ctx.lastRequest()!.init.body as string);
   expect(reqBody.messages[0].content).toBe("...");

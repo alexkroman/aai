@@ -2,6 +2,7 @@ import type { SessionOptions, SessionTransport } from "./session.ts";
 import type { SttEvents, SttHandle } from "./stt.ts";
 import type { ExecuteTool } from "../core/_worker_entry.ts";
 import type { PlatformConfig } from "./config.ts";
+import { resolvesNext } from "@std/testing/mock";
 import type { CallLLMOptions } from "./llm.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";
 import { DEFAULT_STT_CONFIG, DEFAULT_TTS_CONFIG } from "./types.ts";
@@ -153,26 +154,9 @@ export function createMockLLMResponse(
   };
 }
 
-export function responses(
-  ...rs: LLMResponse[]
-): () => Promise<LLMResponse> {
-  let i = 0;
-  return () => {
-    if (i >= rs.length) {
-      throw new Error(`responses() exhausted after ${rs.length} call(s)`);
-    }
-    return Promise.resolve(rs[i++]);
-  };
-}
+export { resolvesNext } from "@std/testing/mock";
 
-export function createMockSessionOptions(
-  overrides?: Partial<
-    Pick<
-      SessionOptions,
-      "connectStt" | "callLLM" | "ttsClient" | "executeBuiltinTool"
-    >
-  >,
-): {
+export function createMockSessionOptions(): {
   opts: SessionOptions;
   sttHandle: ReturnType<typeof createMockSttHandle>;
   ttsClient: ReturnType<typeof createMockTtsClient>;
@@ -182,6 +166,7 @@ export function createMockSessionOptions(
     tools: ToolSchema[];
   }[];
   llmResponses: LLMResponse[];
+  mockCallLLM: (opts: CallLLMOptions) => Promise<LLMResponse>;
 } {
   const sttHandle = createMockSttHandle();
   const ttsClient = createMockTtsClient();
@@ -190,7 +175,7 @@ export function createMockSessionOptions(
   const llmResponses: LLMResponse[] = [
     createMockLLMResponse("Hello from LLM"),
   ];
-  const nextResponse = responses(...llmResponses);
+  const nextResponse = resolvesNext(llmResponses);
 
   const opts: SessionOptions = {
     id: "test-session-id",
@@ -203,22 +188,25 @@ export function createMockSessionOptions(
     toolSchemas: [],
     platformConfig: createMockPlatformConfig(),
     executeTool: executeTool.fn,
-    connectStt: overrides?.connectStt ??
-      (() => Promise.resolve(sttHandle)),
-    callLLM: overrides?.callLLM ??
-      ((callOpts: CallLLMOptions) => {
+  };
+
+  return {
+    opts,
+    sttHandle,
+    ttsClient,
+    executeTool,
+    llmCalls,
+    llmResponses,
+    get mockCallLLM() {
+      return (callOpts: CallLLMOptions) => {
         llmCalls.push({
           messages: [...callOpts.messages],
           tools: callOpts.tools,
         });
         return nextResponse();
-      }),
-    ttsClient: overrides?.ttsClient ?? ttsClient,
-    executeBuiltinTool: overrides?.executeBuiltinTool ??
-      (() => Promise.resolve(null)),
-  };
-
-  return { opts, sttHandle, ttsClient, executeTool, llmCalls, llmResponses };
+      };
+    },
+  } as ReturnType<typeof createMockSessionOptions>;
 }
 
 export function createMockSttEvents(

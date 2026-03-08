@@ -28,6 +28,23 @@ export type TtsClient = {
   close(): void;
 };
 
+export const _internals = {
+  connectStt: connectStt as (
+    apiKey: string,
+    config: STTConfig,
+    events: SttEvents,
+  ) => Promise<SttHandle>,
+  callLLM: callLLM as (opts: CallLLMOptions) => Promise<LLMResponse>,
+  createTtsClient: createTtsClient as (
+    config: Parameters<typeof createTtsClient>[0],
+  ) => TtsClient,
+  executeBuiltinTool: executeBuiltinTool as (
+    name: string,
+    args: Record<string, unknown>,
+    env?: Record<string, string | undefined>,
+  ) => Promise<string | null>,
+};
+
 export type SessionOptions = {
   id: string;
   transport: SessionTransport;
@@ -38,18 +55,6 @@ export type SessionOptions = {
   env?: Record<string, string | undefined>;
   getWorkerApi?: () => Promise<WorkerApi>;
   skipGreeting?: boolean;
-  // Test overrides — production callers never set these
-  connectStt?: (
-    apiKey: string,
-    config: STTConfig,
-    events: SttEvents,
-  ) => Promise<SttHandle>;
-  callLLM?: (opts: CallLLMOptions) => Promise<LLMResponse>;
-  ttsClient?: TtsClient;
-  executeBuiltinTool?: (
-    name: string,
-    args: Record<string, unknown>,
-  ) => Promise<string | null>;
 };
 
 export type Session = {
@@ -108,14 +113,11 @@ export function createSession(opts: SessionOptions): Session {
     },
   };
 
-  // Resolve functions: use overrides if provided, otherwise real implementations
-  const doConnectStt = opts.connectStt ?? connectStt;
-  const doCallLLM = opts.callLLM ?? callLLM;
-  const tts: TtsClient = opts.ttsClient ??
-    createTtsClient(config.ttsConfig);
-  const doExecuteBuiltinTool = opts.executeBuiltinTool ??
-    ((name: string, args: Record<string, unknown>) =>
-      executeBuiltinTool(name, args, env));
+  // Read from _internals so tests can stub these
+  const doConnectStt = _internals.connectStt;
+  const doCallLLM = _internals.callLLM;
+  const tts: TtsClient = _internals.createTtsClient(config.ttsConfig);
+  const doExecuteBuiltinTool = _internals.executeBuiltinTool;
 
   let stt: SttHandle | null = null;
   let turnAbort: AbortController | null = null;
@@ -141,7 +143,7 @@ export function createSession(opts: SessionOptions): Session {
     name: string,
     args: Record<string, unknown>,
   ): Promise<string> {
-    const builtin = await doExecuteBuiltinTool(name, args);
+    const builtin = await doExecuteBuiltinTool(name, args, env);
     return builtin ?? await executeTool(name, args, id);
   }
 

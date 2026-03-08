@@ -5,6 +5,10 @@ import {
 } from "./types.ts";
 import type { ToolSchema } from "../sdk/types.ts";
 
+export const _internals = {
+  fetch: globalThis.fetch,
+};
+
 function sanitizeMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.map((msg) => {
     let result = msg;
@@ -42,7 +46,6 @@ export type CallLLMOptions = {
   model: string;
   signal?: AbortSignal;
   gatewayBase?: string;
-  fetch?: typeof globalThis.fetch;
   toolChoice?:
     | "auto"
     | "none"
@@ -53,7 +56,6 @@ export type CallLLMOptions = {
 
 export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
   const base = opts.gatewayBase ?? "https://llm-gateway.assemblyai.com/v1";
-  const fetchFn = opts.fetch ?? globalThis.fetch;
 
   const body: Record<string, unknown> = {
     model: opts.model,
@@ -81,7 +83,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
     toolNames: opts.tools.map((t) => t.name),
   });
 
-  const resp = await fetchFn(`${base}/chat/completions`, {
+  const resp = await _internals.fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${opts.apiKey}`,
