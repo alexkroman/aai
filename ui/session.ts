@@ -11,8 +11,6 @@ type ServerMessage =
   | { type: "final_transcript"; text: string; turn_order?: number }
   | { type: "turn"; text: string; turn_order?: number }
   | { type: "chat"; text: string }
-  | { type: "chat_delta"; text: string }
-  | { type: "chat_done"; text: string }
   | { type: "tts_done" }
   | { type: "cancelled" }
   | { type: "reset" }
@@ -108,7 +106,6 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
 
   let ws: WebSocket | null = null;
   let voiceIO: VoiceIO | null = null;
-  let streamingMessage = false;
   const reconnector = createReconnect();
   let connectionController: AbortController | null = null;
   let hasConnected = false;
@@ -262,39 +259,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
           ];
           state.value = "speaking";
           break;
-        case "chat_delta": {
-          const msgs = messages.value;
-          const last = msgs[msgs.length - 1];
-          if (last && last.role === "assistant" && streamingMessage) {
-            messages.value = [
-              ...msgs.slice(0, -1),
-              { role: "assistant", text: last.text + msg.text },
-            ];
-          } else {
-            streamingMessage = true;
-            messages.value = [
-              ...msgs,
-              { role: "assistant", text: msg.text },
-            ];
-          }
-          state.value = "speaking";
-          break;
-        }
-        case "chat_done":
-          streamingMessage = false;
-          if (msg.text) {
-            const msgs = messages.value;
-            const last = msgs[msgs.length - 1];
-            if (last && last.role === "assistant") {
-              messages.value = [
-                ...msgs.slice(0, -1),
-                { role: "assistant", text: msg.text },
-              ];
-            }
-          }
-          break;
         case "tts_done":
-          streamingMessage = false;
           voiceIO?.done();
           state.value = "listening";
           break;

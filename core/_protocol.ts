@@ -46,8 +46,6 @@ export const ServerMessageSchema = z
       turn_order: z.number().optional(),
     }),
     z.object({ type: z.literal("chat"), text: z.string() }),
-    z.object({ type: z.literal("chat_delta"), text: z.string() }),
-    z.object({ type: z.literal("chat_done"), text: z.string() }),
     z.object({ type: z.literal("tts_done") }),
     z.object({ type: z.literal("cancelled") }),
     z.object({ type: z.literal("reset") }),
