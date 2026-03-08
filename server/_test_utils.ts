@@ -35,54 +35,6 @@ export function getSentJson(
     .map((s) => JSON.parse(s));
 }
 
-export function createMockSttHandle() {
-  return {
-    send: spy((_audio: Uint8Array) => {}),
-    clear: spy(() => {}),
-    close: spy(() => {}),
-  };
-}
-
-export function createMockTtsClient() {
-  const streamedText: string[] = [];
-  return {
-    streamedText,
-    synthesizeStream: spy(
-      async (
-        chunks: string | AsyncIterable<string>,
-        _onAudio: (chunk: Uint8Array) => void,
-        _signal?: AbortSignal,
-      ): Promise<void> => {
-        if (typeof chunks === "string") {
-          streamedText.push(chunks);
-        } else {
-          for await (const text of chunks) {
-            streamedText.push(text);
-          }
-        }
-      },
-    ),
-    close: spy(() => {}),
-  };
-}
-
-export function createMockExecuteTool() {
-  let mockResult = '"tool result"';
-  const fn = spy(
-    (_name: string, _args: Record<string, unknown>, _sessionId?: string) =>
-      Promise.resolve(mockResult),
-  );
-  return {
-    fn,
-    get mockResult() {
-      return mockResult;
-    },
-    set mockResult(v: string) {
-      mockResult = v;
-    },
-  };
-}
-
 function createMockPlatformConfig(): PlatformConfig {
   return {
     apiKey: "test-api-key",
@@ -123,23 +75,40 @@ export function createMockLLMResponse(
   };
 }
 
-export { assertSpyCalls, resolvesNext } from "@std/testing/mock";
+export function createMockSessionOptions() {
+  const sttHandle = {
+    send: spy((_audio: Uint8Array) => {}),
+    clear: spy(() => {}),
+    close: spy(() => {}),
+  };
 
-export function createMockSessionOptions(): {
-  opts: SessionOptions;
-  sttHandle: ReturnType<typeof createMockSttHandle>;
-  ttsClient: ReturnType<typeof createMockTtsClient>;
-  executeTool: ReturnType<typeof createMockExecuteTool>;
-  llmCalls: {
-    messages: ChatMessage[];
-    tools: ToolSchema[];
-  }[];
-  llmResponses: LLMResponse[];
-  mockCallLLM: (opts: CallLLMOptions) => Promise<LLMResponse>;
-} {
-  const sttHandle = createMockSttHandle();
-  const ttsClient = createMockTtsClient();
-  const executeTool = createMockExecuteTool();
+  const streamedText: string[] = [];
+  const ttsClient = {
+    streamedText,
+    synthesizeStream: spy(
+      async (
+        chunks: string | AsyncIterable<string>,
+        _onAudio: (chunk: Uint8Array) => void,
+        _signal?: AbortSignal,
+      ): Promise<void> => {
+        if (typeof chunks === "string") {
+          streamedText.push(chunks);
+        } else {
+          for await (const text of chunks) {
+            streamedText.push(text);
+          }
+        }
+      },
+    ),
+    close: spy(() => {}),
+  };
+
+  let mockResult = '"tool result"';
+  const executeTool = spy(
+    (_name: string, _args: Record<string, unknown>, _sessionId?: string) =>
+      Promise.resolve(mockResult),
+  );
+
   const llmCalls: { messages: ChatMessage[]; tools: ToolSchema[] }[] = [];
   const llmResponses: LLMResponse[] = [
     createMockLLMResponse("Hello from LLM"),
@@ -156,7 +125,7 @@ export function createMockSessionOptions(): {
     },
     toolSchemas: [],
     platformConfig: createMockPlatformConfig(),
-    executeTool: executeTool.fn,
+    executeTool,
   };
 
   return {
@@ -166,6 +135,12 @@ export function createMockSessionOptions(): {
     executeTool,
     llmCalls,
     llmResponses,
+    get mockResult() {
+      return mockResult;
+    },
+    set mockResult(v: string) {
+      mockResult = v;
+    },
     get mockCallLLM() {
       return (callOpts: CallLLMOptions) => {
         llmCalls.push({
@@ -175,25 +150,8 @@ export function createMockSessionOptions(): {
         return nextResponse();
       };
     },
-  } as ReturnType<typeof createMockSessionOptions>;
-}
-
-export function createMockSttEvents() {
-  return {
-    onSpeechStarted: spy(() => {}),
-    onTranscript: spy(
-      (_text: string, _isFinal: boolean, _turnOrder?: number) => {},
-    ),
-    onTurn: spy((_text: string, _turnOrder?: number) => {}),
-    onTermination: spy(
-      (_audioDuration: number, _sessionDuration: number) => {},
-    ),
-    onError: spy((_err: Error) => {}),
-    onClose: spy(() => {}),
   };
 }
-
-// --- From _test_fixtures.ts ---
 
 export const VALID_ENV = {
   ASSEMBLYAI_API_KEY: "test-key",

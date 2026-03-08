@@ -1,9 +1,23 @@
 import { expect } from "@std/expect";
-import { assertSpyCalls } from "@std/testing/mock";
+import { assertSpyCalls, spy } from "@std/testing/mock";
 import { connectStt } from "./stt.ts";
 import { DEFAULT_STT_CONFIG } from "./types.ts";
 import { installMockWebSocket, type MockWebSocket } from "./_mock_ws.ts";
-import { createMockSttEvents } from "./_test_utils.ts";
+
+function createMockSttEvents() {
+  return {
+    onSpeechStarted: spy(() => {}),
+    onTranscript: spy(
+      (_text: string, _isFinal: boolean, _turnOrder?: number) => {},
+    ),
+    onTurn: spy((_text: string, _turnOrder?: number) => {}),
+    onTermination: spy(
+      (_audioDuration: number, _sessionDuration: number) => {},
+    ),
+    onError: spy((_err: Error) => {}),
+    onClose: spy(() => {}),
+  };
+}
 
 function sendMsg(ws: MockWebSocket, data: Record<string, unknown>) {
   ws.dispatchEvent(

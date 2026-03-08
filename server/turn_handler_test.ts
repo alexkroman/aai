@@ -1,7 +1,7 @@
 import { expect } from "@std/expect";
-import { assertSpyCalls, spy } from "@std/testing/mock";
+import { assertSpyCalls, resolvesNext, spy } from "@std/testing/mock";
 import { executeTurn, type TurnCallLLMOptions } from "./turn_handler.ts";
-import { createMockLLMResponse, resolvesNext } from "./_test_utils.ts";
+import { createMockLLMResponse } from "./_test_utils.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";
 import type { ToolSchema } from "../sdk/types.ts";
 

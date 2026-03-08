@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import { assertSpyCalls, stub } from "@std/testing/mock";
+import { assertSpyCalls, resolvesNext, stub } from "@std/testing/mock";
 import { _internals, createSession } from "./session.ts";
 import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import {
@@ -7,7 +7,6 @@ import {
   createMockSessionOptions,
   type createMockTransport,
   getSentJson,
-  resolvesNext,
 } from "./_test_utils.ts";
 import type { SttEvents } from "./stt.ts";
 import type { LLMResponse } from "./types.ts";
@@ -244,8 +243,8 @@ Deno.test("handleTurn handles tool calls", async () => {
   ctx.events.current!.onTurn("What's the weather in NYC?");
   await ctx.session.waitForTurn();
 
-  assertSpyCalls(ctx.executeTool.fn, 1);
-  expect(ctx.executeTool.fn.calls[0].args[0]).toBe("get_weather");
+  assertSpyCalls(ctx.executeTool, 1);
+  expect(ctx.executeTool.calls[0].args[0]).toBe("get_weather");
   expect(getSentJson(ctx.transport).find((m) => m.type === "chat")!.text).toBe(
     "It's sunny in NYC.",
   );
