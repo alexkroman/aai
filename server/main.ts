@@ -19,19 +19,19 @@ const store = createBundleStore(s3, bucket);
 const { handler } = createOrchestrator({ store });
 
 const port = parseInt(Deno.env.get("PORT") ?? "3100");
+const abort = new AbortController();
+Deno.addSignalListener("SIGTERM", () => {
+  console.info("SIGTERM received — draining connections...");
+  abort.abort();
+});
+
 const server = Deno.serve(
-  { port, hostname: "0.0.0.0", onListen: () => {} },
+  { port, hostname: "0.0.0.0", signal: abort.signal, onListen: () => {} },
   handler,
 );
 
 console.info(`http://localhost:${port}`);
 
-Deno.addSignalListener("SIGTERM", () => {
-  console.info("SIGTERM received — draining connections...");
-  const drain = server.shutdown();
-  const force = new Promise<void>((r) => setTimeout(r, 5_000));
-  Promise.race([drain, force]).then(() => {
-    console.info("Shutdown complete");
-    Deno.exit(0);
-  });
-});
+const force = new Promise<void>((r) => setTimeout(r, 5_000));
+await Promise.race([server.finished, force]);
+console.info("Shutdown complete");
