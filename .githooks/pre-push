@@ -17,14 +17,13 @@ deno compile \
   --no-check \
   --allow-all \
   --unstable-worker-options \
-  --include deno.json \
   --include templates/ \
   --include sdk/ \
   --include core/ \
-  --include server/ \
   --include ui/ \
   --include cli/claude.md \
   --include cli/deno.json \
+  --include _bundler_config.json \
   --output /tmp/aai-compile-check \
   cli/cli.ts || exit 1
 /tmp/aai-compile-check --version || exit 1

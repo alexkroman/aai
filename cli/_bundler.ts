@@ -67,7 +67,7 @@ async function stripTypes(source: string): Promise<string> {
 }
 
 export const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
-const baseConfigPath = resolve(AAI_ROOT, "deno.json");
+const baseConfigPath = resolve(AAI_ROOT, "_bundler_config.json");
 
 /**
  * Resolves workspace package specifiers (@aai/sdk/*, @aai/core/*, @aai/ui)
