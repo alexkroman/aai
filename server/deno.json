@@ -4,8 +4,7 @@
   "exports": {
     ".": "./main.ts",
     "./types": "./types.ts",
-    "./testing": "./_test_utils.ts",
-    "./testing/mock-ws": "./_mock_ws.ts"
+    "./testing": "./_test_utils.ts"
   },
   "imports": {
     "@aai/sdk": "workspace:@aai/sdk",

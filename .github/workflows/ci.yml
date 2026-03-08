@@ -26,14 +26,13 @@ jobs:
           deno compile \
             --allow-all \
             --unstable-worker-options \
-            --include deno.json \
             --include templates/ \
             --include sdk/ \
             --include core/ \
-            --include server/ \
             --include ui/ \
             --include cli/claude.md \
             --include cli/deno.json \
+            --include _bundler_config.json \
             --output dist/aai \
             cli/cli.ts
 
