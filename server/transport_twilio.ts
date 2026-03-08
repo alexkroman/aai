@@ -13,7 +13,7 @@ import type { ServerContext } from "./types.ts";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-} from "../core/_protocol.ts";
+} from "@aai/core/protocol";
 import { mulawToPcm16, pcm16ToMulaw, resample } from "./mulaw.ts";
 import { z } from "zod";
 

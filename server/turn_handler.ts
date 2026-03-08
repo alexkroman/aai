@@ -1,6 +1,6 @@
 import { FINAL_ANSWER_TOOL, USER_INPUT_TOOL } from "./builtin_tools.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";
-import type { ToolSchema } from "../sdk/types.ts";
+import type { ToolSchema } from "@aai/sdk/types";
 
 const MAX_TOOL_ITERATIONS = 5;
 

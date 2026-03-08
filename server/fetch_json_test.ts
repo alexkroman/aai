@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import { fetchJSON } from "../sdk/fetch_json.ts";
+import { fetchJSON } from "@aai/sdk/fetch-json";
 
 const fakeFetch = (resp: Response): typeof globalThis.fetch => () =>
   Promise.resolve(resp);

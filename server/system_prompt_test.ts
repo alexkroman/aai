@@ -4,7 +4,7 @@ import {
   type AgentConfig,
   DEFAULT_INSTRUCTIONS,
   type ToolSchema,
-} from "../sdk/types.ts";
+} from "@aai/sdk/types";
 
 function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
   return {

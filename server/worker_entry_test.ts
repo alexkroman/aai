@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { expect } from "@std/expect";
-import type { AgentDef, ToolDef } from "../sdk/types.ts";
-import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "../sdk/types.ts";
-import { startWorker, type WorkerApi } from "../core/_worker_entry.ts";
-import { createRpcCaller } from "../core/_rpc.ts";
+import type { AgentDef, ToolDef } from "@aai/sdk/types";
+import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
+import { startWorker, type WorkerApi } from "@aai/core/worker-entry";
+import { createRpcCaller } from "@aai/core/rpc";
 
 function makeAgent(tools: Record<string, ToolDef>): AgentDef {
   return {

@@ -22,6 +22,10 @@ jobs:
         run: deno publish --allow-dirty
         working-directory: sdk
 
+      - name: Publish @aai/core
+        run: deno publish --allow-dirty
+        working-directory: core
+
       - name: Publish @aai/ui
         run: deno publish --allow-dirty
         working-directory: ui

@@ -4,7 +4,7 @@ import type {
   HookContext,
   ToolContext,
   ToolDef,
-} from "../sdk/types.ts";
+} from "@aai/sdk/types";
 import {
   createRpcCaller,
   type MessageTarget,

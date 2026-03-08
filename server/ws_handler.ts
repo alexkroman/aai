@@ -1,4 +1,4 @@
-import { ClientMessageSchema } from "../core/_protocol.ts";
+import { ClientMessageSchema } from "@aai/core/protocol";
 import type { Session } from "./session.ts";
 
 export type WsSessionOptions = {

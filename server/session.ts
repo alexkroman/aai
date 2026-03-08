@@ -1,6 +1,6 @@
 import type { PlatformConfig } from "./config.ts";
 import { callLLM, type CallLLMOptions } from "./llm.ts";
-import type { ExecuteTool } from "../core/_worker_entry.ts";
+import type { ExecuteTool } from "@aai/core/worker-entry";
 import { connectStt, type SttEvents, type SttHandle } from "./stt.ts";
 import { createTtsClient } from "./tts.ts";
 import { executeBuiltinTool } from "./builtin_tools.ts";
@@ -10,8 +10,8 @@ import {
   type AgentConfig,
   DEFAULT_GREETING,
   type ToolSchema,
-} from "../sdk/types.ts";
-import type { WorkerApi } from "../core/_worker_entry.ts";
+} from "@aai/sdk/types";
+import type { WorkerApi } from "@aai/core/worker-entry";
 import { buildSystemPrompt } from "./system_prompt.ts";
 
 export type SessionTransport = {

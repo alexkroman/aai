@@ -6,7 +6,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import type { AgentMetadata } from "./worker_pool.ts";
-import { AgentMetadataSchema } from "../core/_rpc_schema.ts";
+import { AgentMetadataSchema } from "@aai/core/rpc-schema";
 
 export type FileKey = "worker" | "client" | "client_map";
 

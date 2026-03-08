@@ -9,9 +9,9 @@ import {
   createWebSocketTarget,
   type RpcHandlers,
   serveRpc,
-} from "../core/_rpc.ts";
-import { createDenoWorker } from "../core/_deno_worker.ts";
-import { createWorkerApi } from "../core/_worker_entry.ts";
+} from "@aai/core/rpc";
+import { createDenoWorker } from "@aai/core/deno-worker";
+import { createWorkerApi } from "@aai/core/worker-entry";
 
 import { DEFAULT_SERVER } from "./_discover.ts";
 

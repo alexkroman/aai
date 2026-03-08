@@ -1,12 +1,12 @@
 import { encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
-import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
-import { createWorkerApi, type WorkerApi } from "../core/_worker_entry.ts";
-import type { ExecuteTool } from "../core/_worker_entry.ts";
+import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
+import { createWorkerApi, type WorkerApi } from "@aai/core/worker-entry";
+import type { ExecuteTool } from "@aai/core/worker-entry";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import type { AgentMetadata } from "../core/_rpc_schema.ts";
-import { createDenoWorker } from "../core/_deno_worker.ts";
-export type { AgentMetadata } from "../core/_rpc_schema.ts";
+import type { AgentMetadata } from "@aai/core/rpc-schema";
+import { createDenoWorker } from "@aai/core/deno-worker";
+export type { AgentMetadata } from "@aai/core/rpc-schema";
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 

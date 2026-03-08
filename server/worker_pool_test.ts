@@ -6,7 +6,7 @@ import {
   trackSessionOpen,
 } from "./worker_pool.ts";
 import type { WorkerApi } from "../core/_worker_entry.ts";
-import { createRpcCaller } from "../core/_rpc.ts";
+import { createRpcCaller } from "@aai/core/rpc";
 import { VALID_ENV } from "./_test_utils.ts";
 
 function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {

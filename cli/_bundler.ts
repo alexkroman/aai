@@ -3,6 +3,7 @@ import {
   type BuildOptions,
   formatMessages,
   initialize,
+  type Plugin,
   transform,
 } from "esbuild";
 import type { InitializeOptions } from "esbuild-wasm-types";
@@ -67,6 +68,39 @@ async function stripTypes(source: string): Promise<string> {
 
 export const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
 const baseConfigPath = resolve(AAI_ROOT, "deno.json");
+
+/**
+ * Resolves workspace package specifiers (@aai/sdk/*, @aai/core/*, @aai/ui)
+ * to local file paths. The @deno/esbuild-plugin's Workspace resolver converts
+ * these to jsr: specifiers that the WASM loader can't fetch, so we intercept
+ * them first and point directly to the source files.
+ */
+const WORKSPACE_ALIASES: Record<string, string> = {
+  "@aai/sdk": resolve(AAI_ROOT, "sdk/mod.ts"),
+  "@aai/sdk/types": resolve(AAI_ROOT, "sdk/types.ts"),
+  "@aai/sdk/schema": resolve(AAI_ROOT, "sdk/_schema.ts"),
+  "@aai/sdk/define-agent": resolve(AAI_ROOT, "sdk/define_agent.ts"),
+  "@aai/sdk/fetch-json": resolve(AAI_ROOT, "sdk/fetch_json.ts"),
+  "@aai/core/worker-entry": resolve(AAI_ROOT, "core/_worker_entry.ts"),
+  "@aai/core/protocol": resolve(AAI_ROOT, "core/_protocol.ts"),
+  "@aai/core/rpc": resolve(AAI_ROOT, "core/_rpc.ts"),
+  "@aai/core/rpc-schema": resolve(AAI_ROOT, "core/_rpc_schema.ts"),
+  "@aai/core/deno-worker": resolve(AAI_ROOT, "core/_deno_worker.ts"),
+  "@aai/ui": resolve(AAI_ROOT, "ui/mod.ts"),
+};
+
+function workspaceAliasPlugin(): Plugin {
+  return {
+    name: "workspace-alias",
+    setup(build) {
+      build.onResolve({ filter: /^@aai\// }, (args) => {
+        const local = WORKSPACE_ALIASES[args.path];
+        if (local) return { path: local, namespace: "file" };
+        return null;
+      });
+    },
+  };
+}
 
 const BASE: BuildOptions = {
   bundle: true,
@@ -146,13 +180,15 @@ export async function bundleAgent(
     await Deno.stat(agentConfigPath);
     hasAgentConfig = true;
   } catch { /* no agent deno.json */ }
+  const alias = workspaceAliasPlugin();
   const workerPlugins = hasAgentConfig
     ? [
+      alias,
       denoPlugin({ configPath: agentConfigPath }),
       denoPlugin({ configPath: baseConfigPath }),
     ]
-    : [denoPlugin({ configPath: baseConfigPath })];
-  const clientPlugins = [denoPlugin({ configPath: baseConfigPath })];
+    : [alias, denoPlugin({ configPath: baseConfigPath })];
+  const clientPlugins = [alias, denoPlugin({ configPath: baseConfigPath })];
 
   const workerResult = await buildWithCleanErrors({
     ...BASE,
