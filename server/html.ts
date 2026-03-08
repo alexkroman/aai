@@ -1,24 +1,4 @@
-import { escape } from "@std/html";
-
-const ENTITY: Record<string, string> = {
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&#39;": "'",
-  "&apos;": "'",
-  "&nbsp;": " ",
-};
-
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(
-      /&#x([0-9a-fA-F]+);/g,
-      (_, n) => String.fromCharCode(parseInt(n, 16)),
-    )
-    .replace(/&\w+;/g, (m) => ENTITY[m] ?? m);
-}
+import { escape, unescape } from "@std/html";
 
 export function htmlToMarkdown(html: string): string {
   let s = html;
@@ -29,7 +9,7 @@ export function htmlToMarkdown(html: string): string {
     const re = new RegExp(`<h${i}[^>]*>(.*?)<\\/h${i}>`, "gi");
     s = s.replace(
       re,
-      (_, c) => `\n${"#".repeat(i)} ${decodeEntities(c.trim())}\n`,
+      (_, c) => `\n${"#".repeat(i)} ${unescape(c.trim())}\n`,
     );
   }
   s = s.replace(/<(b|strong)[^>]*>(.*?)<\/\1>/gi, (_, _t, c) => `**${c}**`);
@@ -40,7 +20,7 @@ export function htmlToMarkdown(html: string): string {
   );
   s = s.replace(/<li[^>]*>(.*?)<\/li>/gi, (_, c) => `* ${c.trim()}\n`);
   s = s.replace(/<[^>]+>/g, "");
-  s = decodeEntities(s);
+  s = unescape(s);
   s = s.replace(/\n{3,}/g, "\n\n");
   return s.trim();
 }
