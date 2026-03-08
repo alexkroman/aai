@@ -1,9 +1,3 @@
----
-name: voice-agent
-description: Create or update an aai voice agent. Use when the user wants to build a voice agent, create an agent, modify an existing agent, or scaffold an aai project.
-argument-hint: <description of the agent to create or update>
----
-
 # Create or update an aai voice agent
 
 You are building a voice agent using the **aai** framework. Generate or update
