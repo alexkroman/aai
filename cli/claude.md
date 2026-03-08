@@ -370,13 +370,11 @@ export default function App() {
 
 After creating `agent.ts`, also create:
 
-1. **`.env`** with required API keys:
+**`.env`** with required API keys:
 
 ```sh
 ASSEMBLYAI_API_KEY=<user needs to add>
 ```
-
-1. **`.env.example`** — same as `.env` but without values, for version control.
 
 ## Running and deploying the agent
 
