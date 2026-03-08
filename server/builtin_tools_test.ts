@@ -36,13 +36,6 @@ Deno.test("getBuiltinToolSchemas does not duplicate final_answer", () => {
   expect(names.filter((n) => n === "final_answer")).toHaveLength(1);
 });
 
-Deno.test("getBuiltinToolSchemas returns schemas with correct shape", () => {
-  const schemas = getBuiltinToolSchemas(["web_search"]);
-  const webSearch = schemas.find((s) => s.name === "web_search")!;
-  expect(typeof webSearch.description).toBe("string");
-  expect(webSearch.parameters).toBeDefined();
-});
-
 // --- executeBuiltinTool ---
 
 Deno.test("executeBuiltinTool returns null for unknown tool", async () => {

@@ -18,11 +18,25 @@ type BuiltinTool = {
   description: string;
   parameters: z.ZodObject<z.ZodRawShape>;
   execute: (
-    args: Record<string, unknown>,
+    // deno-lint-ignore no-explicit-any
+    args: any,
     env: Record<string, string | undefined>,
     fetch: typeof globalThis.fetch,
   ) => string | Promise<string>;
 };
+
+function defineTool<T extends z.ZodObject<z.ZodRawShape>>(tool: {
+  name: string;
+  description: string;
+  parameters: T;
+  execute: (
+    args: z.infer<T>,
+    env: Record<string, string | undefined>,
+    fetch: typeof globalThis.fetch,
+  ) => string | Promise<string>;
+}): BuiltinTool {
+  return tool;
+}
 
 const webSearchParams = z.object({
   query: z.string().describe("The search query"),
@@ -34,14 +48,13 @@ const webSearchParams = z.object({
 const BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
 const NO_RESULTS = "[]";
 
-const webSearch: BuiltinTool = {
+const webSearch = defineTool({
   name: "web_search",
   description:
     "Search the web using Brave Search. Returns a list of results with title, URL, and description.",
   parameters: webSearchParams,
   execute: async (args, env, fetchFn) => {
-    const query = args.query as string;
-    const maxResults = (args.max_results as number | undefined) ?? 5;
+    const { query, max_results: maxResults = 5 } = args;
 
     console.info("web_search", { query, maxResults });
 
@@ -89,7 +102,7 @@ const webSearch: BuiltinTool = {
 
     return JSON.stringify(results);
   },
-};
+});
 
 const MAX_PAGE_CHARS = 10_000;
 const MAX_HTML_BYTES = 200_000;
@@ -100,13 +113,13 @@ const visitWebpageParams = z.object({
   ),
 });
 
-const visitWebpage: BuiltinTool = {
+const visitWebpage = defineTool({
   name: "visit_webpage",
   description:
     "Fetch a webpage URL and return its content as clean Markdown. Useful for reading articles, documentation, or any web page found via search.",
   parameters: visitWebpageParams,
   execute: async (args, _env, fetchFn) => {
-    const url = args.url as string;
+    const { url } = args;
 
     console.info("visit_webpage", { url });
 
@@ -143,7 +156,7 @@ const visitWebpage: BuiltinTool = {
       ...(truncated ? { truncated: true, totalChars: markdown.length } : {}),
     });
   },
-};
+});
 
 const runCodeParams = z.object({
   code: z.string().describe(
@@ -155,13 +168,13 @@ const TIMEOUT_MS = 5_000;
 
 const SANDBOX_WORKER_URL = import.meta.resolve("./sandbox_worker.ts");
 
-const runCode: BuiltinTool = {
+const runCode = defineTool({
   name: "run_code",
   description:
     "Execute JavaScript in a sandboxed Deno Worker with no permissions. Use console.log() for output. No network or filesystem access.",
   parameters: runCodeParams,
   execute: async (args, _env, _fetchFn) => {
-    const code = args.code as string;
+    const { code } = args;
 
     console.info("run_code", { codeLength: code.length });
 
@@ -199,7 +212,7 @@ const runCode: BuiltinTool = {
       worker.terminate();
     }
   },
-};
+});
 
 const fetchJsonParams = z.object({
   url: z.string().describe("The URL to fetch JSON from"),
@@ -208,14 +221,13 @@ const fetchJsonParams = z.object({
   ).optional(),
 });
 
-const fetchJson: BuiltinTool = {
+const fetchJson = defineTool({
   name: "fetch_json",
   description:
     "Fetch a URL via HTTP GET and return the JSON response. Useful for calling REST APIs that return JSON data.",
   parameters: fetchJsonParams,
   execute: async (args, _env, fetchFn) => {
-    const url = args.url as string;
-    const headers = args.headers as Record<string, string> | undefined;
+    const { url, headers } = args;
 
     console.info("fetch_json", { url });
 
@@ -241,13 +253,13 @@ const fetchJson: BuiltinTool = {
       });
     }
   },
-};
+});
 
 const userInputParams = z.object({
   question: z.string().describe("The question to ask the user"),
 });
 
-const userInput: BuiltinTool = {
+const userInput = defineTool({
   name: "user_input",
   description:
     "Ask the user a follow-up question and wait for their spoken response. Use this when you need clarification, a preference, or any additional input from the user before proceeding.",
@@ -256,7 +268,7 @@ const userInput: BuiltinTool = {
   execute: (_args, _env, _fetchFn) => {
     throw new Error("user_input is handled by the turn handler");
   },
-};
+});
 
 const finalAnswerParams = z.object({
   answer: z.string().describe(
@@ -264,15 +276,15 @@ const finalAnswerParams = z.object({
   ),
 });
 
-const finalAnswer: BuiltinTool = {
+const finalAnswer = defineTool({
   name: "final_answer",
   description:
     "Provide your final answer to the user. You MUST call this tool to deliver every response — it is the only way to complete the task, otherwise you will be stuck in a loop.",
   parameters: finalAnswerParams,
   execute: (args, _env, _fetchFn) => {
-    return args.answer as string;
+    return args.answer;
   },
-};
+});
 
 export const FINAL_ANSWER_TOOL = "final_answer";
 export const USER_INPUT_TOOL = "user_input";
@@ -312,20 +324,14 @@ export async function executeBuiltinTool(
 
   const parsed = tool.parameters.safeParse(args);
   if (!parsed.success) {
-    // deno-lint-ignore no-explicit-any
-    const issues = ((parsed as any).error?.issues ?? [])
-      .map((i: { path: (string | number)[]; message: string }) =>
-        `${i.path.join(".")}: ${i.message}`
-      ).join(", ");
+    const issues = parsed.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join(", ");
     return `Error: Invalid arguments for tool "${name}": ${issues}`;
   }
 
   try {
-    return await tool.execute(
-      parsed.data as Record<string, unknown>,
-      env,
-      fetchFn,
-    );
+    return await tool.execute(parsed.data, env, fetchFn);
   } catch (err: unknown) {
     console.error("Built-in tool execution failed", { err, tool: name });
     return `Error: ${err instanceof Error ? err.message : String(err)}`;

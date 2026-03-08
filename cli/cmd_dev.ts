@@ -5,7 +5,11 @@ import { error, stepInfo } from "./_output.ts";
 import { runBuild } from "./build.ts";
 import type { AgentEntry } from "./_discover.ts";
 import { spawnLocalWorker } from "./_local_worker.ts";
-import { createWebSocketTarget, serveRpc } from "../core/_rpc.ts";
+import {
+  createWebSocketTarget,
+  type RpcHandlers,
+  serveRpc,
+} from "../core/_rpc.ts";
 
 import { DEFAULT_SERVER } from "./_discover.ts";
 
@@ -256,27 +260,23 @@ function connectAndRegister(
         // Switch to RPC mode — serve executeTool/invokeHook over this
         // WebSocket using the same RPC protocol as Worker postMessage.
         const target = createWebSocketTarget(ws);
-        serveRpc(target, {
-          executeTool: ({ name, args, sessionId }: Record<string, unknown>) =>
+        const handlers: RpcHandlers = {
+          executeTool: (req) =>
             localWorker.workerApi.executeTool(
-              name as string,
-              args as Record<string, unknown>,
-              sessionId as string | undefined,
+              req.name,
+              req.args as Record<string, unknown>,
+              undefined,
               30_000,
             ),
-          invokeHook: (
-            { hook, sessionId, text, error: err }: Record<string, unknown>,
-          ) =>
+          invokeHook: (req) =>
             localWorker.workerApi.invokeHook(
-              hook as string,
-              sessionId as string,
-              {
-                text: text as string | undefined,
-                error: err as string | undefined,
-              },
+              req.hook,
+              req.sessionId,
+              { text: req.text, error: req.error },
               5_000,
             ),
-        });
+        };
+        serveRpc(target, handlers);
 
         resolve(ws);
       } else if (msg.type === "dev_error") {

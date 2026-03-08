@@ -31,6 +31,11 @@ export const RpcRequestSchema = z.discriminatedUnion("type", [
     text: z.string().optional(),
     error: z.string().optional(),
   }),
+  z.object({
+    id: z.number(),
+    type: z.literal("execute"),
+    code: z.string(),
+  }),
 ]);
 
 export type RpcRequest = z.infer<typeof RpcRequestSchema>;

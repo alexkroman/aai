@@ -5,7 +5,12 @@ import type {
   ToolContext,
   ToolDef,
 } from "../sdk/types.ts";
-import { createRpcCaller, type MessageTarget, serveRpc } from "./_rpc.ts";
+import {
+  createRpcCaller,
+  type MessageTarget,
+  type RpcHandlers,
+  serveRpc,
+} from "./_rpc.ts";
 
 export const TOOL_HANDLER_TIMEOUT = 30_000;
 
@@ -94,38 +99,35 @@ export function startWorker(
 
   const port: MessageTarget = endpoint ?? self as unknown as MessageTarget;
 
-  serveRpc(port, {
-    executeTool: ({ name, args, sessionId }: Record<string, unknown>) => {
-      const tool = toolHandlers.get(name as string);
-      if (!tool) return `Error: Unknown tool "${name}"`;
+  const handlers: RpcHandlers = {
+    executeTool(req) {
+      const tool = toolHandlers.get(req.name);
+      if (!tool) return `Error: Unknown tool "${req.name}"`;
       return executeToolCall(
-        name as string,
-        args as Record<string, unknown>,
+        req.name,
+        req.args as Record<string, unknown>,
         tool,
         env,
-        sessionId as string | undefined,
+        undefined,
       );
     },
 
-    invokeHook: async ({
-      hook,
-      sessionId,
-      text,
-      error,
-    }: Record<string, unknown>) => {
+    async invokeHook(req) {
       const ctx: HookContext = {
-        sessionId: sessionId as string,
+        sessionId: req.sessionId,
         env: { ...env },
       };
-      if (hook === "onConnect") {
+      if (req.hook === "onConnect") {
         await agent.onConnect?.(ctx);
-      } else if (hook === "onDisconnect") {
+      } else if (req.hook === "onDisconnect") {
         await agent.onDisconnect?.(ctx);
-      } else if (hook === "onTurn" && text !== undefined) {
-        await agent.onTurn?.(text as string, ctx);
-      } else if (hook === "onError" && error !== undefined) {
-        agent.onError?.(new Error(error as string), ctx);
+      } else if (req.hook === "onTurn" && req.text !== undefined) {
+        await agent.onTurn?.(req.text, ctx);
+      } else if (req.hook === "onError" && req.error !== undefined) {
+        agent.onError?.(new Error(req.error), ctx);
       }
     },
-  });
+  };
+
+  serveRpc(port, handlers);
 }

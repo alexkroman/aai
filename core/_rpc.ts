@@ -1,15 +1,21 @@
 // Shared postMessage RPC helpers used by both worker and host sides.
 
-import { RpcResponseSchema } from "./_rpc_schema.ts";
+import {
+  type RpcRequest,
+  RpcRequestSchema,
+  RpcResponseSchema,
+} from "./_rpc_schema.ts";
 
 export type MessageTarget = {
   onmessage: ((e: MessageEvent) => void) | null;
   postMessage(message: unknown): void;
 };
 
-type Handler = (
-  params: Record<string, unknown>,
-) => Promise<unknown> | unknown;
+export type RpcHandlers = {
+  [K in RpcRequest["type"]]?: (
+    params: Extract<RpcRequest, { type: K }>,
+  ) => Promise<unknown> | unknown;
+};
 
 type PendingCall = {
   resolve: (value: unknown) => void;
@@ -19,21 +25,34 @@ type PendingCall = {
 
 export function serveRpc(
   port: MessageTarget,
-  methods: Record<string, Handler>,
+  methods: RpcHandlers,
 ): void {
   port.onmessage = async (e: MessageEvent) => {
-    const { id, type, ...params } = e.data;
-    const fn = methods[type];
+    const parsed = RpcRequestSchema.safeParse(e.data);
+    if (!parsed.success) {
+      const id = (e.data as { id?: number }).id;
+      if (typeof id === "number") {
+        port.postMessage({ id, error: `Invalid RPC request` });
+      }
+      return;
+    }
+    const req = parsed.data;
+    const fn = methods[req.type] as
+      | ((params: RpcRequest) => Promise<unknown> | unknown)
+      | undefined;
     if (!fn) {
-      port.postMessage({ id, error: `Unknown method: ${type}` });
+      port.postMessage({
+        id: req.id,
+        error: `Unknown RPC method "${req.type}"`,
+      });
       return;
     }
     try {
-      const result = await fn(params);
-      port.postMessage({ id, result });
+      const result = await fn(req);
+      port.postMessage({ id: req.id, result });
     } catch (err: unknown) {
       port.postMessage({
-        id,
+        id: req.id,
         error: err instanceof Error ? err.message : String(err),
       });
     }

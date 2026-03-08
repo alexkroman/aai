@@ -6,7 +6,7 @@ serveRpc(
     postMessage(m: unknown): void;
   },
   {
-    execute: ({ code }: Record<string, unknown>) => {
+    execute({ code }) {
       const output: string[] = [];
       const capture = (...args: unknown[]) =>
         output.push(args.map(String).join(" "));
@@ -21,7 +21,7 @@ serveRpc(
 
       const AsyncFunction = Object.getPrototypeOf(async function () {})
         .constructor;
-      const fn = new AsyncFunction("console", code as string);
+      const fn = new AsyncFunction("console", code);
       return fn(fakeConsole).then(
         () => ({ output: output.join("\n") }),
         (err: unknown) => ({
