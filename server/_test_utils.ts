@@ -1,9 +1,9 @@
-import type { ChatMessage, LLMResponse } from "./types.ts";
+import type { ChatMessage, LLMResponse } from "@aai/server/types";
 import {
   type BundleStore,
   createBundleStore,
   createMemoryS3Client,
-} from "./bundle_store_tigris.ts";
+} from "@aai/server/bundle-store-tigris";
 
 export const flush = (): Promise<void> =>
   new Promise<void>((r) => setTimeout(r, 0));

@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
 import { assertSpyCalls, stub } from "@std/testing/mock";
-import { error, info, step, stepInfo, warn } from "./_output.ts";
+import { error, info, step, stepInfo, warn } from "@aai/cli/_output";
 
 Deno.test("step writes action prefix to stdout", () => {
   const logStub = stub(console, "log");

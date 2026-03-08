@@ -1,6 +1,9 @@
 import { deadline } from "@std/async/deadline";
-import { createOrchestrator } from "./orchestrator.ts";
-import { createBundleStore, createS3Client } from "./bundle_store_tigris.ts";
+import { createOrchestrator } from "@aai/server/orchestrator";
+import {
+  createBundleStore,
+  createS3Client,
+} from "@aai/server/bundle-store-tigris";
 
 try {
   const { load } = await import("@std/dotenv");
@@ -12,7 +15,9 @@ let s3;
 if (Deno.env.get("AWS_ENDPOINT_URL_S3")) {
   s3 = createS3Client();
 } else {
-  const { createMemoryS3Client } = await import("./bundle_store_tigris.ts");
+  const { createMemoryS3Client } = await import(
+    "@aai/server/bundle-store-tigris"
+  );
   s3 = createMemoryS3Client();
   console.info("Using in-memory storage (no S3 configured)");
 }

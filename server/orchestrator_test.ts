@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
-import { createOrchestrator } from "./orchestrator.ts";
-import { createTestStore, DUMMY_INFO } from "./_test_utils.ts";
+import { createOrchestrator } from "@aai/server/orchestrator";
+import { createTestStore, DUMMY_INFO } from "@aai/server/testing";
 
 Deno.test("createOrchestrator 404s", async (t) => {
   await t.step("returns landing page for root path", async () => {

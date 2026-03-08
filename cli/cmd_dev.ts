@@ -2,9 +2,9 @@ import { parseArgs } from "@std/cli/parse-args";
 import { debounce } from "@std/async/debounce";
 import { encodeBase64 } from "@std/encoding/base64";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
-import { error, stepInfo } from "./_output.ts";
-import { runBuild } from "./build.ts";
-import type { AgentEntry } from "./_discover.ts";
+import { error, stepInfo } from "@aai/cli/_output";
+import { runBuild } from "@aai/cli/build";
+import type { AgentEntry } from "@aai/cli/_discover";
 import {
   createWebSocketTarget,
   type RpcHandlers,
@@ -13,7 +13,7 @@ import {
 import { createDenoWorker } from "@aai/core/deno-worker";
 import { createWorkerApi } from "@aai/core/worker-entry";
 
-import { DEFAULT_SERVER } from "./_discover.ts";
+import { DEFAULT_SERVER } from "@aai/cli/_discover";
 
 function spawnLocalWorker(
   workerCode: string,
@@ -82,7 +82,7 @@ ${bold("OPTIONS:")}
     resolveSlug,
     saveAgentLink,
   } = await import(
-    "./_discover.ts"
+    "@aai/cli/_discover"
   );
   const apiKey = await getApiKey();
   const namespace = await getNamespace();

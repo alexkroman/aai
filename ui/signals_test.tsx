@@ -6,9 +6,9 @@ import {
   installMockLocation,
   installMockWebSocket,
   setupDOM,
-} from "./_test_utils.ts";
-import { createSessionControls, useSession } from "./signals.tsx";
-import { createVoiceSession, type VoiceSession } from "./session.ts";
+} from "@aai/ui/_test-utils";
+import { createSessionControls, useSession } from "@aai/ui/signals";
+import { createVoiceSession, type VoiceSession } from "@aai/ui/session";
 
 function withSignalsEnv(
   fn: (ctx: {

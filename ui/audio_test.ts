@@ -1,11 +1,11 @@
 import { expect } from "@std/expect";
 import { spy } from "@std/testing/mock";
-import { createVoiceIO } from "./audio.ts";
+import { createVoiceIO } from "@aai/ui/audio";
 import {
   findWorkletNode,
   MockAudioContext,
   withAudioMocks,
-} from "./_test_utils.ts";
+} from "@aai/ui/_test-utils";
 
 const noop = () => {};
 

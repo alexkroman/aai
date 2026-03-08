@@ -4,10 +4,10 @@ import {
   registerSlot,
   trackSessionClose,
   trackSessionOpen,
-} from "./worker_pool.ts";
-import type { WorkerApi } from "../core/_worker_entry.ts";
+} from "@aai/server/worker-pool";
+import type { WorkerApi } from "@aai/core/worker-entry";
 import { createRpcCaller } from "@aai/core/rpc";
-import { VALID_ENV } from "./_test_utils.ts";
+import { VALID_ENV } from "@aai/server/testing";
 
 function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
   return {

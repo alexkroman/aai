@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import { createTestStore, VALID_ENV } from "./_test_utils.ts";
+import { createTestStore, VALID_ENV } from "@aai/server/testing";
 
 Deno.test("TigrisBundleStore", async (t) => {
   await t.step("put + get round-trip", async () => {

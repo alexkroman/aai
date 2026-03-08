@@ -4,7 +4,7 @@ import {
   _internals,
   executeBuiltinTool,
   getBuiltinToolSchemas,
-} from "./builtin_tools.ts";
+} from "@aai/server/builtin-tools";
 
 function mockFetch(body: string, status = 200, statusText = "OK") {
   return (() =>

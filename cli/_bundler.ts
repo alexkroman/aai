@@ -10,7 +10,7 @@ import type { InitializeOptions } from "esbuild-wasm-types";
 import { denoPlugin } from "@deno/esbuild-plugin";
 import { dirname, fromFileUrl, join, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
-import type { AgentEntry } from "./_discover.ts";
+import type { AgentEntry } from "@aai/cli/_discover";
 
 export function bundleError(message: string): Error {
   const err = new Error(message);
@@ -87,6 +87,16 @@ const WORKSPACE_ALIASES: Record<string, string> = {
   "@aai/core/rpc-schema": resolve(AAI_ROOT, "core/_rpc_schema.ts"),
   "@aai/core/deno-worker": resolve(AAI_ROOT, "core/_deno_worker.ts"),
   "@aai/ui": resolve(AAI_ROOT, "ui/mod.ts"),
+  "@aai/ui/types": resolve(AAI_ROOT, "ui/types.ts"),
+  "@aai/ui/session": resolve(AAI_ROOT, "ui/session.ts"),
+  "@aai/ui/signals": resolve(AAI_ROOT, "ui/signals.tsx"),
+  "@aai/ui/theme": resolve(AAI_ROOT, "ui/theme.ts"),
+  "@aai/ui/mount": resolve(AAI_ROOT, "ui/mount.tsx"),
+  "@aai/ui/components": resolve(AAI_ROOT, "ui/components.tsx"),
+  "@aai/ui/audio": resolve(AAI_ROOT, "ui/audio.ts"),
+  "@aai/ui/resample": resolve(AAI_ROOT, "ui/resample.ts"),
+  "@aai/ui/styles": resolve(AAI_ROOT, "ui/styles.ts"),
+  "@aai/ui/client": resolve(AAI_ROOT, "ui/client.tsx"),
 };
 
 function workspaceAliasPlugin(): Plugin {

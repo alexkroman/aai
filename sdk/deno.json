@@ -1,6 +1,6 @@
 {
   "name": "@aai/sdk",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
@@ -12,7 +12,9 @@
     "zod": "jsr:@zod/zod@^4.3.6"
   },
   "publish": {
-    "exclude": ["*_test.ts"]
+    "exclude": [
+      "*_test.ts"
+    ]
   },
   "lint": {}
 }

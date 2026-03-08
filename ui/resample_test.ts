@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import { resample } from "./resample.ts";
+import { resample } from "@aai/ui/resample";
 
 Deno.test("resample", async (t) => {
   await t.step("returns same array when rates match", () => {
