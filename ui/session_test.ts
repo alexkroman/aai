@@ -6,7 +6,7 @@ import {
   type VoiceSession,
 } from "@aai/ui/session";
 import { PING_INTERVAL_MS, type SessionOptions } from "@aai/ui/types";
-import { flush, installMockWebSocket } from "@aai/ui/_test-utils";
+import { flush, installMockWebSocket } from "@aai/ui/test-utils";
 
 function withSessionEnv(
   fn: (mock: ReturnType<typeof installMockWebSocket>) => void | Promise<void>,

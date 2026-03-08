@@ -1,6 +1,6 @@
-import { hasExternalImports } from "@aai/cli/_discover";
-import type { AgentEntry } from "@aai/cli/_discover";
-import { importTempModule } from "@aai/cli/_bundler";
+import { hasExternalImports } from "@aai/cli/discover";
+import type { AgentEntry } from "@aai/cli/discover";
+import { importTempModule } from "@aai/cli/bundler";
 import type { AgentDef, ToolContext, ToolDef } from "@aai/sdk/types";
 
 type ValidationError = {

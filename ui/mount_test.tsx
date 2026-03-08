@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
 import { render } from "preact";
-import { installMockWebSocket, setupDOM } from "@aai/ui/_test-utils";
+import { installMockWebSocket, setupDOM } from "@aai/ui/test-utils";
 import { mount } from "@aai/ui/mount";
 import { defaultTheme } from "@aai/ui/theme";
 

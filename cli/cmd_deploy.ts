@@ -1,6 +1,6 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
-import { error, step, stepInfo } from "@aai/cli/_output";
+import { error, step, stepInfo } from "@aai/cli/output";
 import { runBuild } from "@aai/cli/build";
 import { runDeploy } from "@aai/cli/deploy";
 
@@ -29,12 +29,12 @@ ${bold("OPTIONS:")}
   }
 
   const cwd = Deno.env.get("INIT_CWD") || Deno.cwd();
-  const { DEFAULT_SERVER } = await import("@aai/cli/_discover");
+  const { DEFAULT_SERVER } = await import("@aai/cli/discover");
   const serverUrl = flags.server || DEFAULT_SERVER;
 
   const { getApiKey, getNamespace, resolveSlug, saveAgentLink, saveNamespace } =
     await import(
-      "@aai/cli/_discover"
+      "@aai/cli/discover"
     );
   const apiKey = await getApiKey();
   const namespace = await getNamespace();

@@ -1,4 +1,4 @@
-import { installDomShim } from "@aai/ui/_dom-shim";
+import { installDomShim } from "@aai/ui/dom-shim";
 import { DOMParser } from "@b-fuze/deno-dom";
 import { signal } from "@preact/signals";
 import type { SessionSignals } from "@aai/ui/signals";

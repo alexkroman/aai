@@ -1,7 +1,7 @@
 import { bold, cyan, dim, green } from "@std/fmt/colors";
 import { dirname, fromFileUrl, join } from "@std/path";
-import { error } from "@aai/cli/_output";
-import { promptUpgradeIfAvailable } from "@aai/cli/_update";
+import { error } from "@aai/cli/output";
+import { promptUpgradeIfAvailable } from "@aai/cli/update";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;

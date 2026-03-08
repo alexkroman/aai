@@ -2,7 +2,7 @@ import { expect } from "@std/expect";
 import { FakeTime } from "@std/testing/time";
 import { render } from "preact";
 import { signal } from "@preact/signals";
-import { createMockSignals, getContainer, setupDOM } from "@aai/ui/_test-utils";
+import { createMockSignals, getContainer, setupDOM } from "@aai/ui/test-utils";
 import { SessionProvider } from "@aai/ui/signals";
 import {
   App,

@@ -1,6 +1,6 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { bold, cyan, green } from "@std/fmt/colors";
-import { error } from "@aai/cli/_output";
+import { error } from "@aai/cli/output";
 import { runBuild } from "@aai/cli/build";
 
 export async function runBuildCommand(args: string[]): Promise<number> {

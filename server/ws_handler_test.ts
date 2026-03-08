@@ -1,7 +1,7 @@
 import { expect } from "@std/expect";
 import { handleSessionWebSocket } from "@aai/server/ws-handler";
 import type { Session } from "@aai/server/session";
-import { MockWebSocket } from "@aai/server/_mock-ws";
+import { MockWebSocket } from "@aai/server/mock-ws";
 import { flush } from "@aai/server/testing";
 
 function createSpySession(): Session & { calls: string[] } {

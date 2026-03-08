@@ -2,7 +2,7 @@ import { parseArgs } from "@std/cli/parse-args";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
-import { ensureClaudeMd } from "@aai/cli/_discover";
+import { ensureClaudeMd } from "@aai/cli/discover";
 
 export async function runNewCommand(
   args: string[],

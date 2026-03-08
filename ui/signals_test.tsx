@@ -6,7 +6,7 @@ import {
   installMockLocation,
   installMockWebSocket,
   setupDOM,
-} from "@aai/ui/_test-utils";
+} from "@aai/ui/test-utils";
 import { createSessionControls, useSession } from "@aai/ui/signals";
 import { createVoiceSession, type VoiceSession } from "@aai/ui/session";
 

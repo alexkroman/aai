@@ -5,7 +5,7 @@ import {
   findWorkletNode,
   MockAudioContext,
   withAudioMocks,
-} from "@aai/ui/_test-utils";
+} from "@aai/ui/test-utils";
 
 const noop = () => {};
 

@@ -1,6 +1,6 @@
 import { deadline } from "@std/async/deadline";
 import { type STTConfig, SttMessageSchema } from "@aai/server/types";
-import { createWebSocketWithHeaders } from "@aai/server/_deno-ws";
+import { createWebSocketWithHeaders } from "@aai/server/deno-ws";
 
 const STT_CONNECTION_TIMEOUT = 10_000;
 
