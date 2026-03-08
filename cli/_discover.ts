@@ -170,14 +170,6 @@ export async function saveAgentLink(
   await writeConfig(config);
 }
 
-/** Get the saved agent link for a directory. */
-export async function getAgentLink(
-  dir: string,
-): Promise<AgentLink | undefined> {
-  const config = await readConfig();
-  return config.agents?.[resolve(dir)];
-}
-
 // -- Agent discovery ----------------------------------------------------------
 
 export interface AgentManifestConfig {

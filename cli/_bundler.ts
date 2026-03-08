@@ -62,7 +62,7 @@ function ensureInit() {
 }
 
 /** Strip TypeScript type annotations, returning plain JavaScript. */
-export async function stripTypes(source: string): Promise<string> {
+async function stripTypes(source: string): Promise<string> {
   await ensureInit();
   const result = await transform(source, { loader: "ts" });
   return result.code;

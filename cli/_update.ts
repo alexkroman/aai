@@ -12,7 +12,7 @@ function detectTarget(): string {
 }
 
 /** Check GitHub for a newer release. Returns the new version or null. */
-export async function checkForUpdate(
+async function checkForUpdate(
   currentVersion: string,
 ): Promise<string | null> {
   try {

@@ -35,6 +35,3 @@ export function warn(msg: string): void {
 export function error(msg: string): void {
   console.error(`${red(bold("error"))}: ${msg}`);
 }
-
-// Re-export color functions for direct use
-export { bold, cyan, dim, green };

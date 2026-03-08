@@ -7,12 +7,10 @@ import type { AgentInfo, AgentSlot, WorkerHandle } from "./worker_pool.ts";
 import type { ServerContext } from "./transport_twilio.ts";
 import { hashApiKey } from "./deploy.ts";
 
-export type DevSessionContext = ServerContext;
-
 export function handleDevWebSocket(
   req: Request,
   slug: string,
-  ctx: DevSessionContext,
+  ctx: ServerContext,
 ): Response {
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
     return Response.json(
@@ -88,7 +86,7 @@ async function registerDevAgent(
   slug: string,
   msg: DevRegister,
   ownerHash: string,
-  ctx: DevSessionContext,
+  ctx: ServerContext,
 ): Promise<void> {
   // Create a MessageTarget adapter so standard RPC works over this WebSocket
   const target = createWebSocketTarget(ws);
