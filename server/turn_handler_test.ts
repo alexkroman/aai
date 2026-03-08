@@ -1,4 +1,5 @@
 import { expect } from "@std/expect";
+import { assertSpyCalls, spy } from "@std/testing/mock";
 import { executeTurn, type TurnCallLLMOptions } from "./turn_handler.ts";
 import { createMockLLMResponse, resolvesNext } from "./_test_utils.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";
@@ -13,19 +14,18 @@ function ctx(overrides?: {
     args: Record<string, unknown>,
   ) => Promise<string>;
 }) {
-  const toolCalls: { name: string; args: Record<string, unknown> }[] = [];
+  const executeTool = spy(
+    overrides?.executeTool ??
+      ((_name: string, _args: Record<string, unknown>) =>
+        Promise.resolve('"tool result"')),
+  );
   return {
     messages: overrides?.messages ??
       [{ role: "system" as const, content: "You are helpful." }],
     toolSchemas: overrides?.toolSchemas ?? [] as ToolSchema[],
     callLLM: overrides?.callLLM ??
       (() => Promise.resolve(createMockLLMResponse("Hello from LLM"))),
-    executeTool: overrides?.executeTool ??
-      ((name: string, args: Record<string, unknown>) => {
-        toolCalls.push({ name, args });
-        return Promise.resolve('"tool result"');
-      }),
-    toolCalls,
+    executeTool,
   };
 }
 
@@ -52,15 +52,12 @@ Deno.test("pushes user message and returns LLM text", async () => {
 
 Deno.test("passes signal to callLLM", async () => {
   const abort = new AbortController();
-  let receivedSignal: AbortSignal | undefined;
-  const c = ctx({
-    callLLM: (opts: TurnCallLLMOptions) => {
-      receivedSignal = opts.signal;
-      return Promise.resolve(createMockLLMResponse("ok"));
-    },
-  });
+  const callLLM = spy((_opts: TurnCallLLMOptions) =>
+    Promise.resolve(createMockLLMResponse("ok"))
+  );
+  const c = ctx({ callLLM });
   await run(c, "Hi", abort.signal);
-  expect(receivedSignal).toBe(abort.signal);
+  expect(callLLM.calls[0].args[0].signal).toBe(abort.signal);
 });
 
 Deno.test("returns fallback text when LLM content is null", async () => {
@@ -100,7 +97,8 @@ Deno.test("executes tool and re-calls LLM with results", async () => {
   });
   const result = await run(c, "Weather?");
   expect(result).toBe("Sunny in NYC.");
-  expect(c.toolCalls).toEqual([{ name: "get_weather", args: { city: "NYC" } }]);
+  assertSpyCalls(c.executeTool, 1);
+  expect(c.executeTool.calls[0].args).toEqual(["get_weather", { city: "NYC" }]);
   expect(c.messages[3].role).toBe("tool");
 });
 
@@ -155,7 +153,7 @@ Deno.test("executes multiple tool calls in parallel", async () => {
   });
   const result = await run(c, "Go");
   expect(result).toBe("Both done.");
-  expect(c.toolCalls.length).toBe(2);
+  assertSpyCalls(c.executeTool, 2);
   const toolMsgs = c.messages.filter((m) => m.role === "tool");
   expect(toolMsgs[0].tool_call_id).toBe("c1");
   expect(toolMsgs[1].tool_call_id).toBe("c2");
@@ -185,21 +183,17 @@ Deno.test("forces final_answer after MAX_TOOL_ITERATIONS", async () => {
     },
   ];
 
-  let callCount = 0;
-  const c = ctx({
-    toolSchemas: schemas,
-    callLLM: (opts: TurnCallLLMOptions) => {
-      callCount++;
-      if (opts.tools.length === 1 && opts.tools[0].name === "final_answer") {
-        return Promise.resolve(forcedResp);
-      }
-      return Promise.resolve(toolResp);
-    },
+  const callLLM = spy((opts: TurnCallLLMOptions) => {
+    if (opts.tools.length === 1 && opts.tools[0].name === "final_answer") {
+      return Promise.resolve(forcedResp);
+    }
+    return Promise.resolve(toolResp);
   });
+  const c = ctx({ toolSchemas: schemas, callLLM });
   const result = await run(c, "Go");
   expect(result).toBe("Here are the results.");
-  expect(c.toolCalls.length).toBe(5);
-  expect(callCount).toBe(6);
+  assertSpyCalls(c.executeTool, 5);
+  assertSpyCalls(callLLM, 6);
 });
 
 Deno.test("skips truncated tool calls on max_tokens and retries", async () => {
@@ -229,7 +223,7 @@ Deno.test("skips truncated tool calls on max_tokens and retries", async () => {
   });
   const result = await run(c, "Run code");
   expect(result).toBe("Here you go.");
-  expect(c.toolCalls.length).toBe(0);
+  assertSpyCalls(c.executeTool, 0);
 });
 
 // --- final_answer and user_input ---
@@ -241,23 +235,20 @@ for (
   ] as const
 ) {
   Deno.test(`${toolName} short-circuits the loop`, async () => {
-    let callCount = 0;
-    const c = ctx({
-      callLLM: () => {
-        callCount++;
-        return Promise.resolve(
-          createMockLLMResponse(null, [{
-            id: "c1",
-            name: toolName,
-            arguments: JSON.stringify({ [field]: expected }),
-          }]),
-        );
-      },
-    });
+    const callLLM = spy(() =>
+      Promise.resolve(
+        createMockLLMResponse(null, [{
+          id: "c1",
+          name: toolName,
+          arguments: JSON.stringify({ [field]: expected }),
+        }]),
+      )
+    );
+    const c = ctx({ callLLM });
     const result = await run(c, input);
     expect(result).toBe(expected);
-    expect(c.toolCalls.length).toBe(0);
-    expect(callCount).toBe(1);
+    assertSpyCalls(c.executeTool, 0);
+    assertSpyCalls(callLLM, 1);
   });
 
   Deno.test(`${toolName} wins over other tool calls`, async () => {
@@ -275,7 +266,7 @@ for (
     });
     const result = await run(c, "Search");
     expect(result).toBe(expected);
-    expect(c.toolCalls.length).toBe(0);
+    assertSpyCalls(c.executeTool, 0);
   });
 
   Deno.test(`${toolName} returns empty string for malformed arguments`, async () => {

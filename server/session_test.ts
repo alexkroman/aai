@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import { stub } from "@std/testing/mock";
+import { assertSpyCalls, stub } from "@std/testing/mock";
 import { _internals, createSession } from "./session.ts";
 import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import {
@@ -162,23 +162,23 @@ Deno.test("onAudioReady sends greeting and starts TTS", async () => {
   ctx.session.onAudioReady();
   const chat = getSentJson(ctx.transport).find((m) => m.type === "chat");
   expect(chat!.text).toBe("Hi there!");
-  expect(ctx.ttsClient.synthesizeStreamCalls).toBeGreaterThan(0);
+  expect(ctx.ttsClient.synthesizeStream.calls.length).toBeGreaterThan(0);
 });
 
 Deno.test("onAudioReady is a no-op on second call", async () => {
   using ctx = setup();
   await ctx.session.start();
   ctx.session.onAudioReady();
-  const firstCount = ctx.ttsClient.synthesizeStreamCalls;
+  const firstCount = ctx.ttsClient.synthesizeStream.calls.length;
   ctx.session.onAudioReady();
-  expect(ctx.ttsClient.synthesizeStreamCalls).toBe(firstCount);
+  expect(ctx.ttsClient.synthesizeStream.calls.length).toBe(firstCount);
 });
 
 Deno.test("onAudio relays data to STT handle", async () => {
   using ctx = setup();
   await ctx.session.start();
   ctx.session.onAudio(new Uint8Array([1, 2, 3]));
-  expect(ctx.sttHandle.sentData.length).toBe(1);
+  assertSpyCalls(ctx.sttHandle.send, 1);
 });
 
 Deno.test("onAudio does not throw before STT is connected", () => {
@@ -193,7 +193,7 @@ Deno.test("onCancel clears STT and sends CANCELLED", async () => {
   using ctx = setup();
   await ctx.session.start();
   ctx.session.onCancel();
-  expect(ctx.sttHandle.clearCalled).toBe(true);
+  assertSpyCalls(ctx.sttHandle.clear, 1);
   expect(getSentJson(ctx.transport).find((m) => m.type === "cancelled"))
     .toBeDefined();
 });
@@ -202,7 +202,7 @@ Deno.test("onReset sends RESET and re-sends greeting", async () => {
   using ctx = setup();
   await ctx.session.start();
   ctx.session.onReset();
-  expect(ctx.sttHandle.clearCalled).toBe(true);
+  assertSpyCalls(ctx.sttHandle.clear, 1);
   const messages = getSentJson(ctx.transport);
   expect(messages.find((m) => m.type === "reset")).toBeDefined();
   expect(messages.filter((m) => m.type === "chat").length).toBeGreaterThan(0);
@@ -221,7 +221,7 @@ Deno.test("handleTurn sends TURN, CHAT, triggers TTS", async () => {
   expect(messages.find((m) => m.type === "chat")!.text).toBe(
     "Hello from LLM",
   );
-  expect(ctx.ttsClient.synthesizeStreamCalls).toBeGreaterThan(0);
+  expect(ctx.ttsClient.synthesizeStream.calls.length).toBeGreaterThan(0);
 });
 
 Deno.test("handleTurn handles tool calls", async () => {
@@ -244,8 +244,8 @@ Deno.test("handleTurn handles tool calls", async () => {
   ctx.events.current!.onTurn("What's the weather in NYC?");
   await ctx.session.waitForTurn();
 
-  expect(ctx.executeTool.calls.length).toBe(1);
-  expect(ctx.executeTool.calls[0].name).toBe("get_weather");
+  assertSpyCalls(ctx.executeTool.fn, 1);
+  expect(ctx.executeTool.fn.calls[0].args[0]).toBe("get_weather");
   expect(getSentJson(ctx.transport).find((m) => m.type === "chat")!.text).toBe(
     "It's sunny in NYC.",
   );
@@ -335,15 +335,15 @@ Deno.test("stop closes STT and TTS", async () => {
   using ctx = setup();
   await ctx.session.start();
   await ctx.session.stop();
-  expect(ctx.sttHandle.closeCalled).toBe(true);
-  expect(ctx.ttsClient.closeCalled).toBe(true);
+  assertSpyCalls(ctx.sttHandle.close, 1);
+  assertSpyCalls(ctx.ttsClient.close, 1);
 });
 
 Deno.test("stop is idempotent", async () => {
   using ctx = setup();
   await ctx.session.start();
   await ctx.session.stop();
-  const firstCloseCount = ctx.ttsClient.closeCalled;
+  assertSpyCalls(ctx.ttsClient.close, 1);
   await ctx.session.stop();
-  expect(ctx.ttsClient.closeCalled).toBe(firstCloseCount);
+  assertSpyCalls(ctx.ttsClient.close, 1);
 });

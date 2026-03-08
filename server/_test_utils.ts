@@ -1,8 +1,6 @@
 import type { SessionOptions, SessionTransport } from "./session.ts";
-import type { SttEvents, SttHandle } from "./stt.ts";
-import type { ExecuteTool } from "../core/_worker_entry.ts";
 import type { PlatformConfig } from "./config.ts";
-import { resolvesNext } from "@std/testing/mock";
+import { resolvesNext, spy } from "@std/testing/mock";
 import type { CallLLMOptions } from "./llm.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";
 import { DEFAULT_STT_CONFIG, DEFAULT_TTS_CONFIG } from "./types.ts";
@@ -37,81 +35,52 @@ export function getSentJson(
     .map((s) => JSON.parse(s));
 }
 
-export function createMockSttHandle(): SttHandle & {
-  sentData: Uint8Array[];
-  clearCalled: boolean;
-  closeCalled: boolean;
-} {
-  const sentData: Uint8Array[] = [];
+export function createMockSttHandle() {
   return {
-    sentData,
-    clearCalled: false,
-    closeCalled: false,
-    send(audio: Uint8Array) {
-      sentData.push(audio);
-    },
-    clear() {
-      this.clearCalled = true;
-    },
-    close() {
-      this.closeCalled = true;
-    },
+    send: spy((_audio: Uint8Array) => {}),
+    clear: spy(() => {}),
+    close: spy(() => {}),
   };
 }
 
-export type MockTtsClient = {
-  synthesizeStreamCalls: number;
-  streamedText: string[];
-  closeCalled: boolean;
-  synthesizeStream(
-    chunks: string | AsyncIterable<string>,
-    onAudio: (chunk: Uint8Array) => void,
-    signal?: AbortSignal,
-  ): Promise<void>;
-  close(): void;
-};
-
-export function createMockTtsClient(): MockTtsClient {
+export function createMockTtsClient() {
+  const streamedText: string[] = [];
   return {
-    synthesizeStreamCalls: 0,
-    streamedText: [],
-    closeCalled: false,
-    async synthesizeStream(
-      chunks: string | AsyncIterable<string>,
-      _onAudio: (chunk: Uint8Array) => void,
-      _signal?: AbortSignal,
-    ): Promise<void> {
-      this.synthesizeStreamCalls++;
-      if (typeof chunks === "string") {
-        this.streamedText.push(chunks);
-      } else {
-        for await (const text of chunks) {
-          this.streamedText.push(text);
+    streamedText,
+    synthesizeStream: spy(
+      async (
+        chunks: string | AsyncIterable<string>,
+        _onAudio: (chunk: Uint8Array) => void,
+        _signal?: AbortSignal,
+      ): Promise<void> => {
+        if (typeof chunks === "string") {
+          streamedText.push(chunks);
+        } else {
+          for await (const text of chunks) {
+            streamedText.push(text);
+          }
         }
-      }
-    },
-    close() {
-      this.closeCalled = true;
-    },
+      },
+    ),
+    close: spy(() => {}),
   };
 }
 
-export type MockExecuteTool = {
-  fn: ExecuteTool;
-  calls: { name: string; args: Record<string, unknown> }[];
-  mockResult: string;
-};
-
-export function createMockExecuteTool(): MockExecuteTool {
-  const mock: MockExecuteTool = {
-    fn: (name: string, args: Record<string, unknown>) => {
-      mock.calls.push({ name, args });
-      return Promise.resolve(mock.mockResult);
+export function createMockExecuteTool() {
+  let mockResult = '"tool result"';
+  const fn = spy(
+    (_name: string, _args: Record<string, unknown>, _sessionId?: string) =>
+      Promise.resolve(mockResult),
+  );
+  return {
+    fn,
+    get mockResult() {
+      return mockResult;
     },
-    calls: [],
-    mockResult: '"tool result"',
+    set mockResult(v: string) {
+      mockResult = v;
+    },
   };
-  return mock;
 }
 
 function createMockPlatformConfig(): PlatformConfig {
@@ -154,13 +123,13 @@ export function createMockLLMResponse(
   };
 }
 
-export { resolvesNext } from "@std/testing/mock";
+export { assertSpyCalls, resolvesNext } from "@std/testing/mock";
 
 export function createMockSessionOptions(): {
   opts: SessionOptions;
   sttHandle: ReturnType<typeof createMockSttHandle>;
   ttsClient: ReturnType<typeof createMockTtsClient>;
-  executeTool: MockExecuteTool;
+  executeTool: ReturnType<typeof createMockExecuteTool>;
   llmCalls: {
     messages: ChatMessage[];
     tools: ToolSchema[];
@@ -209,47 +178,18 @@ export function createMockSessionOptions(): {
   } as ReturnType<typeof createMockSessionOptions>;
 }
 
-export function createMockSttEvents(
-  overrides?: Partial<SttEvents>,
-): SttEvents & {
-  transcripts: { text: string; isFinal: boolean; turnOrder?: number }[];
-  turns: { text: string; turnOrder?: number }[];
-  terminations: { audioDuration: number; sessionDuration: number }[];
-  errors: Error[];
-  closed: boolean;
-} {
-  const transcripts: { text: string; isFinal: boolean; turnOrder?: number }[] =
-    [];
-  const turns: { text: string; turnOrder?: number }[] = [];
-  const terminations: { audioDuration: number; sessionDuration: number }[] = [];
-  const errors: Error[] = [];
-  let closed = false;
-
+export function createMockSttEvents() {
   return {
-    transcripts,
-    turns,
-    terminations,
-    errors,
-    get closed() {
-      return closed;
-    },
-    onSpeechStarted() {},
-    onTranscript(text, isFinal, turnOrder) {
-      transcripts.push({ text, isFinal, turnOrder });
-    },
-    onTurn(text, turnOrder) {
-      turns.push({ text, turnOrder });
-    },
-    onTermination(audioDuration, sessionDuration) {
-      terminations.push({ audioDuration, sessionDuration });
-    },
-    onError(err) {
-      errors.push(err);
-    },
-    onClose() {
-      closed = true;
-    },
-    ...overrides,
+    onSpeechStarted: spy(() => {}),
+    onTranscript: spy(
+      (_text: string, _isFinal: boolean, _turnOrder?: number) => {},
+    ),
+    onTurn: spy((_text: string, _turnOrder?: number) => {}),
+    onTermination: spy(
+      (_audioDuration: number, _sessionDuration: number) => {},
+    ),
+    onError: spy((_err: Error) => {}),
+    onClose: spy(() => {}),
   };
 }
 
