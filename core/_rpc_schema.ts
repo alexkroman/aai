@@ -5,8 +5,6 @@ import {
   TransportSchema,
 } from "../sdk/_schema.ts";
 
-// ── Agent metadata (stored in manifest, validated on read from S3) ─
-
 export const AgentMetadataSchema = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
@@ -17,8 +15,6 @@ export const AgentMetadataSchema = z.object({
 });
 
 export type AgentMetadata = z.infer<typeof AgentMetadataSchema>;
-
-// ── RPC wire-format types (worker ↔ host postMessage) ───────────
 
 export const RpcRequestSchema = z.discriminatedUnion("type", [
   z.object({

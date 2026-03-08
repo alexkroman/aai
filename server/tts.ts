@@ -1,8 +1,6 @@
 import type { TTSConfig } from "./types.ts";
 
-/** Time (ms) after the last audio chunk before we consider synthesis complete. */
 const IDLE_MS = 300;
-/** Safety timeout (ms) if no audio arrives at all after a flush. */
 const NO_AUDIO_TIMEOUT_MS = 5000;
 
 export function createTtsClient(config: TTSConfig) {
@@ -58,7 +56,6 @@ export function createTtsClient(config: TTSConfig) {
     }
   }
 
-  /** Last error message from a WebSocket close/error, surfaced on connect. */
   let lastError: string | null = null;
 
   function handleClose(event: CloseEvent): void {

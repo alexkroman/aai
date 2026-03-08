@@ -192,7 +192,6 @@ ${bold("OPTIONS:")}
   return 0;
 }
 
-/** Connect to the server, send registration, then serve RPC over the same WebSocket. */
 function connectAndRegister(
   wsUrl: string,
   apiKey: string,

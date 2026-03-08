@@ -11,7 +11,6 @@ function detectTarget(): string {
   return `aai-${os}-${arch}`;
 }
 
-/** Check GitHub for a newer release. Returns the new version or null. */
 async function checkForUpdate(
   currentVersion: string,
 ): Promise<string | null> {
@@ -28,7 +27,6 @@ async function checkForUpdate(
   }
 }
 
-/** Download and replace the current binary with the latest release. */
 async function doUpgrade(newVersion: string): Promise<boolean> {
   const target = detectTarget();
   const url =
@@ -74,7 +72,6 @@ async function doUpgrade(newVersion: string): Promise<boolean> {
   }
 }
 
-/** Check for updates and prompt the user to upgrade if available. */
 export async function promptUpgradeIfAvailable(
   currentVersion: string,
 ): Promise<void> {

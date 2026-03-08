@@ -35,7 +35,7 @@ function sanitizeMessages(messages: ChatMessage[]): ChatMessage[] {
   });
 }
 
-export interface CallLLMOptions {
+export type CallLLMOptions = {
   messages: ChatMessage[];
   tools: ToolSchema[];
   apiKey: string;
@@ -49,7 +49,7 @@ export interface CallLLMOptions {
     | "required"
     | { type: "function"; function: { name: string } };
   maxTokens?: number;
-}
+};
 
 export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
   const base = opts.gatewayBase ?? "https://llm-gateway.assemblyai.com/v1";

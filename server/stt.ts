@@ -3,20 +3,20 @@ import { type STTConfig, SttMessageSchema } from "./types.ts";
 
 const STT_CONNECTION_TIMEOUT = 10_000;
 
-export interface SttEvents {
+export type SttEvents = {
   onSpeechStarted: () => void;
   onTranscript: (text: string, isFinal: boolean, turnOrder?: number) => void;
   onTurn: (text: string, turnOrder?: number) => void;
   onTermination: (audioDuration: number, sessionDuration: number) => void;
   onError: (err: Error) => void;
   onClose: () => void;
-}
+};
 
-export interface SttHandle {
+export type SttHandle = {
   send: (audio: Uint8Array) => void;
   clear: () => void;
   close: () => void;
-}
+};
 
 export async function connectStt(
   apiKey: string,

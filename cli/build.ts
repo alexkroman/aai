@@ -1,22 +1,21 @@
 import { cyan, dim, green, red, yellow } from "@std/fmt/colors";
 import { error, step } from "./_output.ts";
 import { type AgentEntry, loadAgent } from "./_discover.ts";
-import { bundleAgent, BundleError, type BundleOutput } from "./_bundler.ts";
+import { bundleAgent, type BundleOutput } from "./_bundler.ts";
 import { validateAgent, type ValidationResult } from "./_validate.ts";
 
 export type { BundleOutput } from "./_bundler.ts";
 
-export interface BuildResult {
+export type BuildResult = {
   agent: AgentEntry;
   validation: ValidationResult;
   bundle: BundleOutput;
-}
+};
 
-export interface BuildOpts {
+export type BuildOpts = {
   agentDir: string;
-}
+};
 
-/** Validate, bundle, and print warnings. Used by both dev and deploy. */
 export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
   const agent = await loadAgent(opts.agentDir);
   if (!agent) {
@@ -57,7 +56,7 @@ export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
   try {
     bundle = await bundleAgent(agent);
   } catch (err) {
-    if (err instanceof BundleError) {
+    if (err instanceof Error && err.name === "BundleError") {
       console.error(err.message);
       throw new Error("bundle failed — fix the errors above");
     }

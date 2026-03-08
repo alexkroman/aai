@@ -2,24 +2,20 @@
 
 import { RpcResponseSchema } from "./_rpc_schema.ts";
 
-// ── Types ────────────────────────────────────────────────────────────
-
-export interface MessageTarget {
+export type MessageTarget = {
   onmessage: ((e: MessageEvent) => void) | null;
   postMessage(message: unknown): void;
-}
+};
 
 type Handler = (
   params: Record<string, unknown>,
 ) => Promise<unknown> | unknown;
 
-interface PendingCall {
+type PendingCall = {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   timer?: ReturnType<typeof setTimeout>;
-}
-
-// ── Worker side: serve RPC methods ───────────────────────────────────
+};
 
 export function serveRpc(
   port: MessageTarget,
@@ -44,10 +40,6 @@ export function serveRpc(
   };
 }
 
-// ── WebSocket adapter ───────────────────────────────────────────
-
-/** Wraps a WebSocket as a MessageTarget so RPC works over WebSocket
- *  using the same protocol as Worker postMessage. */
 export function createWebSocketTarget(ws: WebSocket): MessageTarget {
   const target: MessageTarget = {
     onmessage: null,
@@ -71,8 +63,6 @@ export function createWebSocketTarget(ws: WebSocket): MessageTarget {
 
   return target;
 }
-
-// ── Host side: call RPC methods ──────────────────────────────────────
 
 export type RpcCall = (
   type: string,

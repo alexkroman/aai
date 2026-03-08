@@ -11,17 +11,6 @@ import {
 export const DEFAULT_STT_SAMPLE_RATE = 16_000;
 export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
 
-// ---------------------------------------------------------------------------
-// Dev control WebSocket protocol
-// ---------------------------------------------------------------------------
-//
-// The CLI opens a control WebSocket to the production server.
-// After a one-time registration handshake, the WebSocket becomes
-// a transparent RPC channel using the same protocol as Worker
-// postMessage (core/_rpc.ts). The server calls executeTool /
-// invokeHook over this channel exactly as it would call a local
-// Worker.
-
 export const DevRegisterSchema = z.object({
   type: z.literal("dev_register"),
   config: AgentConfigSchema,
@@ -37,10 +26,6 @@ export const DevRegisteredSchema = z.object({
   slug: z.string(),
 });
 export type DevRegistered = z.infer<typeof DevRegisteredSchema>;
-
-// ---------------------------------------------------------------------------
-// Server → Client Zod schema (source of truth)
-// ---------------------------------------------------------------------------
 
 export const ServerMessageSchema = z
   .discriminatedUnion("type", [
@@ -76,12 +61,7 @@ export const ServerMessageSchema = z
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 
-/** PCM16 LE audio. Client sends at `sample_rate`, server sends at `tts_sample_rate`. */
 export type AudioFrame = ArrayBuffer;
-
-// ---------------------------------------------------------------------------
-// Client → Server
-// ---------------------------------------------------------------------------
 
 export const ClientMessageSchema = z
   .discriminatedUnion("type", [

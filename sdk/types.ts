@@ -1,34 +1,27 @@
-// --- Agent types (stable SDK surface baked into deployed bundles) ---
-
 import { z } from "zod";
 import type { BuiltinTool, ToolSchema, Transport } from "./_schema.ts";
 export type { AgentConfig, BuiltinTool, ToolSchema } from "./_schema.ts";
 
-export interface ToolContext {
+export type ToolContext = {
   sessionId: string;
   env: Record<string, string>;
   signal?: AbortSignal;
-}
+};
 
-export interface HookContext {
+export type HookContext = {
   sessionId: string;
   env: Record<string, string>;
-}
+};
 
-export interface ToolDef {
+export type ToolDef = {
   description: string;
   parameters?: z.ZodObject<z.ZodRawShape>;
   execute: (
     args: Record<string, unknown>,
     ctx: ToolContext,
   ) => Promise<unknown> | unknown;
-}
+};
 
-/**
- * Rime TTS voice ID. Popular voices listed for autocomplete;
- * any valid Rime speaker ID is accepted.
- * Full catalog: https://docs.rime.ai/api-reference/voices
- */
 export type Voice =
   | "luna"
   | "andromeda"
@@ -51,7 +44,7 @@ export type Voice =
   // deno-lint-ignore ban-types
   | (string & {});
 
-export interface AgentOptions {
+export type AgentOptions = {
   name: string;
   env?: string[];
   transport?: Transport | Transport[];
@@ -65,7 +58,7 @@ export interface AgentOptions {
   onDisconnect?: (ctx: HookContext) => void | Promise<void>;
   onError?: (error: Error, ctx?: HookContext) => void;
   onTurn?: (text: string, ctx: HookContext) => void | Promise<void>;
-}
+};
 
 export const DEFAULT_INSTRUCTIONS: string = `\
 You are a helpful voice assistant. Your goal is to provide accurate, \
@@ -99,8 +92,7 @@ export function agentToolsToSchemas(
   }));
 }
 
-/** Frozen agent definition returned by defineAgent(). */
-export interface AgentDef {
+export type AgentDef = {
   readonly name: string;
   readonly env: readonly string[];
   readonly transport: readonly Transport[];
@@ -114,4 +106,4 @@ export interface AgentDef {
   readonly onDisconnect?: AgentOptions["onDisconnect"];
   readonly onError?: AgentOptions["onError"];
   readonly onTurn?: AgentOptions["onTurn"];
-}
+};

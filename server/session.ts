@@ -18,13 +18,12 @@ import {
 import type { WorkerApi } from "../core/_worker_entry.ts";
 import { buildSystemPrompt } from "./system_prompt.ts";
 
-export interface SessionTransport {
+export type SessionTransport = {
   send(data: string | ArrayBuffer | Uint8Array): void;
   readonly readyState: number;
-}
+};
 
-/** Concrete dependencies resolved before session creation. */
-export interface SessionDeps {
+export type SessionDeps = {
   connectStt(
     apiKey: string,
     config: STTConfig,
@@ -43,9 +42,9 @@ export interface SessionDeps {
     name: string,
     args: Record<string, unknown>,
   ): Promise<string | null>;
-}
+};
 
-export interface SessionOptions {
+export type SessionOptions = {
   id: string;
   transport: SessionTransport;
   agentConfig: AgentConfig;
@@ -56,9 +55,8 @@ export interface SessionOptions {
   getWorkerApi?: () => Promise<WorkerApi>;
   skipGreeting?: boolean;
   deps?: Partial<SessionDeps>;
-}
+};
 
-/** Resolve session deps from options, using defaults for anything not provided. */
 export function resolveSessionDeps(
   opts: SessionOptions,
 ): SessionDeps {
@@ -78,7 +76,7 @@ export function resolveSessionDeps(
   };
 }
 
-export interface Session {
+export type Session = {
   start(): Promise<void>;
   stop(): Promise<void>;
   onAudio(data: Uint8Array): void;
@@ -87,7 +85,7 @@ export interface Session {
   onReset(): void;
   onHistory(messages: { role: "user" | "assistant"; text: string }[]): void;
   waitForTurn(): Promise<void>;
-}
+};
 
 export function createSession(opts: SessionOptions): Session {
   const {

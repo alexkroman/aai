@@ -3,35 +3,24 @@ import type { AgentEntry } from "./_discover.ts";
 import { importTempModule } from "./_bundler.ts";
 import type { AgentDef, ToolContext, ToolDef } from "../sdk/types.ts";
 
-interface ValidationError {
+type ValidationError = {
   field: string;
   message: string;
-}
+};
 
-export interface ToolTestResult {
+export type ToolTestResult = {
   name: string;
   ok: boolean;
   error?: string;
   result?: unknown;
   skipped?: boolean;
-}
+};
 
-export interface ValidationResult {
+export type ValidationResult = {
   errors: ValidationError[];
   toolTests?: ToolTestResult[];
-}
+};
 
-/**
- * Validate an agent by dynamically importing agent.ts.
- * defineAgent() already validates fields -- we just check that
- * the module loads and produces a valid default export.
- *
- * Uses esbuild to strip types before importing because compiled
- * Deno binaries cannot dynamically import TypeScript files.
- *
- * Agents with external imports in deno.json skip validation here --
- * esbuild catches errors during bundling.
- */
 export async function validateAgent(
   agent: AgentEntry,
 ): Promise<ValidationResult> {
@@ -77,7 +66,6 @@ export async function validateAgent(
   return { errors, toolTests };
 }
 
-/** Test each custom tool by invoking execute() with minimal args. */
 async function testTools(
   def: AgentDef,
   agent: AgentEntry,

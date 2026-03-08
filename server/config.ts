@@ -7,14 +7,14 @@ import {
 } from "./types.ts";
 import { EnvSchema } from "../sdk/_schema.ts";
 
-export interface PlatformConfig {
+export type PlatformConfig = {
   apiKey: string;
   sttConfig: STTConfig;
   ttsConfig: TTSConfig;
   model: string;
   llmGatewayBase: string;
   braveApiKey: string;
-}
+};
 
 export function loadPlatformConfig(
   env: Record<string, string | undefined>,

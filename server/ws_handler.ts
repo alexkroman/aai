@@ -1,12 +1,12 @@
 import { ClientMessageSchema } from "../core/_protocol.ts";
 import type { Session } from "./session.ts";
 
-export interface WsSessionOptions {
+export type WsSessionOptions = {
   createSession: (sessionId: string, ws: WebSocket) => Session;
   logContext?: Record<string, string>;
   onOpen?: () => void;
   onClose?: () => void;
-}
+};
 
 export function handleSessionWebSocket(
   ws: WebSocket,

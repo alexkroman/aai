@@ -1,7 +1,6 @@
 import { parse as parseDotenv } from "@std/dotenv/parse";
 import { exists } from "@std/fs/exists";
 import { basename, join, resolve } from "@std/path";
-/** ASCII-only slugify: lowercase, replace non-alnum runs with "-", trim dashes. */
 function slugify(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -14,8 +13,6 @@ import {
   type ToolSchema,
 } from "../sdk/types.ts";
 
-// -- API key config -----------------------------------------------------------
-
 const CONFIG_DIR = join(
   Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE") ?? ".",
   ".config",
@@ -23,20 +20,19 @@ const CONFIG_DIR = join(
 );
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 
-interface AgentLink {
+type AgentLink = {
   namespace: string;
   slug: string;
   apiKey: string;
-}
+};
 
-interface CliConfig {
+type CliConfig = {
   assemblyai_api_key?: string;
   rime_api_key?: string;
   brave_api_key?: string;
   namespace?: string;
-  /** Maps agent directory paths to their namespace/slug/apiKey. */
   agents?: Record<string, AgentLink>;
-}
+};
 
 async function readConfig(): Promise<CliConfig> {
   try {
@@ -54,7 +50,6 @@ async function writeConfig(config: CliConfig): Promise<void> {
   );
 }
 
-/** Get the AssemblyAI API key, prompting if not set. */
 export async function getApiKey(): Promise<string> {
   const config = await readConfig();
   if (config.assemblyai_api_key) {
@@ -76,9 +71,6 @@ export async function getApiKey(): Promise<string> {
   return key;
 }
 
-// -- Namespace ----------------------------------------------------------------
-
-/** Get or prompt for the user's namespace. Saved to CLI config. */
 export async function getNamespace(): Promise<string> {
   const config = await readConfig();
   if (config.namespace) return config.namespace;
@@ -104,7 +96,6 @@ export async function getNamespace(): Promise<string> {
   return slug;
 }
 
-/** Update the saved namespace (e.g. after auto-increment on conflict). */
 export async function saveNamespace(namespace: string): Promise<void> {
   const config = await readConfig();
   config.namespace = namespace;
@@ -112,14 +103,12 @@ export async function saveNamespace(namespace: string): Promise<void> {
   step("Saved", `namespace: ${namespace}`);
 }
 
-/** Derive a slug from the agent's directory name. */
 export function slugFromDir(dir: string): string {
   const dirName = basename(resolve(dir));
   const slug = slugify(dirName);
   return slug || "agent";
 }
 
-/** Append or increment a numeric suffix: "foo" -> "foo-1" -> "foo-2" */
 export function incrementName(name: string): string {
   const match = name.match(/^(.+)-(\d+)$/);
   if (match) {
@@ -128,11 +117,6 @@ export function incrementName(name: string): string {
   return `${name}-1`;
 }
 
-/**
- * Resolve a unique slug for this agent directory within a namespace.
- * If another directory already uses the same namespace+slug in config,
- * auto-increment the slug until a free one is found.
- */
 export async function resolveSlug(
   dir: string,
   namespace: string,
@@ -164,7 +148,6 @@ export async function resolveSlug(
   return slug;
 }
 
-/** Save the link between an agent directory and its namespace/slug. */
 export async function saveAgentLink(
   dir: string,
   link: AgentLink,
@@ -175,9 +158,7 @@ export async function saveAgentLink(
   await writeConfig(config);
 }
 
-// -- Agent discovery ----------------------------------------------------------
-
-export interface AgentEntry {
+export type AgentEntry = {
   slug: string;
   dir: string;
   entryPoint: string;
@@ -186,15 +167,12 @@ export interface AgentEntry {
   transport: ("websocket" | "twilio")[];
   config?: AgentConfig;
   toolSchemas?: ToolSchema[];
-}
+};
 
-/** Default production server URL. */
 export const DEFAULT_SERVER = "https://aai-agent.fly.dev";
 
-/** Imports that the workspace already resolves — not truly "external". */
 const WORKSPACE_IMPORTS = new Set(["@aai/sdk", "@aai/ui", "zod"]);
 
-/** Check if the agent has external imports beyond workspace packages. */
 export async function hasExternalImports(dir: string): Promise<boolean> {
   // Check deno.json imports
   try {
@@ -219,7 +197,6 @@ export async function hasExternalImports(dir: string): Promise<boolean> {
   return false;
 }
 
-/** Import agent.ts and return the AgentDef, or null if external imports prevent it. */
 async function importAgentDef(dir: string): Promise<AgentDef | null> {
   if (await hasExternalImports(dir)) return null;
   const mod = await importTempModule(join(dir, "agent.ts"), {
@@ -303,7 +280,6 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   };
 }
 
-/** Copy cli/claude.md into the target directory as CLAUDE.md if it doesn't exist. */
 export async function ensureClaudeMd(targetDir: string): Promise<void> {
   const claudePath = join(targetDir, "CLAUDE.md");
   if (!await exists(claudePath)) {

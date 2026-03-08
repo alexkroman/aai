@@ -11,11 +11,10 @@ import { dirname, fromFileUrl, join, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
 import type { AgentEntry } from "./_discover.ts";
 
-export class BundleError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "BundleError";
-  }
+export function bundleError(message: string): Error {
+  const err = new Error(message);
+  err.name = "BundleError";
+  return err;
 }
 
 async function buildWithCleanErrors(
@@ -35,7 +34,7 @@ async function buildWithCleanErrors(
         kind: "error",
         color: true,
       });
-      throw new BundleError(formatted.join("\n"));
+      throw bundleError(formatted.join("\n"));
     }
     throw err;
   }
@@ -43,7 +42,6 @@ async function buildWithCleanErrors(
 
 let esbuildReady: Promise<void> | null = null;
 
-/** Ensure esbuild-wasm is initialized (needed inside deno compile). */
 function ensureInit() {
   if (!esbuildReady) {
     esbuildReady = (async () => {
@@ -61,14 +59,12 @@ function ensureInit() {
   return esbuildReady;
 }
 
-/** Strip TypeScript type annotations, returning plain JavaScript. */
 async function stripTypes(source: string): Promise<string> {
   await ensureInit();
   const result = await transform(source, { loader: "ts" });
   return result.code;
 }
 
-/** Root of the aai framework (parent of cli/). */
 export const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
 const baseConfigPath = resolve(AAI_ROOT, "deno.json");
 
@@ -100,11 +96,6 @@ function getOutputText(
   return result.outputFiles?.[0]?.text ?? "";
 }
 
-/**
- * Strip types from a TS source file and dynamically import the result.
- * Uses a data: URL so no temp files are written to disk. Relative imports
- * are rewritten to absolute file: URLs so they resolve from the data: URL.
- */
 export async function importTempModule(
   sourcePath: string,
   opts?: { rewriteSdkImports?: boolean },
@@ -131,13 +122,13 @@ export async function importTempModule(
   return await import(dataUrl);
 }
 
-export interface BundleOutput {
+export type BundleOutput = {
   worker: string;
   client: string;
   manifest: string;
   workerBytes: number;
   clientBytes: number;
-}
+};
 
 export async function bundleAgent(
   agent: AgentEntry,

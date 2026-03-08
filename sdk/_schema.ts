@@ -1,11 +1,8 @@
 import { z } from "zod";
 
-// ── Transport ───────────────────────────────────────────────────
-
 export const TransportSchema = z.enum(["websocket", "twilio"]);
 export type Transport = z.infer<typeof TransportSchema>;
 
-/** Normalize a transport field value into an array. */
 export function normalizeTransport(
   value: Transport | Transport[] | undefined,
 ): Transport[] {
@@ -18,8 +15,6 @@ const TransportFieldSchema = z.union([
   TransportSchema,
   z.array(TransportSchema),
 ]).optional();
-
-// ── Shared sub-schemas (single source of truth) ─────────────────
 
 const BuiltinToolSchema = z.enum([
   "web_search",
@@ -50,8 +45,6 @@ export const ToolSchemaSchema = z.object({
 
 export type ToolSchema = z.infer<typeof ToolSchemaSchema>;
 
-// ── Deploy request body — schema is source of truth ─────────────
-
 export const DeployBodySchema = z.object({
   env: z.record(z.string(), z.string()),
   worker: z.string().min(1),
@@ -62,8 +55,6 @@ export const DeployBodySchema = z.object({
 });
 
 export type DeployBody = z.infer<typeof DeployBodySchema>;
-
-// ── Agent environment variables — schema is source of truth ─────
 
 export const EnvSchema = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),

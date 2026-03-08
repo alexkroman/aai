@@ -1,6 +1,6 @@
 import type { AgentState } from "./types.ts";
 
-export interface Theme {
+export type Theme = {
   bg: string;
   surface: string;
   surfaceLight: string;
@@ -11,7 +11,7 @@ export interface Theme {
   font: string;
   radius: string;
   stateColors: Record<AgentState, string>;
-}
+};
 
 export const defaultTheme: Theme = Object.freeze({
   bg: "#ffffff",

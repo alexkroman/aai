@@ -1,6 +1,3 @@
-// Worker entry point for sandboxed code execution.
-// Spawned with all permissions denied for isolation.
-
 import { serveRpc } from "../core/_rpc.ts";
 
 serveRpc(

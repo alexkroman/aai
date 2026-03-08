@@ -6,9 +6,7 @@ import {
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 
-// --- Config types (plain interfaces — not validated at boundaries) ---
-
-export interface STTConfig {
+export type STTConfig = {
   sampleRate: number;
   speechModel: string;
   wssBase: string;
@@ -18,7 +16,7 @@ export interface STTConfig {
   maxTurnSilence: number;
   vadThreshold: number;
   prompt?: string;
-}
+};
 
 export const DEFAULT_STT_CONFIG: STTConfig = {
   sampleRate: DEFAULT_STT_SAMPLE_RATE,
@@ -31,7 +29,7 @@ export const DEFAULT_STT_CONFIG: STTConfig = {
   vadThreshold: 0.5,
 };
 
-export interface TTSConfig {
+export type TTSConfig = {
   wssUrl: string;
   apiKey: string;
   voice: string;
@@ -40,7 +38,7 @@ export interface TTSConfig {
   samplingRate: number;
   sampleRate: number;
   speedAlpha?: number;
-}
+};
 
 export const DEFAULT_TTS_CONFIG: TTSConfig = {
   wssUrl: "wss://users-ws.rime.ai/ws",
@@ -54,8 +52,6 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
 };
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
-
-// --- STT message — schema is source of truth ---
 
 export const SttMessageSchema = z
   .object({
@@ -72,8 +68,6 @@ export const SttMessageSchema = z
   .passthrough();
 
 export type SttMessage = z.infer<typeof SttMessageSchema>;
-
-// --- LLM types — schema is source of truth ---
 
 const ChatMessageSchema = z.object({
   role: z.enum(["system", "user", "assistant", "tool"]),
@@ -104,10 +98,8 @@ export const LLMResponseSchema = z
 
 export type LLMResponse = z.infer<typeof LLMResponseSchema>;
 
-// --- Server context shared across transports ---
-
-export interface ServerContext {
+export type ServerContext = {
   slots: Map<string, AgentSlot>;
   sessions: Map<string, unknown>;
   store: BundleStore;
-}
+};

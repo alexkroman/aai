@@ -1,19 +1,17 @@
 import { MIC_BUFFER_SECONDS } from "./types.ts";
 import { resample } from "./resample.ts";
 
-export interface VoiceIOOptions {
+export type VoiceIOOptions = {
   sttSampleRate: number;
   ttsSampleRate: number;
   captureWorkletSrc: string;
   playbackWorkletSrc: string;
   onMicData: (pcm16: ArrayBuffer) => void;
-}
+};
 
 export interface VoiceIO extends AsyncDisposable {
   enqueue(pcm16Buffer: ArrayBuffer): void;
-  /** Signal that TTS is complete — worklet will drain remaining audio then stop. */
   done(): void;
-  /** Immediately interrupt and discard buffered audio. */
   flush(): void;
   close(): Promise<void>;
 }
@@ -67,7 +65,6 @@ export async function createVoiceIO(
     throw err;
   }
 
-  // ── Capture ──
   const mic = ctx.createMediaStreamSource(stream);
   const capNode = new AudioWorkletNode(ctx, "capture-processor", {
     channelCount: 1,
@@ -115,8 +112,6 @@ export async function createVoiceIO(
     }
   };
 
-  // ── Playback ──
-  // Pass raw bytes straight to the worklet — no conversion on main thread.
   let playNode: AudioWorkletNode | null = null;
   let closed = false;
 

@@ -6,18 +6,6 @@ import {
   DEFAULT_INSTRUCTIONS,
 } from "./types.ts";
 
-/**
- * Create a voice agent definition with sensible defaults.
- *
- * @example
- * ```ts
- * export default defineAgent({
- *   name: "Scout",
- *   voice: "tara",
- *   instructions: "...",
- * });
- * ```
- */
 export function defineAgent(options: AgentOptions): AgentDef {
   return Object.freeze({
     name: options.name,

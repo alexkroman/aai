@@ -13,7 +13,7 @@ const BraveSearchResponseSchema = z.object({
   }).optional(),
 });
 
-interface BuiltinTool {
+type BuiltinTool = {
   name: string;
   description: string;
   parameters: z.ZodObject<z.ZodRawShape>;
@@ -22,7 +22,7 @@ interface BuiltinTool {
     env: Record<string, string | undefined>,
     fetch: typeof globalThis.fetch,
   ) => string | Promise<string>;
-}
+};
 
 const webSearchParams = z.object({
   query: z.string().describe("The search query"),

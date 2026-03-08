@@ -1,7 +1,6 @@
 import { encodeBase64 } from "@std/encoding/base64";
 import { createWorkerApi } from "../core/_worker_entry.ts";
 
-/** Spawn a local Deno Worker from bundled code and return a WorkerApi. */
 export function spawnLocalWorker(
   workerCode: string,
   slug: string,

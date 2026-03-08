@@ -1,11 +1,11 @@
 import { join } from "@std/path";
 import { step } from "./_output.ts";
 
-export interface NewOptions {
+export type NewOptions = {
   targetDir: string;
   template: string;
   templatesDir: string;
-}
+};
 
 export async function listTemplates(dir: string): Promise<string[]> {
   const templates: string[] = [];

@@ -2,21 +2,20 @@ import { info, step, stepInfo, warn } from "./_output.ts";
 import type { BundleOutput } from "./_bundler.ts";
 import { incrementName } from "./_discover.ts";
 
-export interface DeployOpts {
+export type DeployOpts = {
   url: string;
   bundle: BundleOutput;
   namespace: string;
   slug: string;
   dryRun: boolean;
   apiKey: string;
-}
+};
 
-export interface DeployResult {
+export type DeployResult = {
   namespace: string;
   slug: string;
-}
+};
 
-/** Try a single deploy request. Returns the response. */
 async function attemptDeploy(
   url: string,
   namespace: string,

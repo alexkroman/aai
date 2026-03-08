@@ -9,21 +9,19 @@ export type { AgentMetadata } from "../core/_rpc_schema.ts";
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
-export interface AgentSlot {
+export type AgentSlot = {
   slug: string;
   env: Record<string, string>;
   transport: ("websocket" | "twilio")[];
   config?: AgentConfig;
   name?: string;
   toolSchemas?: ToolSchema[];
-  /** Live worker state — present only when agent is spawned. */
   worker?: { handle: { terminate(): void }; api: WorkerApi };
   initializing?: Promise<void>;
   activeSessions: number;
   idleTimer?: ReturnType<typeof setTimeout>;
-  /** True when this slot is owned by a dev control WebSocket. */
   _dev?: boolean;
-}
+};
 
 async function spawnAgent(
   slot: AgentSlot,
@@ -153,7 +151,6 @@ export function registerSlot(
   return true;
 }
 
-/** Build executeTool + getWorkerApi from a slot. Shared by both transports. */
 export function createToolExecutor(
   slot: AgentSlot,
   store: BundleStore,

@@ -23,20 +23,20 @@ export type ToolChoiceParam =
   | { type: "function"; function: { name: string } }
   | undefined;
 
-export interface TurnCallLLMOptions {
+export type TurnCallLLMOptions = {
   messages: ChatMessage[];
   tools: ToolSchema[];
   toolChoice?: ToolChoiceParam;
   signal?: AbortSignal;
-}
+};
 
-export interface ExecuteTurnOptions {
+export type ExecuteTurnOptions = {
   messages: ChatMessage[];
   toolSchemas: ToolSchema[];
   callLLM: (opts: TurnCallLLMOptions) => Promise<LLMResponse>;
   executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
   signal: AbortSignal;
-}
+};
 
 export async function executeTurn(
   text: string,

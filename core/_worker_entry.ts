@@ -9,8 +9,6 @@ import { createRpcCaller, type MessageTarget, serveRpc } from "./_rpc.ts";
 
 export const TOOL_HANDLER_TIMEOUT = 30_000;
 
-// ── Tool execution (inlined from _tool_executor.ts) ─────────────
-
 export type ExecuteTool = (
   name: string,
   args: Record<string, unknown>,
@@ -55,9 +53,7 @@ export async function executeToolCall(
   }
 }
 
-// ── WorkerApi: typed RPC caller for host→worker communication ───
-
-export interface WorkerApi {
+export type WorkerApi = {
   executeTool(
     name: string,
     args: Record<string, unknown>,
@@ -70,9 +66,8 @@ export interface WorkerApi {
     extra?: { text?: string; error?: string },
     timeoutMs?: number,
   ): Promise<void>;
-}
+};
 
-/** Create a WorkerApi client from any MessageTarget (Worker or WebSocket). */
 export function createWorkerApi(port: MessageTarget): WorkerApi {
   const call = createRpcCaller(port);
   return {
@@ -89,8 +84,6 @@ export function createWorkerApi(port: MessageTarget): WorkerApi {
     },
   };
 }
-
-// ── Worker side: serve RPC methods ──────────────────────────────
 
 export function startWorker(
   agent: AgentDef,

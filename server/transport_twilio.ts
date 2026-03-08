@@ -28,8 +28,6 @@ const MULAW_RATE = 8000;
 const TWIML_PREFIX = `<?xml version="1.0" encoding="UTF-8"?>\n<Response>`;
 const TWIML_SUFFIX = `</Response>`;
 
-// Twilio ↔ SessionTransport adapter
-
 export function createTwilioTransport(ws: WebSocket): SessionTransport & {
   streamSid: string | null;
 } {
@@ -82,8 +80,6 @@ export function createTwilioTransport(ws: WebSocket): SessionTransport & {
   };
 }
 
-// Audio buffer
-
 const MIN_AUDIO_BYTES = 3200;
 
 export function createAudioBuffer(
@@ -116,8 +112,6 @@ export function decodeTwilioFrame(payload: string): Uint8Array {
     resampled.byteLength,
   );
 }
-
-// Route handlers
 
 function getTwilioSlot(
   slug: string,

@@ -42,10 +42,10 @@ export interface BundleStore {
   [Symbol.dispose](): void;
 }
 
-interface CacheEntry {
+type CacheEntry = {
   data: string;
   etag: string;
-}
+};
 
 const FILE_NAMES: Record<FileKey, string> = {
   worker: "worker.js",
@@ -245,7 +245,6 @@ export function createBundleStore(
   };
 }
 
-/** In-memory S3-compatible client for local development. */
 export function createMemoryS3Client(): S3Client {
   const store = new Map<string, { body: string; etag: string }>();
 

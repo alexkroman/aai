@@ -32,12 +32,12 @@ import {
 
 import type { VoiceIO } from "./audio.ts";
 
-export interface Reconnect {
+export type Reconnect = {
   readonly canRetry: boolean;
   schedule(cb: () => void): boolean;
   cancel(): void;
   reset(): void;
-}
+};
 
 export function createReconnect(
   maxAttempts = MAX_RECONNECT_ATTEMPTS,
@@ -85,7 +85,7 @@ export function parseServerMessage(data: string): ServerMessage | null {
   }
 }
 
-export interface VoiceSession {
+export type VoiceSession = {
   readonly state: Signal<AgentState>;
   readonly messages: Signal<Message[]>;
   readonly transcript: Signal<string>;
@@ -97,7 +97,7 @@ export interface VoiceSession {
   reset(): void;
   disconnect(): void;
   [Symbol.dispose](): void;
-}
+};
 
 export function createVoiceSession(options: SessionOptions): VoiceSession {
   const state = signal<AgentState>("connecting");
