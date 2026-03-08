@@ -1,62 +1,59 @@
 import { expect } from "@std/expect";
+import { assertSpyCalls, stub } from "@std/testing/mock";
 import { error, info, step, stepInfo, warn } from "./_output.ts";
 
-function withSpies(
-  fn: (log: string[][], err: string[][]) => void,
-): () => void {
-  return () => {
-    const logCalls: string[][] = [];
-    const errCalls: string[][] = [];
-    const origLog = console.log;
-    const origErr = console.error;
-    console.log = (...args: string[]) => logCalls.push(args);
-    console.error = (...args: string[]) => errCalls.push(args);
-    try {
-      fn(logCalls, errCalls);
-    } finally {
-      console.log = origLog;
-      console.error = origErr;
-    }
-  };
-}
-
-Deno.test(
-  "step writes action prefix to stdout",
-  withSpies((log) => {
+Deno.test("step writes action prefix to stdout", () => {
+  const logStub = stub(console, "log");
+  try {
     step("Bundle", "my-agent");
-    expect(log[0][0]).toContain("Bundle");
-    expect(log[0][0]).toContain("my-agent");
-  }),
-);
+    assertSpyCalls(logStub, 1);
+    expect(logStub.calls[0].args[0]).toContain("Bundle");
+    expect(logStub.calls[0].args[0]).toContain("my-agent");
+  } finally {
+    logStub.restore();
+  }
+});
 
-Deno.test(
-  "stepInfo writes action prefix to stdout",
-  withSpies((log) => {
+Deno.test("stepInfo writes action prefix to stdout", () => {
+  const logStub = stub(console, "log");
+  try {
     stepInfo("Watch", "for changes...");
-    expect(log[0][0]).toContain("Watch");
-  }),
-);
+    assertSpyCalls(logStub, 1);
+    expect(logStub.calls[0].args[0]).toContain("Watch");
+  } finally {
+    logStub.restore();
+  }
+});
 
-Deno.test(
-  "info writes to stdout",
-  withSpies((log) => {
+Deno.test("info writes to stdout", () => {
+  const logStub = stub(console, "log");
+  try {
     info("secondary note");
-    expect(log[0][0]).toContain("secondary note");
-  }),
-);
+    assertSpyCalls(logStub, 1);
+    expect(logStub.calls[0].args[0]).toContain("secondary note");
+  } finally {
+    logStub.restore();
+  }
+});
 
-Deno.test(
-  "warn writes to stderr",
-  withSpies((_log, err) => {
+Deno.test("warn writes to stderr", () => {
+  const errStub = stub(console, "error");
+  try {
     warn("careful");
-    expect(err[0][0]).toContain("careful");
-  }),
-);
+    assertSpyCalls(errStub, 1);
+    expect(errStub.calls[0].args[0]).toContain("careful");
+  } finally {
+    errStub.restore();
+  }
+});
 
-Deno.test(
-  "error writes to stderr",
-  withSpies((_log, err) => {
+Deno.test("error writes to stderr", () => {
+  const errStub = stub(console, "error");
+  try {
     error("oops");
-    expect(err[0][0]).toContain("oops");
-  }),
-);
+    assertSpyCalls(errStub, 1);
+    expect(errStub.calls[0].args[0]).toContain("oops");
+  } finally {
+    errStub.restore();
+  }
+});

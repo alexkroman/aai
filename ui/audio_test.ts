@@ -1,4 +1,5 @@
 import { expect } from "@std/expect";
+import { spy } from "@std/testing/mock";
 import { createVoiceIO } from "./audio.ts";
 import {
   findWorkletNode,
@@ -76,11 +77,11 @@ Deno.test("createVoiceIO", async (t) => {
   await t.step(
     "capture calls onMicData when worklet sends chunks",
     withAudioMocks(async ({ workletNodes }) => {
-      const received: ArrayBuffer[] = [];
+      const onMicData = spy((_buf: ArrayBuffer) => {});
       const io = await createVoiceIO(voiceOpts({
         sttSampleRate: 16000,
         ttsSampleRate: 16000,
-        onMicData: (buf) => received.push(buf),
+        onMicData,
       }));
       const capNode = findWorkletNode(workletNodes(), "capture-processor");
 
@@ -94,8 +95,8 @@ Deno.test("createVoiceIO", async (t) => {
         capNode.port.simulateMessage({ event: "chunk", buffer: buf });
       }
 
-      expect(received.length).toBeGreaterThanOrEqual(1);
-      const pcm16 = new Int16Array(received[0]);
+      expect(onMicData.calls.length).toBeGreaterThanOrEqual(1);
+      const pcm16 = new Int16Array(onMicData.calls[0].args[0]);
       expect(pcm16[0]).toBe(16384);
       await io.close();
     }),

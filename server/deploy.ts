@@ -58,7 +58,6 @@ export async function handleDeploy(
     );
   }
 
-  // Check namespace ownership — claim implicitly on first deploy
   const nsOwner = await store.getNamespaceOwner(namespace);
   if (nsOwner && nsOwner !== ownerHash) {
     return Response.json(

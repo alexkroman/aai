@@ -85,7 +85,6 @@ export async function executeTurn(
     if (!res) break;
     const msg = res.message;
 
-    // final_answer — return immediately
     const answerTc = msg.tool_calls?.find((c) =>
       c.function.name === FINAL_ANSWER_TOOL
     );
@@ -98,7 +97,6 @@ export async function executeTurn(
       return answer;
     }
 
-    // user_input — speak the question, end the turn
     const questionTc = msg.tool_calls?.find((c) =>
       c.function.name === USER_INPUT_TOOL
     );
@@ -111,14 +109,12 @@ export async function executeTurn(
       return question;
     }
 
-    // Out of iterations — return whatever text we have
     if (iteration === MAX_TOOL_ITERATIONS) {
       const fallback = msg.content ?? "Sorry, I couldn't generate a response.";
       messages.push({ role: "assistant", content: fallback });
       return fallback;
     }
 
-    // Truncated tool calls — LLM ran out of tokens mid-generation, retry
     if (res.finish_reason === "max_tokens" && msg.tool_calls?.length) {
       console.warn("tool call truncated by max_tokens, retrying", {
         tools: msg.tool_calls.map((tc) => tc.function.name),
@@ -180,7 +176,6 @@ export async function executeTurn(
         messages.push({ role: "assistant", content: msg.content });
       }
     } else {
-      // Plain text response (shouldn't happen with tool_choice=required)
       const responseText = msg.content ??
         "Sorry, I couldn't generate a response.";
       messages.push({ role: "assistant", content: responseText });
@@ -188,7 +183,6 @@ export async function executeTurn(
       return responseText;
     }
 
-    // Force final_answer on last iteration
     const nextIteration = iteration + 1;
     if (nextIteration >= MAX_TOOL_ITERATIONS && finalAnswerSchema) {
       tools = [finalAnswerSchema];

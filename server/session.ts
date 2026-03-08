@@ -78,7 +78,6 @@ export function createSession(opts: SessionOptions): Session {
     getWorkerApi,
   } = opts;
 
-  // Lazy-resolve workerApi on first hook call
   let cachedWorkerApi: WorkerApi | undefined;
   async function invokeHook(
     hook: string,
@@ -113,7 +112,6 @@ export function createSession(opts: SessionOptions): Session {
     },
   };
 
-  // Read from _internals so tests can stub these
   const doConnectStt = _internals.connectStt;
   const doCallLLM = _internals.callLLM;
   const tts: TtsClient = _internals.createTtsClient(config.ttsConfig);

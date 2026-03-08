@@ -1,3 +1,4 @@
+import { debounce } from "@std/async/debounce";
 import type { TTSConfig } from "./types.ts";
 import { createWebSocketWithHeaders } from "./_deno_ws.ts";
 
@@ -8,10 +9,9 @@ export function createTtsClient(config: TTSConfig) {
   let ws: WebSocket | null = null;
   let disposed = false;
 
-  // Per-synthesis state
   let onAudioCb: ((chunk: Uint8Array) => void) | null = null;
   let completionResolve: (() => void) | null = null;
-  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  let safetyTimer: ReturnType<typeof setTimeout> | null = null;
   let chunkCount = 0;
   let totalBytes = 0;
 
@@ -29,9 +29,10 @@ export function createTtsClient(config: TTSConfig) {
   }
 
   function finishSynthesis(): void {
-    if (idleTimer) {
-      clearTimeout(idleTimer);
-      idleTimer = null;
+    idleFinish.clear();
+    if (safetyTimer) {
+      clearTimeout(safetyTimer);
+      safetyTimer = null;
     }
     if (completionResolve) {
       console.info("TTS synthesis done", { chunkCount, totalBytes });
@@ -43,17 +44,18 @@ export function createTtsClient(config: TTSConfig) {
     totalBytes = 0;
   }
 
-  function resetIdleTimer(): void {
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(finishSynthesis, IDLE_MS);
-  }
+  const idleFinish = debounce(finishSynthesis, IDLE_MS);
 
   function handleMessage(event: MessageEvent): void {
     if (event.data instanceof ArrayBuffer && event.data.byteLength > 0) {
       chunkCount++;
       totalBytes += event.data.byteLength;
       onAudioCb?.(new Uint8Array(event.data));
-      resetIdleTimer();
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
+      idleFinish();
     }
   }
 
@@ -115,7 +117,7 @@ export function createTtsClient(config: TTSConfig) {
       completionResolve = resolve;
 
       // Safety timeout in case no audio ever arrives
-      idleTimer = setTimeout(finishSynthesis, NO_AUDIO_TIMEOUT_MS);
+      safetyTimer = setTimeout(finishSynthesis, NO_AUDIO_TIMEOUT_MS);
 
       if (signal) {
         signal.addEventListener("abort", () => {

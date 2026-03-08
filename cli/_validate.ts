@@ -86,23 +86,15 @@ async function testOneTool(
   tool: ToolDef,
   ctx: ToolContext,
 ): Promise<ToolTestResult> {
-  // Check that description exists
   if (!tool.description) {
     return { name, ok: false, error: "missing description" };
   }
 
-  // Check that execute is a function
-  if (typeof tool.execute !== "function") {
-    return { name, ok: false, error: "execute is not a function" };
-  }
-
-  // If tool has required params, validate schema but skip execution
   if (tool.parameters) {
     const parseResult = tool.parameters.safeParse({});
     if (!parseResult.success) {
       return { name, ok: true, skipped: true };
     }
-    // Schema accepts empty object — we can test it
     try {
       const result = await tool.execute(parseResult.data, ctx);
       return { name, ok: true, result };
@@ -115,7 +107,6 @@ async function testOneTool(
     }
   }
 
-  // No params — call directly
   try {
     const result = await tool.execute({}, ctx);
     return { name, ok: true, result };

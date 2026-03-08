@@ -1,5 +1,6 @@
 // Shared postMessage RPC helpers used by both worker and host sides.
 
+import { deadline } from "@std/async/deadline";
 import {
   type RpcRequest,
   RpcRequestSchema,
@@ -20,7 +21,6 @@ export type RpcHandlers = {
 type PendingCall = {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
-  timer?: ReturnType<typeof setTimeout>;
 };
 
 export function serveRpc(
@@ -97,7 +97,6 @@ export function createRpcCaller(port: MessageTarget): RpcCall {
     const p = pending.get(id);
     if (!p) return;
     pending.delete(id);
-    if (p.timer) clearTimeout(p.timer);
     fn(p);
   }
 
@@ -118,19 +117,16 @@ export function createRpcCaller(port: MessageTarget): RpcCall {
   ): Promise<unknown> => {
     const id = nextId++;
     port.postMessage({ id, type, ...payload });
-    return new Promise((resolve, reject) => {
-      const entry: PendingCall = { resolve, reject };
-      pending.set(id, entry);
-      if (timeoutMs) {
-        entry.timer = setTimeout(
-          () =>
-            settle(id, (p) =>
-              p.reject(
-                new Error(`RPC "${type}" timed out after ${timeoutMs}ms`),
-              )),
-          timeoutMs,
-        );
-      }
+    const promise = new Promise((resolve, reject) => {
+      pending.set(id, { resolve, reject });
     });
+    if (!timeoutMs) return promise;
+    return deadline(promise, timeoutMs)
+      .catch((err) => {
+        throw err.name === "TimeoutError"
+          ? new Error(`RPC "${type}" timed out after ${timeoutMs}ms`)
+          : err;
+      })
+      .finally(() => pending.delete(id));
   };
 }

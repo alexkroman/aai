@@ -111,7 +111,6 @@ export async function importTempModule(
       `from "${sdkPath}"`,
     );
   }
-  // Rewrite relative imports to absolute file: URLs
   js = js.replace(
     /from\s*["'](\.\.?\/[^"']+)["']/g,
     (_, rel: string) => `from "${toFileUrl(resolve(dir, rel)).href}"`,

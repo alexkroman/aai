@@ -55,15 +55,12 @@ export async function runNew(opts: NewOptions): Promise<string> {
     }
   }
 
-  // Copy .env.example as .env
   try {
     await Deno.copyFile(
       join(targetDir, ".env.example"),
       join(targetDir, ".env"),
     );
-  } catch {
-    // No .env.example in template
-  }
+  } catch { /* no .env.example in template */ }
 
   step("Done", targetDir);
   return targetDir;

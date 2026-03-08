@@ -20,7 +20,6 @@ async function loadWorklet(
   ctx: AudioContext,
   source: string,
 ): Promise<void> {
-  // source is already a blob: URL (created by the worklet module)
   await ctx.audioWorklet.addModule(source);
 }
 
@@ -53,7 +52,6 @@ export async function createVoiceIO(
     },
   });
 
-  // Load both worklet modules in parallel
   try {
     await Promise.all([
       loadWorklet(ctx, captureWorkletSrc),
@@ -72,7 +70,6 @@ export async function createVoiceIO(
   });
   mic.connect(capNode);
 
-  // Accumulate chunks to match the target buffer size before calling onMicData
   const chunkSizeBytes = Math.floor(sttSampleRate * MIC_BUFFER_SECONDS) * 2;
   let capBuffer = new ArrayBuffer(0);
 
@@ -82,7 +79,6 @@ export async function createVoiceIO(
     if (e.data.event !== "chunk") return;
     const chunk = e.data.buffer as ArrayBuffer;
 
-    // Resample from context rate to STT rate if needed
     let pcm16: ArrayBuffer;
     if (contextRate !== sttSampleRate) {
       const int16 = new Int16Array(chunk);
@@ -99,7 +95,6 @@ export async function createVoiceIO(
       pcm16 = chunk;
     }
 
-    // Accumulate until we have enough
     const merged = new ArrayBuffer(capBuffer.byteLength + pcm16.byteLength);
     const mergedView = new Uint8Array(merged);
     mergedView.set(new Uint8Array(capBuffer), 0);

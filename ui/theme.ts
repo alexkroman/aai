@@ -70,7 +70,6 @@ export function applyTheme(el: HTMLElement, theme: Readonly<Theme>): void {
     }
   }
 
-  // Apply base styles on the container so the theme works without extra CSS.
   s.background = theme.bg;
   s.color = theme.text;
   s.fontFamily = theme.font;

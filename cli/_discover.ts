@@ -126,13 +126,11 @@ export async function resolveSlug(
   const agents = config.agents ?? {};
   const resolvedDir = resolve(dir);
 
-  // Check if this directory already has a saved slug — reuse it
   const existing = agents[resolvedDir];
   if (existing && existing.namespace === namespace) {
     return existing.slug;
   }
 
-  // Find a slug that isn't taken by another directory in this namespace
   let slug = baseSlug;
   for (let i = 0; i < 100; i++) {
     const taken = Object.entries(agents).some(
@@ -174,7 +172,6 @@ export const DEFAULT_SERVER = "https://aai-agent.fly.dev";
 const WORKSPACE_IMPORTS = new Set(["@aai/sdk", "@aai/ui", "zod"]);
 
 export async function hasExternalImports(dir: string): Promise<boolean> {
-  // Check deno.json imports
   try {
     const raw = JSON.parse(
       await Deno.readTextFile(join(dir, "deno.json")),
@@ -185,7 +182,6 @@ export async function hasExternalImports(dir: string): Promise<boolean> {
     }
   } catch { /* no deno.json */ }
 
-  // Check package.json dependencies
   try {
     const raw = JSON.parse(
       await Deno.readTextFile(join(dir, "package.json")),
@@ -209,10 +205,8 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   const hasAgentTs = await exists(join(dir, "agent.ts"));
   if (!hasAgentTs) return null;
 
-  // Try to import agent.ts to read env/transport from defineAgent()
   const def = await importAgentDef(dir);
 
-  // Derive slug from directory name
   const slug = slugFromDir(dir);
   const declared: readonly string[] = def?.env ?? ["ASSEMBLYAI_API_KEY"];
   const transport: ("websocket" | "twilio")[] = def?.transport

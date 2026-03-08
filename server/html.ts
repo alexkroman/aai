@@ -22,11 +22,9 @@ function decodeEntities(s: string): string {
 
 export function htmlToMarkdown(html: string): string {
   let s = html;
-  // Strip script, style, head
   s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
   s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
   s = s.replace(/<head[\s\S]*?<\/head>/gi, "");
-  // Headings
   for (let i = 6; i >= 1; i--) {
     const re = new RegExp(`<h${i}[^>]*>(.*?)<\\/h${i}>`, "gi");
     s = s.replace(
@@ -34,22 +32,15 @@ export function htmlToMarkdown(html: string): string {
       (_, c) => `\n${"#".repeat(i)} ${decodeEntities(c.trim())}\n`,
     );
   }
-  // Bold
   s = s.replace(/<(b|strong)[^>]*>(.*?)<\/\1>/gi, (_, _t, c) => `**${c}**`);
-  // Italic
   s = s.replace(/<(i|em)[^>]*>(.*?)<\/\1>/gi, (_, _t, c) => `_${c}_`);
-  // Links
   s = s.replace(
     /<a[^>]+href="([^"]*)"[^>]*>(.*?)<\/a>/gi,
     (_, href, text) => `[${text}](${href})`,
   );
-  // List items
   s = s.replace(/<li[^>]*>(.*?)<\/li>/gi, (_, c) => `* ${c.trim()}\n`);
-  // Remove remaining tags
   s = s.replace(/<[^>]+>/g, "");
-  // Decode entities
   s = decodeEntities(s);
-  // Collapse blank lines
   s = s.replace(/\n{3,}/g, "\n\n");
   return s.trim();
 }

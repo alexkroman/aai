@@ -29,7 +29,6 @@ export function handleDevWebSocket(
     console.info("Dev control WebSocket connected", { slug });
   });
 
-  // Wait for the registration message, then switch to RPC mode
   socket.addEventListener("message", async function onRegister(event) {
     if (typeof event.data !== "string") return;
 
@@ -40,7 +39,6 @@ export function handleDevWebSocket(
       return;
     }
 
-    // Ignore RPC messages (numeric id) before registration
     if (typeof (json as Record<string, unknown>).id === "number") return;
 
     const parsed = DevRegisterSchema.safeParse(json);
@@ -52,7 +50,6 @@ export function handleDevWebSocket(
       return;
     }
 
-    // Remove this listener — after registration, _rpc.ts handles messages
     socket.removeEventListener("message", onRegister);
 
     const ownerHash = await hashApiKey(apiKey);
@@ -83,7 +80,6 @@ async function registerDevAgent(
   ownerHash: string,
   ctx: ServerContext,
 ): Promise<void> {
-  // Create a MessageTarget adapter so standard RPC works over this WebSocket
   const workerApi = createWorkerApi(createWebSocketTarget(ws));
 
   const agentConfig: AgentConfig = {
@@ -101,7 +97,6 @@ async function registerDevAgent(
     ...getBuiltinToolSchemas(agentConfig.builtinTools ?? []),
   ];
 
-  // Replace any existing slot
   const existing = ctx.slots.get(slug);
   if (existing?.worker) {
     existing.worker.handle.terminate();
@@ -115,7 +110,6 @@ async function registerDevAgent(
     name: agentConfig.name ?? slug,
     toolSchemas: customToolSchemas,
     activeSessions: existing?.activeSessions ?? 0,
-    // Dev slots wire RPC directly to the CLI WebSocket instead of a Worker
     worker: {
       handle: { terminate() {} },
       api: workerApi,
@@ -124,7 +118,6 @@ async function registerDevAgent(
   };
   ctx.slots.set(slug, slot);
 
-  // Store client.js so the server can serve it
   await ctx.store.putAgent({
     slug,
     env: msg.env,

@@ -1,3 +1,4 @@
+import { deadline } from "@std/async/deadline";
 import { createOrchestrator } from "./orchestrator.ts";
 import { createBundleStore, createS3Client } from "./bundle_store_tigris.ts";
 
@@ -32,6 +33,5 @@ const server = Deno.serve(
 
 console.info(`http://localhost:${port}`);
 
-const force = new Promise<void>((r) => setTimeout(r, 5_000));
-await Promise.race([server.finished, force]);
+await deadline(server.finished, 5_000).catch(() => {});
 console.info("Shutdown complete");

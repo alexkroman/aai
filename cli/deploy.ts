@@ -2,6 +2,10 @@ import { info, step, stepInfo, warn } from "./_output.ts";
 import type { BundleOutput } from "./_bundler.ts";
 import { incrementName } from "./_discover.ts";
 
+export const _internals = {
+  fetch: globalThis.fetch.bind(globalThis),
+};
+
 export type DeployOpts = {
   url: string;
   bundle: BundleOutput;
@@ -26,7 +30,7 @@ async function attemptDeploy(
   client: string,
 ): Promise<Response> {
   const fullPath = `${namespace}/${slug}`;
-  return await fetch(`${url}/${fullPath}/deploy`, {
+  return await _internals.fetch(`${url}/${fullPath}/deploy`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -91,7 +95,9 @@ export async function runDeploy(
 
       // Health check: best-effort verification
       try {
-        const healthResp = await fetch(`${opts.url}/${fullPath}/health`);
+        const healthResp = await _internals.fetch(
+          `${opts.url}/${fullPath}/health`,
+        );
         const ok = healthResp.ok &&
           (await healthResp.json()).status === "ok";
         if (ok) {

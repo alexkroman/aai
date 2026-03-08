@@ -1,16 +1,128 @@
 import { expect } from "@std/expect";
-import { assertSpyCalls, resolvesNext, stub } from "@std/testing/mock";
-import { _internals, createSession } from "./session.ts";
-import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
+import { assertSpyCalls, resolvesNext, spy, stub } from "@std/testing/mock";
 import {
-  createMockLLMResponse,
-  createMockSessionOptions,
-  type createMockTransport,
-  getSentJson,
-} from "./_test_utils.ts";
+  _internals,
+  createSession,
+  type SessionOptions,
+  type SessionTransport,
+} from "./session.ts";
+import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
+import { createMockLLMResponse } from "./_test_utils.ts";
 import type { SttEvents } from "./stt.ts";
-import type { LLMResponse } from "./types.ts";
+import type { ChatMessage, LLMResponse } from "./types.ts";
+import { DEFAULT_STT_CONFIG, DEFAULT_TTS_CONFIG } from "./types.ts";
 import type { CallLLMOptions } from "./llm.ts";
+import type { PlatformConfig } from "./config.ts";
+
+function createMockTransport(): SessionTransport & {
+  sent: (string | ArrayBuffer | Uint8Array)[];
+} {
+  const sent: (string | ArrayBuffer | Uint8Array)[] = [];
+  return {
+    sent,
+    readyState: 1,
+    send(data: string | ArrayBuffer | Uint8Array) {
+      sent.push(data);
+    },
+  };
+}
+
+function getSentJson(
+  transport: ReturnType<typeof createMockTransport>,
+): Record<string, unknown>[] {
+  return transport.sent
+    .filter((d): d is string => typeof d === "string")
+    .map((s) => JSON.parse(s));
+}
+
+function createMockPlatformConfig(): PlatformConfig {
+  return {
+    apiKey: "test-api-key",
+    sttConfig: { ...DEFAULT_STT_CONFIG },
+    ttsConfig: { ...DEFAULT_TTS_CONFIG, apiKey: "test-tts-key" },
+    model: "test-model",
+    llmGatewayBase: "https://test-gateway.example.com/v1",
+    braveApiKey: "",
+  };
+}
+
+function createMockSessionOptions() {
+  const sttHandle = {
+    send: spy((_audio: Uint8Array) => {}),
+    clear: spy(() => {}),
+    close: spy(() => {}),
+  };
+
+  const streamedText: string[] = [];
+  const ttsClient = {
+    streamedText,
+    synthesizeStream: spy(
+      async (
+        chunks: string | AsyncIterable<string>,
+        _onAudio: (chunk: Uint8Array) => void,
+        _signal?: AbortSignal,
+      ): Promise<void> => {
+        if (typeof chunks === "string") {
+          streamedText.push(chunks);
+        } else {
+          for await (const text of chunks) {
+            streamedText.push(text);
+          }
+        }
+      },
+    ),
+    close: spy(() => {}),
+  };
+
+  let mockResult = '"tool result"';
+  const executeTool = spy(
+    (_name: string, _args: Record<string, unknown>, _sessionId?: string) =>
+      Promise.resolve(mockResult),
+  );
+
+  const llmCalls: { messages: ChatMessage[]; tools: ToolSchema[] }[] = [];
+  const llmResponses: LLMResponse[] = [
+    createMockLLMResponse("Hello from LLM"),
+  ];
+  const nextResponse = resolvesNext(llmResponses);
+
+  const opts: SessionOptions = {
+    id: "test-session-id",
+    transport: createMockTransport(),
+    agentConfig: {
+      instructions: "Test instructions",
+      greeting: "Hi there!",
+      voice: "luna",
+    },
+    toolSchemas: [],
+    platformConfig: createMockPlatformConfig(),
+    executeTool,
+  };
+
+  return {
+    opts,
+    sttHandle,
+    ttsClient,
+    executeTool,
+    llmCalls,
+    llmResponses,
+    get mockResult() {
+      return mockResult;
+    },
+    set mockResult(v: string) {
+      mockResult = v;
+    },
+    get mockCallLLM() {
+      return (callOpts: CallLLMOptions) => {
+        llmCalls.push({
+          messages: [...callOpts.messages],
+          tools: callOpts.tools,
+        });
+        return nextResponse();
+      };
+    },
+  };
+}
 
 type SetupOptions = {
   connectStt?: typeof _internals.connectStt;
