@@ -11,7 +11,7 @@ import {
   type AgentDef,
   agentToolsToSchemas,
   type ToolSchema,
-} from "../sdk/types.ts";
+} from "@aai/sdk/types";
 
 const CONFIG_DIR = join(
   Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE") ?? ".",

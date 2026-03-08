@@ -6,7 +6,7 @@ import {
   ToolSchemaSchema,
   type Transport,
   TransportSchema,
-} from "../sdk/_schema.ts";
+} from "@aai/sdk/schema";
 
 export type AgentMetadata = {
   slug: string;

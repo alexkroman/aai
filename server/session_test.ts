@@ -6,7 +6,7 @@ import {
   type SessionOptions,
   type SessionTransport,
 } from "./session.ts";
-import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
+import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
 import { createMockLLMResponse } from "./_test_utils.ts";
 import type { SttEvents } from "./stt.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";

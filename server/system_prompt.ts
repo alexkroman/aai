@@ -2,7 +2,7 @@ import {
   type AgentConfig,
   DEFAULT_INSTRUCTIONS,
   type ToolSchema,
-} from "../sdk/types.ts";
+} from "@aai/sdk/types";
 
 const VOICE_RULES =
   "\n\nCRITICAL OUTPUT RULES — you MUST follow these for EVERY response:\n" +

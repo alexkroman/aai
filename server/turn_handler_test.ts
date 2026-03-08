@@ -3,7 +3,7 @@ import { assertSpyCalls, resolvesNext, spy } from "@std/testing/mock";
 import { executeTurn, type TurnCallLLMOptions } from "./turn_handler.ts";
 import { createMockLLMResponse } from "./_test_utils.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";
-import type { ToolSchema } from "../sdk/types.ts";
+import type { ToolSchema } from "@aai/sdk/types";
 
 function ctx(overrides?: {
   messages?: ChatMessage[];

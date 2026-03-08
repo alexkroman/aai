@@ -1,9 +1,13 @@
 {
   "name": "@aai/ui",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "exports": "./mod.ts",
   "publish": {
-    "exclude": ["*_test.ts", "*_test.tsx", "_*.ts"]
+    "exclude": [
+      "*_test.ts",
+      "*_test.tsx",
+      "_*.ts"
+    ]
   },
   "tasks": {
     "test": "deno test --allow-net --allow-read --allow-write --allow-env",
@@ -20,7 +24,12 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
-    "lib": ["deno.ns", "dom", "dom.iterable", "esnext"]
+    "lib": [
+      "deno.ns",
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ]
   },
   "lint": {}
 }

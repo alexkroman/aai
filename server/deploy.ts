@@ -2,7 +2,7 @@ import { encodeHex } from "@std/encoding/hex";
 import { loadPlatformConfig } from "./config.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import { DeployBodySchema, normalizeTransport } from "../sdk/_schema.ts";
+import { DeployBodySchema, normalizeTransport } from "@aai/sdk/schema";
 
 export async function hashApiKey(apiKey: string): Promise<string> {
   const data = new TextEncoder().encode(apiKey);

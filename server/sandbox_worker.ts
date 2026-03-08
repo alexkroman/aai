@@ -1,4 +1,4 @@
-import { serveRpc } from "../core/_rpc.ts";
+import { serveRpc } from "@aai/core/rpc";
 
 serveRpc(
   self as unknown as {

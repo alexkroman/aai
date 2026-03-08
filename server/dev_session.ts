@@ -1,7 +1,7 @@
-import { type DevRegister, DevRegisterSchema } from "../core/_protocol.ts";
-import { createWebSocketTarget } from "../core/_rpc.ts";
-import { createWorkerApi } from "../core/_worker_entry.ts";
-import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
+import { type DevRegister, DevRegisterSchema } from "@aai/core/protocol";
+import { createWebSocketTarget } from "@aai/core/rpc";
+import { createWorkerApi } from "@aai/core/worker-entry";
+import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { ServerContext } from "./types.ts";

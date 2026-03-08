@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { expect } from "@std/expect";
-import { executeToolCall } from "../core/_worker_entry.ts";
-import type { ToolDef } from "../sdk/types.ts";
+import { executeToolCall } from "@aai/core/worker-entry";
+import type { ToolDef } from "@aai/sdk/types";
 
 function makeTool(
   parameters: z.ZodObject<z.ZodRawShape>,

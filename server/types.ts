@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-} from "../core/_protocol.ts";
+} from "@aai/core/protocol";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 

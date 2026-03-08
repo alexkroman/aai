@@ -2020,6 +2020,11 @@
           "npm:esbuild-wasm@~0.27.3"
         ]
       },
+      "core": {
+        "dependencies": [
+          "jsr:@zod/zod@^4.3.6"
+        ]
+      },
       "sdk": {
         "dependencies": [
           "jsr:@zod/zod@^4.3.6"
