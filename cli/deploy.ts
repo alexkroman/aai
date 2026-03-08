@@ -1,6 +1,6 @@
-import { info, step, stepInfo, warn } from "./_output.ts";
-import type { BundleOutput } from "./_bundler.ts";
-import { incrementName } from "./_discover.ts";
+import { info, step, stepInfo, warn } from "@aai/cli/output";
+import type { BundleOutput } from "@aai/cli/bundler";
+import { incrementName } from "@aai/cli/discover";
 
 export const _internals = {
   fetch: globalThis.fetch.bind(globalThis),

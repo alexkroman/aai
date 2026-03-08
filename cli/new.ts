@@ -1,5 +1,5 @@
 import { join } from "@std/path";
-import { step } from "./_output.ts";
+import { step } from "@aai/cli/output";
 
 export type NewOptions = {
   targetDir: string;

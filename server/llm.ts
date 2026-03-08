@@ -2,7 +2,7 @@ import {
   type ChatMessage,
   type LLMResponse,
   LLMResponseSchema,
-} from "./types.ts";
+} from "@aai/server/types";
 import type { ToolSchema } from "@aai/sdk/types";
 
 export const _internals = {

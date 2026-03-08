@@ -2,28 +2,28 @@
 
 export { css, keyframes, styled } from "goober";
 
-export { createVoiceSession } from "./session.ts";
-export type { VoiceSession } from "./session.ts";
+export { createVoiceSession } from "@aai/ui/session";
+export type { VoiceSession } from "@aai/ui/session";
 export type {
   AgentState,
   Message,
   SessionError,
   SessionErrorCode,
   SessionOptions,
-} from "./types.ts";
+} from "@aai/ui/types";
 
 export {
   createSessionControls,
   SessionProvider,
   useSession,
-} from "./signals.tsx";
-export type { SessionSignals } from "./signals.tsx";
+} from "@aai/ui/signals";
+export type { SessionSignals } from "@aai/ui/signals";
 
-export { applyTheme, darkTheme, defaultTheme } from "./theme.ts";
-export type { Theme } from "./theme.ts";
+export { applyTheme, darkTheme, defaultTheme } from "@aai/ui/theme";
+export type { Theme } from "@aai/ui/theme";
 
-export { mount } from "./mount.tsx";
-export type { MountHandle, MountOptions } from "./mount.tsx";
+export { mount } from "@aai/ui/mount";
+export type { MountHandle, MountOptions } from "@aai/ui/mount";
 
 export {
   App,
@@ -33,4 +33,4 @@ export {
   StateIndicator,
   ThinkingIndicator,
   Transcript,
-} from "./components.tsx";
+} from "@aai/ui/components";

@@ -2,13 +2,13 @@ import { h, render } from "preact";
 import type { ComponentType } from "preact";
 import { createPortal } from "preact/compat";
 import { setup } from "goober";
-import { createVoiceSession, type VoiceSession } from "./session.ts";
+import { createVoiceSession, type VoiceSession } from "@aai/ui/session";
 import {
   createSessionControls,
   SessionProvider,
   type SessionSignals,
-} from "./signals.tsx";
-import { applyTheme, defaultTheme, type Theme } from "./theme.ts";
+} from "@aai/ui/signals";
+import { applyTheme, defaultTheme, type Theme } from "@aai/ui/theme";
 
 function BodyStyle({ theme }: { theme: Theme }) {
   return createPortal(

@@ -26,9 +26,9 @@ import {
   PING_INTERVAL_MS,
   type SessionError,
   type SessionOptions,
-} from "./types.ts";
+} from "@aai/ui/types";
 
-import type { VoiceIO } from "./audio.ts";
+import type { VoiceIO } from "@aai/ui/audio";
 
 export type Reconnect = {
   readonly canRetry: boolean;
@@ -179,7 +179,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
         captureWorklet,
         playbackWorklet,
       ] = await Promise.all([
-        import("./audio.ts"),
+        import("@aai/ui/audio"),
         import("./worklets/capture-processor.js").then((m) =>
           m.default as unknown as string
         ),

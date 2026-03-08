@@ -1,10 +1,10 @@
-import { normalizeTransport } from "./_schema.ts";
+import { normalizeTransport } from "@aai/sdk/schema";
 import {
   type AgentDef,
   type AgentOptions,
   DEFAULT_GREETING,
   DEFAULT_INSTRUCTIONS,
-} from "./types.ts";
+} from "@aai/sdk/types";
 
 export function defineAgent(options: AgentOptions): AgentDef {
   return Object.freeze({

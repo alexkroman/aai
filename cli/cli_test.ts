@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
 import { assertSpyCalls, stub } from "@std/testing/mock";
-import { main } from "./cli.ts";
+import { main } from "@aai/cli";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;
