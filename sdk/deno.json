@@ -13,9 +13,5 @@
   "publish": {
     "exclude": ["*_test.ts"]
   },
-  "lint": {
-    "rules": {
-      "exclude": ["no-slow-types"]
-    }
-  }
+  "lint": {}
 }

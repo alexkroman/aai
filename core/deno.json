@@ -7,9 +7,5 @@
     "./rpc": "./_rpc.ts",
     "./deno-worker": "./_deno_worker.ts"
   },
-  "lint": {
-    "rules": {
-      "exclude": ["no-slow-types"]
-    }
-  }
+  "lint": {}
 }
