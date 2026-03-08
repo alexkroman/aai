@@ -5,6 +5,7 @@ export type NewOptions = {
   targetDir: string;
   template: string;
   templatesDir: string;
+  name?: string;
 };
 
 export async function listTemplates(dir: string): Promise<string[]> {
@@ -29,7 +30,7 @@ async function copyDir(src: string, dest: string): Promise<void> {
 }
 
 export async function runNew(opts: NewOptions): Promise<string> {
-  const { targetDir, template, templatesDir } = opts;
+  const { targetDir, template, templatesDir, name } = opts;
   const available = await listTemplates(templatesDir);
 
   if (!available.includes(template)) {
@@ -42,6 +43,8 @@ export async function runNew(opts: NewOptions): Promise<string> {
 
   step("Create", `from template '${template}'`);
 
+  await Deno.mkdir(targetDir, { recursive: true });
+
   for await (const entry of Deno.readDir(src)) {
     if (entry.name === "node_modules") continue;
     const srcPath = join(src, entry.name);
@@ -53,6 +56,17 @@ export async function runNew(opts: NewOptions): Promise<string> {
     } else {
       await Deno.copyFile(srcPath, destPath);
     }
+  }
+
+  if (name) {
+    const agentPath = join(targetDir, "agent.ts");
+    const content = await Deno.readTextFile(agentPath);
+    const escaped = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const updated = content.replace(
+      /^(\s*name:\s*)"[^"]*"/m,
+      `$1"${escaped}"`,
+    );
+    await Deno.writeTextFile(agentPath, updated);
   }
 
   try {

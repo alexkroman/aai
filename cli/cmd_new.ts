@@ -8,8 +8,8 @@ export async function runNewCommand(
   args: string[],
 ): Promise<number> {
   const flags = parseArgs(args, {
-    string: ["template"],
-    alias: { h: "help", t: "template" },
+    string: ["template", "name"],
+    alias: { h: "help", t: "template", n: "name" },
     boolean: ["help"],
   });
 
@@ -22,6 +22,9 @@ ${bold("USAGE:")}
   ${cyan("aai new")} ${dim("<dir>")}              Create agent in <dir>
 
 ${bold("OPTIONS:")}
+  ${cyan("-n, --name")} ${
+        dim("<name>")
+      }        Agent name (pre-fills name in agent.ts)
   ${cyan("-t, --template")} ${
         dim("<name>")
       }    Template to use (default: simple)
@@ -49,6 +52,7 @@ ${bold("OPTIONS:")}
     targetDir: cwd,
     template,
     templatesDir,
+    name: flags.name,
   });
 
   const templates = await listTemplates(templatesDir);
