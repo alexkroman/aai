@@ -2,9 +2,41 @@
 // Zod schemas are the source of truth; TypeScript types are derived via z.infer.
 
 import { z } from "zod";
+import {
+  AgentConfigSchema,
+  ToolSchemaSchema,
+  TransportSchema,
+} from "../sdk/_schema.ts";
 
 export const DEFAULT_STT_SAMPLE_RATE = 16_000;
 export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
+
+// ---------------------------------------------------------------------------
+// Dev control WebSocket protocol
+// ---------------------------------------------------------------------------
+//
+// The CLI opens a control WebSocket to the production server.
+// After a one-time registration handshake, the WebSocket becomes
+// a transparent RPC channel using the same protocol as Worker
+// postMessage (core/_rpc.ts). The server calls executeTool /
+// invokeHook over this channel exactly as it would call a local
+// Worker.
+
+export const DevRegisterSchema = z.object({
+  type: z.literal("dev_register"),
+  config: AgentConfigSchema,
+  toolSchemas: z.array(ToolSchemaSchema),
+  env: z.record(z.string(), z.string()),
+  transport: z.array(TransportSchema),
+  client: z.string(),
+});
+export type DevRegister = z.infer<typeof DevRegisterSchema>;
+
+export const DevRegisteredSchema = z.object({
+  type: z.literal("dev_registered"),
+  slug: z.string(),
+});
+export type DevRegistered = z.infer<typeof DevRegisteredSchema>;
 
 // ---------------------------------------------------------------------------
 // Server → Client Zod schema (source of truth)

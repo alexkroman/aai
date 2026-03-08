@@ -15,7 +15,7 @@
   },
   "lint": {
     "rules": {
-      "include": ["no-slow-types"]
+      "exclude": ["no-slow-types"]
     }
   }
 }

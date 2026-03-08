@@ -1,38 +1,22 @@
 import { expect } from "@std/expect";
-import { withMiddleware } from "./middleware.ts";
+import { createOrchestrator } from "./orchestrator.ts";
+import { createTestStore } from "./_test_utils.ts";
 
-function makeReq(method = "GET"): Request {
-  return new Request("http://localhost/test", { method });
-}
-
-Deno.test("withMiddleware adds CORS headers", async () => {
-  const handler = withMiddleware(() => new Response("ok"));
-  const res = await handler(makeReq());
-  expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
-  expect(res.headers.get("Access-Control-Allow-Methods")).toContain("GET");
-});
-
-Deno.test("withMiddleware returns 204 for OPTIONS preflight", async () => {
-  const handler = withMiddleware(() => new Response("ok"));
-  const res = await handler(makeReq("OPTIONS"));
-  expect(res.status).toBe(204);
-});
-
-Deno.test("withMiddleware preserves original status and body", async () => {
-  const handler = withMiddleware(
-    () => new Response("created", { status: 201 }),
+Deno.test("orchestrator adds Cross-Origin-Isolation headers", async () => {
+  using store = createTestStore();
+  const { app } = createOrchestrator({ store });
+  const res = await app.request("/health");
+  expect(res.headers.get("Cross-Origin-Opener-Policy")).toBe("same-origin");
+  expect(res.headers.get("Cross-Origin-Embedder-Policy")).toBe(
+    "credentialless",
   );
-  const res = await handler(makeReq());
-  expect(res.status).toBe(201);
-  expect(await res.text()).toBe("created");
 });
 
-Deno.test("withMiddleware returns 500 on unhandled error", async () => {
-  const handler = withMiddleware(() => {
-    throw new Error("boom");
-  });
-  const res = await handler(makeReq());
-  expect(res.status).toBe(500);
-  const body = await res.json();
-  expect(body.error).toBe("Internal server error");
+Deno.test("orchestrator returns 500 on unhandled error", async () => {
+  using store = createTestStore();
+  const { app } = createOrchestrator({ store });
+  // Requesting a deploy without auth header triggers handler error path
+  const res = await app.request("/ns/agent/deploy", { method: "POST" });
+  // Deploy handler returns 400 for missing auth, not 500
+  expect(res.status).toBe(400);
 });

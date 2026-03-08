@@ -1,6 +1,7 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { handleFavicon, renderLandingPage } from "./html.ts";
 import { handleInstall } from "./install.ts";
-import { withMiddleware } from "./middleware.ts";
 import { handleDeploy } from "./deploy.ts";
 import {
   handleAgentHealth,
@@ -12,31 +13,11 @@ import {
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { Session } from "./session.ts";
-import {
-  handleTwilioStream,
-  handleTwilioVoice,
-  type ServerContext,
-} from "./transport_twilio.ts";
+import { handleTwilioStream, handleTwilioVoice } from "./transport_twilio.ts";
+import type { ServerContext } from "./types.ts";
 import { handleDevWebSocket } from "./dev_session.ts";
 
-type Handler = (req: Request) => Response | Promise<Response>;
-
-interface Route {
-  pattern: URLPattern;
-  method?: string;
-  handler: (
-    req: Request,
-    match: URLPatternResult,
-  ) => Response | Promise<Response>;
-}
-
-export interface App {
-  fetch: (req: Request) => Response | Promise<Response>;
-  request: (
-    input: string | URL | Request,
-    init?: RequestInit,
-  ) => Promise<Response>;
-}
+export type App = Hono;
 
 export function createOrchestrator(opts: {
   store: BundleStore;
@@ -47,166 +28,96 @@ export function createOrchestrator(opts: {
   const sessions = new Map<string, Session>();
   const ctx: ServerContext = { slots, sessions, store };
 
-  const routes: Route[] = [
-    // Static routes
-    {
-      pattern: new URLPattern({ pathname: "/favicon.ico" }),
-      handler: () => handleFavicon(),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/favicon.svg" }),
-      handler: () => handleFavicon(),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/install" }),
-      handler: () => handleInstall(),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/health" }),
-      handler: () =>
-        Response.json({
-          status: "ok",
-          agents: [...slots.values()].map((s) => ({
-            slug: s.slug,
-            name: s.live?.name ?? s.slug,
-            ready: !!s.live,
-          })),
-        }),
-    },
-    // Deploy (under namespace/slug path)
-    {
-      pattern: new URLPattern({ pathname: "/:namespace/:slug/deploy" }),
-      method: "POST",
-      handler: (req, m) =>
-        handleDeploy(
-          req,
-          m.pathname.groups.namespace!,
-          m.pathname.groups.slug!,
-          { slots, store },
-        ),
-    },
-    // Twilio
-    {
-      pattern: new URLPattern({ pathname: "/:namespace/:slug/twilio/voice" }),
-      method: "POST",
-      handler: (req, m) =>
-        handleTwilioVoice(
-          req,
-          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
-          ctx,
-        ),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:namespace/:slug/twilio/stream" }),
-      handler: (req, m) =>
-        handleTwilioStream(
-          req,
-          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
-          ctx,
-        ),
-    },
-    // Dev control WebSocket
-    {
-      pattern: new URLPattern({ pathname: "/:namespace/:slug/dev" }),
-      handler: (req, m) =>
-        handleDevWebSocket(
-          req,
-          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
-          ctx,
-        ),
-    },
-    // Agent WebSocket routes
-    {
-      pattern: new URLPattern({ pathname: "/:namespace/:slug/health" }),
-      handler: (req, m) =>
-        handleAgentHealth(
-          req,
-          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
-          ctx,
-        ),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:namespace/:slug/websocket" }),
-      handler: (req, m) =>
-        handleWebSocket(
-          req,
-          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
-          ctx,
-        ),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:namespace/:slug/client.js" }),
-      handler: (req, m) =>
-        handleStaticFile(
-          req,
-          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
-          "client.js",
-          ctx,
-        ),
-    },
-    {
-      pattern: new URLPattern({
-        pathname: "/:namespace/:slug/client.js.map",
-      }),
-      handler: (req, m) =>
-        handleStaticFile(
-          req,
-          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
-          "client.js.map",
-          ctx,
-        ),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:namespace/:slug/" }),
-      handler: (req, m) =>
-        handleAgentPage(
-          req,
-          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
-          ctx,
-        ),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:namespace/:slug" }),
-      handler: (req, m) =>
-        handleAgentRedirect(
-          req,
-          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
-          ctx,
-        ),
-    },
-    // Landing page
-    {
-      pattern: new URLPattern({ pathname: "/" }),
-      handler: () =>
-        new Response(renderLandingPage(), {
-          headers: { "Content-Type": "text/html; charset=utf-8" },
-        }),
-    },
-  ];
+  const app = new Hono();
 
-  const rawHandler: Handler = (req: Request) => {
-    for (const route of routes) {
-      if (route.method && req.method !== route.method) continue;
-      const match = route.pattern.exec(req.url);
-      if (match) return route.handler(req, match);
-    }
-    return Response.json({ error: "Not found" }, { status: 404 });
-  };
+  // Cross-Origin-Isolation headers required for SharedArrayBuffer in capture worklet
+  app.use("*", cors());
+  app.use("*", async (c, next) => {
+    await next();
+    c.header("Cross-Origin-Opener-Policy", "same-origin");
+    c.header("Cross-Origin-Embedder-Policy", "credentialless");
+  });
 
-  const handler = withMiddleware(rawHandler);
+  // Error handler
+  app.onError((err, c) => {
+    console.error("Unhandled error", {
+      err,
+      path: new URL(c.req.url).pathname,
+    });
+    return c.json({ error: "Internal server error" }, 500);
+  });
 
-  const app: App = {
-    fetch: handler,
-    request: async (input, init?) => {
-      const req = input instanceof Request ? input : new Request(
-        typeof input === "string" && !input.startsWith("http")
-          ? `http://localhost${input}`
-          : input,
-        init,
-      );
-      return await handler(req);
-    },
-  };
+  // Static routes
+  app.get("/favicon.ico", () => handleFavicon());
+  app.get("/favicon.svg", () => handleFavicon());
+  app.get("/install", (c) => handleInstall(c));
+
+  app.get("/health", (c) =>
+    c.json({
+      status: "ok",
+      agents: [...slots.values()].map((s) => ({
+        slug: s.slug,
+        name: s.name ?? s.slug,
+        ready: !!s.worker,
+      })),
+    }));
+
+  // Deploy
+  app.post(
+    "/:namespace/:slug/deploy",
+    (c) => handleDeploy(c, { slots, store }),
+  );
+
+  // Twilio
+  app.post("/:namespace/:slug/twilio/voice", (c) => {
+    const slug = `${c.req.param("namespace")}/${c.req.param("slug")}`;
+    return handleTwilioVoice(c, slug, ctx);
+  });
+
+  app.all("/:namespace/:slug/twilio/stream", (c) => {
+    const slug = `${c.req.param("namespace")}/${c.req.param("slug")}`;
+    return handleTwilioStream(c, slug, ctx);
+  });
+
+  // Dev control WebSocket
+  app.all("/:namespace/:slug/dev", (c) => {
+    const slug = `${c.req.param("namespace")}/${c.req.param("slug")}`;
+    return handleDevWebSocket(c, slug, ctx);
+  });
+
+  // Agent routes
+  app.get("/:namespace/:slug/health", (c) => {
+    const slug = `${c.req.param("namespace")}/${c.req.param("slug")}`;
+    return handleAgentHealth(c, slug, ctx);
+  });
+
+  app.all("/:namespace/:slug/websocket", (c) => {
+    const slug = `${c.req.param("namespace")}/${c.req.param("slug")}`;
+    return handleWebSocket(c, slug, ctx);
+  });
+
+  app.get("/:namespace/:slug/client.js", (c) => {
+    const slug = `${c.req.param("namespace")}/${c.req.param("slug")}`;
+    return handleStaticFile(c, slug, "client.js", ctx);
+  });
+
+  app.get("/:namespace/:slug/client.js.map", (c) => {
+    const slug = `${c.req.param("namespace")}/${c.req.param("slug")}`;
+    return handleStaticFile(c, slug, "client.js.map", ctx);
+  });
+
+  app.get("/:namespace/:slug/", (c) => {
+    const slug = `${c.req.param("namespace")}/${c.req.param("slug")}`;
+    return handleAgentPage(c, slug, ctx);
+  });
+
+  app.get("/:namespace/:slug", (c) => {
+    const slug = `${c.req.param("namespace")}/${c.req.param("slug")}`;
+    return handleAgentRedirect(c, slug, ctx);
+  });
+
+  // Landing page
+  app.get("/", (c) => c.html(renderLandingPage()));
 
   return { app };
 }

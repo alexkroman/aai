@@ -1,44 +1,24 @@
+import { encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
-import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import { createWorkerApi, type WorkerApi } from "../core/_worker_entry.ts";
-import type { ExecuteTool } from "../core/_tool_executor.ts";
+import type { ExecuteTool } from "../core/_worker_entry.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-export interface AgentMetadata {
-  slug: string;
-  env: Record<string, string>;
-  transport: ("websocket" | "twilio")[];
-  owner_hash?: string;
-  config?: AgentConfig;
-  toolSchemas?: ToolSchema[];
-}
+import type { AgentMetadata } from "../core/_rpc_schema.ts";
+export type { AgentMetadata } from "../core/_rpc_schema.ts";
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
-
-/** A minimal subset of Worker used for lifecycle management. */
-export interface WorkerHandle {
-  terminate(): void;
-}
-
-export interface AgentInfo {
-  slug: string;
-  name: string;
-  worker: WorkerHandle;
-  workerApi: WorkerApi;
-  config: AgentConfig;
-  toolSchemas: ToolSchema[];
-}
 
 export interface AgentSlot {
   slug: string;
   env: Record<string, string>;
   transport: ("websocket" | "twilio")[];
-  /** Static config from manifest (available without spawning a Worker). */
   config?: AgentConfig;
   name?: string;
   toolSchemas?: ToolSchema[];
-  live?: AgentInfo;
-  initializing?: Promise<AgentInfo>;
+  /** Live worker state — present only when agent is spawned. */
+  worker?: { handle: { terminate(): void }; api: WorkerApi };
+  initializing?: Promise<void>;
   activeSessions: number;
   idleTimer?: ReturnType<typeof setTimeout>;
   /** True when this slot is owned by a dev control WebSocket. */
@@ -48,7 +28,7 @@ export interface AgentSlot {
 async function spawnAgent(
   slot: AgentSlot,
   getWorkerCode?: (slug: string) => Promise<string | null>,
-): Promise<AgentInfo> {
+): Promise<void> {
   const { slug } = slot;
 
   console.info("Spawning agent worker", { slug });
@@ -58,7 +38,7 @@ async function spawnAgent(
   }
   const code = await getWorkerCode(slug);
   if (!code) throw new Error(`Worker code not found for ${slug}`);
-  const workerUrl = `data:application/javascript;base64,${btoa(code)}`;
+  const workerUrl = `data:application/javascript;base64,${encodeBase64(code)}`;
 
   // deno-lint-ignore no-explicit-any
   const worker = new (Worker as any)(workerUrl, {
@@ -81,55 +61,38 @@ async function spawnAgent(
     "error",
     ((event: ErrorEvent) => {
       console.error("Worker error", { slug, error: event.message });
-      if (slot.live?.worker === worker) slot.live = undefined;
+      if (slot.worker?.handle === worker) slot.worker = undefined;
     }) as EventListener,
   );
 
-  const workerApi = createWorkerApi(worker);
-
-  const agentConfig = slot.config!;
-  const allToolSchemas = [
-    ...slot.toolSchemas!,
-    ...getBuiltinToolSchemas(agentConfig.builtinTools ?? []),
-  ];
-
-  const agentInfo: AgentInfo = {
-    slug,
-    name: slot.name ?? slug,
-    worker,
-    workerApi,
-    config: agentConfig,
-    toolSchemas: allToolSchemas,
-  };
-  return agentInfo;
+  const api = createWorkerApi(worker);
+  slot.worker = { handle: worker, api };
 }
 
 export function ensureAgent(
   slot: AgentSlot,
   getWorkerCode?: (slug: string) => Promise<string | null>,
-): Promise<AgentInfo> {
+): Promise<void> {
   const t0 = performance.now();
 
-  if (slot.live) {
+  if (slot.worker) {
     console.info("Agent ready", {
       slug: slot.slug,
       cached: true,
       durationMs: Math.round(performance.now() - t0),
     });
-    return Promise.resolve(slot.live);
+    return Promise.resolve();
   }
   if (slot.initializing) return slot.initializing;
 
-  slot.initializing = spawnAgent(slot, getWorkerCode).then((info) => {
-    slot.live = info;
+  slot.initializing = spawnAgent(slot, getWorkerCode).then(() => {
     slot.initializing = undefined;
     console.info("Agent ready", {
-      slug: info.slug,
-      name: info.name,
+      slug: slot.slug,
+      name: slot.name,
       cached: false,
       durationMs: Math.round(performance.now() - t0),
     });
-    return info;
   }).catch((err) => {
     slot.initializing = undefined;
     throw err;
@@ -150,12 +113,12 @@ export function trackSessionClose(
   slot: AgentSlot,
 ): void {
   slot.activeSessions = Math.max(0, slot.activeSessions - 1);
-  if (slot.activeSessions === 0 && slot.live) {
+  if (slot.activeSessions === 0 && slot.worker) {
     const timerId = setTimeout(() => {
-      if (slot.activeSessions === 0 && slot.live) {
+      if (slot.activeSessions === 0 && slot.worker) {
         console.info("Evicting idle agent Worker", { slug: slot.slug });
-        slot.live.worker.terminate();
-        slot.live = undefined;
+        slot.worker.handle.terminate();
+        slot.worker = undefined;
         slot.idleTimer = undefined;
       }
     }, IDLE_TIMEOUT_MS);
@@ -202,10 +165,9 @@ export function createToolExecutor(
       executeTool: () => Promise.resolve("Error: No custom tools"),
     };
   }
-  let cachedApi: WorkerApi | undefined;
   const getWorkerApi = async () => {
-    cachedApi ??= (await ensureAgent(slot, getWorkerCode)).workerApi;
-    return cachedApi;
+    await ensureAgent(slot, getWorkerCode);
+    return slot.worker!.api;
   };
   return {
     executeTool: async (name, args, sessionId) => {

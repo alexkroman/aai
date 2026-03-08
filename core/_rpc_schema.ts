@@ -1,42 +1,22 @@
 import { z } from "zod";
-import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "../sdk/types.ts";
+import {
+  AgentConfigSchema,
+  ToolSchemaSchema,
+  TransportSchema,
+} from "../sdk/_schema.ts";
 
-// ── BuiltinTool enum (single source of truth for validation) ────
-
-const BuiltinToolSchema = z.enum([
-  "web_search",
-  "visit_webpage",
-  "fetch_json",
-  "run_code",
-  "user_input",
-  "final_answer",
-]);
-
-// ── Agent config (stored in manifest, no longer fetched via RPC) ─
-
-const AgentConfigSchema = z.object({
-  name: z.string().optional(),
-  instructions: z.string().default(DEFAULT_INSTRUCTIONS),
-  greeting: z.string().default(DEFAULT_GREETING),
-  voice: z.string().default("luna"),
-  prompt: z.string().optional(),
-  builtinTools: z.array(BuiltinToolSchema).optional(),
-});
-
-const ToolSchemaSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  parameters: z.record(z.string(), z.unknown()),
-});
+// ── Agent metadata (stored in manifest, validated on read from S3) ─
 
 export const AgentMetadataSchema = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
-  transport: z.array(z.enum(["websocket", "twilio"])).default(["websocket"]),
+  transport: z.array(TransportSchema).default(["websocket"]),
   owner_hash: z.string().optional(),
   config: AgentConfigSchema.optional(),
   toolSchemas: z.array(ToolSchemaSchema).optional(),
 });
+
+export type AgentMetadata = z.infer<typeof AgentMetadataSchema>;
 
 // ── RPC wire-format types (worker ↔ host postMessage) ───────────
 

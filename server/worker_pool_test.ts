@@ -83,14 +83,11 @@ Deno.test("trackSessionClose does not go below zero", () => {
 Deno.test("trackSessionClose sets idle timer when last session closes and agent is live", () => {
   const slot = makeSlot({
     activeSessions: 1,
-    live: {
-      slug: "test",
-      name: "test",
-      worker: { terminate() {} },
-      workerApi: {} as unknown,
-      config: {} as unknown,
-      toolSchemas: [],
-    } as AgentSlot["live"],
+    worker: {
+      handle: { terminate() {} },
+      // deno-lint-ignore no-explicit-any
+      api: {} as any,
+    },
   });
   trackSessionClose(slot);
   expect(slot.idleTimer).toBeDefined();

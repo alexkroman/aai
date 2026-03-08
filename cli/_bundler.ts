@@ -148,15 +148,26 @@ export async function bundleAgent(
   const agentAbsolute = resolve(agent.entryPoint);
   const workerEntryAbsolute = resolve(AAI_ROOT, "core/_worker_entry.ts");
 
-  // denoPlugin resolves framework deps (JSR/npm via deno.json).
-  // nodePaths lets esbuild natively resolve agent deps from their node_modules.
-  const plugins = [denoPlugin({ configPath: baseConfigPath })];
-  const nodePaths = [join(agent.dir, "node_modules")];
+  // Agent's deno.json resolves agent-specific deps (e.g. npm: imports).
+  // Framework's deno.json resolves internal deps (zod, @aai/sdk internals).
+  const agentConfigPath = join(agent.dir, "deno.json");
+  let hasAgentConfig = false;
+  try {
+    await Deno.stat(agentConfigPath);
+    hasAgentConfig = true;
+  } catch { /* no agent deno.json */ }
+  const workerPlugins = hasAgentConfig
+    ? [
+      denoPlugin({ configPath: agentConfigPath }),
+      denoPlugin({ configPath: baseConfigPath }),
+    ]
+    : [denoPlugin({ configPath: baseConfigPath })];
+  const clientPlugins = [denoPlugin({ configPath: baseConfigPath })];
 
   const workerResult = await buildWithCleanErrors({
     ...BASE,
-    plugins,
-    nodePaths,
+    plugins: workerPlugins,
+
     stdin: {
       contents: `import agent from "${agentAbsolute}";\n` +
         `import { startWorker } from "${workerEntryAbsolute}";\n` +
@@ -179,22 +190,16 @@ export async function bundleAgent(
   let client = "";
   let clientBytes = 0;
   if (!opts?.skipClient) {
-    let clientEntry = `import "${resolve(agent.clientEntry)}";\n`;
-    if (agent.clientEntry.startsWith(agent.dir)) {
-      const clientSrc = await Deno.readTextFile(agent.clientEntry);
-      const hasMount = /\bmount\s*\(/.test(clientSrc);
-      const hasDefaultExport = /export\s+default\b/.test(clientSrc);
-      if (!hasMount && hasDefaultExport) {
-        clientEntry = `import { mount } from "@aai/ui";\n` +
-          `import App from "${resolve(agent.clientEntry)}";\n` +
-          `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`;
-      }
-    }
+    const clientEntry = agent.clientEntry.startsWith(agent.dir)
+      ? `import { mount } from "@aai/ui";\n` +
+        `import App from "${resolve(agent.clientEntry)}";\n` +
+        `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`
+      : `import "${resolve(agent.clientEntry)}";\n`;
 
     const clientResult = await buildWithCleanErrors({
       ...BASE,
-      plugins,
-      nodePaths,
+      plugins: clientPlugins,
+
       stdin: {
         contents: clientEntry,
         loader: "tsx",

@@ -1,7 +1,8 @@
 // --- Agent types (stable SDK surface baked into deployed bundles) ---
 
 import { z } from "zod";
-import type { Transport } from "./_schema.ts";
+import type { BuiltinTool, ToolSchema, Transport } from "./_schema.ts";
+export type { AgentConfig, BuiltinTool, ToolSchema } from "./_schema.ts";
 
 export interface ToolContext {
   sessionId: string;
@@ -22,15 +23,6 @@ export interface ToolDef {
     ctx: ToolContext,
   ) => Promise<unknown> | unknown;
 }
-
-/** Built-in tools provided by the framework. */
-export type BuiltinTool =
-  | "web_search"
-  | "visit_webpage"
-  | "fetch_json"
-  | "run_code"
-  | "user_input"
-  | "final_answer";
 
 /**
  * Rime TTS voice ID. Popular voices listed for autocomplete;
@@ -95,13 +87,6 @@ If you need to list items, say "First," "Next," and "Finally."
 export const DEFAULT_GREETING: string =
   "Hey there. I'm a voice assistant. What can I help you with?";
 
-/** JSON Schema representation of tool parameters, sent over the wire to the LLM. */
-export interface ToolSchema {
-  name: string;
-  description: string;
-  parameters: Record<string, unknown>;
-}
-
 const EMPTY_PARAMS = z.object({});
 
 export function agentToolsToSchemas(
@@ -112,16 +97,6 @@ export function agentToolsToSchemas(
     description: def.description,
     parameters: z.toJSONSchema(def.parameters ?? EMPTY_PARAMS),
   }));
-}
-
-/** Agent config passed from worker to server via RPC. */
-export interface AgentConfig {
-  readonly name?: string;
-  readonly instructions: string;
-  readonly greeting: string;
-  readonly voice: string;
-  readonly prompt?: string;
-  readonly builtinTools?: readonly BuiltinTool[];
 }
 
 /** Frozen agent definition returned by defineAgent(). */

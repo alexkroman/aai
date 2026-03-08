@@ -7,6 +7,8 @@
  * Skips string literals (template code written to shim files).
  */
 
+import { walk } from "@std/fs/walk";
+
 const RULES: { dirs: string[]; forbidden: RegExp; skipTests: boolean }[] = [
   // No relative cross-imports between cli/, server/, and ui/
   {
@@ -42,24 +44,24 @@ let violations = 0;
 
 for (const rule of RULES) {
   for (const dir of rule.dirs) {
-    for await (const entry of Deno.readDir(dir)) {
-      if (
-        !entry.isFile ||
-        !entry.name.endsWith(".ts") && !entry.name.endsWith(".tsx")
-      ) continue;
+    for await (
+      const entry of walk(dir, {
+        exts: [".ts", ".tsx"],
+        includeDirs: false,
+      })
+    ) {
       if (
         rule.skipTests &&
         (entry.name.includes("_test") || entry.name.startsWith("_test"))
       ) continue;
 
-      const path = `${dir}/${entry.name}`;
-      const content = await Deno.readTextFile(path);
+      const content = await Deno.readTextFile(entry.path);
       const lines = content.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (rule.forbidden.test(line)) {
-          console.error(`${path}:${i + 1}: ${line.trim()}`);
+          console.error(`${entry.path}:${i + 1}: ${line.trim()}`);
           violations++;
         }
       }

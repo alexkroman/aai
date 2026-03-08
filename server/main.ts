@@ -21,7 +21,7 @@ const { app } = createOrchestrator({ store });
 const port = parseInt(Deno.env.get("PORT") ?? "3100");
 const server = Deno.serve(
   { port, hostname: "0.0.0.0", onListen: () => {} },
-  app.fetch,
+  app.fetch.bind(app),
 );
 
 console.info(`http://localhost:${port}`);

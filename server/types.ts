@@ -3,6 +3,8 @@ import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
 } from "../core/_protocol.ts";
+import type { AgentSlot } from "./worker_pool.ts";
+import type { BundleStore } from "./bundle_store_tigris.ts";
 
 // --- Config types (plain interfaces — not validated at boundaries) ---
 
@@ -53,22 +55,9 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
-// --- STT message types — schema is source of truth ---
+// --- STT message — schema is source of truth ---
 
-export type SttMessage = {
-  type: string;
-  transcript?: string;
-  is_final?: boolean;
-  turn_is_formatted?: boolean;
-  turn_order?: number;
-  end_of_turn?: boolean;
-  timestamp?: number;
-  audio_duration_seconds?: number;
-  session_duration_seconds?: number;
-  [key: string]: unknown;
-};
-
-export const SttMessageSchema: z.ZodType<SttMessage> = z
+export const SttMessageSchema = z
   .object({
     type: z.string(),
     transcript: z.string().optional(),
@@ -82,22 +71,11 @@ export const SttMessageSchema: z.ZodType<SttMessage> = z
   })
   .passthrough();
 
+export type SttMessage = z.infer<typeof SttMessageSchema>;
+
 // --- LLM types — schema is source of truth ---
 
-export type ChatMessage = {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string | null;
-  tool_calls?: {
-    id: string;
-    type: "function";
-    function: { name: string; arguments: string; [key: string]: unknown };
-    [key: string]: unknown;
-  }[];
-  tool_call_id?: string;
-  [key: string]: unknown;
-};
-
-const ChatMessageSchema: z.ZodType<ChatMessage> = z.object({
+const ChatMessageSchema = z.object({
   role: z.enum(["system", "user", "assistant", "tool"]),
   content: z.string().nullable(),
   tool_calls: z.array(
@@ -111,17 +89,9 @@ const ChatMessageSchema: z.ZodType<ChatMessage> = z.object({
   tool_call_id: z.string().optional(),
 }).passthrough();
 
-export type LLMResponse = {
-  id?: string;
-  choices: {
-    index?: number;
-    message: ChatMessage;
-    finish_reason: string;
-  }[];
-  [key: string]: unknown;
-};
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
-export const LLMResponseSchema: z.ZodType<LLMResponse> = z
+export const LLMResponseSchema = z
   .object({
     id: z.string().optional(),
     choices: z.array(z.object({
@@ -131,3 +101,13 @@ export const LLMResponseSchema: z.ZodType<LLMResponse> = z
     })).nullable().transform((v) => v ?? []),
   })
   .passthrough();
+
+export type LLMResponse = z.infer<typeof LLMResponseSchema>;
+
+// --- Server context shared across transports ---
+
+export interface ServerContext {
+  slots: Map<string, AgentSlot>;
+  sessions: Map<string, unknown>;
+  store: BundleStore;
+}

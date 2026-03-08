@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "exports": {
     "./worker-entry": "./_worker_entry.ts",
-    "./tool-executor": "./_tool_executor.ts",
     "./protocol": "./_protocol.ts",
     "./rpc": "./_rpc.ts"
   },

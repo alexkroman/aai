@@ -2,7 +2,8 @@ import { z } from "zod";
 
 // ── Transport ───────────────────────────────────────────────────
 
-export type Transport = "websocket" | "twilio";
+export const TransportSchema = z.enum(["websocket", "twilio"]);
+export type Transport = z.infer<typeof TransportSchema>;
 
 /** Normalize a transport field value into an array. */
 export function normalizeTransport(
@@ -13,12 +14,41 @@ export function normalizeTransport(
   return value;
 }
 
-const TransportSchema = z.enum(["websocket", "twilio"]);
-
 const TransportFieldSchema = z.union([
   TransportSchema,
   z.array(TransportSchema),
 ]).optional();
+
+// ── Shared sub-schemas (single source of truth) ─────────────────
+
+const BuiltinToolSchema = z.enum([
+  "web_search",
+  "visit_webpage",
+  "fetch_json",
+  "run_code",
+  "user_input",
+  "final_answer",
+]);
+
+export const AgentConfigSchema = z.object({
+  name: z.string().optional(),
+  instructions: z.string(),
+  greeting: z.string(),
+  voice: z.string(),
+  prompt: z.string().optional(),
+  builtinTools: z.array(BuiltinToolSchema).optional(),
+});
+
+export type BuiltinTool = z.infer<typeof BuiltinToolSchema>;
+export type AgentConfig = z.infer<typeof AgentConfigSchema>;
+
+export const ToolSchemaSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  parameters: z.record(z.string(), z.unknown()),
+});
+
+export type ToolSchema = z.infer<typeof ToolSchemaSchema>;
 
 // ── Deploy request body — schema is source of truth ─────────────
 
@@ -27,19 +57,8 @@ export const DeployBodySchema = z.object({
   worker: z.string().min(1),
   client: z.string().min(1),
   transport: TransportFieldSchema,
-  config: z.object({
-    name: z.string().optional(),
-    instructions: z.string(),
-    greeting: z.string(),
-    voice: z.string(),
-    prompt: z.string().optional(),
-    builtinTools: z.array(z.string()).optional(),
-  }).optional(),
-  toolSchemas: z.array(z.object({
-    name: z.string(),
-    description: z.string(),
-    parameters: z.record(z.string(), z.unknown()),
-  })).optional(),
+  config: AgentConfigSchema.optional(),
+  toolSchemas: z.array(ToolSchemaSchema).optional(),
 });
 
 export type DeployBody = z.infer<typeof DeployBodySchema>;

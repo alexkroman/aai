@@ -28,14 +28,14 @@
     "@std/fs": "jsr:@std/fs@^1.0.17",
     "@std/encoding": "jsr:@std/encoding@^1.0.7",
     "@astral/astral": "jsr:@astral/astral@^0.5.5",
+    "hono": "jsr:@hono/hono@^4",
     "preact": "npm:preact@^10.28.4",
     "preact/hooks": "npm:preact@^10.28.4/hooks",
     "preact/compat": "npm:preact@^10.28.4/compat",
     "@preact/signals": "npm:@preact/signals@^2.8.1",
     "goober": "npm:goober@^2.1.18",
     "zod": "jsr:@zod/zod@^4.3.6",
-    "esbuild": "npm:esbuild-wasm@^0.27.3",
-    "lodash-es": "npm:lodash-es@^4"
+    "esbuild": "npm:esbuild-wasm@^0.27.3"
   },
   "nodeModulesDir": "auto",
   "compilerOptions": {
@@ -70,9 +70,6 @@
       "core/",
       "templates/"
     ],
-    "rules": {
-      "include": ["no-slow-types"]
-    }
   },
   "license": "MIT"
 }

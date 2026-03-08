@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
-import { createSession, type SessionOptions } from "./session.ts";
-import type { AgentConfig } from "../sdk/types.ts";
+import { createSession, type SessionDeps } from "./session.ts";
+import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import {
   createMockLLMResponse,
   createMockSessionOptions,
@@ -10,28 +10,19 @@ import {
 } from "./_test_utils.ts";
 import type { SttEvents } from "./stt.ts";
 
-type SetupOverrides =
-  & Partial<
-    Pick<
-      SessionOptions,
-      | "connectStt"
-      | "callLLM"
-      | "ttsClient"
-      | "executeBuiltinTool"
-    >
-  >
-  & { toolSchemas?: SessionOptions["toolSchemas"] };
+type SetupOverrides = Partial<SessionDeps> & { toolSchemas?: ToolSchema[] };
 
 function setup(
   overrides?: SetupOverrides,
   agentConfig?: Partial<AgentConfig>,
 ) {
-  const mocks = createMockSessionOptions(overrides);
+  const { toolSchemas, ...depsOverrides } = overrides ?? {};
+  const mocks = createMockSessionOptions(depsOverrides);
   if (agentConfig) {
     mocks.opts.agentConfig = { ...mocks.opts.agentConfig, ...agentConfig };
   }
-  if (overrides?.toolSchemas) {
-    mocks.opts.toolSchemas = overrides.toolSchemas;
+  if (toolSchemas) {
+    mocks.opts.toolSchemas = toolSchemas;
   }
   const transport = mocks.opts.transport as ReturnType<
     typeof createMockTransport
@@ -47,7 +38,7 @@ function setupWithSttEvents(
   const events: { current: SttEvents | null } = { current: null };
   const result = setup(
     {
-      connectStt: (_key, _config, sttEvents) => {
+      connectStt: (_key: string, _config: unknown, sttEvents: SttEvents) => {
         events.current = sttEvents;
         return Promise.resolve({
           send: () => {},

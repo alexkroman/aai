@@ -1,31 +1,26 @@
-import { type DevRegister, DevRegisterSchema } from "../core/_dev_protocol.ts";
+import type { Context } from "hono";
+import { type DevRegister, DevRegisterSchema } from "../core/_protocol.ts";
 import { createWebSocketTarget } from "../core/_rpc.ts";
 import { createWorkerApi } from "../core/_worker_entry.ts";
 import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
-import type { AgentInfo, AgentSlot, WorkerHandle } from "./worker_pool.ts";
-import type { ServerContext } from "./transport_twilio.ts";
+import type { AgentSlot } from "./worker_pool.ts";
+import type { ServerContext } from "./types.ts";
 import { hashApiKey } from "./deploy.ts";
 
 export function handleDevWebSocket(
-  req: Request,
+  c: Context,
   slug: string,
   ctx: ServerContext,
 ): Response {
+  const req = c.req.raw;
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-    return Response.json(
-      { error: "Expected WebSocket upgrade" },
-      { status: 400 },
-    );
+    return c.json({ error: "Expected WebSocket upgrade" }, 400);
   }
 
-  const url = new URL(req.url);
-  const apiKey = url.searchParams.get("token");
+  const apiKey = c.req.query("token");
   if (!apiKey) {
-    return Response.json(
-      { error: "Missing token parameter" },
-      { status: 401 },
-    );
+    return c.json({ error: "Missing token parameter" }, 401);
   }
 
   const { socket, response } = Deno.upgradeWebSocket(req);
@@ -106,21 +101,10 @@ async function registerDevAgent(
     ...getBuiltinToolSchemas(agentConfig.builtinTools ?? []),
   ];
 
-  const noopHandle: WorkerHandle = { terminate() {} };
-
-  const agentInfo: AgentInfo = {
-    slug,
-    name: msg.config.name ?? slug,
-    worker: noopHandle,
-    workerApi,
-    config: agentConfig,
-    toolSchemas: allToolSchemas,
-  };
-
   // Replace any existing slot
   const existing = ctx.slots.get(slug);
-  if (existing?.live) {
-    existing.live.worker.terminate();
+  if (existing?.worker) {
+    existing.worker.handle.terminate();
   }
 
   const slot: AgentSlot = {
@@ -131,7 +115,11 @@ async function registerDevAgent(
     name: agentConfig.name ?? slug,
     toolSchemas: customToolSchemas,
     activeSessions: existing?.activeSessions ?? 0,
-    live: agentInfo,
+    // Dev slots wire RPC directly to the CLI WebSocket instead of a Worker
+    worker: {
+      handle: { terminate() {} },
+      api: workerApi,
+    },
     _dev: true,
   };
   ctx.slots.set(slug, slot);
@@ -148,7 +136,7 @@ async function registerDevAgent(
 
   console.info("Dev agent registered", {
     slug,
-    name: agentInfo.name,
+    name: slot.name,
     tools: allToolSchemas.map((t) => t.name),
   });
 

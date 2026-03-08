@@ -1,3 +1,5 @@
+import type { Context } from "hono";
+import { encodeHex } from "@std/encoding/hex";
 import { loadPlatformConfig } from "./config.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
@@ -6,24 +8,22 @@ import { DeployBodySchema, normalizeTransport } from "../sdk/_schema.ts";
 export async function hashApiKey(apiKey: string): Promise<string> {
   const data = new TextEncoder().encode(apiKey);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return encodeHex(new Uint8Array(hashBuffer));
 }
 
 export async function handleDeploy(
-  req: Request,
-  namespace: string,
-  slug: string,
+  c: Context,
   ctx: { slots: Map<string, AgentSlot>; store: BundleStore },
 ): Promise<Response> {
   const { slots, store } = ctx;
+  const namespace = c.req.param("namespace");
+  const slug = c.req.param("slug");
 
-  const authHeader = req.headers.get("Authorization");
+  const authHeader = c.req.header("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return Response.json(
+    return c.json(
       { error: "Missing Authorization header (Bearer <API_KEY>)" },
-      { status: 400 },
+      400,
     );
   }
   const apiKey = authHeader.slice("Bearer ".length);
@@ -31,16 +31,16 @@ export async function handleDeploy(
 
   let json: unknown;
   try {
-    json = await req.json();
+    json = await c.req.json();
   } catch {
-    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    return c.json({ error: "Invalid JSON body" }, 400);
   }
 
   const parsed = DeployBodySchema.safeParse(json);
   if (!parsed.success) {
-    return Response.json(
+    return c.json(
       { error: `Invalid deploy body: ${parsed.error.message}` },
-      { status: 400 },
+      400,
     );
   }
   const body = parsed.data;
@@ -48,18 +48,18 @@ export async function handleDeploy(
   try {
     loadPlatformConfig(body.env);
   } catch (err: unknown) {
-    return Response.json(
+    return c.json(
       { error: `Invalid platform config: ${(err as Error).message}` },
-      { status: 400 },
+      400,
     );
   }
 
   // Check namespace ownership — claim implicitly on first deploy
   const nsOwner = await store.getNamespaceOwner(namespace);
   if (nsOwner && nsOwner !== ownerHash) {
-    return Response.json(
+    return c.json(
       { error: `Namespace "${namespace}" is owned by another user.` },
-      { status: 403 },
+      403,
     );
   }
   if (!nsOwner) {
@@ -69,10 +69,10 @@ export async function handleDeploy(
   const compositeSlug = `${namespace}/${slug}`;
 
   const existing = slots.get(compositeSlug);
-  if (existing?.live) {
+  if (existing?.worker) {
     console.info("Replacing existing deploy", { slug: compositeSlug });
-    existing.live.worker.terminate();
-    existing.live = undefined;
+    existing.worker.handle.terminate();
+    existing.worker = undefined;
     existing.initializing = undefined;
   }
 
@@ -102,7 +102,7 @@ export async function handleDeploy(
 
   console.info("Deploy received", { slug: compositeSlug, transport });
 
-  return Response.json({
+  return c.json({
     ok: true,
     message: `Deployed ${compositeSlug}`,
   });

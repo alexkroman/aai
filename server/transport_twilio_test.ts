@@ -1,3 +1,4 @@
+import { encodeBase64 } from "@std/encoding/base64";
 import { expect } from "@std/expect";
 import {
   decodeMulaw,
@@ -114,7 +115,7 @@ Deno.test("createAudioBuffer", async (t) => {
 Deno.test("decodeTwilioFrame produces PCM16 bytes at 16kHz", () => {
   // 80 mulaw samples at 8kHz = 10ms → should produce 160 PCM16 samples at 16kHz = 320 bytes
   const mulaw = new Uint8Array(80).fill(0xff); // silence
-  const b64 = btoa(String.fromCharCode(...mulaw));
+  const b64 = encodeBase64(mulaw);
   const result = decodeTwilioFrame(b64);
   expect(result.length).toBe(320); // 160 samples × 2 bytes
 });

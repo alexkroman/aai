@@ -49,18 +49,6 @@ for (const template of templates) {
       "ASSEMBLYAI_API_KEY=test\n",
     );
 
-    // Install npm deps if package.json exists
-    try {
-      await Deno.stat(join(tmpDir, "package.json"));
-      const cmd = new Deno.Command("deno", {
-        args: ["install"],
-        cwd: tmpDir,
-        stdout: "null",
-        stderr: "null",
-      });
-      await cmd.output();
-    } catch { /* no package.json */ }
-
     // Build it
     await runBuild({ agentDir: tmpDir });
 

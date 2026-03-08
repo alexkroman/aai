@@ -1,6 +1,6 @@
 import type { PlatformConfig } from "./config.ts";
 import { callLLM as defaultCallLLM, type CallLLMOptions } from "./llm.ts";
-import type { ExecuteTool } from "../core/_tool_executor.ts";
+import type { ExecuteTool } from "../core/_worker_entry.ts";
 import {
   connectStt as defaultConnectStt,
   type SttEvents,
@@ -23,6 +23,28 @@ export interface SessionTransport {
   readonly readyState: number;
 }
 
+/** Concrete dependencies resolved before session creation. */
+export interface SessionDeps {
+  connectStt(
+    apiKey: string,
+    config: STTConfig,
+    events: SttEvents,
+  ): Promise<SttHandle>;
+  callLLM(opts: CallLLMOptions): Promise<LLMResponse>;
+  ttsClient: {
+    synthesizeStream(
+      chunks: string | AsyncIterable<string>,
+      onAudio: (chunk: Uint8Array) => void,
+      signal?: AbortSignal,
+    ): Promise<void>;
+    close(): void;
+  };
+  executeBuiltinTool(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<string | null>;
+}
+
 export interface SessionOptions {
   id: string;
   transport: SessionTransport;
@@ -31,27 +53,29 @@ export interface SessionOptions {
   platformConfig: PlatformConfig;
   executeTool: ExecuteTool;
   env?: Record<string, string | undefined>;
-  /** Lazy accessor — called on first hook invocation. */
   getWorkerApi?: () => Promise<WorkerApi>;
   skipGreeting?: boolean;
-  connectStt?(
-    apiKey: string,
-    config: STTConfig,
-    events: SttEvents,
-  ): Promise<SttHandle>;
-  callLLM?(opts: CallLLMOptions): Promise<LLMResponse>;
-  ttsClient?: {
-    synthesizeStream(
-      chunks: string | AsyncIterable<string>,
-      onAudio: (chunk: Uint8Array) => void,
-      signal?: AbortSignal,
-    ): Promise<void>;
-    close(): void;
+  deps?: Partial<SessionDeps>;
+}
+
+/** Resolve session deps from options, using defaults for anything not provided. */
+export function resolveSessionDeps(
+  opts: SessionOptions,
+): SessionDeps {
+  const env: Record<string, string | undefined> = {
+    ...opts.env,
+    BRAVE_API_KEY: opts.platformConfig.braveApiKey || opts.env?.BRAVE_API_KEY,
   };
-  executeBuiltinTool?(
-    name: string,
-    args: Record<string, unknown>,
-  ): Promise<string | null>;
+
+  return {
+    connectStt: opts.deps?.connectStt ?? defaultConnectStt,
+    callLLM: opts.deps?.callLLM ?? defaultCallLLM,
+    ttsClient: opts.deps?.ttsClient ??
+      createTtsClient(opts.platformConfig.ttsConfig),
+    executeBuiltinTool: opts.deps?.executeBuiltinTool ??
+      ((name: string, args: Record<string, unknown>) =>
+        defaultExecuteBuiltinTool(name, args, env)),
+  };
 }
 
 export interface Session {
@@ -110,12 +134,14 @@ export function createSession(opts: SessionOptions): Session {
     },
   };
 
-  const doConnectStt = opts.connectStt ?? defaultConnectStt;
-  const doCallLLM = opts.callLLM ?? defaultCallLLM;
-  const tts = opts.ttsClient ?? createTtsClient(config.ttsConfig);
-  const doExecuteBuiltinTool = opts.executeBuiltinTool ??
-    ((name: string, args: Record<string, unknown>) =>
-      defaultExecuteBuiltinTool(name, args, env));
+  // Resolve all deps upfront
+  const deps = resolveSessionDeps({
+    ...opts,
+    env: env as Record<string, string>,
+    platformConfig: config,
+  });
+  const { connectStt: doConnectStt, callLLM: doCallLLM, ttsClient: tts } = deps;
+  const doExecuteBuiltinTool = deps.executeBuiltinTool;
 
   let stt: SttHandle | null = null;
   let turnAbort: AbortController | null = null;

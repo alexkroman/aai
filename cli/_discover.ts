@@ -7,7 +7,12 @@ function slugify(str: string): string {
 }
 import { step } from "./_output.ts";
 import { AAI_ROOT, importTempModule } from "./_bundler.ts";
-import { type AgentDef, agentToolsToSchemas } from "../sdk/types.ts";
+import {
+  type AgentConfig,
+  type AgentDef,
+  agentToolsToSchemas,
+  type ToolSchema,
+} from "../sdk/types.ts";
 
 // -- API key config -----------------------------------------------------------
 
@@ -172,21 +177,6 @@ export async function saveAgentLink(
 
 // -- Agent discovery ----------------------------------------------------------
 
-export interface AgentManifestConfig {
-  name?: string;
-  instructions: string;
-  greeting: string;
-  voice: string;
-  prompt?: string;
-  builtinTools?: string[];
-}
-
-export interface AgentToolSchema {
-  name: string;
-  description: string;
-  parameters: Record<string, unknown>;
-}
-
 export interface AgentEntry {
   slug: string;
   dir: string;
@@ -194,8 +184,8 @@ export interface AgentEntry {
   env: Record<string, string>;
   clientEntry: string;
   transport: ("websocket" | "twilio")[];
-  config?: AgentManifestConfig;
-  toolSchemas?: AgentToolSchema[];
+  config?: AgentConfig;
+  toolSchemas?: ToolSchema[];
 }
 
 /** Default production server URL. */
@@ -286,7 +276,7 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
     ? join(dir, "client.tsx")
     : resolve(AAI_ROOT, "ui/client.tsx");
 
-  const config: AgentManifestConfig | undefined = def
+  const config: AgentConfig | undefined = def
     ? {
       name: def.name,
       instructions: def.instructions,
@@ -297,7 +287,7 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
     }
     : undefined;
 
-  const toolSchemas: AgentToolSchema[] | undefined = def
+  const toolSchemas: ToolSchema[] | undefined = def
     ? agentToolsToSchemas(def.tools)
     : undefined;
 

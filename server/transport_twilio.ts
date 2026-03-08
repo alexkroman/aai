@@ -1,3 +1,4 @@
+import type { Context } from "hono";
 import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import {
@@ -9,7 +10,7 @@ import {
 import { loadPlatformConfig } from "./config.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import { createSession, type SessionTransport } from "./session.ts";
-import type { BundleStore } from "./bundle_store_tigris.ts";
+import type { ServerContext } from "./types.ts";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
@@ -118,12 +119,6 @@ export function decodeTwilioFrame(payload: string): Uint8Array {
 
 // Route handlers
 
-export interface ServerContext {
-  slots: Map<string, AgentSlot>;
-  sessions: Map<string, unknown>;
-  store: BundleStore;
-}
-
 function getTwilioSlot(
   slug: string,
   ctx: ServerContext,
@@ -133,39 +128,38 @@ function getTwilioSlot(
 }
 
 export function handleTwilioVoice(
-  req: Request,
+  c: Context,
   slug: string,
   ctx: ServerContext,
 ): Response {
   const slot = getTwilioSlot(slug, ctx);
   if (!slot) {
-    return new Response(
+    return c.body(
       `${TWIML_PREFIX}<Say>Agent not found. Goodbye.</Say>${TWIML_SUFFIX}`,
       { headers: { "Content-Type": "text/xml" } },
     );
   }
 
-  const host = req.headers.get("host") ?? "localhost";
+  const host = c.req.header("host") ?? "localhost";
   const streamUrl = `wss://${host}/${slug}/twilio/stream`;
   console.info("Incoming call, connecting media stream", { slug, streamUrl });
-  return new Response(
+  return c.body(
     `${TWIML_PREFIX}<Connect><Stream url="${streamUrl}" /></Connect>${TWIML_SUFFIX}`,
     { headers: { "Content-Type": "text/xml" } },
   );
 }
 
 export function handleTwilioStream(
-  req: Request,
+  c: Context,
   slug: string,
   ctx: ServerContext,
 ): Response {
   const slot = getTwilioSlot(slug, ctx);
-  if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
+  if (!slot) return c.json({ error: "Not found" }, 404);
+
+  const req = c.req.raw;
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-    return Response.json(
-      { error: "Expected WebSocket upgrade" },
-      { status: 400 },
-    );
+    return c.json({ error: "Expected WebSocket upgrade" }, 400);
   }
 
   const config = slot.config!;

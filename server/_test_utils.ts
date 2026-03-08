@@ -1,6 +1,10 @@
-import type { SessionOptions, SessionTransport } from "./session.ts";
+import type {
+  SessionDeps,
+  SessionOptions,
+  SessionTransport,
+} from "./session.ts";
 import type { SttEvents, SttHandle } from "./stt.ts";
-import type { ExecuteTool } from "../core/_tool_executor.ts";
+import type { ExecuteTool } from "../core/_worker_entry.ts";
 import type { PlatformConfig } from "./config.ts";
 import type { CallLLMOptions } from "./llm.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";
@@ -166,15 +170,7 @@ export function responses(
 }
 
 export function createMockSessionOptions(
-  overrides?: Partial<
-    Pick<
-      SessionOptions,
-      | "connectStt"
-      | "callLLM"
-      | "ttsClient"
-      | "executeBuiltinTool"
-    >
-  >,
+  overrides?: Partial<SessionDeps>,
 ): {
   opts: SessionOptions;
   sttHandle: ReturnType<typeof createMockSttHandle>;
@@ -195,17 +191,7 @@ export function createMockSessionOptions(
   ];
   const nextResponse = responses(...llmResponses);
 
-  const opts: SessionOptions = {
-    id: "test-session-id",
-    transport: createMockTransport(),
-    agentConfig: {
-      instructions: "Test instructions",
-      greeting: "Hi there!",
-      voice: "luna",
-    },
-    toolSchemas: [],
-    platformConfig: createMockPlatformConfig(),
-    executeTool: executeTool.fn,
+  const deps: SessionDeps = {
     connectStt: () => Promise.resolve(sttHandle),
     callLLM: (callOpts: CallLLMOptions) => {
       llmCalls.push({
@@ -217,6 +203,20 @@ export function createMockSessionOptions(
     ttsClient,
     executeBuiltinTool: () => Promise.resolve(null),
     ...overrides,
+  };
+
+  const opts: SessionOptions = {
+    id: "test-session-id",
+    transport: createMockTransport(),
+    agentConfig: {
+      instructions: "Test instructions",
+      greeting: "Hi there!",
+      voice: "luna",
+    },
+    toolSchemas: [],
+    platformConfig: createMockPlatformConfig(),
+    executeTool: executeTool.fn,
+    deps,
   };
 
   return { opts, sttHandle, ttsClient, executeTool, llmCalls, llmResponses };
