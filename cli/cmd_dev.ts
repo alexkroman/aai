@@ -1,17 +1,41 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { debounce } from "@std/async/debounce";
+import { encodeBase64 } from "@std/encoding/base64";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
 import { error, stepInfo } from "./_output.ts";
 import { runBuild } from "./build.ts";
 import type { AgentEntry } from "./_discover.ts";
-import { spawnLocalWorker } from "./_local_worker.ts";
 import {
   createWebSocketTarget,
   type RpcHandlers,
   serveRpc,
 } from "../core/_rpc.ts";
+import { createDenoWorker } from "../core/_deno_worker.ts";
+import { createWorkerApi } from "../core/_worker_entry.ts";
 
 import { DEFAULT_SERVER } from "./_discover.ts";
+
+function spawnLocalWorker(
+  workerCode: string,
+  slug: string,
+): { workerApi: ReturnType<typeof createWorkerApi>; terminate: () => void } {
+  const workerUrl = `data:application/javascript;base64,${
+    encodeBase64(workerCode)
+  }`;
+  const worker = createDenoWorker(workerUrl, `dev-${slug}`, {
+    net: true,
+    read: false,
+    env: false,
+    run: false,
+    write: false,
+    ffi: false,
+    sys: false,
+  });
+  return {
+    workerApi: createWorkerApi(worker),
+    terminate: () => worker.terminate(),
+  };
+}
 
 /** Convert an HTTP(S) URL to its WebSocket equivalent. */
 function toWsUrl(httpUrl: string): string {
@@ -65,7 +89,6 @@ ${bold("OPTIONS:")}
 
   await ensureClaudeMd(cwd);
 
-  // Initial build
   let result;
   try {
     result = await runBuild({ agentDir: cwd });
@@ -77,20 +100,16 @@ ${bold("OPTIONS:")}
   const slug = await resolveSlug(cwd, namespace, result.agent.slug);
   const fullPath = `${namespace}/${slug}`;
 
-  // Save the link between this directory and the namespace/slug
   await saveAgentLink(cwd, { namespace, slug, apiKey });
 
-  // Spawn local worker for tool execution
   let localWorker = spawnLocalWorker(
     result.bundle.worker,
     slug,
   );
 
-  // Read agent config from manifest (extracted at build time)
   let manifest = JSON.parse(result.bundle.manifest);
   let clientCode = result.bundle.client;
 
-  // Connect control WebSocket to production server
   const wsUrl = toWsUrl(serverUrl);
   let controlWs = await connectAndRegister(
     wsUrl,
@@ -102,7 +121,6 @@ ${bold("OPTIONS:")}
     localWorker,
   );
 
-  // Start local proxy server
   const proxyServer = startLocalProxy(
     port,
     fullPath,
@@ -113,7 +131,6 @@ ${bold("OPTIONS:")}
 
   printReady(result.agent, namespace, port);
 
-  // Watch for file changes
   const ac = new AbortController();
   const watcher = Deno.watchFs([cwd], { recursive: true });
 
@@ -139,7 +156,6 @@ ${bold("OPTIONS:")}
     try {
       const freshResult = await runBuild({ agentDir: cwd });
 
-      // Respawn local worker
       localWorker.terminate();
       localWorker = spawnLocalWorker(
         freshResult.bundle.worker,
@@ -148,7 +164,6 @@ ${bold("OPTIONS:")}
       manifest = JSON.parse(freshResult.bundle.manifest);
       clientCode = freshResult.bundle.client;
 
-      // Reconnect control WS with updated config
       controlWs.close();
       controlWs = await connectAndRegister(
         wsUrl,
@@ -226,7 +241,6 @@ function connectAndRegister(
     const ws = new WebSocket(url);
 
     ws.addEventListener("open", () => {
-      // Send registration (non-RPC message)
       ws.send(JSON.stringify({
         type: "dev_register",
         config: manifest.config ?? {
@@ -241,7 +255,6 @@ function connectAndRegister(
       }));
     });
 
-    // Listen for the registration acknowledgment
     ws.addEventListener("message", function onRegAck(event) {
       if (typeof event.data !== "string") return;
       let msg: { type?: string; slug?: string; message?: string };
@@ -251,14 +264,11 @@ function connectAndRegister(
         return;
       }
 
-      // Ignore RPC messages (they have numeric id) during registration
       if (typeof (msg as Record<string, unknown>).id === "number") return;
 
       if (msg.type === "dev_registered") {
         ws.removeEventListener("message", onRegAck);
 
-        // Switch to RPC mode — serve executeTool/invokeHook over this
-        // WebSocket using the same RPC protocol as Worker postMessage.
         const target = createWebSocketTarget(ws);
         const handlers: RpcHandlers = {
           executeTool: (req) =>
@@ -314,7 +324,6 @@ function startLocalProxy(
       const url = new URL(req.url);
       const path = url.pathname;
 
-      // Serve agent HTML page
       if (path === `/${fullPath}`) {
         return Response.redirect(
           `http://localhost:${port}/${fullPath}/`,
@@ -327,7 +336,6 @@ function startLocalProxy(
         });
       }
 
-      // Serve client.js from in-memory build
       if (path === `/${fullPath}/client.js`) {
         return new Response(getClientCode(), {
           headers: {
@@ -337,7 +345,6 @@ function startLocalProxy(
         });
       }
 
-      // Proxy WebSocket to production server
       if (path === `/${fullPath}/websocket`) {
         if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
           return Response.json(
@@ -381,7 +388,6 @@ function startLocalProxy(
         return response;
       }
 
-      // Proxy favicon
       if (path === "/favicon.ico" || path === "/favicon.svg") {
         try {
           return await fetch(`${serverUrl}${path}`);
