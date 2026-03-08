@@ -1,6 +1,6 @@
 import { type DevRegister, DevRegisterSchema } from "../core/_dev_protocol.ts";
-import { createRpcCaller, createWebSocketTarget } from "../core/_rpc.ts";
-import type { WorkerApi } from "../core/_worker_entry.ts";
+import { createWebSocketTarget } from "../core/_rpc.ts";
+import { createWorkerApi } from "../core/_worker_entry.ts";
 import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { AgentInfo, AgentSlot, WorkerHandle } from "./worker_pool.ts";
@@ -89,22 +89,7 @@ async function registerDevAgent(
   ctx: ServerContext,
 ): Promise<void> {
   // Create a MessageTarget adapter so standard RPC works over this WebSocket
-  const target = createWebSocketTarget(ws);
-
-  const call = createRpcCaller(target);
-  const workerApi: WorkerApi = {
-    async executeTool(name, args, sessionId, timeoutMs) {
-      const raw = await call(
-        "executeTool",
-        { name, args, sessionId },
-        timeoutMs,
-      );
-      return typeof raw === "string" ? raw : String(raw ?? "");
-    },
-    async invokeHook(hook, sessionId, extra, timeoutMs) {
-      await call("invokeHook", { hook, sessionId, ...extra }, timeoutMs);
-    },
-  };
+  const workerApi = createWorkerApi(createWebSocketTarget(ws));
 
   const agentConfig: AgentConfig = {
     name: msg.config.name,

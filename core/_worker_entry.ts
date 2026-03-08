@@ -1,6 +1,6 @@
 import type { AgentDef, HookContext } from "../sdk/types.ts";
 import { executeToolCall } from "./_tool_executor.ts";
-import { type MessageTarget, serveRpc } from "./_rpc.ts";
+import { createRpcCaller, type MessageTarget, serveRpc } from "./_rpc.ts";
 
 export interface WorkerApi {
   executeTool(
@@ -15,6 +15,24 @@ export interface WorkerApi {
     extra?: { text?: string; error?: string },
     timeoutMs?: number,
   ): Promise<void>;
+}
+
+/** Create a WorkerApi client from any MessageTarget (Worker or WebSocket). */
+export function createWorkerApi(port: MessageTarget): WorkerApi {
+  const call = createRpcCaller(port);
+  return {
+    async executeTool(name, args, sessionId, timeoutMs) {
+      const raw = await call(
+        "executeTool",
+        { name, args, sessionId },
+        timeoutMs,
+      );
+      return typeof raw === "string" ? raw : String(raw ?? "");
+    },
+    async invokeHook(hook, sessionId, extra, timeoutMs) {
+      await call("invokeHook", { hook, sessionId, ...extra }, timeoutMs);
+    },
+  };
 }
 
 export function startWorker(

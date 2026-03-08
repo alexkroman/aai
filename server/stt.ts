@@ -1,6 +1,5 @@
 import { deadline } from "@std/async/deadline";
 import { type STTConfig, SttMessageSchema } from "./types.ts";
-import { createWebSocket } from "./_ws.ts";
 
 const STT_CONNECTION_TIMEOUT = 10_000;
 
@@ -43,7 +42,8 @@ export async function connectStt(
     url: config.wssBase,
     params: Object.fromEntries(params),
   });
-  const ws = createWebSocket(url, { Authorization: apiKey });
+  // @ts-expect-error Deno runtime supports { headers } in WebSocket constructor
+  const ws = new WebSocket(url, { headers: { Authorization: apiKey } });
 
   const ac = new AbortController();
   const { signal } = ac;

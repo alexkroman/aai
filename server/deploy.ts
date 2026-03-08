@@ -1,7 +1,7 @@
 import { loadPlatformConfig } from "./config.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import { DeployBodySchema } from "../sdk/_schema.ts";
+import { DeployBodySchema, normalizeTransport } from "../sdk/_schema.ts";
 
 export async function hashApiKey(apiKey: string): Promise<string> {
   const data = new TextEncoder().encode(apiKey);
@@ -76,11 +76,7 @@ export async function handleDeploy(
     existing.initializing = undefined;
   }
 
-  const transport: ("websocket" | "twilio")[] = body.transport === undefined
-    ? ["websocket"]
-    : typeof body.transport === "string"
-    ? [body.transport]
-    : body.transport;
+  const transport = normalizeTransport(body.transport);
 
   await store.putAgent({
     slug: compositeSlug,

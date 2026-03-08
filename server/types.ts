@@ -53,7 +53,7 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
-// --- STT message types (Zod-first) ---
+// --- STT message types — schema is source of truth ---
 
 export type SttMessage = {
   type: string;
@@ -82,7 +82,7 @@ export const SttMessageSchema: z.ZodType<SttMessage> = z
   })
   .passthrough();
 
-// --- LLM types (Zod-first) ---
+// --- LLM types — schema is source of truth ---
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -113,7 +113,11 @@ const ChatMessageSchema: z.ZodType<ChatMessage> = z.object({
 
 export type LLMResponse = {
   id?: string;
-  choices: { index?: number; message: ChatMessage; finish_reason: string }[];
+  choices: {
+    index?: number;
+    message: ChatMessage;
+    finish_reason: string;
+  }[];
   [key: string]: unknown;
 };
 

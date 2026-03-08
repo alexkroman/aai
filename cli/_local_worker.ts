@@ -1,11 +1,10 @@
-import type { WorkerApi } from "../core/_worker_entry.ts";
-import { createRpcCaller } from "../core/_rpc.ts";
+import { createWorkerApi } from "../core/_worker_entry.ts";
 
 /** Spawn a local Deno Worker from bundled code and return a WorkerApi. */
 export function spawnLocalWorker(
   workerCode: string,
   slug: string,
-): { workerApi: WorkerApi; terminate: () => void } {
+): { workerApi: ReturnType<typeof createWorkerApi>; terminate: () => void } {
   const workerUrl = `data:application/javascript;base64,${btoa(workerCode)}`;
 
   // deno-lint-ignore no-explicit-any
@@ -25,34 +24,8 @@ export function spawnLocalWorker(
     },
   });
 
-  const call = createRpcCaller(worker);
-
-  const workerApi: WorkerApi = {
-    async executeTool(
-      name: string,
-      args: Record<string, unknown>,
-      sessionId?: string,
-      timeoutMs?: number,
-    ): Promise<string> {
-      const raw = await call(
-        "executeTool",
-        { name, args, sessionId },
-        timeoutMs,
-      );
-      return typeof raw === "string" ? raw : String(raw ?? "");
-    },
-    async invokeHook(
-      hook: string,
-      sessionId: string,
-      extra?: { text?: string; error?: string },
-      timeoutMs?: number,
-    ): Promise<void> {
-      await call("invokeHook", { hook, sessionId, ...extra }, timeoutMs);
-    },
-  };
-
   return {
-    workerApi,
+    workerApi: createWorkerApi(worker),
     terminate: () => worker.terminate(),
   };
 }

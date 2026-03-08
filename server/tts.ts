@@ -1,5 +1,4 @@
 import type { TTSConfig } from "./types.ts";
-import { createWebSocket } from "./_ws.ts";
 
 /** Time (ms) after the last audio chunk before we consider synthesis complete. */
 const IDLE_MS = 300;
@@ -91,9 +90,9 @@ export function createTtsClient(config: TTSConfig) {
       ws = null;
     }
 
-    const newWs = createWebSocket(buildUrl(), {
-      Authorization: `Bearer ${config.apiKey}`,
-    });
+    const wsOpts = { headers: { Authorization: `Bearer ${config.apiKey}` } };
+    // @ts-expect-error Deno runtime supports { headers } in WebSocket constructor
+    const newWs = new WebSocket(buildUrl(), wsOpts);
     newWs.binaryType = "arraybuffer";
     ws = newWs;
 

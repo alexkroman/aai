@@ -20,29 +20,9 @@ const TransportFieldSchema = z.union([
   z.array(TransportSchema),
 ]).optional();
 
-// ── Deploy request body ─────────────────────────────────────────
+// ── Deploy request body — schema is source of truth ─────────────
 
-export type DeployBody = {
-  env: Record<string, string>;
-  worker: string;
-  client: string;
-  transport?: Transport | Transport[];
-  config?: {
-    name?: string;
-    instructions: string;
-    greeting: string;
-    voice: string;
-    prompt?: string;
-    builtinTools?: string[];
-  };
-  toolSchemas?: {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-  }[];
-};
-
-export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
+export const DeployBodySchema = z.object({
   env: z.record(z.string(), z.string()),
   worker: z.string().min(1),
   client: z.string().min(1),
@@ -62,15 +42,13 @@ export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
   })).optional(),
 });
 
-// ── Agent environment variables ─────────────────────────────────
+export type DeployBody = z.infer<typeof DeployBodySchema>;
 
-export type AgentEnv = {
-  ASSEMBLYAI_API_KEY: string;
-  LLM_MODEL?: string;
-  [key: string]: unknown;
-};
+// ── Agent environment variables — schema is source of truth ─────
 
-export const EnvSchema: z.ZodType<AgentEnv> = z.object({
+export const EnvSchema = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
   LLM_MODEL: z.string().optional(),
 }).passthrough();
+
+export type AgentEnv = z.infer<typeof EnvSchema>;

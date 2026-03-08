@@ -2,7 +2,7 @@ import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import {
   type AgentSlot,
-  ensureAgent,
+  createToolExecutor,
   trackSessionClose,
   trackSessionOpen,
 } from "./worker_pool.ts";
@@ -169,27 +169,9 @@ export function handleTwilioStream(
   }
 
   const config = slot.config!;
-  const customTools = slot.toolSchemas ?? [];
   const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
-  const toolSchemas = [...customTools, ...builtinTools];
-  const getWorkerCode = (s: string) => ctx.store.getFile(s, "worker");
-  const getWorkerApi = customTools.length > 0
-    ? async () => (await ensureAgent(slot, getWorkerCode)).workerApi
-    : undefined;
-  let cachedApi:
-    | Awaited<ReturnType<NonNullable<typeof getWorkerApi>>>
-    | undefined;
-  const executeTool = getWorkerApi
-    ? async (
-      name: string,
-      args: Record<string, unknown>,
-      sessionId?: string,
-    ) => {
-      cachedApi ??= await getWorkerApi();
-      return cachedApi.executeTool(name, args, sessionId, 30_000);
-    }
-    : (_name: string, _args: Record<string, unknown>) =>
-      Promise.resolve("Error: No custom tools");
+  const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
+  const { executeTool, getWorkerApi } = createToolExecutor(slot, ctx.store);
 
   const { socket, response } = Deno.upgradeWebSocket(req);
   const transport = createTwilioTransport(socket);

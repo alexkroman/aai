@@ -3,7 +3,7 @@ import { handleSessionWebSocket } from "./ws_handler.ts";
 import { createSession, type Session } from "./session.ts";
 import {
   type AgentSlot,
-  ensureAgent,
+  createToolExecutor,
   registerSlot,
   trackSessionClose,
   trackSessionOpen,
@@ -91,27 +91,9 @@ export async function handleWebSocket(
   }
 
   const config = slot.config!;
-  const customTools = slot.toolSchemas ?? [];
   const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
-  const toolSchemas = [...customTools, ...builtinTools];
-  const getWorkerCode = (s: string) => ctx.store.getFile(s, "worker");
-  const getWorkerApi = customTools.length > 0
-    ? async () => (await ensureAgent(slot, getWorkerCode)).workerApi
-    : undefined;
-  let cachedApi:
-    | Awaited<ReturnType<NonNullable<typeof getWorkerApi>>>
-    | undefined;
-  const executeTool = getWorkerApi
-    ? async (
-      name: string,
-      args: Record<string, unknown>,
-      sessionId?: string,
-    ) => {
-      cachedApi ??= await getWorkerApi();
-      return cachedApi.executeTool(name, args, sessionId, 30_000);
-    }
-    : (_name: string, _args: Record<string, unknown>) =>
-      Promise.resolve("Error: No custom tools");
+  const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
+  const { executeTool, getWorkerApi } = createToolExecutor(slot, ctx.store);
 
   const resume = new URL(req.url).searchParams.has("resume");
   const { socket, response } = Deno.upgradeWebSocket(req);

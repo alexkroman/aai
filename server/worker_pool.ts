@@ -1,8 +1,9 @@
 import { loadPlatformConfig } from "./config.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
-import type { WorkerApi } from "../core/_worker_entry.ts";
-import { createRpcCaller } from "../core/_rpc.ts";
+import { createWorkerApi, type WorkerApi } from "../core/_worker_entry.ts";
+import type { ExecuteTool } from "../core/_tool_executor.ts";
+import type { BundleStore } from "./bundle_store_tigris.ts";
 export interface AgentMetadata {
   slug: string;
   env: Record<string, string>;
@@ -84,20 +85,7 @@ async function spawnAgent(
     }) as EventListener,
   );
 
-  const call = createRpcCaller(worker);
-  const workerApi: WorkerApi = {
-    async executeTool(name, args, sessionId, timeoutMs) {
-      const raw = await call(
-        "executeTool",
-        { name, args, sessionId },
-        timeoutMs,
-      );
-      return typeof raw === "string" ? raw : String(raw ?? "");
-    },
-    async invokeHook(hook, sessionId, extra, timeoutMs) {
-      await call("invokeHook", { hook, sessionId, ...extra }, timeoutMs);
-    },
-  };
+  const workerApi = createWorkerApi(worker);
 
   const agentConfig = slot.config!;
   const allToolSchemas = [
@@ -200,4 +188,30 @@ export function registerSlot(
     activeSessions: 0,
   });
   return true;
+}
+
+/** Build executeTool + getWorkerApi from a slot. Shared by both transports. */
+export function createToolExecutor(
+  slot: AgentSlot,
+  store: BundleStore,
+): { executeTool: ExecuteTool; getWorkerApi?: () => Promise<WorkerApi> } {
+  const customTools = slot.toolSchemas ?? [];
+  const getWorkerCode = (s: string) => store.getFile(s, "worker");
+  if (customTools.length === 0) {
+    return {
+      executeTool: () => Promise.resolve("Error: No custom tools"),
+    };
+  }
+  let cachedApi: WorkerApi | undefined;
+  const getWorkerApi = async () => {
+    cachedApi ??= (await ensureAgent(slot, getWorkerCode)).workerApi;
+    return cachedApi;
+  };
+  return {
+    executeTool: async (name, args, sessionId) => {
+      const api = await getWorkerApi();
+      return api.executeTool(name, args, sessionId, 30_000);
+    },
+    getWorkerApi,
+  };
 }
