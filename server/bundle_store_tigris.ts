@@ -10,7 +10,7 @@ import { AgentMetadataSchema } from "../core/_rpc_schema.ts";
 
 export type FileKey = "worker" | "client" | "client_map";
 
-export interface BundleStore {
+export type BundleStore = {
   putAgent(bundle: {
     slug: string;
     env: Record<string, string>;
@@ -40,7 +40,7 @@ export interface BundleStore {
   putNamespaceOwner(namespace: string, ownerHash: string): Promise<void>;
   close(): void;
   [Symbol.dispose](): void;
-}
+};
 
 type CacheEntry = {
   data: string;

@@ -1,5 +1,6 @@
 import { encodeBase64 } from "@std/encoding/base64";
 import { createWorkerApi } from "../core/_worker_entry.ts";
+import { createDenoWorker } from "../core/_deno_worker.ts";
 
 export function spawnLocalWorker(
   workerCode: string,
@@ -9,21 +10,14 @@ export function spawnLocalWorker(
     encodeBase64(workerCode)
   }`;
 
-  // deno-lint-ignore no-explicit-any
-  const worker = new (Worker as any)(workerUrl, {
-    type: "module",
-    name: `dev-${slug}`,
-    deno: {
-      permissions: {
-        net: true,
-        read: false,
-        env: false,
-        run: false,
-        write: false,
-        ffi: false,
-        sys: false,
-      },
-    },
+  const worker = createDenoWorker(workerUrl, `dev-${slug}`, {
+    net: true,
+    read: false,
+    env: false,
+    run: false,
+    write: false,
+    ffi: false,
+    sys: false,
   });
 
   return {

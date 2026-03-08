@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import { createSession, type SessionDeps } from "./session.ts";
+import { createSession, type SessionOptions } from "./session.ts";
 import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import {
   createMockLLMResponse,
@@ -10,14 +10,21 @@ import {
 } from "./_test_utils.ts";
 import type { SttEvents } from "./stt.ts";
 
-type SetupOverrides = Partial<SessionDeps> & { toolSchemas?: ToolSchema[] };
+type SessionOverrides = Pick<
+  SessionOptions,
+  "connectStt" | "callLLM" | "ttsClient" | "executeBuiltinTool"
+>;
+
+type SetupOverrides = Partial<SessionOverrides> & {
+  toolSchemas?: ToolSchema[];
+};
 
 function setup(
   overrides?: SetupOverrides,
   agentConfig?: Partial<AgentConfig>,
 ) {
-  const { toolSchemas, ...depsOverrides } = overrides ?? {};
-  const mocks = createMockSessionOptions(depsOverrides);
+  const { toolSchemas, ...fnOverrides } = overrides ?? {};
+  const mocks = createMockSessionOptions(fnOverrides);
   if (agentConfig) {
     mocks.opts.agentConfig = { ...mocks.opts.agentConfig, ...agentConfig };
   }

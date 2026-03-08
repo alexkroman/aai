@@ -5,6 +5,7 @@ import { createWorkerApi, type WorkerApi } from "../core/_worker_entry.ts";
 import type { ExecuteTool } from "../core/_worker_entry.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "../core/_rpc_schema.ts";
+import { createDenoWorker } from "../core/_deno_worker.ts";
 export type { AgentMetadata } from "../core/_rpc_schema.ts";
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -38,21 +39,14 @@ async function spawnAgent(
   if (!code) throw new Error(`Worker code not found for ${slug}`);
   const workerUrl = `data:application/javascript;base64,${encodeBase64(code)}`;
 
-  // deno-lint-ignore no-explicit-any
-  const worker = new (Worker as any)(workerUrl, {
-    type: "module",
-    name: slug,
-    deno: {
-      permissions: {
-        net: true,
-        read: false,
-        env: false,
-        run: false,
-        write: false,
-        ffi: false,
-        sys: false,
-      },
-    },
+  const worker = createDenoWorker(workerUrl, slug, {
+    net: true,
+    read: false,
+    env: false,
+    run: false,
+    write: false,
+    ffi: false,
+    sys: false,
   });
 
   worker.addEventListener(

@@ -1,4 +1,5 @@
 import type { TTSConfig } from "./types.ts";
+import { createWebSocketWithHeaders } from "./_deno_ws.ts";
 
 const IDLE_MS = 300;
 const NO_AUDIO_TIMEOUT_MS = 5000;
@@ -87,9 +88,9 @@ export function createTtsClient(config: TTSConfig) {
       ws = null;
     }
 
-    const wsOpts = { headers: { Authorization: `Bearer ${config.apiKey}` } };
-    // @ts-expect-error Deno runtime supports { headers } in WebSocket constructor
-    const newWs = new WebSocket(buildUrl(), wsOpts);
+    const newWs = createWebSocketWithHeaders(buildUrl(), {
+      Authorization: `Bearer ${config.apiKey}`,
+    });
     newWs.binaryType = "arraybuffer";
     ws = newWs;
 

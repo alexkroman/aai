@@ -9,12 +9,12 @@ export type VoiceIOOptions = {
   onMicData: (pcm16: ArrayBuffer) => void;
 };
 
-export interface VoiceIO extends AsyncDisposable {
+export type VoiceIO = AsyncDisposable & {
   enqueue(pcm16Buffer: ArrayBuffer): void;
   done(): void;
   flush(): void;
   close(): Promise<void>;
-}
+};
 
 async function loadWorklet(
   ctx: AudioContext,

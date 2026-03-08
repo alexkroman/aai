@@ -41,8 +41,7 @@ export type Voice =
   | "tauro"
   | "walnut"
   | "arcana"
-  // deno-lint-ignore ban-types
-  | (string & {});
+  | (string & Record<never, never>);
 
 export type AgentOptions = {
   name: string;

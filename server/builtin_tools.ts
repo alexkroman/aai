@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createRpcCaller } from "../core/_rpc.ts";
 import type { ToolSchema } from "../sdk/types.ts";
 import { htmlToMarkdown } from "./html.ts";
+import { createDenoWorker } from "../core/_deno_worker.ts";
 
 const BraveSearchResponseSchema = z.object({
   web: z.object({
@@ -18,8 +19,7 @@ type BuiltinTool = {
   description: string;
   parameters: z.ZodObject<z.ZodRawShape>;
   execute: (
-    // deno-lint-ignore no-explicit-any
-    args: any,
+    args: Record<string, unknown>,
     env: Record<string, string | undefined>,
     fetch: typeof globalThis.fetch,
   ) => string | Promise<string>;
@@ -35,7 +35,7 @@ function defineTool<T extends z.ZodObject<z.ZodRawShape>>(tool: {
     fetch: typeof globalThis.fetch,
   ) => string | Promise<string>;
 }): BuiltinTool {
-  return tool;
+  return tool as unknown as BuiltinTool;
 }
 
 const webSearchParams = z.object({
@@ -178,21 +178,14 @@ const runCode = defineTool({
 
     console.info("run_code", { codeLength: code.length });
 
-    // deno-lint-ignore no-explicit-any
-    const worker = new (Worker as any)(SANDBOX_WORKER_URL, {
-      type: "module",
-      name: "sandbox",
-      deno: {
-        permissions: {
-          net: false,
-          read: false,
-          write: false,
-          env: false,
-          sys: false,
-          run: false,
-          ffi: false,
-        },
-      },
+    const worker = createDenoWorker(SANDBOX_WORKER_URL, "sandbox", {
+      net: false,
+      read: false,
+      write: false,
+      env: false,
+      sys: false,
+      run: false,
+      ffi: false,
     });
 
     try {

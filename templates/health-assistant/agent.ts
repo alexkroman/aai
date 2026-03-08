@@ -34,10 +34,10 @@ async function lookupDrug(
   };
 }
 
-interface RxCui {
+type RxCui = {
   name: string;
   rxcui: string;
-}
+};
 
 async function resolveRxCui(
   name: string,

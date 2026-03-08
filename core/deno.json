@@ -4,7 +4,8 @@
   "exports": {
     "./worker-entry": "./_worker_entry.ts",
     "./protocol": "./_protocol.ts",
-    "./rpc": "./_rpc.ts"
+    "./rpc": "./_rpc.ts",
+    "./deno-worker": "./_deno_worker.ts"
   },
   "lint": {
     "rules": {

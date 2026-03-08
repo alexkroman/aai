@@ -166,8 +166,9 @@ Deno.test("createVoiceIO", async (t) => {
     "cleans up on worklet load error",
     withAudioMocks(async () => {
       let _lastContext: MockAudioContext;
-      // deno-lint-ignore no-explicit-any
-      (globalThis as any).AudioContext = class extends MockAudioContext {
+      // Override AudioContext to inject worklet failure
+      const g = globalThis as unknown as Record<string, unknown>;
+      g.AudioContext = class extends MockAudioContext {
         constructor(opts?: { sampleRate?: number }) {
           super(opts);
           _lastContext = this;
