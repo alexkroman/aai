@@ -10,7 +10,6 @@
     "jsr:@deno/graph@0.86": "0.86.9",
     "jsr:@deno/loader@~0.3.10": "0.3.13",
     "jsr:@denosaurs/plug@1.1.0": "1.1.0",
-    "jsr:@hono/hono@4": "4.12.4",
     "jsr:@std/assert@^1.0.17": "1.0.19",
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/async@1": "1.2.0",
@@ -112,9 +111,6 @@
         "jsr:@std/fs@1",
         "jsr:@std/path@1"
       ]
-    },
-    "@hono/hono@4.12.4": {
-      "integrity": "3b80b0165bbcaf8ddf23afc593e40416da8e9a27cb3dd460a1f04c7a44583030"
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
@@ -1385,7 +1381,6 @@
   "workspace": {
     "dependencies": [
       "jsr:@astral/astral@~0.5.5",
-      "jsr:@hono/hono@4",
       "jsr:@std/assert@^1.0.19",
       "jsr:@std/async@^1.2.0",
       "jsr:@std/bytes@^1.0.6",

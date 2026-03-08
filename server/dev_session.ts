@@ -1,4 +1,3 @@
-import type { Context } from "hono";
 import { type DevRegister, DevRegisterSchema } from "../core/_protocol.ts";
 import { createWebSocketTarget } from "../core/_rpc.ts";
 import { createWorkerApi } from "../core/_worker_entry.ts";
@@ -9,18 +8,19 @@ import type { ServerContext } from "./types.ts";
 import { hashApiKey } from "./deploy.ts";
 
 export function handleDevWebSocket(
-  c: Context,
+  req: Request,
   slug: string,
   ctx: ServerContext,
 ): Response {
-  const req = c.req.raw;
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-    return c.json({ error: "Expected WebSocket upgrade" }, 400);
+    return Response.json({ error: "Expected WebSocket upgrade" }, {
+      status: 400,
+    });
   }
 
-  const apiKey = c.req.query("token");
+  const apiKey = new URL(req.url).searchParams.get("token");
   if (!apiKey) {
-    return c.json({ error: "Missing token parameter" }, 401);
+    return Response.json({ error: "Missing token parameter" }, { status: 401 });
   }
 
   const { socket, response } = Deno.upgradeWebSocket(req);

@@ -1,4 +1,3 @@
-import type { Context } from "hono";
 import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import {
@@ -122,38 +121,39 @@ function getTwilioSlot(
 }
 
 export function handleTwilioVoice(
-  c: Context,
+  req: Request,
   slug: string,
   ctx: ServerContext,
 ): Response {
   const slot = getTwilioSlot(slug, ctx);
   if (!slot) {
-    return c.body(
+    return new Response(
       `${TWIML_PREFIX}<Say>Agent not found. Goodbye.</Say>${TWIML_SUFFIX}`,
       { headers: { "Content-Type": "text/xml" } },
     );
   }
 
-  const host = c.req.header("host") ?? "localhost";
+  const host = req.headers.get("host") ?? "localhost";
   const streamUrl = `wss://${host}/${slug}/twilio/stream`;
   console.info("Incoming call, connecting media stream", { slug, streamUrl });
-  return c.body(
+  return new Response(
     `${TWIML_PREFIX}<Connect><Stream url="${streamUrl}" /></Connect>${TWIML_SUFFIX}`,
     { headers: { "Content-Type": "text/xml" } },
   );
 }
 
 export function handleTwilioStream(
-  c: Context,
+  req: Request,
   slug: string,
   ctx: ServerContext,
 ): Response {
   const slot = getTwilioSlot(slug, ctx);
-  if (!slot) return c.json({ error: "Not found" }, 404);
+  if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
 
-  const req = c.req.raw;
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-    return c.json({ error: "Expected WebSocket upgrade" }, 400);
+    return Response.json({ error: "Expected WebSocket upgrade" }, {
+      status: 400,
+    });
   }
 
   const config = slot.config!;

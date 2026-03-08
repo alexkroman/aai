@@ -1,4 +1,3 @@
-import type { Context } from "hono";
 import { encodeHex } from "@std/encoding/hex";
 import { loadPlatformConfig } from "./config.ts";
 import type { AgentSlot } from "./worker_pool.ts";
@@ -12,18 +11,19 @@ export async function hashApiKey(apiKey: string): Promise<string> {
 }
 
 export async function handleDeploy(
-  c: Context,
+  req: Request,
+  params: Record<string, string>,
   ctx: { slots: Map<string, AgentSlot>; store: BundleStore },
 ): Promise<Response> {
   const { slots, store } = ctx;
-  const namespace = c.req.param("namespace");
-  const slug = c.req.param("slug");
+  const namespace = params.namespace;
+  const slug = params.slug;
 
-  const authHeader = c.req.header("Authorization");
+  const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return c.json(
+    return Response.json(
       { error: "Missing Authorization header (Bearer <API_KEY>)" },
-      400,
+      { status: 400 },
     );
   }
   const apiKey = authHeader.slice("Bearer ".length);
@@ -31,16 +31,16 @@ export async function handleDeploy(
 
   let json: unknown;
   try {
-    json = await c.req.json();
+    json = await req.json();
   } catch {
-    return c.json({ error: "Invalid JSON body" }, 400);
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const parsed = DeployBodySchema.safeParse(json);
   if (!parsed.success) {
-    return c.json(
+    return Response.json(
       { error: `Invalid deploy body: ${parsed.error.message}` },
-      400,
+      { status: 400 },
     );
   }
   const body = parsed.data;
@@ -48,22 +48,22 @@ export async function handleDeploy(
   try {
     loadPlatformConfig(body.env);
   } catch (err: unknown) {
-    return c.json(
+    return Response.json(
       {
         error: `Invalid platform config: ${
           err instanceof Error ? err.message : String(err)
         }`,
       },
-      400,
+      { status: 400 },
     );
   }
 
   // Check namespace ownership — claim implicitly on first deploy
   const nsOwner = await store.getNamespaceOwner(namespace);
   if (nsOwner && nsOwner !== ownerHash) {
-    return c.json(
+    return Response.json(
       { error: `Namespace "${namespace}" is owned by another user.` },
-      403,
+      { status: 403 },
     );
   }
   if (!nsOwner) {
@@ -106,7 +106,7 @@ export async function handleDeploy(
 
   console.info("Deploy received", { slug: compositeSlug, transport });
 
-  return c.json({
+  return Response.json({
     ok: true,
     message: `Deployed ${compositeSlug}`,
   });

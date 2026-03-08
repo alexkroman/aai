@@ -80,8 +80,6 @@ esac
 echo "Run 'aai' to get started"
 `;
 
-import type { Context } from "hono";
-
-export function handleInstall(c: Context): Response {
-  return c.text(INSTALL_SCRIPT);
+export function handleInstall(_req: Request): Response {
+  return new Response(INSTALL_SCRIPT);
 }

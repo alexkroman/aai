@@ -16,12 +16,12 @@ if (Deno.env.get("AWS_ENDPOINT_URL_S3")) {
   console.info("Using in-memory storage (no S3 configured)");
 }
 const store = createBundleStore(s3, bucket);
-const { app } = createOrchestrator({ store });
+const { handler } = createOrchestrator({ store });
 
 const port = parseInt(Deno.env.get("PORT") ?? "3100");
 const server = Deno.serve(
   { port, hostname: "0.0.0.0", onListen: () => {} },
-  app.fetch.bind(app),
+  handler,
 );
 
 console.info(`http://localhost:${port}`);

@@ -1,4 +1,3 @@
-import type { Context } from "hono";
 import { renderAgentPage } from "./html.ts";
 import { handleSessionWebSocket } from "./ws_handler.ts";
 import { createSession, type Session } from "./session.ts";
@@ -39,47 +38,55 @@ async function resolveSlot(
 }
 
 export async function handleAgentHealth(
-  c: Context,
+  _req: Request,
   slug: string,
   ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
-  if (!slot) return c.json({ error: "Not found", slug }, 404);
-  return c.json({ status: "ok", slug, name: slot.name ?? slug });
+  if (!slot) {
+    return Response.json({ error: "Not found", slug }, { status: 404 });
+  }
+  return Response.json({ status: "ok", slug, name: slot.name ?? slug });
 }
 
 export async function handleAgentPage(
-  c: Context,
+  _req: Request,
   slug: string,
   ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
-  if (!slot) return c.json({ error: "Not found" }, 404);
+  if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
   const name = slot.name ?? slug;
-  return c.html(renderAgentPage(name, `/${slug}`));
+  return new Response(renderAgentPage(name, `/${slug}`), {
+    headers: { "Content-Type": "text/html; charset=UTF-8" },
+  });
 }
 
 export async function handleAgentRedirect(
-  c: Context,
+  _req: Request,
   slug: string,
   ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
-  if (!slot) return c.json({ error: "Not found" }, 404);
-  return c.redirect(`/${slug}/`, 301);
+  if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
+  return new Response(null, {
+    status: 301,
+    headers: { Location: `/${slug}/` },
+  });
 }
 
 export async function handleWebSocket(
-  c: Context,
+  req: Request,
   slug: string,
   ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
-  if (!slot) return c.json({ error: "Not found" }, 404);
+  if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
 
-  const req = c.req.raw;
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-    return c.json({ error: "Expected WebSocket upgrade" }, 400);
+    return Response.json({ error: "Expected WebSocket upgrade" }, {
+      status: 400,
+    });
   }
 
   const config = slot.config!;
@@ -110,13 +117,13 @@ export async function handleWebSocket(
 }
 
 export async function handleStaticFile(
-  c: Context,
+  _req: Request,
   slug: string,
   file: string,
   ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
-  if (!slot) return c.json({ error: "Not found" }, 404);
+  if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
 
   const STATIC_FILES: Record<
     string,
@@ -127,11 +134,11 @@ export async function handleStaticFile(
   };
 
   const spec = STATIC_FILES[file];
-  if (!spec) return c.json({ error: "Not found" }, 404);
+  if (!spec) return Response.json({ error: "Not found" }, { status: 404 });
 
   const content = await ctx.store.getFile(slug, spec.key);
-  if (!content) return c.json({ error: "Not found" }, 404);
-  return c.body(content, {
+  if (!content) return Response.json({ error: "Not found" }, { status: 404 });
+  return new Response(content, {
     headers: { "Content-Type": spec.ct, "Cache-Control": "no-cache" },
   });
 }
