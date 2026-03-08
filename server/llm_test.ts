@@ -1,6 +1,7 @@
 import { expect } from "@std/expect";
 import { callLLM } from "./llm.ts";
-import type { ChatMessage, ToolSchema } from "./types.ts";
+import type { ChatMessage } from "./types.ts";
+import type { ToolSchema } from "../sdk/types.ts";
 
 function mockFetch(
   responseBody: unknown,
@@ -41,88 +42,81 @@ const okResponse = {
   }],
 };
 
-Deno.test("callLLM", async (t) => {
-  await t.step("sends correct request shape", async () => {
-    const ctx = mockFetch(okResponse);
-    await callLLM({
-      messages,
-      tools: [],
-      apiKey: "test-key",
-      model: "test-model",
-      fetch: ctx.fetch,
-    });
-
-    const lastRequest = ctx.lastRequest();
-    expect(lastRequest).not.toBeNull();
-    expect(lastRequest!.url).toContain("/chat/completions");
-    const reqBody = JSON.parse(lastRequest!.init.body as string);
-    expect(reqBody.model).toBe("test-model");
+Deno.test("callLLM sends correct request shape", async () => {
+  const ctx = mockFetch(okResponse);
+  await callLLM({
+    messages,
+    tools: [],
+    apiKey: "test-key",
+    model: "test-model",
+    fetch: ctx.fetch,
   });
+  const lastRequest = ctx.lastRequest();
+  expect(lastRequest!.url).toContain("/chat/completions");
+  const reqBody = JSON.parse(lastRequest!.init.body as string);
+  expect(reqBody.model).toBe("test-model");
+});
 
-  await t.step("returns parsed response", async () => {
-    const ctx = mockFetch(okResponse);
-    const result = await callLLM({
+Deno.test("callLLM returns parsed response", async () => {
+  const ctx = mockFetch(okResponse);
+  const result = await callLLM({
+    messages,
+    tools: [],
+    apiKey: "key",
+    model: "model",
+    fetch: ctx.fetch,
+  });
+  expect(result.choices[0].message.content).toBe("Hello!");
+});
+
+Deno.test("callLLM includes tools when provided", async () => {
+  const ctx = mockFetch(okResponse);
+  const tools: ToolSchema[] = [
+    {
+      name: "get_weather",
+      description: "Get weather",
+      parameters: { type: "object", properties: {} },
+    },
+  ];
+  await callLLM({
+    messages,
+    tools,
+    apiKey: "key",
+    model: "model",
+    fetch: ctx.fetch,
+  });
+  const reqBody = JSON.parse(ctx.lastRequest()!.init.body as string);
+  expect(reqBody.tools).toHaveLength(1);
+  expect(reqBody.tools[0].function.name).toBe("get_weather");
+});
+
+Deno.test("callLLM throws on non-OK response", async () => {
+  const ctx = mockFetch("Unauthorized", 401);
+  await expect(
+    callLLM({
       messages,
       tools: [],
       apiKey: "key",
       model: "model",
       fetch: ctx.fetch,
-    });
+    }),
+  ).rejects.toThrow(/401/);
+});
 
-    expect(result.choices[0].message.content).toBe("Hello!");
+Deno.test("callLLM sanitizes empty message content", async () => {
+  const ctx = mockFetch(okResponse);
+  const msgs: ChatMessage[] = [
+    { role: "user", content: "" },
+    { role: "user", content: "   " },
+  ];
+  await callLLM({
+    messages: msgs,
+    tools: [],
+    apiKey: "key",
+    model: "model",
+    fetch: ctx.fetch,
   });
-
-  await t.step("includes tools when provided", async () => {
-    const ctx = mockFetch(okResponse);
-    const tools: ToolSchema[] = [
-      {
-        name: "get_weather",
-        description: "Get weather",
-        parameters: { type: "object", properties: {} },
-      },
-    ];
-    await callLLM({
-      messages,
-      tools,
-      apiKey: "key",
-      model: "model",
-      fetch: ctx.fetch,
-    });
-
-    const reqBody = JSON.parse(ctx.lastRequest()!.init.body as string);
-    expect(reqBody.tools).toHaveLength(1);
-    expect(reqBody.tools[0].function.name).toBe("get_weather");
-  });
-
-  await t.step("throws on non-OK response", async () => {
-    const ctx = mockFetch("Unauthorized", 401);
-    await expect(
-      callLLM({
-        messages,
-        tools: [],
-        apiKey: "key",
-        model: "model",
-        fetch: ctx.fetch,
-      }),
-    ).rejects.toThrow(/401/);
-  });
-
-  await t.step("sanitizes empty message content to '...'", async () => {
-    const ctx = mockFetch(okResponse);
-    const msgs: ChatMessage[] = [
-      { role: "user", content: "" },
-      { role: "user", content: "   " },
-    ];
-    await callLLM({
-      messages: msgs,
-      tools: [],
-      apiKey: "key",
-      model: "model",
-      fetch: ctx.fetch,
-    });
-
-    const reqBody = JSON.parse(ctx.lastRequest()!.init.body as string);
-    expect(reqBody.messages[0].content).toBe("...");
-    expect(reqBody.messages[1].content).toBe("...");
-  });
+  const reqBody = JSON.parse(ctx.lastRequest()!.init.body as string);
+  expect(reqBody.messages[0].content).toBe("...");
+  expect(reqBody.messages[1].content).toBe("...");
 });

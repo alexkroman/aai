@@ -4,9 +4,9 @@ import { main } from "./cli.ts";
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;
 
-function withConsoleSpy(
+function captureConsole(
   fn: (logged: string[]) => void | Promise<void>,
-) {
+): () => Promise<void> {
   return async () => {
     const logged: string[] = [];
     const origLog = console.log;
@@ -22,20 +22,18 @@ function withConsoleSpy(
   };
 }
 
-Deno.test("cli main", async (t) => {
-  await t.step(
-    "prints version with --version",
-    withConsoleSpy(async (logged) => {
-      expect(await main(["--version"])).toBe(0);
-      expect(logged).toEqual([VERSION]);
-    }),
-  );
+Deno.test(
+  "cli --version prints version",
+  captureConsole(async (logged) => {
+    expect(await main(["--version"])).toBe(0);
+    expect(logged).toEqual([VERSION]);
+  }),
+);
 
-  await t.step(
-    "prints usage with --help",
-    withConsoleSpy(async (logged) => {
-      expect(await main(["--help"])).toBe(0);
-      expect(logged[0]).toContain("aai");
-    }),
-  );
-});
+Deno.test(
+  "cli --help prints usage",
+  captureConsole(async (logged) => {
+    expect(await main(["--help"])).toBe(0);
+    expect(logged[0]).toContain("aai");
+  }),
+);

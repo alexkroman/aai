@@ -3,8 +3,9 @@ import type { SttEvents, SttHandle } from "./stt.ts";
 import type { ExecuteTool } from "../core/_tool_executor.ts";
 import type { PlatformConfig } from "./config.ts";
 import type { CallLLMOptions } from "./llm.ts";
-import type { ChatMessage, LLMResponse, ToolSchema } from "./types.ts";
+import type { ChatMessage, LLMResponse } from "./types.ts";
 import { DEFAULT_STT_CONFIG, DEFAULT_TTS_CONFIG } from "./types.ts";
+import type { ToolSchema } from "../sdk/types.ts";
 import {
   type BundleStore,
   createBundleStore,
@@ -112,7 +113,7 @@ export function createMockExecuteTool(): MockExecuteTool {
   return mock;
 }
 
-export function createMockPlatformConfig(): PlatformConfig {
+function createMockPlatformConfig(): PlatformConfig {
   return {
     apiKey: "test-api-key",
     sttConfig: { ...DEFAULT_STT_CONFIG },
