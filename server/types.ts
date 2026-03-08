@@ -4,20 +4,6 @@ import {
   DEFAULT_TTS_SAMPLE_RATE,
 } from "../core/_protocol.ts";
 
-// Re-export agent types from aai/
-export {
-  type AgentConfig,
-  type AgentOptions,
-  agentToolsToSchemas,
-  type BuiltinTool,
-  DEFAULT_GREETING,
-  DEFAULT_INSTRUCTIONS,
-  type ToolContext,
-  type ToolDef,
-  type ToolSchema,
-  type Voice,
-} from "../sdk/types.ts";
-
 // --- Config types (plain interfaces — not validated at boundaries) ---
 
 export interface STTConfig {

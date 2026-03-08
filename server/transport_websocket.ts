@@ -3,40 +3,36 @@ import { handleSessionWebSocket } from "./ws_handler.ts";
 import { createSession, type Session } from "./session.ts";
 import {
   type AgentSlot,
-  buildSlotSessionOpts,
+  ensureAgent,
   registerSlot,
   trackSessionClose,
   trackSessionOpen,
 } from "./worker_pool.ts";
-import type { BundleStore } from "./bundle_store_tigris.ts";
+import { loadPlatformConfig } from "./config.ts";
+import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { ServerContext } from "./transport_twilio.ts";
 
 async function discoverSlot(
   slug: string,
-  slots: Map<string, AgentSlot>,
-  store: BundleStore,
+  ctx: ServerContext,
 ): Promise<AgentSlot | null> {
-  const existing = slots.get(slug);
+  const existing = ctx.slots.get(slug);
   if (existing) return existing;
 
-  const manifest = await store.getManifest(slug);
+  const manifest = await ctx.store.getManifest(slug);
   if (!manifest) return null;
 
-  if (registerSlot(slots, manifest)) {
+  if (registerSlot(ctx.slots, manifest)) {
     console.info("Lazy-discovered agent from store", { slug });
   }
-  return slots.get(slug) ?? null;
-}
-
-export interface WebSocketContext extends ServerContext {
-  sessions: Map<string, Session>;
+  return ctx.slots.get(slug) ?? null;
 }
 
 async function resolveSlot(
   slug: string,
-  ctx: WebSocketContext,
+  ctx: ServerContext,
 ): Promise<AgentSlot | null> {
-  const slot = await discoverSlot(slug, ctx.slots, ctx.store);
+  const slot = await discoverSlot(slug, ctx);
   if (!slot?.transport.includes("websocket")) return null;
   return slot;
 }
@@ -44,7 +40,7 @@ async function resolveSlot(
 export async function handleAgentHealth(
   _req: Request,
   slug: string,
-  ctx: WebSocketContext,
+  ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
   if (!slot) {
@@ -60,7 +56,7 @@ export async function handleAgentHealth(
 export async function handleAgentPage(
   _req: Request,
   slug: string,
-  ctx: WebSocketContext,
+  ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
@@ -73,7 +69,7 @@ export async function handleAgentPage(
 export async function handleAgentRedirect(
   req: Request,
   slug: string,
-  ctx: WebSocketContext,
+  ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
@@ -83,7 +79,7 @@ export async function handleAgentRedirect(
 export async function handleWebSocket(
   req: Request,
   slug: string,
-  ctx: WebSocketContext,
+  ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });
@@ -94,19 +90,42 @@ export async function handleWebSocket(
     );
   }
 
-  const slotOpts = buildSlotSessionOpts(
-    slot,
-    (s) => ctx.store.getFile(s, "worker"),
-  );
+  const config = slot.config!;
+  const customTools = slot.toolSchemas ?? [];
+  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
+  const toolSchemas = [...customTools, ...builtinTools];
+  const getWorkerCode = (s: string) => ctx.store.getFile(s, "worker");
+  const getWorkerApi = customTools.length > 0
+    ? async () => (await ensureAgent(slot, getWorkerCode)).workerApi
+    : undefined;
+  let cachedApi:
+    | Awaited<ReturnType<NonNullable<typeof getWorkerApi>>>
+    | undefined;
+  const executeTool = getWorkerApi
+    ? async (
+      name: string,
+      args: Record<string, unknown>,
+      sessionId?: string,
+    ) => {
+      cachedApi ??= await getWorkerApi();
+      return cachedApi.executeTool(name, args, sessionId, 30_000);
+    }
+    : (_name: string, _args: Record<string, unknown>) =>
+      Promise.resolve("Error: No custom tools");
 
   const resume = new URL(req.url).searchParams.has("resume");
   const { socket, response } = Deno.upgradeWebSocket(req);
-  handleSessionWebSocket(socket, ctx.sessions, {
+  handleSessionWebSocket(socket, ctx.sessions as Map<string, Session>, {
     createSession: (sessionId, ws) =>
       createSession({
         id: sessionId,
         transport: ws,
-        ...slotOpts,
+        agentConfig: config,
+        toolSchemas,
+        platformConfig: loadPlatformConfig(slot.env),
+        executeTool,
+        getWorkerApi,
+        env: slot.env,
         skipGreeting: resume,
       }),
     logContext: { slug },
@@ -120,7 +139,7 @@ export async function handleStaticFile(
   _req: Request,
   slug: string,
   file: string,
-  ctx: WebSocketContext,
+  ctx: ServerContext,
 ): Promise<Response> {
   const slot = await resolveSlot(slug, ctx);
   if (!slot) return Response.json({ error: "Not found" }, { status: 404 });

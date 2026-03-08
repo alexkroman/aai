@@ -2,8 +2,8 @@ import {
   type ChatMessage,
   type LLMResponse,
   LLMResponseSchema,
-  type ToolSchema,
 } from "./types.ts";
+import type { ToolSchema } from "../sdk/types.ts";
 
 function sanitizeMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.map((msg) => {

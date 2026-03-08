@@ -18,10 +18,6 @@ export interface ToolTestResult {
 
 export interface ValidationResult {
   errors: ValidationError[];
-  name?: string;
-  voice?: string;
-  tools?: string[];
-  builtinTools?: string[];
   toolTests?: ToolTestResult[];
 }
 
@@ -69,27 +65,16 @@ export async function validateAgent(
 
   const def = mod.default as Record<string, unknown>;
 
-  const name = typeof def.name === "string" ? def.name : undefined;
-  if (!name) {
+  if (typeof def.name !== "string" || !def.name) {
     errors.push({ field: "name", message: "must be a non-empty string" });
   }
-
-  const tools = def.tools && typeof def.tools === "object"
-    ? Object.keys(def.tools as Record<string, unknown>)
-    : [];
-
-  const voice = typeof def.voice === "string" ? def.voice : "luna";
-
-  const builtinTools = Array.isArray(def.builtinTools)
-    ? (def.builtinTools as string[])
-    : [];
 
   const toolTests = await testTools(
     def as unknown as AgentDef,
     agent,
   );
 
-  return { errors, name, voice, tools, builtinTools, toolTests };
+  return { errors, toolTests };
 }
 
 /** Test each custom tool by invoking execute() with minimal args. */

@@ -1,7 +1,10 @@
 import { expect } from "@std/expect";
 import { buildSystemPrompt } from "./system_prompt.ts";
-import { DEFAULT_INSTRUCTIONS } from "../sdk/types.ts";
-import type { AgentConfig, ToolSchema } from "./types.ts";
+import {
+  type AgentConfig,
+  DEFAULT_INSTRUCTIONS,
+  type ToolSchema,
+} from "../sdk/types.ts";
 
 function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
   return {

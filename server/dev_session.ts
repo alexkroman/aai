@@ -1,7 +1,7 @@
 import { type DevRegister, DevRegisterSchema } from "../core/_dev_protocol.ts";
-import { createWebSocketTarget } from "../core/_rpc.ts";
-import { createWorkerRpc } from "./rpc.ts";
-import type { AgentConfig, ToolSchema } from "./types.ts";
+import { createRpcCaller, createWebSocketTarget } from "../core/_rpc.ts";
+import type { WorkerApi } from "../core/_worker_entry.ts";
+import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { AgentInfo, AgentSlot, WorkerHandle } from "./worker_pool.ts";
 import type { ServerContext } from "./transport_twilio.ts";
@@ -91,8 +91,20 @@ async function registerDevAgent(
   // Create a MessageTarget adapter so standard RPC works over this WebSocket
   const target = createWebSocketTarget(ws);
 
-  // createWorkerRpc gives us the same WorkerApi as a local Worker would
-  const workerApi = createWorkerRpc(target);
+  const call = createRpcCaller(target);
+  const workerApi: WorkerApi = {
+    async executeTool(name, args, sessionId, timeoutMs) {
+      const raw = await call(
+        "executeTool",
+        { name, args, sessionId },
+        timeoutMs,
+      );
+      return typeof raw === "string" ? raw : String(raw ?? "");
+    },
+    async invokeHook(hook, sessionId, extra, timeoutMs) {
+      await call("invokeHook", { hook, sessionId, ...extra }, timeoutMs);
+    },
+  };
 
   const agentConfig: AgentConfig = {
     name: msg.config.name,

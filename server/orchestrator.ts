@@ -8,7 +8,6 @@ import {
   handleAgentRedirect,
   handleStaticFile,
   handleWebSocket,
-  type WebSocketContext,
 } from "./transport_websocket.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
@@ -39,11 +38,6 @@ export interface App {
   ) => Promise<Response>;
 }
 
-/** Helper to extract the composite slug from namespace + slug path params. */
-function compositeSlug(groups: Record<string, string | undefined>): string {
-  return `${groups.namespace}/${groups.slug}`;
-}
-
 export function createOrchestrator(opts: {
   store: BundleStore;
 }): { app: App } {
@@ -51,8 +45,7 @@ export function createOrchestrator(opts: {
 
   const slots = new Map<string, AgentSlot>();
   const sessions = new Map<string, Session>();
-  const wsCtx: WebSocketContext = { slots, sessions, store };
-  const ctx: ServerContext = { slots, store };
+  const ctx: ServerContext = { slots, sessions, store };
 
   const routes: Route[] = [
     // Static routes
@@ -99,7 +92,7 @@ export function createOrchestrator(opts: {
       handler: (req, m) =>
         handleTwilioVoice(
           req,
-          compositeSlug(m.pathname.groups),
+          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
           ctx,
         ),
     },
@@ -108,7 +101,7 @@ export function createOrchestrator(opts: {
       handler: (req, m) =>
         handleTwilioStream(
           req,
-          compositeSlug(m.pathname.groups),
+          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
           ctx,
         ),
     },
@@ -118,7 +111,7 @@ export function createOrchestrator(opts: {
       handler: (req, m) =>
         handleDevWebSocket(
           req,
-          compositeSlug(m.pathname.groups),
+          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
           ctx,
         ),
     },
@@ -128,23 +121,27 @@ export function createOrchestrator(opts: {
       handler: (req, m) =>
         handleAgentHealth(
           req,
-          compositeSlug(m.pathname.groups),
-          wsCtx,
+          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
+          ctx,
         ),
     },
     {
       pattern: new URLPattern({ pathname: "/:namespace/:slug/websocket" }),
       handler: (req, m) =>
-        handleWebSocket(req, compositeSlug(m.pathname.groups), wsCtx),
+        handleWebSocket(
+          req,
+          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
+          ctx,
+        ),
     },
     {
       pattern: new URLPattern({ pathname: "/:namespace/:slug/client.js" }),
       handler: (req, m) =>
         handleStaticFile(
           req,
-          compositeSlug(m.pathname.groups),
+          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
           "client.js",
-          wsCtx,
+          ctx,
         ),
     },
     {
@@ -154,23 +151,27 @@ export function createOrchestrator(opts: {
       handler: (req, m) =>
         handleStaticFile(
           req,
-          compositeSlug(m.pathname.groups),
+          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
           "client.js.map",
-          wsCtx,
+          ctx,
         ),
     },
     {
       pattern: new URLPattern({ pathname: "/:namespace/:slug/" }),
       handler: (req, m) =>
-        handleAgentPage(req, compositeSlug(m.pathname.groups), wsCtx),
+        handleAgentPage(
+          req,
+          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
+          ctx,
+        ),
     },
     {
       pattern: new URLPattern({ pathname: "/:namespace/:slug" }),
       handler: (req, m) =>
         handleAgentRedirect(
           req,
-          compositeSlug(m.pathname.groups),
-          wsCtx,
+          `${m.pathname.groups.namespace}/${m.pathname.groups.slug}`,
+          ctx,
         ),
     },
     // Landing page

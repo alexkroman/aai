@@ -1,14 +1,6 @@
 import type { TTSConfig } from "./types.ts";
 import { createWebSocket } from "./_ws.ts";
 
-function safeClose(ws: WebSocket): void {
-  try {
-    ws.close();
-  } catch {
-    // ignore
-  }
-}
-
 /** Time (ms) after the last audio chunk before we consider synthesis complete. */
 const IDLE_MS = 300;
 /** Safety timeout (ms) if no audio arrives at all after a flush. */
@@ -95,7 +87,7 @@ export function createTtsClient(config: TTSConfig) {
       return Promise.resolve(ws);
     }
     if (ws) {
-      safeClose(ws);
+      ws.close();
       ws = null;
     }
 
@@ -136,7 +128,7 @@ export function createTtsClient(config: TTSConfig) {
           // may still have audio in flight that arrives after we start the
           // next synthesis, corrupting playback.
           if (ws) {
-            safeClose(ws);
+            ws.close();
             ws = null;
           }
           finishSynthesis();
@@ -178,7 +170,7 @@ export function createTtsClient(config: TTSConfig) {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send("<EOS>");
         }
-        safeClose(ws);
+        ws.close();
         ws = null;
       }
     },

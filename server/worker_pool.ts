@@ -1,9 +1,8 @@
 import { loadPlatformConfig } from "./config.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
-import type { ExecuteTool } from "../core/_tool_executor.ts";
-import type { AgentConfig, ToolSchema } from "./types.ts";
+import type { AgentConfig, ToolSchema } from "../sdk/types.ts";
 import type { WorkerApi } from "../core/_worker_entry.ts";
-import { createWorkerRpc } from "./rpc.ts";
+import { createRpcCaller } from "../core/_rpc.ts";
 export interface AgentMetadata {
   slug: string;
   env: Record<string, string>;
@@ -14,7 +13,6 @@ export interface AgentMetadata {
 }
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
-const TOOL_TIMEOUT_MS = 30_000;
 
 /** A minimal subset of Worker used for lifecycle management. */
 export interface WorkerHandle {
@@ -44,28 +42,6 @@ export interface AgentSlot {
   idleTimer?: ReturnType<typeof setTimeout>;
   /** True when this slot is owned by a dev control WebSocket. */
   _dev?: boolean;
-}
-
-/** Returns a lazy accessor that spawns the worker on first call. */
-export function createLazyWorkerApi(
-  slot: AgentSlot,
-  getWorkerCode?: (slug: string) => Promise<string | null>,
-): () => Promise<WorkerApi> {
-  return async () => {
-    const info = await ensureAgent(slot, getWorkerCode);
-    return info.workerApi;
-  };
-}
-
-/** Creates a tool executor that lazily spawns the worker on first call. */
-export function createLazyToolExecutor(
-  getWorkerApi: () => Promise<WorkerApi>,
-): ExecuteTool {
-  let cached: WorkerApi | undefined;
-  return async (name, args, sessionId) => {
-    cached ??= await getWorkerApi();
-    return cached.executeTool(name, args, sessionId, TOOL_TIMEOUT_MS);
-  };
 }
 
 async function spawnAgent(
@@ -108,7 +84,20 @@ async function spawnAgent(
     }) as EventListener,
   );
 
-  const workerApi = createWorkerRpc(worker);
+  const call = createRpcCaller(worker);
+  const workerApi: WorkerApi = {
+    async executeTool(name, args, sessionId, timeoutMs) {
+      const raw = await call(
+        "executeTool",
+        { name, args, sessionId },
+        timeoutMs,
+      );
+      return typeof raw === "string" ? raw : String(raw ?? "");
+    },
+    async invokeHook(hook, sessionId, extra, timeoutMs) {
+      await call("invokeHook", { hook, sessionId, ...extra }, timeoutMs);
+    },
+  };
 
   const agentConfig = slot.config!;
   const allToolSchemas = [
@@ -185,37 +174,6 @@ export function trackSessionClose(
     Deno.unrefTimer(timerId);
     slot.idleTimer = timerId;
   }
-}
-
-export function buildSlotSessionOpts(
-  slot: AgentSlot,
-  getWorkerCode: (slug: string) => Promise<string | null>,
-): {
-  agentConfig: AgentConfig;
-  toolSchemas: ToolSchema[];
-  platformConfig: ReturnType<typeof loadPlatformConfig>;
-  executeTool: ExecuteTool;
-  getWorkerApi?: () => Promise<WorkerApi>;
-  env: Record<string, string>;
-} {
-  const config = slot.config!;
-  const customTools = slot.toolSchemas ?? [];
-  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
-  const toolSchemas = [...customTools, ...builtinTools];
-  const getWorkerApi = customTools.length > 0
-    ? createLazyWorkerApi(slot, getWorkerCode)
-    : undefined;
-
-  return {
-    agentConfig: config,
-    toolSchemas,
-    platformConfig: loadPlatformConfig(slot.env),
-    executeTool: getWorkerApi
-      ? createLazyToolExecutor(getWorkerApi)
-      : (_name, _args) => Promise.resolve("Error: No custom tools"),
-    getWorkerApi,
-    env: slot.env,
-  };
 }
 
 export function registerSlot(

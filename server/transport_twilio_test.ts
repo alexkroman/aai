@@ -10,7 +10,6 @@ import {
   createAudioBuffer,
   createTwilioTransport,
   decodeTwilioFrame,
-  twiml,
 } from "./transport_twilio.ts";
 
 // --- mulaw codec ---
@@ -71,16 +70,6 @@ Deno.test("resample", async (t) => {
     for (let i = 0; i < 24; i++) s[i] = i * 100;
     expect(resample(s, 24000, 8000).length).toBe(8);
   });
-});
-
-// --- twiml helper ---
-
-Deno.test("twiml wraps body in Response element", async () => {
-  const res = twiml("<Say>Hello</Say>");
-  expect(res.headers.get("content-type")).toBe("text/xml");
-  const body = await res.text();
-  expect(body.includes("<Response><Say>Hello</Say></Response>")).toBe(true);
-  expect(body.startsWith("<?xml")).toBe(true);
 });
 
 // --- audio buffer ---

@@ -1,14 +1,6 @@
-import type { AgentOptions, HookContext, ToolDef } from "../sdk/types.ts";
+import type { AgentDef, HookContext } from "../sdk/types.ts";
 import { executeToolCall } from "./_tool_executor.ts";
 import { type MessageTarget, serveRpc } from "./_rpc.ts";
-
-interface AgentLike {
-  readonly tools: Readonly<Record<string, ToolDef>>;
-  readonly onConnect?: AgentOptions["onConnect"];
-  readonly onDisconnect?: AgentOptions["onDisconnect"];
-  readonly onError?: AgentOptions["onError"];
-  readonly onTurn?: AgentOptions["onTurn"];
-}
 
 export interface WorkerApi {
   executeTool(
@@ -26,7 +18,7 @@ export interface WorkerApi {
 }
 
 export function startWorker(
-  agent: AgentLike,
+  agent: AgentDef,
   env: Record<string, string>,
   endpoint?: MessageTarget,
 ): void {

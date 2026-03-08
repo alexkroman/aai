@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { createSandboxRpc } from "./rpc.ts";
-import type { ToolSchema } from "./types.ts";
+import { createRpcCaller } from "../core/_rpc.ts";
+import type { ToolSchema } from "../sdk/types.ts";
 import { htmlToMarkdown } from "./html.ts";
 
 const BraveSearchResponseSchema = z.object({
@@ -183,8 +183,11 @@ const runCode: BuiltinTool = {
     });
 
     try {
-      const sandbox = createSandboxRpc(worker);
-      const result = await sandbox.execute(code, TIMEOUT_MS);
+      const call = createRpcCaller(worker);
+      const result = await call("execute", { code }, TIMEOUT_MS) as {
+        output: string;
+        error?: string;
+      };
 
       if (result.error) {
         return JSON.stringify({ error: result.error });

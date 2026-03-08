@@ -9,14 +9,12 @@ import {
 import { createTtsClient } from "./tts.ts";
 import { executeBuiltinTool as defaultExecuteBuiltinTool } from "./builtin_tools.ts";
 import { executeTurn, type TurnCallLLMOptions } from "./turn_handler.ts";
-import type {
-  AgentConfig,
-  ChatMessage,
-  LLMResponse,
-  STTConfig,
-  ToolSchema,
-} from "./types.ts";
-import { DEFAULT_GREETING } from "../sdk/types.ts";
+import type { ChatMessage, LLMResponse, STTConfig } from "./types.ts";
+import {
+  type AgentConfig,
+  DEFAULT_GREETING,
+  type ToolSchema,
+} from "../sdk/types.ts";
 import type { WorkerApi } from "../core/_worker_entry.ts";
 import { buildSystemPrompt } from "./system_prompt.ts";
 

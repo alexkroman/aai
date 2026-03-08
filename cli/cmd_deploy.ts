@@ -47,7 +47,7 @@ ${bold("OPTIONS:")}
     return 1;
   }
 
-  const { agent, validation } = result;
+  const { agent } = result;
   const slug = await resolveSlug(cwd, namespace, agent.slug);
   const fullPath = `${namespace}/${slug}`;
 
@@ -74,8 +74,8 @@ ${bold("OPTIONS:")}
   });
 
   const tools = [
-    ...(validation.builtinTools ?? []),
-    ...(validation.tools ?? []),
+    ...(agent.config?.builtinTools ?? []),
+    ...(agent.toolSchemas ?? []).map((t) => t.name),
   ];
 
   const deployedPath = `${deployed.namespace}/${deployed.slug}`;
@@ -86,7 +86,7 @@ ${bold("OPTIONS:")}
     stepInfo("Twilio", `${serverUrl}/${deployedPath}/twilio/voice`);
   }
 
-  stepInfo("Agent", validation.name ?? deployed.slug);
+  stepInfo("Agent", agent.config?.name ?? deployed.slug);
   if (tools.length > 0) {
     stepInfo("Tools", tools.join(", "));
   }
