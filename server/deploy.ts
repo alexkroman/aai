@@ -49,7 +49,11 @@ export async function handleDeploy(
     loadPlatformConfig(body.env);
   } catch (err: unknown) {
     return c.json(
-      { error: `Invalid platform config: ${(err as Error).message}` },
+      {
+        error: `Invalid platform config: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      },
       400,
     );
   }
@@ -93,7 +97,7 @@ export async function handleDeploy(
     slug: compositeSlug,
     env: body.env,
     transport,
-    config: body.config as AgentSlot["config"],
+    config: body.config,
     name: body.config?.name,
     toolSchemas: body.toolSchemas,
     activeSessions: 0,

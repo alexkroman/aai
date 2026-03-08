@@ -44,7 +44,7 @@ export async function executeToolCall(
       signal,
     };
     const result = await Promise.resolve(
-      tool.execute(parsed.data as Record<string, unknown>, ctx),
+      tool.execute(parsed.data, ctx),
     );
     if (result == null) return "null";
     return typeof result === "string" ? result : JSON.stringify(result);
@@ -105,7 +105,7 @@ export function startWorker(
       if (!tool) return `Error: Unknown tool "${req.name}"`;
       return executeToolCall(
         req.name,
-        req.args as Record<string, unknown>,
+        req.args,
         tool,
         env,
         undefined,

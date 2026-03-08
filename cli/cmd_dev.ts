@@ -264,7 +264,7 @@ function connectAndRegister(
           executeTool: (req) =>
             localWorker.workerApi.executeTool(
               req.name,
-              req.args as Record<string, unknown>,
+              req.args,
               undefined,
               30_000,
             ),

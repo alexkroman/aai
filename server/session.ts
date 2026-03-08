@@ -135,7 +135,7 @@ export function createSession(opts: SessionOptions): Session {
   // Resolve all deps upfront
   const deps = resolveSessionDeps({
     ...opts,
-    env: env as Record<string, string>,
+    env,
     platformConfig: config,
   });
   const { connectStt: doConnectStt, callLLM: doCallLLM, ttsClient: tts } = deps;

@@ -215,9 +215,9 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   // Derive slug from directory name
   const slug = slugFromDir(dir);
   const declared: readonly string[] = def?.env ?? ["ASSEMBLYAI_API_KEY"];
-  const transport = def?.transport
-    ? [...def.transport] as ("websocket" | "twilio")[]
-    : ["websocket"] as ("websocket" | "twilio")[];
+  const transport: ("websocket" | "twilio")[] = def?.transport
+    ? [...def.transport]
+    : ["websocket"];
 
   const dotenvText = await Deno.readTextFile(join(dir, ".env")).catch(() => "");
   const dotenv = parseDotenv(dotenvText);

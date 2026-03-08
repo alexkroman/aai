@@ -212,7 +212,9 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
       batch(() => {
         error.value = {
           code: "audio",
-          message: `Microphone access failed: ${(err as Error).message}`,
+          message: `Microphone access failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
         };
         state.value = "error";
       });
@@ -308,7 +310,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
           pongReceived = true;
           break;
         case "error": {
-          const details = (msg as ErrorMessage).details;
+          const details = msg.details;
           const fullMessage = details?.length
             ? `${msg.message}: ${details.join(", ")}`
             : msg.message;

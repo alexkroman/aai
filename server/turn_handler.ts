@@ -193,7 +193,7 @@ export async function executeTurn(
     if (nextIteration >= MAX_TOOL_ITERATIONS && finalAnswerSchema) {
       tools = [finalAnswerSchema];
       choice = {
-        type: "function" as const,
+        type: "function",
         function: { name: FINAL_ANSWER_TOOL },
       };
     }

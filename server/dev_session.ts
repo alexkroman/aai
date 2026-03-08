@@ -92,10 +92,10 @@ async function registerDevAgent(
     greeting: msg.config.greeting,
     voice: msg.config.voice,
     prompt: msg.config.prompt,
-    builtinTools: msg.config.builtinTools as AgentConfig["builtinTools"],
+    builtinTools: msg.config.builtinTools,
   };
 
-  const customToolSchemas = msg.toolSchemas as ToolSchema[];
+  const customToolSchemas = msg.toolSchemas;
   const allToolSchemas: ToolSchema[] = [
     ...customToolSchemas,
     ...getBuiltinToolSchemas(agentConfig.builtinTools ?? []),
