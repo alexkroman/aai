@@ -6,7 +6,6 @@ import { installMockWebSocket, type MockWebSocket } from "./_mock_ws.ts";
 
 function createMockSttEvents() {
   return {
-    onSpeechStarted: spy(() => {}),
     onTranscript: spy(
       (_text: string, _isFinal: boolean, _turnOrder?: number) => {},
     ),

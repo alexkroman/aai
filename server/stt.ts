@@ -5,7 +5,6 @@ import { createWebSocketWithHeaders } from "./_deno_ws.ts";
 const STT_CONNECTION_TIMEOUT = 10_000;
 
 export type SttEvents = {
-  onSpeechStarted: () => void;
   onTranscript: (text: string, isFinal: boolean, turnOrder?: number) => void;
   onTurn: (text: string, turnOrder?: number) => void;
   onTermination: (audioDuration: number, sessionDuration: number) => void;
@@ -105,9 +104,7 @@ export async function connectStt(
             endOfTurn: msg.end_of_turn,
             turnIsFormatted: msg.turn_is_formatted,
           });
-          if (msg.type === "SpeechStarted") {
-            events.onSpeechStarted();
-          } else if (msg.type === "Termination") {
+          if (msg.type === "Termination") {
             events.onTermination(
               msg.audio_duration_seconds ?? 0,
               msg.session_duration_seconds ?? 0,
