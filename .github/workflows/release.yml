@@ -60,8 +60,17 @@ jobs:
         with:
           deno-version: ${{ env.DENO_VERSION }}
 
+      - name: Install npm dependencies
+        run: deno install
+
       - name: Compile binary
         run: |
+          # Discover npm package dirs needed by the bundler at runtime
+          npm_includes=""
+          for pkg in preact @preact+signals @preact+signals-core goober lodash-es esbuild-wasm; do
+            dir=$(ls -d node_modules/.deno/${pkg}@* 2>/dev/null | head -1)
+            [ -n "$dir" ] && npm_includes="$npm_includes --include $dir"
+          done
           deno compile \
             --allow-all \
             --unstable-worker-options \
@@ -72,7 +81,7 @@ jobs:
             --include cli/claude.md \
             --include cli/deno.json \
             --include _bundler_config.json \
-            --include node_modules/.deno/esbuild-wasm@0.27.3/node_modules/esbuild-wasm/esbuild.wasm \
+            $npm_includes \
             --target ${{ matrix.target }} \
             --output dist/aai \
             cli/cli.ts

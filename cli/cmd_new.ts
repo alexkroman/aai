@@ -1,4 +1,5 @@
 import { parseArgs } from "@std/cli/parse-args";
+import { promptSelect } from "@std/cli/unstable-prompt-select";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
@@ -9,8 +10,8 @@ export async function runNewCommand(
 ): Promise<number> {
   const flags = parseArgs(args, {
     string: ["template", "name"],
-    alias: { h: "help", t: "template", n: "name" },
-    boolean: ["help"],
+    alias: { h: "help", t: "template", n: "name", f: "force" },
+    boolean: ["help", "force"],
   });
 
   if (flags.help) {
@@ -28,6 +29,7 @@ ${bold("OPTIONS:")}
   ${cyan("-t, --template")} ${
         dim("<name>")
       }    Template to use (default: simple)
+  ${cyan("-f, --force")}              Overwrite existing agent.ts
   ${cyan("-h, --help")}               Show this help message
 `,
     );
@@ -38,16 +40,33 @@ ${bold("OPTIONS:")}
     ? String(flags._[0])
     : (Deno.env.get("INIT_CWD") || Deno.cwd());
 
-  if (await exists(join(cwd, "agent.ts"))) {
-    console.log("agent.ts already exists in this directory.");
+  if (!flags.force && await exists(join(cwd, "agent.ts"))) {
+    console.log(
+      `agent.ts already exists in this directory. Use ${
+        cyan("--force")
+      } to overwrite.`,
+    );
     return 1;
   }
 
   const cliDir = dirname(fromFileUrl(import.meta.url));
   const templatesDir = join(cliDir, "..", "templates");
   const { listTemplates, runNew } = await import("./new.ts");
+  const templates = await listTemplates(templatesDir);
 
-  const template = flags.template || "simple";
+  let template = flags.template;
+  if (!template) {
+    const selected = promptSelect("Choose a template", templates, {
+      clear: true,
+    });
+    if (!selected) {
+      // stdin is not a TTY — fall back to default
+      template = "simple";
+    } else {
+      template = selected;
+    }
+  }
+
   await runNew({
     targetDir: cwd,
     template,
@@ -55,33 +74,10 @@ ${bold("OPTIONS:")}
     name: flags.name,
   });
 
-  const templates = await listTemplates(templatesDir);
-
-  // Detect which templates include a custom UI (client.tsx)
-  const uiTemplates = new Set<string>();
-  for (const t of templates) {
-    try {
-      await Deno.stat(join(templatesDir, t, "client.tsx"));
-      uiTemplates.add(t);
-    } catch { /* no client.tsx */ }
-  }
-
-  console.log(`\n${bold("Templates:")}`);
-  for (const t of templates) {
-    const marker = t === template ? green("●") : dim("○");
-    const label = t === template ? bold(t) : t;
-    const ui = uiTemplates.has(t) ? dim(" (custom UI)") : "";
-    console.log(`  ${marker} ${label}${ui}`);
-  }
-  console.log(
-    dim(
-      `\n  Re-run with --template <name> to start from a different template\n`,
-    ),
-  );
-
   await ensureClaudeMd(cwd);
 
-  console.log(`Run ${cyan("aai dev")} to start developing.\n`);
+  console.log(`Run ${cyan("aai dev")} to start a local dev server.`);
+  console.log(`Run ${cyan("aai deploy")} to deploy to production.\n`);
 
   return 0;
 }

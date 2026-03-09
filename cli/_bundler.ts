@@ -99,7 +99,82 @@ const WORKSPACE_ALIASES: Record<string, string> = {
   "@aai/ui/client": resolve(AAI_ROOT, "ui/client.tsx"),
 };
 
+/**
+ * Resolves an npm package name to its entry point file path under node_modules.
+ * Returns undefined if the package cannot be found.
+ */
+function resolveNpmPackage(
+  name: string,
+  subpath?: string,
+): string | undefined {
+  const pkgDir = join(AAI_ROOT, "node_modules", ...name.split("/"));
+  try {
+    if (subpath) {
+      // e.g. preact/hooks → node_modules/preact/hooks/index.js or hooks.js
+      const sub = join(pkgDir, subpath);
+      try {
+        const info = Deno.statSync(sub);
+        if (info.isDirectory) {
+          const pkgJson = join(sub, "package.json");
+          try {
+            const pkg = JSON.parse(Deno.readTextFileSync(pkgJson));
+            return resolve(sub, pkg.module || pkg.main || "index.js");
+          } catch {
+            return resolve(sub, "index.js");
+          }
+        }
+      } catch { /* not a directory */ }
+      // Try as a file
+      for (const ext of ["", ".js", ".mjs"]) {
+        try {
+          Deno.statSync(sub + ext);
+          return sub + ext;
+        } catch { /* try next */ }
+      }
+    }
+    const pkgJson = join(pkgDir, "package.json");
+    const pkg = JSON.parse(Deno.readTextFileSync(pkgJson));
+    return resolve(pkgDir, pkg.module || pkg.main || "index.js");
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * npm packages used by the framework (ui/, sdk/, core/).
+ * Resolved directly to node_modules entry points so the deno esbuild plugin
+ * doesn't need to find them — critical for compiled binaries where the deno
+ * plugin's npm resolver can't locate node_modules.
+ */
+const NPM_PACKAGE_NAMES = [
+  "preact",
+  "preact/hooks",
+  "preact/compat",
+  "@preact/signals",
+  "goober",
+  "lodash-es",
+];
+
+function buildNpmAliases(): Record<string, string> {
+  const aliases: Record<string, string> = {};
+  for (const name of NPM_PACKAGE_NAMES) {
+    const parts = name.split("/");
+    const pkgName = name.startsWith("@")
+      ? parts.slice(0, 2).join("/")
+      : parts[0];
+    const subpath = name.startsWith("@")
+      ? parts.slice(2).join("/")
+      : parts.slice(1).join("/");
+    const resolved = resolveNpmPackage(pkgName, subpath || undefined);
+    if (resolved) aliases[name] = resolved;
+  }
+  return aliases;
+}
+
+let npmAliases: Record<string, string> | null = null;
+
 function workspaceAliasPlugin(): Plugin {
+  if (!npmAliases) npmAliases = buildNpmAliases();
   return {
     name: "workspace-alias",
     setup(build) {
@@ -108,6 +183,17 @@ function workspaceAliasPlugin(): Plugin {
         if (local) return { path: local, namespace: "file" };
         return null;
       });
+      // Resolve framework npm packages directly to node_modules entry points.
+      // This avoids relying on the deno plugin's npm resolver, which fails in
+      // compiled binaries where node_modules aren't fully available.
+      build.onResolve(
+        { filter: /^(preact|@preact\/signals|goober|lodash-es)/ },
+        (args) => {
+          const resolved = npmAliases![args.path];
+          if (resolved) return { path: resolved, namespace: "file" };
+          return null;
+        },
+      );
     },
   };
 }
@@ -185,13 +271,35 @@ export async function bundleAgent(
   // Agent's deno.json resolves agent-specific deps (e.g. npm: imports).
   // Framework's deno.json resolves internal deps (zod, @aai/sdk internals).
   const agentConfigPath = join(agent.dir, "deno.json");
-  let hasAgentConfig = false;
+  let useAgentConfig = false;
   try {
     await Deno.stat(agentConfigPath);
-    hasAgentConfig = true;
+    useAgentConfig = true;
   } catch { /* no agent deno.json */ }
+
+  // Check if agent dir is inside a parent Deno workspace that doesn't include it.
+  // The deno esbuild plugin rejects configs that aren't workspace members.
+  if (useAgentConfig) {
+    let dir = dirname(agent.dir);
+    const root = resolve("/");
+    while (dir !== root) {
+      try {
+        const parentConfig = JSON.parse(
+          await Deno.readTextFile(join(dir, "deno.json")),
+        );
+        if (Array.isArray(parentConfig.workspace)) {
+          // Parent has workspace config — skip agent's deno.json to avoid
+          // "Config file must be a member of the workspace" error.
+          useAgentConfig = false;
+          break;
+        }
+      } catch { /* no config at this level */ }
+      dir = dirname(dir);
+    }
+  }
+
   const alias = workspaceAliasPlugin();
-  const workerPlugins = hasAgentConfig
+  const workerPlugins = useAgentConfig
     ? [
       alias,
       denoPlugin({ configPath: agentConfigPath }),
