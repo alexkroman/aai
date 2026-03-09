@@ -104,21 +104,25 @@ export async function connectStt(
             endOfTurn: msg.end_of_turn,
             turnIsFormatted: msg.turn_is_formatted,
           });
-          if (msg.type === "Termination") {
-            events.onTermination(
-              msg.audio_duration_seconds ?? 0,
-              msg.session_duration_seconds ?? 0,
-            );
-          } else if (msg.type === "Transcript") {
-            events.onTranscript(msg.transcript ?? "", msg.is_final ?? false);
-          } else if (msg.type === "Turn") {
-            const text = (msg.transcript ?? "").trim();
-            if (!text) return;
-            if (!msg.turn_is_formatted) {
-              events.onTranscript(text, false, msg.turn_order);
-              return;
+          switch (msg.type) {
+            case "Termination":
+              events.onTermination(
+                msg.audio_duration_seconds ?? 0,
+                msg.session_duration_seconds ?? 0,
+              );
+              break;
+            case "Turn": {
+              const text = (msg.transcript ?? "").trim();
+              if (!text) break;
+              // Partial turns (end_of_turn=false) are shown as live transcript;
+              // only completed turns trigger the agentic loop.
+              if (msg.end_of_turn) {
+                events.onTurn(text, msg.turn_order);
+              } else {
+                events.onTranscript(text, false, msg.turn_order);
+              }
+              break;
             }
-            events.onTurn(text, msg.turn_order);
           }
         }, { signal });
 
