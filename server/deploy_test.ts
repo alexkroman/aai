@@ -26,6 +26,11 @@ function deployReq(
         env: VALID_ENV,
         worker: "console.log('w');",
         client: "console.log('c');",
+        config: {
+          instructions: "test",
+          greeting: "hello",
+          voice: "luna",
+        },
       }),
     }),
     params: { namespace: parts[0], slug: parts[1] },
@@ -74,6 +79,30 @@ Deno.test("different namespaces with different keys both succeed", async () => {
   const res2 = await handleDeploy(d2.req, d2.params, { slots, store });
   expect(res1.status).toBe(200);
   expect(res2.status).toBe(200);
+});
+
+Deno.test("deploy rejects missing config", async () => {
+  const { slots, store } = setup();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer key1",
+  };
+  const req = new Request("http://localhost/ns/my-agent/deploy", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      env: VALID_ENV,
+      worker: "console.log('w');",
+      client: "console.log('c');",
+    }),
+  });
+  const res = await handleDeploy(req, { namespace: "ns", slug: "my-agent" }, {
+    slots,
+    store,
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toMatch(/config/i);
 });
 
 Deno.test("hashApiKey produces consistent hex output", async () => {

@@ -67,7 +67,7 @@ export type DeployBody = {
   worker: string;
   client: string;
   transport?: Transport | Transport[];
-  config?: AgentConfig;
+  config: AgentConfig;
   toolSchemas?: ToolSchema[];
 };
 
@@ -79,7 +79,7 @@ export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
     TransportSchema,
     z.array(TransportSchema),
   ]).optional(),
-  config: AgentConfigSchema.optional(),
+  config: AgentConfigSchema,
   toolSchemas: z.array(ToolSchemaSchema).optional(),
 });
 

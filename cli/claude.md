@@ -373,8 +373,19 @@ When an agent needs external packages, add them to `deno.json` imports:
 }
 ```
 
-Do **not** add `compilerOptions` to `deno.json` — the bundler has its own JSX
-config and will ignore them.
+If the agent has a `client.tsx`, add `compilerOptions` for IDE JSX support:
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  }
+}
+```
+
+These do not affect bundling (the bundler has its own JSX config) but are
+required for Deno LSP autocomplete and type-checking in `.tsx` files.
 
 Then import them as bare specifiers in `agent.ts`:
 
