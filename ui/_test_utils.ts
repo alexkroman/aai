@@ -1,7 +1,7 @@
 import { installDomShim } from "./_dom_shim.ts";
 import { DOMParser } from "@b-fuze/deno-dom";
 import { signal } from "@preact/signals";
-import type { SessionSignals } from "./signals.tsx";
+import type { SessionSignals } from "./signals.ts";
 import type { AgentState, Message, SessionError } from "./types.ts";
 
 const HTML =

@@ -3,7 +3,7 @@ import { promptSelect } from "@std/cli/unstable-prompt-select";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { bold, cyan, dim, green } from "@std/fmt/colors";
-import { ensureClaudeMd } from "./_discover.ts";
+import { ensureClaudeMd, ensureTypescriptSetup } from "./_discover.ts";
 
 export async function runNewCommand(
   args: string[],
@@ -75,6 +75,8 @@ ${bold("OPTIONS:")}
   });
 
   await ensureClaudeMd(cwd);
+
+  await ensureTypescriptSetup(cwd);
 
   console.log(`Run ${cyan("aai dev")} to start a local dev server.`);
   console.log(`Run ${cyan("aai deploy")} to deploy to production.\n`);

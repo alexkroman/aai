@@ -169,13 +169,17 @@ export type AgentEntry = {
 
 export const DEFAULT_SERVER = "https://aai-agent.fly.dev";
 
+/** Deps that are part of the aai toolchain and don't count as "external". */
+const AAI_INTERNAL_DEPS = new Set(["@jsr/aai__sdk", "@jsr/aai__ui"]);
+
 export async function hasExternalImports(dir: string): Promise<boolean> {
   try {
     const raw = JSON.parse(
       await Deno.readTextFile(join(dir, "package.json")),
     );
     const deps = raw.dependencies ?? {};
-    if (Object.keys(deps).length > 0) return true;
+    const external = Object.keys(deps).filter((d) => !AAI_INTERNAL_DEPS.has(d));
+    if (external.length > 0) return true;
   } catch { /* no package.json */ }
 
   return false;
@@ -264,9 +268,118 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
 
 export async function ensureClaudeMd(targetDir: string): Promise<void> {
   const claudePath = join(targetDir, "CLAUDE.md");
-  if (!await exists(claudePath)) {
-    const srcClaude = join(AAI_ROOT, "cli", "claude.md");
+  const srcClaude = join(AAI_ROOT, "cli", "claude.md");
+  const srcContent = await Deno.readTextFile(srcClaude);
+  let existing = "";
+  try {
+    existing = await Deno.readTextFile(claudePath);
+  } catch { /* file doesn't exist */ }
+  if (existing !== srcContent) {
     await Deno.copyFile(srcClaude, claudePath);
-    step("Wrote", "CLAUDE.md — read this file for the aai agent API reference");
+    step(
+      existing ? "Updated" : "Wrote",
+      "CLAUDE.md — aai agent API reference",
+    );
+  }
+}
+
+/**
+ * Ensure package.json, tsconfig.json, and .npmrc exist in the agent directory
+ * so editors can provide TypeScript autocomplete for @aai/sdk and @aai/ui.
+ */
+export async function ensureTypescriptSetup(
+  targetDir: string,
+): Promise<void> {
+  const gitignorePath = join(targetDir, ".gitignore");
+  if (!await exists(gitignorePath)) {
+    await Deno.writeTextFile(gitignorePath, "node_modules/\n.env\n");
+    step("Wrote", ".gitignore");
+  }
+
+  const npmrcPath = join(targetDir, ".npmrc");
+  if (!await exists(npmrcPath)) {
+    await Deno.writeTextFile(
+      npmrcPath,
+      "@jsr:registry=https://npm.jsr.io\n",
+    );
+    step("Wrote", ".npmrc");
+  }
+
+  const pkgPath = join(targetDir, "package.json");
+  let needsInstall = false;
+  if (!await exists(pkgPath)) {
+    const dirName = basename(resolve(targetDir));
+    const hasClient = await exists(join(targetDir, "client.tsx"));
+    const pkg: Record<string, unknown> = {
+      private: true,
+      name: slugify(dirName) || "agent",
+      scripts: {
+        typecheck: "tsc --noEmit 2>&1 | grep -v 'node_modules/' || true",
+      },
+      dependencies: {
+        "@jsr/aai__sdk": "*",
+        ...(hasClient ? { "@jsr/aai__ui": "*" } : {}),
+      },
+      devDependencies: {
+        typescript: "^5",
+        ...(hasClient ? { preact: "^10" } : {}),
+      },
+    };
+    await Deno.writeTextFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+    step("Wrote", "package.json");
+    needsInstall = true;
+  }
+
+  const tsconfigPath = join(targetDir, "tsconfig.json");
+  if (!await exists(tsconfigPath)) {
+    const hasClient = await exists(join(targetDir, "client.tsx"));
+    const tsconfig: Record<string, unknown> = {
+      compilerOptions: {
+        strict: true,
+        target: "ESNext",
+        module: "ESNext",
+        moduleResolution: "bundler",
+        noEmit: true,
+        skipLibCheck: true,
+        paths: {
+          "@aai/sdk": ["./node_modules/@jsr/aai__sdk/_dist/mod.d.ts"],
+          ...(hasClient
+            ? {
+              "@aai/ui": ["./node_modules/@jsr/aai__ui/_dist/mod.d.ts"],
+            }
+            : {}),
+        },
+        ...(hasClient ? { jsx: "react-jsx", jsxImportSource: "preact" } : {}),
+      },
+      include: hasClient ? ["agent.ts", "client.tsx"] : ["agent.ts"],
+      exclude: ["node_modules"],
+    };
+    await Deno.writeTextFile(
+      tsconfigPath,
+      JSON.stringify(tsconfig, null, 2) + "\n",
+    );
+    step("Wrote", "tsconfig.json");
+  }
+
+  if (!needsInstall && await exists(pkgPath)) {
+    needsInstall = !await exists(join(targetDir, "node_modules"));
+  }
+
+  if (needsInstall) {
+    try {
+      step("Install", "npm dependencies...");
+      const cmd = new Deno.Command("npm", {
+        args: ["install"],
+        cwd: targetDir,
+        stdout: "null",
+        stderr: "null",
+      });
+      const { code } = await cmd.output();
+      if (code !== 0) {
+        step("Skip", "npm install");
+      }
+    } catch {
+      // npm not found — skip silently
+    }
   }
 }

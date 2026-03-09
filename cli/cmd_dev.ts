@@ -77,6 +77,7 @@ ${bold("OPTIONS:")}
 
   const {
     ensureClaudeMd,
+    ensureTypescriptSetup,
     getApiKey,
     getNamespace,
     resolveSlug,
@@ -88,6 +89,7 @@ ${bold("OPTIONS:")}
   const namespace = await getNamespace();
 
   await ensureClaudeMd(cwd);
+  await ensureTypescriptSetup(cwd);
 
   let result;
   try {

@@ -11,6 +11,7 @@ function printUsage(): void {
 
 ${bold("COMMANDS:")}
   ${cyan("aai new")}            Scaffold a new agent project
+  ${cyan("aai types")}          Set up TypeScript tooling for an existing agent
   ${cyan("aai build")}          Validate and bundle the agent
   ${cyan("aai dev")}            Run local dev server with file watching
   ${cyan("aai deploy")}         Bundle and deploy to production
@@ -67,6 +68,10 @@ export async function main(args: string[]): Promise<number> {
     case "deploy": {
       const { runDeployCommand } = await import("./cmd_deploy.ts");
       return await runDeployCommand(subArgs);
+    }
+    case "types": {
+      const { runTypesCommand } = await import("./cmd_types.ts");
+      return await runTypesCommand(subArgs);
     }
     default: {
       error(`unknown command: ${command}`);

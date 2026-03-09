@@ -16,14 +16,14 @@ export {
   createSessionControls,
   SessionProvider,
   useSession,
-} from "./signals.tsx";
-export type { SessionSignals } from "./signals.tsx";
+} from "./signals.ts";
+export type { SessionSignals } from "./signals.ts";
 
 export { applyTheme, darkTheme, defaultTheme } from "./theme.ts";
 export type { Theme } from "./theme.ts";
 
-export { mount } from "./mount.tsx";
-export type { MountHandle, MountOptions } from "./mount.tsx";
+export { mount } from "./mount.ts";
+export type { MountHandle, MountOptions } from "./mount.ts";
 
 export {
   App,
@@ -33,4 +33,4 @@ export {
   StateIndicator,
   ThinkingIndicator,
   Transcript,
-} from "./components.tsx";
+} from "./components.ts";
