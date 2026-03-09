@@ -13,9 +13,17 @@ function sanitizeMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.map((msg) => {
     let result = msg;
     if (typeof result.content === "string" && !result.content.trim()) {
-      result = { ...result, content: "..." };
+      // Assistant messages with tool_calls should have content: null (OpenAI
+      // convention). Setting it to a non-empty string confuses the gateway's
+      // conversion to Anthropic tool_use blocks. For other roles, use "...".
+      result = {
+        ...result,
+        content: result.tool_calls?.length ? null : "...",
+      };
     }
-    // Ensure tool_calls always have valid JSON arguments for the gateway
+    // Ensure tool_calls always have valid JSON object arguments for the gateway.
+    // The Anthropic API requires tool_use.input to be an object, so arguments
+    // must parse to a plain object — not null, a string, or a primitive.
     if (result.tool_calls?.length) {
       result = {
         ...result,
@@ -23,7 +31,13 @@ function sanitizeMessages(messages: ChatMessage[]): ChatMessage[] {
           const args = tc.function.arguments;
           let safeArgs = args || "{}";
           try {
-            JSON.parse(safeArgs);
+            const parsed = JSON.parse(safeArgs);
+            if (
+              typeof parsed !== "object" || parsed === null ||
+              Array.isArray(parsed)
+            ) {
+              safeArgs = "{}";
+            }
           } catch {
             safeArgs = "{}";
           }

@@ -1,4 +1,8 @@
 {
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  },
   "imports": {
     "@std/async": "jsr:@std/async@^1.2.0",
     "preact": "npm:preact@^10.28.4",

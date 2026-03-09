@@ -116,13 +116,17 @@ tools: {
     parameters: z.object({
       param: z.string().describe("What this param is"),
     }),
-    execute: async ({ param }, ctx) => {
-      // ctx.env for environment variables (from .env)
+    execute: async (args, ctx) => {
+      const { param } = args as { param: string };
       return { result: param };
     },
   },
 },
 ```
+
+**Important:** The `execute` function receives `args: Record<string, unknown>`.
+Use `args as { ... }` to destructure with type safety. Do **not** destructure
+directly in the parameter list — it will cause type errors in strict mode.
 
 For enums, numbers, or optional params:
 
@@ -145,13 +149,38 @@ tools: {
 },
 ```
 
+For multi-action tools (one tool with many operations), use `z.enum` for the
+action parameter. This keeps the tool count low while supporting complex state
+management (see `infocom-adventure` and `dispatch-center` templates):
+
+```ts
+game_state: {
+  description: "Read or update game state. Actions: get, move, take, drop.",
+  parameters: z.object({
+    action: z.enum(["get", "move", "take", "drop"])
+      .describe("The state action to perform"),
+    value: z.string().describe("Action argument").optional(),
+  }),
+  execute: (args, ctx) => {
+    const { action, value } = args as { action: string; value?: string };
+    const state = getSession(ctx.sessionId);
+    switch (action) {
+      case "get": return state;
+      case "move": { state.room = value!; return state; }
+      // ...
+    }
+  },
+},
+```
+
 For tools that call external APIs, use `fetchJSON`. It supports a generic type
 parameter for type-safe responses:
 
 ```ts
 interface SearchResult { items: { title: string; url: string }[] }
 
-execute: async ({ query }) => {
+execute: async (args) => {
+  const { query } = args as { query: string };
   const url = "https://api.example.com/data?q=" +
     encodeURIComponent(query);
   const data = await fetchJSON<SearchResult>(url);
@@ -193,6 +222,62 @@ export default defineAgent({
     // Same env available in hooks
     console.log("Connected:", ctx.sessionId, ctx.env.MY_API_KEY);
   },
+});
+```
+
+## Per-session state
+
+For agents that need to track state per connection (games, workflows, multi-step
+processes), use a `Map` keyed by `ctx.sessionId`. Initialize in `onConnect` and
+clean up in `onDisconnect`:
+
+```ts
+const sessions = new Map<string, { score: number; items: string[] }>();
+
+function getSession(sessionId: string) {
+  if (!sessions.has(sessionId)) {
+    sessions.set(sessionId, { score: 0, items: [] });
+  }
+  return sessions.get(sessionId)!;
+}
+
+export default defineAgent({
+  name: "Stateful Agent",
+  tools: {
+    update: {
+      description: "Update session state",
+      parameters: z.object({ item: z.string() }),
+      execute: (args, ctx) => {
+        const { item } = args as { item: string };
+        const state = getSession(ctx.sessionId);
+        state.items.push(item);
+        return state;
+      },
+    },
+  },
+  onConnect: (ctx) => {
+    getSession(ctx.sessionId); // initialize
+  },
+  onDisconnect: (ctx) => {
+    sessions.delete(ctx.sessionId); // clean up
+  },
+});
+```
+
+See the `infocom-adventure` template for a full example with inventory, room
+tracking, score, and game flags. See `dispatch-center` for a complex example
+with incident management and triage scoring.
+
+## TTS voice guidance (prompt)
+
+The `prompt` field controls how the TTS voice speaks — pacing, tone, and
+emotion. It does not affect what the LLM says, only how it sounds:
+
+```ts
+export default defineAgent({
+  name: "Narrator",
+  voice: "orion",
+  prompt: "Speak in a dramatic, atmospheric tone. Use pauses for suspense.",
 });
 ```
 
@@ -282,15 +367,14 @@ When an agent needs external packages, add them to `deno.json` imports:
 
 ```json
 {
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact"
-  },
   "imports": {
     "lodash-es": "npm:lodash-es@^4"
   }
 }
 ```
+
+Do **not** add `compilerOptions` to `deno.json` — the bundler has its own JSX
+config and will ignore them.
 
 Then import them as bare specifiers in `agent.ts`:
 
@@ -317,7 +401,15 @@ Both `npm:` and `jsr:` specifiers are supported in the import map.
 
 Add a `client.tsx` file alongside `agent.ts`. Import from `@aai/ui` and
 `preact/hooks`, then export a default component — the framework auto-mounts it
-for you:
+for you.
+
+**Templates with custom UI** (use `aai new -t <name>` to scaffold):
+
+- `night-owl` — dark ambient theme, demonstrates styled components
+- `dispatch-center` — complex dashboard with sidebar, severity indicators
+- `infocom-adventure` — retro CRT terminal with CSS animations and boot screen
+
+Minimal example:
 
 ```tsx
 import { useSession } from "@aai/ui";
@@ -353,6 +445,15 @@ export default function App() {
   ``const fade = keyframes`from { opacity: 0 } to { opacity: 1 }`;``
 - `styled` — styled-components API: `const Box = styled('div')`...``
 
+**Available built-in components from `@aai/ui`:**
+
+- `ErrorBanner` — shows session errors: `<ErrorBanner error={session.error} />`
+- `StateIndicator` — shows current agent state as a colored dot
+- `Transcript` — shows live speech-to-text transcript
+- `ChatView` — default chat message list
+- `MessageBubble` — individual message: `<MessageBubble msg={msg} />`
+- `ThinkingIndicator` — animated thinking state
+
 **Available session signals via `useSession()`:**
 
 - `session.state.value` — `AgentState`: "connecting" | "ready" | "listening" |
@@ -368,12 +469,13 @@ export default function App() {
 
 ## Required files
 
-After creating `agent.ts`, also create:
-
-**`.env`** with required API keys:
+After creating `agent.ts`, also create a **`.env`** file if the agent uses
+custom API keys (e.g. for external APIs). The `ASSEMBLYAI_API_KEY` does not need
+to go in `.env` — it is saved in the global aai config on first run. Only add
+`.env` for agent-specific keys:
 
 ```sh
-ASSEMBLYAI_API_KEY=<user needs to add>
+MY_API_KEY=<user needs to add>
 ```
 
 ## Running and deploying the agent

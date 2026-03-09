@@ -57,10 +57,21 @@ ${bold("OPTIONS:")}
 
   const templates = await listTemplates(templatesDir);
 
+  // Detect which templates include a custom UI (client.tsx)
+  const uiTemplates = new Set<string>();
+  for (const t of templates) {
+    try {
+      await Deno.stat(join(templatesDir, t, "client.tsx"));
+      uiTemplates.add(t);
+    } catch { /* no client.tsx */ }
+  }
+
   console.log(`\n${bold("Templates:")}`);
   for (const t of templates) {
     const marker = t === template ? green("●") : dim("○");
-    console.log(`  ${marker} ${t === template ? bold(t) : t}`);
+    const label = t === template ? bold(t) : t;
+    const ui = uiTemplates.has(t) ? dim(" (custom UI)") : "";
+    console.log(`  ${marker} ${label}${ui}`);
   }
   console.log(
     dim(

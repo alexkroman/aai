@@ -76,6 +76,19 @@ export async function runNew(opts: NewOptions): Promise<string> {
     );
   } catch { /* no .env.example in template */ }
 
+  // Copy generated .d.ts type stubs for IDE autocomplete
+  const typesDir = join(templatesDir, "..", "cli", "_generated_types");
+  try {
+    for await (const entry of Deno.readDir(typesDir)) {
+      if (entry.name.endsWith(".d.ts")) {
+        await Deno.copyFile(
+          join(typesDir, entry.name),
+          join(targetDir, entry.name),
+        );
+      }
+    }
+  } catch { /* generated types not found — skip */ }
+
   step("Done", targetDir);
   return targetDir;
 }
