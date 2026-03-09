@@ -81,6 +81,7 @@ const WORKSPACE_ALIASES: Record<string, string> = {
   "@aai/sdk/schema": resolve(AAI_ROOT, "sdk/_schema.ts"),
   "@aai/sdk/define-agent": resolve(AAI_ROOT, "sdk/define_agent.ts"),
   "@aai/sdk/fetch-json": resolve(AAI_ROOT, "sdk/fetch_json.ts"),
+  "@aai/sdk/kv": resolve(AAI_ROOT, "sdk/kv.ts"),
   "@aai/core/worker-entry": resolve(AAI_ROOT, "core/_worker_entry.ts"),
   "@aai/core/protocol": resolve(AAI_ROOT, "core/_protocol.ts"),
   "@aai/core/rpc": resolve(AAI_ROOT, "core/_rpc.ts"),

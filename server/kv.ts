@@ -3,6 +3,8 @@ import type { AgentScope } from "./scope_token.ts";
 
 const MAX_VALUE_SIZE = 65_536;
 
+export type KvListEntry = { key: string; value: unknown };
+
 export type KvStore = {
   get(scope: AgentScope, key: string): Promise<string | null>;
   set(
@@ -13,6 +15,11 @@ export type KvStore = {
   ): Promise<void>;
   del(scope: AgentScope, key: string): Promise<void>;
   keys(scope: AgentScope, pattern?: string): Promise<string[]>;
+  list(
+    scope: AgentScope,
+    prefix: string,
+    options?: { limit?: number; reverse?: boolean },
+  ): Promise<KvListEntry[]>;
 };
 
 function scopedKey(scope: AgentScope, key: string): string {
@@ -52,6 +59,30 @@ export function createKvStore(url: string, token: string): KvStore {
       const searchPattern = pattern ? `${prefix}${pattern}` : `${prefix}*`;
       const rawKeys = await redis.keys(searchPattern);
       return rawKeys.map((k) => k.slice(prefix.length));
+    },
+
+    async list(scope, userPrefix, options) {
+      const prefix = scopePrefix(scope);
+      const searchPattern = `${prefix}${userPrefix}*`;
+      const rawKeys = await redis.keys(searchPattern);
+      const sorted = rawKeys.sort();
+      if (options?.reverse) sorted.reverse();
+      const limited = options?.limit && options.limit > 0
+        ? sorted.slice(0, options.limit)
+        : sorted;
+      const entries: KvListEntry[] = [];
+      for (const rk of limited) {
+        const val = await redis.get<string>(rk);
+        if (val !== null && val !== undefined) {
+          const key = rk.slice(prefix.length);
+          try {
+            entries.push({ key, value: JSON.parse(val as string) });
+          } catch {
+            entries.push({ key, value: val });
+          }
+        }
+      }
+      return entries;
     },
   };
 }
@@ -109,6 +140,33 @@ export function createMemoryKvStore(): KvStore {
         return Promise.resolve(results.filter((k) => regex.test(k)));
       }
       return Promise.resolve(results);
+    },
+
+    list(scope, userPrefix, options) {
+      const prefix = scopePrefix(scope);
+      const fullPrefix = `${prefix}${userPrefix}`;
+      const now = Date.now();
+      const entries: KvListEntry[] = [];
+      for (const [key, entry] of store) {
+        if (entry.expiresAt && entry.expiresAt <= now) {
+          store.delete(key);
+          continue;
+        }
+        if (key.startsWith(fullPrefix)) {
+          const userKey = key.slice(prefix.length);
+          try {
+            entries.push({ key: userKey, value: JSON.parse(entry.value) });
+          } catch {
+            entries.push({ key: userKey, value: entry.value });
+          }
+        }
+      }
+      entries.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+      if (options?.reverse) entries.reverse();
+      if (options?.limit && options.limit > 0) {
+        entries.length = Math.min(entries.length, options.limit);
+      }
+      return Promise.resolve(entries);
     },
   };
 }

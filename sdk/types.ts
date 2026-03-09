@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { BuiltinTool, ToolSchema, Transport } from "./_schema.ts";
+import type { Kv } from "./kv.ts";
 export type { AgentConfig, BuiltinTool, ToolSchema } from "./_schema.ts";
 
 export type ToolContext<S = Record<string, unknown>> = {
@@ -7,12 +8,14 @@ export type ToolContext<S = Record<string, unknown>> = {
   env: Record<string, string>;
   signal?: AbortSignal;
   state: S;
+  kv: Kv;
 };
 
 export type HookContext<S = Record<string, unknown>> = {
   sessionId: string;
   env: Record<string, string>;
   state: S;
+  kv: Kv;
 };
 
 export type ToolDef = {

@@ -12,6 +12,12 @@ const KvRequestSchema = z.discriminatedUnion("op", [
   }),
   z.object({ op: z.literal("del"), key: z.string() }),
   z.object({ op: z.literal("keys"), pattern: z.string().optional() }),
+  z.object({
+    op: z.literal("list"),
+    prefix: z.string(),
+    limit: z.number().optional(),
+    reverse: z.boolean().optional(),
+  }),
 ]);
 
 export async function handleKv(
@@ -67,6 +73,13 @@ export async function handleKv(
       }
       case "keys": {
         const result = await ctx.kvStore.keys(scope, msg.pattern);
+        return Response.json({ result });
+      }
+      case "list": {
+        const result = await ctx.kvStore.list(scope, msg.prefix, {
+          limit: msg.limit,
+          reverse: msg.reverse,
+        });
         return Response.json({ result });
       }
     }

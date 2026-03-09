@@ -2,12 +2,14 @@ import { expect } from "@std/expect";
 import { z } from "zod";
 import { multiTool } from "./multi_tool.ts";
 import type { ToolContext } from "./types.ts";
+import { createMemoryKv } from "./kv.ts";
 
 function makeCtx(): ToolContext {
   return {
     sessionId: "test",
     env: {},
     state: {},
+    kv: createMemoryKv(),
   };
 }
 

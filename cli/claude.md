@@ -107,12 +107,14 @@ interface ToolContext {
   env: Record<string, string>; // env vars from .env
   signal?: AbortSignal;
   state: unknown; // per-session state (see "Per-session state" section)
+  kv: Kv; // persistent KV store (see "Persistent storage" section)
 }
 
 interface HookContext {
   sessionId: string;
   env: Record<string, string>; // env vars from .env — same as ToolContext.env
   state: unknown; // per-session state
+  kv: Kv; // persistent KV store
 }
 
 interface AgentOptions {
@@ -292,14 +294,63 @@ export default defineAgent({
 
 ## Persistent storage (KV)
 
-For data that persists across sessions (user preferences, accumulated knowledge,
-settings), use `kvTools()`. Data is scoped per agent and per API key — agents
-cannot access each other's data.
+Every tool and hook receives `ctx.kv` — a persistent key-value store scoped per
+agent and per API key. No imports needed. Values are automatically JSON
+serialized/deserialized — store objects, get objects back.
+
+**KV API (`ctx.kv`):**
+
+- `kv.get<T>(key)` — returns `T | null`, auto-deserializes JSON
+- `kv.set(key, value, options?)` — store any JS value, optional
+  `{ expireIn: ms }`
+- `kv.delete(key)` — remove a key
+- `kv.list<T>(prefix, options?)` — returns `{ key, value }[]` entries matching
+  prefix, with optional `{ limit, reverse }`
+
+Values are auto-serialized (max 64 KB). Keys are strings using colon-separated
+prefixes by convention (e.g. `"user:123"`, `"take:1710000000"`).
+
+### Using ctx.kv directly
+
+```ts
+import { defineAgent, z } from "@aai/sdk";
+import type { ToolContext } from "@aai/sdk";
+
+export default defineAgent({
+  name: "Hot Takes",
+  tools: {
+    save_take: {
+      description: "Save a hot take",
+      parameters: z.object({
+        take: z.string().describe("The hot take text"),
+      }),
+      execute: async (args: Record<string, unknown>, ctx: ToolContext) => {
+        const { take } = args as { take: string };
+        await ctx.kv.set(`take:${Date.now()}`, {
+          text: take,
+          timestamp: new Date().toISOString(),
+        });
+        return { saved: true };
+      },
+    },
+    get_recent: {
+      description: "Get recent takes",
+      execute: async (_args: Record<string, unknown>, ctx: ToolContext) => {
+        const takes = await ctx.kv.list("take:", { limit: 20, reverse: true });
+        return takes.map((e) => e.value);
+      },
+    },
+  },
+});
+```
+
+See the `hot-takes` template for a full example with custom UI.
 
 ### kvTools helper
 
-The fastest way to add persistent memory. Spreads four pre-built tools into your
-agent: `save_memory`, `recall_memory`, `list_memories`, `forget_memory`.
+The fastest way to add generic persistent memory. Spreads four pre-built tools
+into your agent: `save_memory`, `recall_memory`, `list_memories`,
+`forget_memory`.
 
 ```ts
 import { defineAgent, kvTools } from "@aai/sdk";
@@ -324,41 +375,6 @@ tools: {
 ```
 
 See the `memory-agent` template for a full example.
-
-### createKv (low-level)
-
-For custom KV tools beyond the standard four, use `createKv(ctx)` directly:
-
-```ts
-import { createKv, defineAgent, z } from "@aai/sdk";
-
-export default defineAgent({
-  name: "Custom KV Agent",
-  tools: {
-    save: {
-      description: "Save a value",
-      parameters: z.object({
-        key: z.string().describe("Storage key"),
-        value: z.string().describe("Value to store"),
-      }),
-      execute: async ({ key, value }, ctx) => {
-        const kv = createKv(ctx);
-        await kv.set(key as string, value as string);
-        return { saved: key };
-      },
-    },
-  },
-});
-```
-
-**KV API:**
-
-- `kv.get(key)` — returns `string | null`
-- `kv.set(key, value, ttl?)` — set a value, optional TTL in seconds
-- `kv.del(key)` — delete a key
-- `kv.keys(pattern?)` — list keys matching a glob (e.g. `"user:*"`)
-
-Values are strings (max 64 KB). Use `JSON.stringify`/`JSON.parse` for objects.
 
 ## Per-session state
 
@@ -540,6 +556,7 @@ for you.
 - `night-owl` — dark ambient theme, demonstrates styled components
 - `dispatch-center` — complex dashboard with sidebar, severity indicators
 - `infocom-adventure` — retro CRT terminal with CSS animations and boot screen
+- `hot-takes` — KV-powered crowd-sourced opinions with dark gradient UI
 
 Minimal example:
 

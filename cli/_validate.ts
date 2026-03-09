@@ -74,10 +74,12 @@ async function testTools(
   if (!def.tools || Object.keys(def.tools).length === 0) return [];
 
   const state = def.state ? (def.state as () => unknown)() : {};
+  const { createKv } = await import("@aai/sdk/kv");
   const ctx: ToolContext = {
     sessionId: "test",
     env: agent.env,
     state: state as Record<string, unknown>,
+    kv: createKv({ env: agent.env }),
   };
   const results: ToolTestResult[] = [];
 

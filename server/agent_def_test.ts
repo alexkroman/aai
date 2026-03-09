@@ -65,7 +65,12 @@ Deno.test("defineAgent - tools are accessible for testing", async () => {
   });
   const result = await agent.tools.echo.execute(
     { text: "hello" },
-    { sessionId: "", env: {}, state: {} },
+    {
+      sessionId: "",
+      env: {},
+      state: {},
+      kv: (await import("@aai/sdk/kv")).createMemoryKv(),
+    },
   );
   expect(result).toBe("hello");
 });
