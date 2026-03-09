@@ -5,7 +5,8 @@ import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { ServerContext } from "./types.ts";
-import { hashApiKey } from "./deploy.ts";
+import { getServerBaseUrl, hashApiKey } from "./deploy.ts";
+import { createScopeToken } from "./kv.ts";
 
 export function handleDevWebSocket(
   req: Request,
@@ -53,7 +54,15 @@ export function handleDevWebSocket(
     socket.removeEventListener("message", onRegister);
 
     const ownerHash = await hashApiKey(apiKey);
-    await registerDevAgent(socket, slug, parsed.data, ownerHash, ctx);
+    const baseUrl = getServerBaseUrl(req);
+    await registerDevAgent(
+      socket,
+      slug,
+      parsed.data,
+      ownerHash,
+      baseUrl,
+      ctx,
+    );
   });
 
   socket.addEventListener("close", () => {
@@ -78,6 +87,7 @@ async function registerDevAgent(
   slug: string,
   msg: DevRegister,
   ownerHash: string,
+  baseUrl: string,
   ctx: ServerContext,
 ): Promise<void> {
   const workerApi = createWorkerApi(createWebSocketTarget(ws));
@@ -102,9 +112,16 @@ async function registerDevAgent(
     existing.worker.handle.terminate();
   }
 
+  const kvToken = await createScopeToken({ ownerHash, slug });
+  const envWithKv = {
+    ...msg.env,
+    AAI_KV_URL: `${baseUrl}/kv`,
+    AAI_KV_TOKEN: kvToken,
+  };
+
   const slot: AgentSlot = {
     slug,
-    env: msg.env,
+    env: envWithKv,
     transport: msg.transport,
     config: agentConfig,
     name: agentConfig.name ?? slug,
@@ -120,7 +137,7 @@ async function registerDevAgent(
 
   await ctx.store.putAgent({
     slug,
-    env: msg.env,
+    env: envWithKv,
     transport: msg.transport,
     worker: "", // no worker needed — tools run on CLI
     client: msg.client,

@@ -290,10 +290,63 @@ export default defineAgent({
 });
 ```
 
+## Persistent storage (KV)
+
+For data that persists across sessions (user preferences, accumulated knowledge,
+settings), use the `createKv` helper. Data is scoped per agent and per API key —
+agents cannot access each other's data.
+
+```ts
+import { createKv, defineAgent, z } from "@aai/sdk";
+
+export default defineAgent({
+  name: "Memory Agent",
+  tools: {
+    save: {
+      description: "Save a value",
+      parameters: z.object({
+        key: z.string().describe("Storage key"),
+        value: z.string().describe("Value to store"),
+      }),
+      execute: async (args, ctx) => {
+        const { key, value } = args as { key: string; value: string };
+        const kv = createKv(ctx);
+        await kv.set(key, value);
+        return { saved: key };
+      },
+    },
+    load: {
+      description: "Load a value",
+      parameters: z.object({ key: z.string() }),
+      execute: async (args, ctx) => {
+        const { key } = args as { key: string };
+        const kv = createKv(ctx);
+        return await kv.get(key);
+      },
+    },
+  },
+});
+```
+
+**KV API:**
+
+- `kv.get(key)` — returns `string | null`
+- `kv.set(key, value, ttl?)` — set a value, optional TTL in seconds
+- `kv.del(key)` — delete a key
+- `kv.keys(pattern?)` — list keys matching a glob (e.g. `"user:*"`)
+
+Call `createKv(ctx)` inside tool `execute` functions or lifecycle hooks. The
+`ctx.env` contains the server-injected credentials automatically — no setup
+needed.
+
+Values are strings (max 64 KB). Use `JSON.stringify`/`JSON.parse` for objects.
+
+See the `memory-agent` template for a full example.
+
 ## Per-session state
 
-For agents that need to track state per connection (games, workflows, multi-step
-processes), use the `state` option in `defineAgent()`. The framework
+For data that only needs to last for a single connection (games, workflows,
+multi-step processes), use the `state` option in `defineAgent()`. The framework
 automatically creates a fresh state for each session and cleans it up on
 disconnect:
 

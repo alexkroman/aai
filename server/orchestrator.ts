@@ -15,6 +15,8 @@ import type { Session } from "./session.ts";
 import { handleTwilioStream, handleTwilioVoice } from "./transport_twilio.ts";
 import type { ServerContext } from "./types.ts";
 import { handleDevWebSocket } from "./dev_session.ts";
+import { handleKv } from "./kv_handler.ts";
+import { createMemoryKvStore, type KvStore } from "./kv.ts";
 
 type Params = Record<string, string>;
 
@@ -52,8 +54,11 @@ function withCors(
 
 export function createOrchestrator(opts: {
   store: BundleStore;
+  kvStore?: KvStore;
 }): { handler: Deno.ServeHandler } {
   const { store } = opts;
+
+  const kvStore = opts.kvStore ?? createMemoryKvStore();
 
   const slots = new Map<string, AgentSlot>();
   const sessions = new Map<string, Session>();
@@ -87,6 +92,12 @@ export function createOrchestrator(opts: {
             ready: !!s.worker,
           })),
         }),
+    },
+
+    {
+      pattern: new URLPattern({ pathname: "/kv" }),
+      method: ["POST"],
+      handler: (req) => handleKv(req, { kvStore }),
     },
 
     {
