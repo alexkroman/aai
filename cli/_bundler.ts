@@ -268,49 +268,14 @@ export async function bundleAgent(
   const agentAbsolute = resolve(agent.entryPoint);
   const workerEntryAbsolute = resolve(AAI_ROOT, "core/_worker_entry.ts");
 
-  // Agent's deno.json resolves agent-specific deps (e.g. npm: imports).
-  // Framework's deno.json resolves internal deps (zod, @aai/sdk internals).
-  const agentConfigPath = join(agent.dir, "deno.json");
-  let useAgentConfig = false;
-  try {
-    await Deno.stat(agentConfigPath);
-    useAgentConfig = true;
-  } catch { /* no agent deno.json */ }
-
-  // Check if agent dir is inside a parent Deno workspace that doesn't include it.
-  // The deno esbuild plugin rejects configs that aren't workspace members.
-  if (useAgentConfig) {
-    let dir = dirname(agent.dir);
-    const root = resolve("/");
-    while (dir !== root) {
-      try {
-        const parentConfig = JSON.parse(
-          await Deno.readTextFile(join(dir, "deno.json")),
-        );
-        if (Array.isArray(parentConfig.workspace)) {
-          // Parent has workspace config — skip agent's deno.json to avoid
-          // "Config file must be a member of the workspace" error.
-          useAgentConfig = false;
-          break;
-        }
-      } catch { /* no config at this level */ }
-      dir = dirname(dir);
-    }
-  }
-
   const alias = workspaceAliasPlugin();
-  const workerPlugins = useAgentConfig
-    ? [
-      alias,
-      denoPlugin({ configPath: agentConfigPath }),
-      denoPlugin({ configPath: baseConfigPath }),
-    ]
-    : [alias, denoPlugin({ configPath: baseConfigPath })];
+  const workerPlugins = [alias, denoPlugin({ configPath: baseConfigPath })];
   const clientPlugins = [alias, denoPlugin({ configPath: baseConfigPath })];
 
   const workerResult = await buildWithCleanErrors({
     ...BASE,
     plugins: workerPlugins,
+    nodePaths: [join(agent.dir, "node_modules")],
 
     stdin: {
       contents: `import agent from "${agentAbsolute}";\n` +
@@ -343,6 +308,7 @@ export async function bundleAgent(
     const clientResult = await buildWithCleanErrors({
       ...BASE,
       plugins: clientPlugins,
+      nodePaths: [join(agent.dir, "node_modules")],
 
       stdin: {
         contents: clientEntry,

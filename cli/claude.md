@@ -363,31 +363,21 @@ export default defineAgent({
 
 ### npm/jsr dependencies agent
 
-When an agent needs external packages, add them to `deno.json` imports:
+When an agent needs external packages, use npm to install them. Create a
+`.npmrc` file to enable JSR registry access:
 
-```json
-{
-  "imports": {
-    "lodash-es": "npm:lodash-es@^4"
-  }
-}
+```ini
+@jsr:registry=https://npm.jsr.io
 ```
 
-If the agent has a `client.tsx`, add `compilerOptions` for IDE JSX support:
+Then install packages with npm:
 
-```json
-{
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact"
-  }
-}
+```sh
+npm install lodash-es
+npm install @jsr/scope__package-name  # for JSR packages
 ```
 
-These do not affect bundling (the bundler has its own JSX config) but are
-required for Deno LSP autocomplete and type-checking in `.tsx` files.
-
-Then import them as bare specifiers in `agent.ts`:
+Import them as bare specifiers in `agent.ts`:
 
 ```ts
 import { capitalize } from "lodash-es";
@@ -406,7 +396,7 @@ export default defineAgent({
 });
 ```
 
-Both `npm:` and `jsr:` specifiers are supported in the import map.
+The `aai` bundler automatically resolves packages from `node_modules`.
 
 ### Custom UI agent
 

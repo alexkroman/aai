@@ -46,11 +46,9 @@ export async function runNew(opts: NewOptions): Promise<string> {
   await Deno.mkdir(targetDir, { recursive: true });
 
   for await (const entry of Deno.readDir(src)) {
-    if (entry.name === "node_modules") continue;
+    if (entry.name === "node_modules" || entry.name === "_deno.json") continue;
     const srcPath = join(src, entry.name);
-    // _deno.json/_package.json stored with underscore to avoid workspace conflicts
-    const destName = entry.name === "_deno.json" ? "deno.json" : entry.name;
-    const destPath = join(targetDir, destName);
+    const destPath = join(targetDir, entry.name);
     if (entry.isDirectory) {
       await copyDir(srcPath, destPath);
     } else {
