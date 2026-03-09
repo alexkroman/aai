@@ -53,29 +53,7 @@ Deno.test("connectStt", async (t) => {
     assertSpyCalls(events.onClose, 1);
   });
 
-  await t.step("dispatches Transcript messages", async () => {
-    using mockWs = installMockWebSocket();
-    const events = createMockSttEvents();
-    await connectStt("test-key", DEFAULT_STT_CONFIG, events);
-    const ws = mockWs.created[0];
-
-    sendMsg(ws, { type: "Transcript", transcript: "hello", is_final: false });
-    sendMsg(ws, { type: "Transcript", transcript: "world", is_final: true });
-
-    assertSpyCalls(events.onTranscript, 2);
-    expect(events.onTranscript.calls[0].args).toEqual([
-      "hello",
-      false,
-      undefined,
-    ]);
-    expect(events.onTranscript.calls[1].args).toEqual([
-      "world",
-      true,
-      undefined,
-    ]);
-  });
-
-  await t.step("dispatches formatted Turn as onTurn", async () => {
+  await t.step("dispatches completed Turn as onTurn", async () => {
     using mockWs = installMockWebSocket();
     const events = createMockSttEvents();
     await connectStt("test-key", DEFAULT_STT_CONFIG, events);
@@ -83,7 +61,7 @@ Deno.test("connectStt", async (t) => {
     sendMsg(mockWs.created[0], {
       type: "Turn",
       transcript: "What is the weather?",
-      turn_is_formatted: true,
+      end_of_turn: true,
     });
 
     assertSpyCalls(events.onTurn, 1);
@@ -93,20 +71,20 @@ Deno.test("connectStt", async (t) => {
     ]);
   });
 
-  await t.step("dispatches unformatted Turn as onTranscript", async () => {
+  await t.step("dispatches partial Turn as onTranscript", async () => {
     using mockWs = installMockWebSocket();
     const events = createMockSttEvents();
     await connectStt("test-key", DEFAULT_STT_CONFIG, events);
 
     sendMsg(mockWs.created[0], {
       type: "Turn",
-      transcript: "unformatted text",
-      turn_is_formatted: false,
+      transcript: "partial text",
+      end_of_turn: false,
     });
 
     assertSpyCalls(events.onTurn, 0);
     assertSpyCalls(events.onTranscript, 1);
-    expect(events.onTranscript.calls[0].args[0]).toBe("unformatted text");
+    expect(events.onTranscript.calls[0].args[0]).toBe("partial text");
   });
 
   await t.step("skips Turn with empty transcript", async () => {
@@ -117,7 +95,7 @@ Deno.test("connectStt", async (t) => {
     sendMsg(mockWs.created[0], {
       type: "Turn",
       transcript: "   ",
-      turn_is_formatted: true,
+      end_of_turn: true,
     });
 
     assertSpyCalls(events.onTurn, 0);
@@ -172,7 +150,7 @@ Deno.test("connectStt", async (t) => {
     expect(events.onTermination.calls[0].args).toEqual([12.5, 60.0]);
   });
 
-  await t.step("passes turnOrder on formatted Turn", async () => {
+  await t.step("passes turnOrder on completed Turn", async () => {
     using mockWs = installMockWebSocket();
     const events = createMockSttEvents();
     await connectStt("test-key", DEFAULT_STT_CONFIG, events);
@@ -180,7 +158,7 @@ Deno.test("connectStt", async (t) => {
     sendMsg(mockWs.created[0], {
       type: "Turn",
       transcript: "Hello",
-      turn_is_formatted: true,
+      end_of_turn: true,
       turn_order: 3,
     });
 
@@ -189,7 +167,7 @@ Deno.test("connectStt", async (t) => {
   });
 
   await t.step(
-    "passes turnOrder on unformatted Turn as transcript",
+    "passes turnOrder on partial Turn as transcript",
     async () => {
       using mockWs = installMockWebSocket();
       const events = createMockSttEvents();
@@ -198,7 +176,7 @@ Deno.test("connectStt", async (t) => {
       sendMsg(mockWs.created[0], {
         type: "Turn",
         transcript: "partial",
-        turn_is_formatted: false,
+        end_of_turn: false,
         turn_order: 2,
       });
 

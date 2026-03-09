@@ -49,7 +49,7 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
   audioFormat: "pcm",
   samplingRate: DEFAULT_TTS_SAMPLE_RATE,
   sampleRate: DEFAULT_TTS_SAMPLE_RATE,
-  speedAlpha: 1.2,
+  speedAlpha: 1.1,
 };
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
