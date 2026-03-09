@@ -1,5 +1,4 @@
-import { defineAgent } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, z } from "@aai/sdk";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -71,19 +70,14 @@ interface DispatchState {
 
 // ─── Session state ───────────────────────────────────────────────────────────
 
-const sessions: Record<string, DispatchState> = {};
-
-function getState(sessionId: string): DispatchState {
-  if (!sessions[sessionId]) {
-    sessions[sessionId] = {
-      incidents: {},
-      resources: generateResources(),
-      incidentCounter: 0,
-      alertLevel: "green",
-      mutualAidRequested: false,
-    };
-  }
-  return sessions[sessionId];
+function createState(): DispatchState {
+  return {
+    incidents: {},
+    resources: generateResources(),
+    incidentCounter: 0,
+    alertLevel: "green",
+    mutualAidRequested: false,
+  };
 }
 
 function generateResources(): Resource[] {
@@ -600,9 +594,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
 
   builtinTools: ["web_search", "run_code"],
 
-  onConnect: (ctx) => {
-    getState(ctx.sessionId); // initialize
-  },
+  state: createState,
 
   tools: {
     create_incident: {
@@ -638,7 +630,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           estimatedCasualties?: number;
           hazards?: string[];
         };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         state.incidentCounter++;
         const id = `INC-${String(state.incidentCounter).padStart(4, "0")}`;
 
@@ -745,7 +737,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           casualtyUpdate?: number;
           notes?: string;
         };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -819,7 +811,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           autoDispatch?: boolean;
           priority?: "routine" | "priority" | "emergency";
         };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -916,7 +908,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           notes?: string;
           casualtyUpdate?: { confirmed?: number; treated?: number };
         };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -998,7 +990,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           requestMutualAid?: boolean;
           newSeverity?: "critical" | "urgent";
         };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -1082,7 +1074,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
       }),
       execute: (args, ctx) => {
         const { incidentId } = args as { incidentId: string };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -1114,7 +1106,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
       description:
         "Get the full operational dashboard — all active incidents, resource status, and system metrics.",
       execute: (_args, ctx) => {
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
 
         const activeIncidents = Object.values(state.incidents)
           .filter((i) => i.status !== "resolved")
@@ -1189,7 +1181,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
       }),
       execute: (args, ctx) => {
         const { type } = args as { type?: string };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         let resources = state.resources;
         if (type && type !== "all") {
           resources = resources.filter((r) => r.type === type);
@@ -1233,7 +1225,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           status: Resource["status"];
           notes?: string;
         };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         const resource = state.resources.find((r) =>
           r.callsign.toLowerCase() === callsign.toLowerCase()
         );
@@ -1333,7 +1325,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           note: string;
           source?: string;
         };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -1360,7 +1352,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
       }),
       execute: (args, ctx) => {
         const { scenario } = args as { scenario: string };
-        const state = getState(ctx.sessionId);
+        const state = ctx.state as unknown as DispatchState;
         const scenarios: Record<
           string,
           { incidents: Partial<Incident>[]; narrative: string }

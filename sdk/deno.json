@@ -1,12 +1,13 @@
 {
   "name": "@aai/sdk",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
     "./schema": "./_schema.ts",
     "./define-agent": "./define_agent.ts",
-    "./fetch-json": "./fetch_json.ts"
+    "./fetch-json": "./fetch_json.ts",
+    "./multi-tool": "./multi_tool.ts"
   },
   "imports": {
     "zod": "jsr:@zod/zod@^4.3.6"

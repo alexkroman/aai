@@ -1,28 +1,17 @@
-import { defineAgent } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, multiTool, z } from "@aai/sdk";
+import type { ToolContext } from "@aai/sdk";
 
-// Per-session game state
-const sessions = new Map<string, {
+type GameState = {
   inventory: string[];
   currentRoom: string;
   score: number;
   moves: number;
   flags: Record<string, boolean>;
   history: string[];
-}>();
+};
 
-function getOrCreateSession(sessionId: string) {
-  if (!sessions.has(sessionId)) {
-    sessions.set(sessionId, {
-      inventory: [],
-      currentRoom: "West of House",
-      score: 0,
-      moves: 0,
-      flags: {},
-      history: [],
-    });
-  }
-  return sessions.get(sessionId)!;
+function s(ctx: ToolContext): GameState {
+  return ctx.state as GameState;
 }
 
 export default defineAgent({
@@ -32,6 +21,16 @@ export default defineAgent({
     "Speak in a dramatic, atmospheric tone. Use pauses for suspense. Lower your voice for dark or dangerous moments. Be theatrical but not over the top.",
   greeting:
     "Welcome to the great underground empire. You are standing in an open field west of a white house, with a boarded front door. There is a small mailbox here. What would you like to do?",
+
+  state: (): GameState => ({
+    inventory: [],
+    currentRoom: "West of House",
+    score: 0,
+    moves: 0,
+    flags: {},
+    history: [],
+  }),
+
   instructions:
     `You are a classic Infocom-style text adventure game engine, simulating ZORK I: The Great Underground Empire.
 
@@ -77,93 +76,87 @@ ATMOSPHERE:
 - Keep the wry, understated humor that made Infocom games legendary`,
 
   tools: {
-    game_state: {
+    game_state: multiTool({
       description:
         "Read or update the current game state including inventory, room, score, and flags. Use action 'get' to read state, 'move' to change room, 'take' to add item to inventory, 'drop' to remove item, 'score' to add points, 'flag' to set a game flag, 'history' to log a command.",
-      parameters: z.object({
-        action: z.enum([
-          "get",
-          "move",
-          "take",
-          "drop",
-          "score",
-          "flag",
-          "history",
-        ]).describe("The state action to perform"),
-        value: z.string().describe(
-          "Room name for move, item name for take/drop, points for score, flag name for flag, command text for history",
-        ).optional(),
-      }),
-      execute: (args, ctx) => {
-        const { action, value } = args as { action: string; value?: string };
-        const state = getOrCreateSession(ctx.sessionId);
-
-        switch (action) {
-          case "get":
+      actions: {
+        get: {
+          execute: (_args: Record<string, unknown>, ctx: ToolContext) => {
+            const g = s(ctx);
             return {
-              currentRoom: state.currentRoom,
-              inventory: state.inventory,
-              score: state.score,
-              moves: state.moves,
-              flags: state.flags,
-              recentHistory: state.history.slice(-5),
+              currentRoom: g.currentRoom,
+              inventory: g.inventory,
+              score: g.score,
+              moves: g.moves,
+              flags: g.flags,
+              recentHistory: g.history.slice(-5),
             };
-
-          case "move":
-            if (value) {
-              state.currentRoom = value;
-              state.moves++;
-            }
-            return { currentRoom: state.currentRoom, moves: state.moves };
-
-          case "take":
-            if (value && !state.inventory.includes(value)) {
-              state.inventory.push(value);
-            }
-            return { inventory: state.inventory };
-
-          case "drop":
-            if (value) {
-              state.inventory = state.inventory.filter((i) => i !== value);
-            }
-            return { inventory: state.inventory };
-
-          case "score":
-            if (value) {
-              state.score += parseInt(value) || 0;
-            }
-            return { score: state.score };
-
-          case "flag":
-            if (value) {
-              state.flags[value] = true;
-            }
-            return { flags: state.flags };
-
-          case "history":
-            if (value) {
-              state.history.push(value);
-              state.moves++;
-            }
-            return {
-              moves: state.moves,
-              recentHistory: state.history.slice(-5),
-            };
-
-          default:
-            return { error: "Unknown action" };
-        }
+          },
+        },
+        move: {
+          schema: z.object({
+            value: z.string().describe("Room name to move to"),
+          }),
+          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+            const g = s(ctx);
+            g.currentRoom = args.value as string;
+            g.moves++;
+            return { currentRoom: g.currentRoom, moves: g.moves };
+          },
+        },
+        take: {
+          schema: z.object({
+            value: z.string().describe("Item name to take"),
+          }),
+          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+            const g = s(ctx);
+            const item = args.value as string;
+            if (!g.inventory.includes(item)) g.inventory.push(item);
+            return { inventory: g.inventory };
+          },
+        },
+        drop: {
+          schema: z.object({
+            value: z.string().describe("Item name to drop"),
+          }),
+          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+            const g = s(ctx);
+            g.inventory = g.inventory.filter((i) => i !== args.value);
+            return { inventory: g.inventory };
+          },
+        },
+        score: {
+          schema: z.object({
+            value: z.string().describe("Points to add"),
+          }),
+          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+            const g = s(ctx);
+            g.score += parseInt(args.value as string) || 0;
+            return { score: g.score };
+          },
+        },
+        flag: {
+          schema: z.object({
+            value: z.string().describe("Flag name to set"),
+          }),
+          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+            const g = s(ctx);
+            g.flags[args.value as string] = true;
+            return { flags: g.flags };
+          },
+        },
+        history: {
+          schema: z.object({
+            value: z.string().describe("Command text to log"),
+          }),
+          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+            const g = s(ctx);
+            g.history.push(args.value as string);
+            g.moves++;
+            return { moves: g.moves, recentHistory: g.history.slice(-5) };
+          },
+        },
       },
-    },
-  },
-
-  onConnect: (ctx) => {
-    getOrCreateSession(ctx.sessionId);
-    console.log(`Adventurer ${ctx.sessionId} has entered the game`);
-  },
-
-  onDisconnect: (ctx) => {
-    sessions.delete(ctx.sessionId);
-    console.log(`Adventurer ${ctx.sessionId} has left the game`);
+    }),
   },
 });

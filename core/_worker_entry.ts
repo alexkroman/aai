@@ -26,6 +26,7 @@ export async function executeToolCall(
   tool: ToolDef,
   env: Record<string, string>,
   sessionId?: string,
+  state?: unknown,
 ): Promise<string> {
   const schema = tool.parameters ?? z.object({});
   const parsed = schema.safeParse(args);
@@ -42,6 +43,7 @@ export async function executeToolCall(
       sessionId: sessionId ?? "",
       env: { ...env },
       signal,
+      state: (state ?? {}) as Record<string, unknown>,
     };
     const result = await Promise.resolve(
       tool.execute(parsed.data, ctx),
@@ -96,6 +98,14 @@ export function startWorker(
   endpoint?: MessageTarget,
 ): void {
   const toolHandlers = new Map(Object.entries(agent.tools));
+  const sessions = new Map<string, unknown>();
+
+  function getState(sessionId: string): unknown {
+    if (!sessions.has(sessionId) && agent.state) {
+      sessions.set(sessionId, agent.state());
+    }
+    return sessions.get(sessionId) ?? {};
+  }
 
   const port: MessageTarget = endpoint ?? self as unknown as MessageTarget;
 
@@ -108,19 +118,23 @@ export function startWorker(
         req.args,
         tool,
         env,
-        undefined,
+        req.sessionId,
+        getState(req.sessionId ?? ""),
       );
     },
 
     async invokeHook(req) {
+      const state = getState(req.sessionId);
       const ctx: HookContext = {
         sessionId: req.sessionId,
         env: { ...env },
+        state: state as Record<string, unknown>,
       };
       if (req.hook === "onConnect") {
         await agent.onConnect?.(ctx);
       } else if (req.hook === "onDisconnect") {
         await agent.onDisconnect?.(ctx);
+        sessions.delete(req.sessionId);
       } else if (req.hook === "onTurn" && req.text !== undefined) {
         await agent.onTurn?.(req.text, ctx);
       } else if (req.hook === "onError" && req.error !== undefined) {

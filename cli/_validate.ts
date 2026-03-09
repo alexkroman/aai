@@ -73,7 +73,12 @@ async function testTools(
 ): Promise<ToolTestResult[]> {
   if (!def.tools || Object.keys(def.tools).length === 0) return [];
 
-  const ctx: ToolContext = { sessionId: "test", env: agent.env };
+  const state = def.state ? (def.state as () => unknown)() : {};
+  const ctx: ToolContext = {
+    sessionId: "test",
+    env: agent.env,
+    state: state as Record<string, unknown>,
+  };
   const results: ToolTestResult[] = [];
 
   for (const [name, tool] of Object.entries(def.tools)) {

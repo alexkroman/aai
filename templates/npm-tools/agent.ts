@@ -1,5 +1,4 @@
-import { defineAgent } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, z } from "@aai/sdk";
 import { capitalize, sampleSize, shuffle, words } from "lodash-es";
 
 const WORD_LISTS: Record<string, string[]> = {
@@ -73,8 +72,7 @@ Rules:
           "Number of random words to return (1-6)",
         ),
       }),
-      execute: (args) => {
-        const { category, count } = args as { category: string; count: number };
+      execute: ({ category, count }) => {
         const list = WORD_LISTS[category];
         if (!list) return { error: `Unknown category: ${category}` };
         const n = Math.min(Math.max(1, count), 6);
@@ -92,8 +90,7 @@ Rules:
           "Shuffle individual letters or whole words",
         ).optional(),
       }),
-      execute: (args) => {
-        const { phrase, mode } = args as { phrase: string; mode?: string };
+      execute: ({ phrase, mode }) => {
         if (mode === "words") {
           return { result: shuffle(words(phrase)).join(" ") };
         }

@@ -2,15 +2,17 @@ import { z } from "zod";
 import type { BuiltinTool, ToolSchema, Transport } from "./_schema.ts";
 export type { AgentConfig, BuiltinTool, ToolSchema } from "./_schema.ts";
 
-export type ToolContext = {
+export type ToolContext<S = Record<string, unknown>> = {
   sessionId: string;
   env: Record<string, string>;
   signal?: AbortSignal;
+  state: S;
 };
 
-export type HookContext = {
+export type HookContext<S = Record<string, unknown>> = {
   sessionId: string;
   env: Record<string, string>;
+  state: S;
 };
 
 export type ToolDef = {
@@ -21,6 +23,46 @@ export type ToolDef = {
     ctx: ToolContext,
   ) => Promise<unknown> | unknown;
 };
+
+/** Helper that infers typed args from a Zod schema. */
+export function tool<P extends z.ZodObject<z.ZodRawShape>>(def: {
+  description: string;
+  parameters: P;
+  execute: (
+    args: z.infer<P>,
+    ctx: ToolContext,
+  ) => Promise<unknown> | unknown;
+}): ToolDef;
+export function tool(def: {
+  description: string;
+  execute: (
+    args: Record<string, unknown>,
+    ctx: ToolContext,
+  ) => Promise<unknown> | unknown;
+}): ToolDef;
+export function tool(def: ToolDef): ToolDef {
+  return def;
+}
+
+export type ToolTuple =
+  | [
+    description: string,
+    schema: z.ZodObject<z.ZodRawShape>,
+    execute: ToolDef["execute"],
+  ]
+  | [description: string, execute: ToolDef["execute"]];
+
+export type ToolInput = ToolDef | ToolTuple;
+
+export function normalizeToolDef(input: ToolInput): ToolDef {
+  if (Array.isArray(input)) {
+    if (input.length === 3) {
+      return { description: input[0], parameters: input[1], execute: input[2] };
+    }
+    return { description: input[0], execute: input[1] };
+  }
+  return input;
+}
 
 export type Voice =
   | "luna"
@@ -43,7 +85,8 @@ export type Voice =
   | "arcana"
   | (string & Record<never, never>);
 
-export type AgentOptions = {
+// deno-lint-ignore no-explicit-any
+export type AgentOptions<S = any> = {
   name: string;
   env?: string[];
   transport?: Transport | Transport[];
@@ -52,11 +95,12 @@ export type AgentOptions = {
   voice?: Voice;
   prompt?: string;
   builtinTools?: BuiltinTool[];
-  tools?: Record<string, ToolDef>;
-  onConnect?: (ctx: HookContext) => void | Promise<void>;
-  onDisconnect?: (ctx: HookContext) => void | Promise<void>;
-  onError?: (error: Error, ctx?: HookContext) => void;
-  onTurn?: (text: string, ctx: HookContext) => void | Promise<void>;
+  tools?: Record<string, ToolInput>;
+  state?: () => S;
+  onConnect?: (ctx: HookContext<S>) => void | Promise<void>;
+  onDisconnect?: (ctx: HookContext<S>) => void | Promise<void>;
+  onError?: (error: Error, ctx?: HookContext<S>) => void;
+  onTurn?: (text: string, ctx: HookContext<S>) => void | Promise<void>;
 };
 
 export const DEFAULT_INSTRUCTIONS: string = `\
@@ -101,6 +145,7 @@ export type AgentDef = {
   readonly prompt?: string;
   readonly builtinTools?: readonly BuiltinTool[];
   readonly tools: Readonly<Record<string, ToolDef>>;
+  readonly state?: () => unknown;
   readonly onConnect?: AgentOptions["onConnect"];
   readonly onDisconnect?: AgentOptions["onDisconnect"];
   readonly onError?: AgentOptions["onError"];

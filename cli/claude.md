@@ -20,17 +20,16 @@ export default defineAgent({
 });
 ```
 
-For tools with parameters, also import Zod:
+For tools with parameters, also import `z`:
 
 ```ts
-import { defineAgent } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, z } from "@aai/sdk";
 ```
 
 For tools that call external APIs, import `fetchJSON`:
 
 ```ts
-import { defineAgent, fetchJSON } from "@aai/sdk";
+import { defineAgent, fetchJSON, z } from "@aai/sdk";
 ```
 
 ## TypeScript types
@@ -49,7 +48,6 @@ type BuiltinTool =
 **web_search** — Search the web via Brave Search API.
 - Parameters: `query` (string), `max_results` (number, optional, default 5)
 - Returns: array of `{ title, url, description }`
-- Requires `BRAVE_API_KEY` env var
 
 **visit_webpage** — Fetch a URL and return its content as Markdown.
 - Parameters: `url` (string)
@@ -108,11 +106,13 @@ interface ToolContext {
   sessionId: string; // unique per-connection session ID
   env: Record<string, string>; // env vars from .env
   signal?: AbortSignal;
+  state: unknown; // per-session state (see "Per-session state" section)
 }
 
 interface HookContext {
   sessionId: string;
   env: Record<string, string>; // env vars from .env — same as ToolContext.env
+  state: unknown; // per-session state
 }
 
 interface AgentOptions {
@@ -125,6 +125,7 @@ interface AgentOptions {
   prompt?: string; // TTS voice guidance (pacing, tone, emotion)
   builtinTools?: BuiltinTool[]; // Subset of built-in tools to enable
   tools?: Record<string, ToolDef>; // Custom tools keyed by name
+  state?: () => S; // Factory for per-session state (auto-managed)
   onConnect?: (ctx: HookContext) => void | Promise<void>;
   onDisconnect?: (ctx: HookContext) => void | Promise<void>;
   // ctx is undefined if error occurs outside a session
@@ -137,8 +138,8 @@ type Transport = "websocket" | "twilio";
 
 ## Custom tools
 
-Tool parameters are defined using Zod schemas. Import `z` from `"zod"` and use
-`z.object({...})` to define the parameter schema:
+Tool parameters are defined using Zod schemas. Import `z` from `"@aai/sdk"` and
+use `z.object({...})` to define the parameter schema:
 
 ```ts
 tools: {
@@ -156,8 +157,7 @@ tools: {
 ```
 
 **Important:** The `execute` function receives `args: Record<string, unknown>`.
-Use `args as { ... }` to destructure with type safety. Do **not** destructure
-directly in the parameter list — it will cause type errors in strict mode.
+Use `args as { ... }` to destructure with type safety.
 
 For enums, numbers, or optional params:
 
@@ -180,28 +180,63 @@ tools: {
 },
 ```
 
-For multi-action tools (one tool with many operations), use `z.enum` for the
-action parameter. This keeps the tool count low while supporting complex state
-management (see `infocom-adventure` and `dispatch-center` templates):
+### multiTool helper
+
+For multi-action tools (one tool with many operations), use `multiTool()`. This
+replaces the manual switch-case pattern:
 
 ```ts
-game_state: {
-  description: "Read or update game state. Actions: get, move, take, drop.",
-  parameters: z.object({
-    action: z.enum(["get", "move", "take", "drop"])
-      .describe("The state action to perform"),
-    value: z.string().describe("Action argument").optional(),
-  }),
-  execute: (args, ctx) => {
-    const { action, value } = args as { action: string; value?: string };
-    const state = getSession(ctx.sessionId);
-    switch (action) {
-      case "get": return state;
-      case "move": { state.room = value!; return state; }
-      // ...
-    }
+import { defineAgent, multiTool, z } from "@aai/sdk";
+import type { ToolContext } from "@aai/sdk";
+
+type GameState = { score: number; room: string; items: string[] };
+
+export default defineAgent({
+  name: "Adventure",
+  state: (): GameState => ({ score: 0, room: "start", items: [] }),
+  tools: {
+    game: multiTool({
+      description: "Manage game state: get, move, take.",
+      actions: {
+        get: {
+          execute: (_args: Record<string, unknown>, ctx: ToolContext) => {
+            return ctx.state as GameState;
+          },
+        },
+        move: {
+          schema: z.object({ room: z.string() }),
+          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+            const s = ctx.state as GameState;
+            s.room = args.room as string;
+            return { room: s.room };
+          },
+        },
+        take: {
+          schema: z.object({ item: z.string() }),
+          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+            const s = ctx.state as GameState;
+            s.items.push(args.item as string);
+            return { items: s.items };
+          },
+        },
+      },
+    }),
   },
-},
+});
+```
+
+`multiTool()` automatically generates a `z.enum` for the `action` parameter and
+merges all action schemas. See `infocom-adventure` for a full example.
+
+### fetchJSON with fallback
+
+`fetchJSON` supports a `fallback` option that returns a default value instead of
+throwing on HTTP or network errors:
+
+```ts
+const data = await fetchJSON<MyType>(url, {
+  fallback: { error: "API unavailable" },
+});
 ```
 
 For tools that call external APIs, use `fetchJSON`. It supports a generic type
@@ -241,7 +276,6 @@ export default defineAgent({
       }),
       execute: async (args, ctx) => {
         const { query } = args as { query: string };
-        // Access env vars via ctx.env
         const key = ctx.env.MY_API_KEY;
         const res = await fetch(`https://api.example.com?q=${query}`, {
           headers: { Authorization: `Bearer ${key}` },
@@ -251,7 +285,6 @@ export default defineAgent({
     },
   },
   onConnect: (ctx) => {
-    // Same env available in hooks
     console.log("Connected:", ctx.sessionId, ctx.env.MY_API_KEY);
   },
 });
@@ -260,41 +293,32 @@ export default defineAgent({
 ## Per-session state
 
 For agents that need to track state per connection (games, workflows, multi-step
-processes), use a `Map` keyed by `ctx.sessionId`. Initialize in `onConnect` and
-clean up in `onDisconnect`:
+processes), use the `state` option in `defineAgent()`. The framework
+automatically creates a fresh state for each session and cleans it up on
+disconnect:
 
 ```ts
-const sessions = new Map<string, { score: number; items: string[] }>();
-
-function getSession(sessionId: string) {
-  if (!sessions.has(sessionId)) {
-    sessions.set(sessionId, { score: 0, items: [] });
-  }
-  return sessions.get(sessionId)!;
-}
-
 export default defineAgent({
   name: "Stateful Agent",
+  state: () => ({ score: 0, items: [] as string[] }),
   tools: {
     update: {
       description: "Update session state",
       parameters: z.object({ item: z.string() }),
       execute: (args, ctx) => {
         const { item } = args as { item: string };
-        const state = getSession(ctx.sessionId);
+        const state = ctx.state as { score: number; items: string[] };
         state.items.push(item);
         return state;
       },
     },
   },
-  onConnect: (ctx) => {
-    getSession(ctx.sessionId); // initialize
-  },
-  onDisconnect: (ctx) => {
-    sessions.delete(ctx.sessionId); // clean up
-  },
 });
 ```
+
+The `state` factory runs once per session. Access it via `ctx.state` in tools
+and hooks. No `onConnect`/`onDisconnect` needed for state management — the
+framework handles creation and cleanup automatically.
 
 See the `infocom-adventure` template for a full example with inventory, room
 tracking, score, and game flags. See `dispatch-center` for a complex example
@@ -371,8 +395,9 @@ export default defineAgent({
       parameters: z.object({
         query: z.string().describe("search term"),
       }),
-      execute: ({ query }) => {
-        const results = knowledge.faqs.filter((f) =>
+      execute: (args) => {
+        const { query } = args as { query: string };
+        const results = knowledge.faqs.filter((f: { question: string }) =>
           f.question.toLowerCase().includes(query.toLowerCase())
         );
         return results.length ? results : { message: "No matches found" };
@@ -423,7 +448,10 @@ export default defineAgent({
       parameters: z.object({
         name: z.string().describe("Name to format"),
       }),
-      execute: ({ name }) => capitalize(name),
+      execute: (args) => {
+        const { name } = args as { name: string };
+        return capitalize(name);
+      },
     },
   },
 });

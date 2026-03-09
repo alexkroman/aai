@@ -32,6 +32,7 @@ export type RpcRequest =
     type: "executeTool";
     name: string;
     args: Record<string, unknown>;
+    sessionId?: string;
   }
   | {
     id: number;
@@ -51,6 +52,7 @@ export const RpcRequestSchema: z.ZodType<RpcRequest> = z.discriminatedUnion(
       type: z.literal("executeTool"),
       name: z.string(),
       args: z.record(z.string(), z.unknown()),
+      sessionId: z.string().optional(),
     }),
     z.object({
       id: z.number(),
