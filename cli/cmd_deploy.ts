@@ -8,7 +8,7 @@ export async function runDeployCommand(args: string[]): Promise<number> {
   const flags = parseArgs(args, {
     string: ["server"],
     alias: { h: "help", s: "server" },
-    boolean: ["help"],
+    boolean: ["help", "dry-run"],
   });
 
   if (flags.help) {
@@ -22,6 +22,7 @@ ${bold("OPTIONS:")}
   ${cyan("-s, --server")} ${
         dim("<url>")
       }    Server URL (default: https://aai-agent.fly.dev)
+  ${cyan("--dry-run")}              Validate and bundle without deploying
   ${cyan("-h, --help")}             Show this help message
 `,
     );
@@ -57,7 +58,7 @@ ${bold("OPTIONS:")}
     bundle: result.bundle,
     namespace,
     slug,
-    dryRun: false,
+    dryRun: flags["dry-run"] ?? false,
     apiKey,
   });
 

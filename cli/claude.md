@@ -44,6 +44,35 @@ type BuiltinTool =
   | "user_input" // Ask the user a follow-up question (always auto-included)
   | "final_answer"; // Deliver spoken response (always auto-included)
 
+### Built-in tool reference
+
+**web_search** — Search the web via Brave Search API.
+- Parameters: `query` (string), `max_results` (number, optional, default 5)
+- Returns: array of `{ title, url, description }`
+- Requires `BRAVE_API_KEY` env var
+
+**visit_webpage** — Fetch a URL and return its content as Markdown.
+- Parameters: `url` (string)
+- Returns: `{ url, content }` (Markdown text, max ~10K chars)
+
+**fetch_json** — HTTP GET a JSON API endpoint.
+- Parameters: `url` (string), `headers` (object, optional)
+- Returns: parsed JSON response
+
+**run_code** — Execute JavaScript in a sandboxed Deno worker (no network, no filesystem).
+- Parameters: `code` (string)
+- Returns: captured `console.log()` output as a string
+- 30-second timeout; all output must use `console.log()`
+
+**user_input** — Ask the user a follow-up question and wait for their spoken
+response. Always available (auto-included). Ends the current turn.
+- Parameters: `question` (string)
+
+**final_answer** — Deliver the agent's spoken response via TTS. Always available
+(auto-included). Ends the current turn. The framework forces this tool after 4
+tool iterations.
+- Parameters: `answer` (string)
+
 type Voice =
   | "luna"
   | "andromeda"
@@ -63,11 +92,12 @@ type Voice =
   | "tauro"
   | "walnut"
   | "arcana"
-  | (string & {}); // any Rime speaker ID — https://docs.rime.ai/api-reference/voices
+  | (string & Record<never, never>); // any Rime speaker ID — https://docs.rime.ai/api-reference/voices
 
 interface ToolDef {
   description: string; // LLM reads this to decide when to call the tool
-  parameters?: z.ZodObject<any>; // Zod object schema (omit for no-arg tools)
+  parameters?: z.ZodObject<z.ZodRawShape>; // Zod schema
+  // ^^ omit for no-arg tools
   execute: (
     args: Record<string, unknown>,
     ctx: ToolContext,
@@ -97,6 +127,7 @@ interface AgentOptions {
   tools?: Record<string, ToolDef>; // Custom tools keyed by name
   onConnect?: (ctx: HookContext) => void | Promise<void>;
   onDisconnect?: (ctx: HookContext) => void | Promise<void>;
+  // ctx is undefined if error occurs outside a session
   onError?: (error: Error, ctx?: HookContext) => void;
   onTurn?: (text: string, ctx: HookContext) => void | Promise<void>;
 }
@@ -208,7 +239,8 @@ export default defineAgent({
       parameters: z.object({
         query: z.string().describe("search query"),
       }),
-      execute: async ({ query }, ctx) => {
+      execute: async (args, ctx) => {
+        const { query } = args as { query: string };
         // Access env vars via ctx.env
         const key = ctx.env.MY_API_KEY;
         const res = await fetch(`https://api.example.com?q=${query}`, {
@@ -283,7 +315,8 @@ export default defineAgent({
 
 ## Voice-first instructions guidelines
 
-When writing the `instructions` field:
+Best practices for the `instructions` field (what the voice agent is told to
+do):
 
 - Optimize for spoken responses — short, punchy sentences
 - Never mention "search results" or "sources" — speak as if knowledge is your
@@ -363,31 +396,21 @@ export default defineAgent({
 
 ### npm/jsr dependencies agent
 
-When an agent needs external packages, add them to `deno.json` imports:
+When an agent needs external packages, use npm to install them. Create a
+`.npmrc` file to enable JSR registry access:
 
-```json
-{
-  "imports": {
-    "lodash-es": "npm:lodash-es@^4"
-  }
-}
+```ini
+@jsr:registry=https://npm.jsr.io
 ```
 
-If the agent has a `client.tsx`, add `compilerOptions` for IDE JSX support:
+Then install packages with npm:
 
-```json
-{
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact"
-  }
-}
+```sh
+npm install lodash-es
+npm install @jsr/scope__package-name  # for JSR packages
 ```
 
-These do not affect bundling (the bundler has its own JSX config) but are
-required for Deno LSP autocomplete and type-checking in `.tsx` files.
-
-Then import them as bare specifiers in `agent.ts`:
+Import them as bare specifiers in `agent.ts`:
 
 ```ts
 import { capitalize } from "lodash-es";
@@ -406,7 +429,7 @@ export default defineAgent({
 });
 ```
 
-Both `npm:` and `jsr:` specifiers are supported in the import map.
+The `aai` bundler automatically resolves packages from `node_modules`.
 
 ### Custom UI agent
 
@@ -488,6 +511,46 @@ to go in `.env` — it is saved in the global aai config on first run. Only add
 ```sh
 MY_API_KEY=<user needs to add>
 ```
+
+## Troubleshooting
+
+**"missing default export"** — Your `agent.ts` must use
+`export default defineAgent({...})`.
+
+**"missing env vars required by agent: X"** — Add the listed variables to your
+`.env` file, or remove them from the `env` array if not needed.
+
+**"schema validation failed with sample args"** — A Zod schema in one of your
+tools has a constraint that rejects empty/zero values. Check `.min()`,
+`.regex()`, or `.refine()` validators.
+
+**"bundle failed"** — Usually a TypeScript syntax error in `agent.ts`. Check for
+missing imports, unclosed brackets, or unsupported syntax.
+
+**Tool test shows "✗"** — The tool's `execute` function threw an error when
+called with empty/sample args. If the tool requires real data (API calls, etc.),
+this may be expected — check that the schema is correct.
+
+**Dev server shows error but still running** — The previous working version
+continues to serve. Fix the errors and save the file to trigger a rebuild.
+
+## Build validation
+
+`aai build` validates your agent before bundling:
+
+1. Imports `agent.ts` and checks for a default export from `defineAgent()`
+2. Validates the `name` field is a non-empty string
+3. Tests each custom tool:
+   - Verifies the tool has a `description`
+   - Validates the Zod schema by parsing sample args (empty strings, zeros,
+     first enum values)
+   - Runs `execute()` with the sample args — execution errors are OK (schema
+     validity is what matters)
+4. Bundles with esbuild
+
+Tools that fail schema validation will show "✗" in the build output. Tools that
+pass schema but throw during execution still show "✓" (the schema is valid;
+runtime errors with sample data are expected).
 
 ## Running and deploying the agent
 

@@ -169,25 +169,7 @@ export type AgentEntry = {
 
 export const DEFAULT_SERVER = "https://aai-agent.fly.dev";
 
-const WORKSPACE_IMPORTS = new Set([
-  "@aai/sdk",
-  "@aai/ui",
-  "zod",
-  "preact",
-  "preact/hooks",
-]);
-
 export async function hasExternalImports(dir: string): Promise<boolean> {
-  try {
-    const raw = JSON.parse(
-      await Deno.readTextFile(join(dir, "deno.json")),
-    );
-    const imports = raw.imports ?? {};
-    if (Object.keys(imports).some((k) => !WORKSPACE_IMPORTS.has(k))) {
-      return true;
-    }
-  } catch { /* no deno.json */ }
-
   try {
     const raw = JSON.parse(
       await Deno.readTextFile(join(dir, "package.json")),

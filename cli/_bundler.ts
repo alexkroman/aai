@@ -99,7 +99,82 @@ const WORKSPACE_ALIASES: Record<string, string> = {
   "@aai/ui/client": resolve(AAI_ROOT, "ui/client.tsx"),
 };
 
+/**
+ * Resolves an npm package name to its entry point file path under node_modules.
+ * Returns undefined if the package cannot be found.
+ */
+function resolveNpmPackage(
+  name: string,
+  subpath?: string,
+): string | undefined {
+  const pkgDir = join(AAI_ROOT, "node_modules", ...name.split("/"));
+  try {
+    if (subpath) {
+      // e.g. preact/hooks → node_modules/preact/hooks/index.js or hooks.js
+      const sub = join(pkgDir, subpath);
+      try {
+        const info = Deno.statSync(sub);
+        if (info.isDirectory) {
+          const pkgJson = join(sub, "package.json");
+          try {
+            const pkg = JSON.parse(Deno.readTextFileSync(pkgJson));
+            return resolve(sub, pkg.module || pkg.main || "index.js");
+          } catch {
+            return resolve(sub, "index.js");
+          }
+        }
+      } catch { /* not a directory */ }
+      // Try as a file
+      for (const ext of ["", ".js", ".mjs"]) {
+        try {
+          Deno.statSync(sub + ext);
+          return sub + ext;
+        } catch { /* try next */ }
+      }
+    }
+    const pkgJson = join(pkgDir, "package.json");
+    const pkg = JSON.parse(Deno.readTextFileSync(pkgJson));
+    return resolve(pkgDir, pkg.module || pkg.main || "index.js");
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * npm packages used by the framework (ui/, sdk/, core/).
+ * Resolved directly to node_modules entry points so the deno esbuild plugin
+ * doesn't need to find them — critical for compiled binaries where the deno
+ * plugin's npm resolver can't locate node_modules.
+ */
+const NPM_PACKAGE_NAMES = [
+  "preact",
+  "preact/hooks",
+  "preact/compat",
+  "@preact/signals",
+  "goober",
+  "lodash-es",
+];
+
+function buildNpmAliases(): Record<string, string> {
+  const aliases: Record<string, string> = {};
+  for (const name of NPM_PACKAGE_NAMES) {
+    const parts = name.split("/");
+    const pkgName = name.startsWith("@")
+      ? parts.slice(0, 2).join("/")
+      : parts[0];
+    const subpath = name.startsWith("@")
+      ? parts.slice(2).join("/")
+      : parts.slice(1).join("/");
+    const resolved = resolveNpmPackage(pkgName, subpath || undefined);
+    if (resolved) aliases[name] = resolved;
+  }
+  return aliases;
+}
+
+let npmAliases: Record<string, string> | null = null;
+
 function workspaceAliasPlugin(): Plugin {
+  if (!npmAliases) npmAliases = buildNpmAliases();
   return {
     name: "workspace-alias",
     setup(build) {
@@ -108,6 +183,17 @@ function workspaceAliasPlugin(): Plugin {
         if (local) return { path: local, namespace: "file" };
         return null;
       });
+      // Resolve framework npm packages directly to node_modules entry points.
+      // This avoids relying on the deno plugin's npm resolver, which fails in
+      // compiled binaries where node_modules aren't fully available.
+      build.onResolve(
+        { filter: /^(preact|@preact\/signals|goober|lodash-es)/ },
+        (args) => {
+          const resolved = npmAliases![args.path];
+          if (resolved) return { path: resolved, namespace: "file" };
+          return null;
+        },
+      );
     },
   };
 }
@@ -182,27 +268,14 @@ export async function bundleAgent(
   const agentAbsolute = resolve(agent.entryPoint);
   const workerEntryAbsolute = resolve(AAI_ROOT, "core/_worker_entry.ts");
 
-  // Agent's deno.json resolves agent-specific deps (e.g. npm: imports).
-  // Framework's deno.json resolves internal deps (zod, @aai/sdk internals).
-  const agentConfigPath = join(agent.dir, "deno.json");
-  let hasAgentConfig = false;
-  try {
-    await Deno.stat(agentConfigPath);
-    hasAgentConfig = true;
-  } catch { /* no agent deno.json */ }
   const alias = workspaceAliasPlugin();
-  const workerPlugins = hasAgentConfig
-    ? [
-      alias,
-      denoPlugin({ configPath: agentConfigPath }),
-      denoPlugin({ configPath: baseConfigPath }),
-    ]
-    : [alias, denoPlugin({ configPath: baseConfigPath })];
+  const workerPlugins = [alias, denoPlugin({ configPath: baseConfigPath })];
   const clientPlugins = [alias, denoPlugin({ configPath: baseConfigPath })];
 
   const workerResult = await buildWithCleanErrors({
     ...BASE,
     plugins: workerPlugins,
+    nodePaths: [join(agent.dir, "node_modules")],
 
     stdin: {
       contents: `import agent from "${agentAbsolute}";\n` +
@@ -235,6 +308,7 @@ export async function bundleAgent(
     const clientResult = await buildWithCleanErrors({
       ...BASE,
       plugins: clientPlugins,
+      nodePaths: [join(agent.dir, "node_modules")],
 
       stdin: {
         contents: clientEntry,

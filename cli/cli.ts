@@ -1,30 +1,19 @@
 import { bold, cyan, dim, green } from "@std/fmt/colors";
-import { dirname, fromFileUrl, join } from "@std/path";
 import { error } from "./_output.ts";
 import { promptUpgradeIfAvailable } from "./_update.ts";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;
 
-async function printUsage(): Promise<void> {
-  const cliDir = dirname(fromFileUrl(import.meta.url));
-  const templatesDir = join(cliDir, "..", "templates");
-  const { listTemplates } = await import("./new.ts");
-  const templates = await listTemplates(templatesDir);
-  const templateList = templates.map((t) => `    ${t}`).join("\n");
+function printUsage(): void {
   console.log(
-    `${green(bold("aai"))} ${dim(VERSION)}
-Voice agent development kit
+    `${green(bold("aai"))} ${dim(VERSION)} — Voice agent development kit
 
 ${bold("COMMANDS:")}
   ${cyan("aai new")}            Scaffold a new agent project
   ${cyan("aai build")}          Validate and bundle the agent
   ${cyan("aai dev")}            Run local dev server with file watching
   ${cyan("aai deploy")}         Bundle and deploy to production
-
-${bold("TEMPLATES:")}
-  Use with ${cyan("aai new -t <template>")}:
-${templateList}
 
 ${bold("OPTIONS:")}
   ${cyan("-h, --help")}         Show this help message
@@ -44,10 +33,15 @@ export async function main(args: string[]): Promise<number> {
     await promptUpgradeIfAvailable(VERSION);
   }
 
-  // Top-level flags (no subcommand)
-  if (!command || command === "--help" || command === "-h") {
-    await printUsage();
+  if (command === "--help" || command === "-h") {
+    printUsage();
     return 0;
+  }
+
+  // No subcommand — run `aai new`
+  if (!command) {
+    const { runNewCommand } = await import("./cmd_new.ts");
+    return await runNewCommand([]);
   }
 
   if (command === "--version" || command === "-V") {
@@ -76,7 +70,7 @@ export async function main(args: string[]): Promise<number> {
     }
     default: {
       error(`unknown command: ${command}`);
-      await printUsage();
+      printUsage();
       return 1;
     }
   }

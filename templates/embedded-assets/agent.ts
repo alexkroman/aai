@@ -29,7 +29,8 @@ Rules:
         query: z.string().describe("The user's question to search for"),
       }),
       execute: (args) => {
-        const q = (args.query as string).toLowerCase();
+        const { query } = args as { query: string };
+        const q = query.toLowerCase();
         const match = faqs.find((f) =>
           f.question.toLowerCase().includes(q) ||
           q.includes(f.question.toLowerCase()) ||

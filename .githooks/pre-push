@@ -13,6 +13,11 @@ done
 echo "Verifying binary compiles..."
 # --no-check: full type-checking already runs in pre-commit (deno task check)
 # This just verifies the binary builds and runs correctly.
+npm_includes=""
+for pkg in preact @preact+signals @preact+signals-core goober lodash-es esbuild-wasm; do
+  dir=$(ls -d node_modules/.deno/${pkg}@* 2>/dev/null | head -1)
+  [ -n "$dir" ] && npm_includes="$npm_includes --include $dir"
+done
 deno compile \
   --no-check \
   --allow-all \
@@ -24,6 +29,7 @@ deno compile \
   --include cli/claude.md \
   --include cli/deno.json \
   --include _bundler_config.json \
+  $npm_includes \
   --output /tmp/aai-compile-check \
   cli/cli.ts || exit 1
 /tmp/aai-compile-check --version || exit 1

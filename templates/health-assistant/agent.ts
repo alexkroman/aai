@@ -134,7 +134,10 @@ Use run_code for health calculations:
           "Medication name (generic or brand, e.g. 'ibuprofen' or 'Advil')",
         ),
       }),
-      execute: (args) => lookupDrug(args.name as string),
+      execute: (args) => {
+        const { name } = args as { name: string };
+        return lookupDrug(name);
+      },
     },
     check_interaction: {
       description:
@@ -144,7 +147,10 @@ Use run_code for health calculations:
           "Comma-separated medication names (e.g. 'ibuprofen, warfarin')",
         ),
       }),
-      execute: (args) => checkInteractions(args.drugs as string),
+      execute: (args) => {
+        const { drugs } = args as { drugs: string };
+        return checkInteractions(drugs);
+      },
     },
   },
 });

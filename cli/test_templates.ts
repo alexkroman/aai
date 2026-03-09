@@ -49,6 +49,21 @@ for (const template of templates) {
       "ASSEMBLYAI_API_KEY=test\n",
     );
 
+    // Install npm dependencies if package.json exists
+    try {
+      await Deno.stat(join(tmpDir, "package.json"));
+      const npm = new Deno.Command("npm", {
+        args: ["install", "--silent"],
+        cwd: tmpDir,
+      });
+      const npmResult = await npm.output();
+      if (!npmResult.success) {
+        throw new Error("npm install failed");
+      }
+    } catch (e) {
+      if (!(e instanceof Deno.errors.NotFound)) throw e;
+    }
+
     // Build it
     await runBuild({ agentDir: tmpDir });
 

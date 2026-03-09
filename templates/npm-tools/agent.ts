@@ -74,8 +74,7 @@ Rules:
         ),
       }),
       execute: (args) => {
-        const category = args.category as string;
-        const count = args.count as number;
+        const { category, count } = args as { category: string; count: number };
         const list = WORD_LISTS[category];
         if (!list) return { error: `Unknown category: ${category}` };
         const n = Math.min(Math.max(1, count), 6);
@@ -94,8 +93,7 @@ Rules:
         ).optional(),
       }),
       execute: (args) => {
-        const phrase = args.phrase as string;
-        const mode = args.mode as string | undefined;
+        const { phrase, mode } = args as { phrase: string; mode?: string };
         if (mode === "words") {
           return { result: shuffle(words(phrase)).join(" ") };
         }

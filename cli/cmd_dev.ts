@@ -178,6 +178,10 @@ ${bold("OPTIONS:")}
       printReady(freshResult.agent, namespace, port);
     } catch (err: unknown) {
       error(err instanceof Error ? err.message : String(err));
+      stepInfo(
+        "Dev",
+        "still serving previous version — fix errors and save again",
+      );
     } finally {
       building = false;
       if (pendingRebuild) {

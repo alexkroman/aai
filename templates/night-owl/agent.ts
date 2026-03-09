@@ -89,8 +89,7 @@ Use run_code for sleep calculations:
         mood: z.enum(["chill", "intense", "cozy", "spooky", "funny"]),
       }),
       execute: (args) => {
-        const category = args.category as string;
-        const mood = args.mood as string;
+        const { category, mood } = args as { category: string; mood: string };
         return { category, mood, picks: PICKS[category]?.[mood] ?? [] };
       },
     },
