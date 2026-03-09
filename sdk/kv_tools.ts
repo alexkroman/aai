@@ -29,7 +29,7 @@ const DEFAULTS = {
       "Save a piece of information to persistent memory. Use a descriptive key like 'user:name' or 'project:status'.",
     recall: "Retrieve a previously saved memory by its key.",
     list:
-      "List all saved memory keys, optionally filtered by a pattern (e.g. 'user:*').",
+      "List all saved memory keys, optionally filtered by a prefix (e.g. 'user:').",
     forget: "Delete a previously saved memory by its key.",
   },
 };
@@ -70,14 +70,14 @@ export function kvTools(
     [names.list]: {
       description: desc.list,
       parameters: z.object({
-        pattern: z.string().describe(
-          "Glob pattern to filter keys (e.g. 'user:*'). Use '*' for all.",
+        prefix: z.string().describe(
+          "Prefix to filter keys (e.g. 'user:'). Use empty string for all.",
         ).optional(),
       }),
-      execute: async ({ pattern }, ctx) => {
+      execute: async ({ prefix }, ctx) => {
         const kv = createKv(ctx);
-        const keys = await kv.keys((pattern as string) ?? "*");
-        return { count: keys.length, keys };
+        const entries = await kv.list((prefix as string) ?? "");
+        return { count: entries.length, keys: entries.map((e) => e.key) };
       },
     },
     [names.forget]: {
@@ -87,7 +87,7 @@ export function kvTools(
       }),
       execute: async ({ key }, ctx) => {
         const kv = createKv(ctx);
-        await kv.del(key as string);
+        await kv.delete(key as string);
         return { deleted: key };
       },
     },

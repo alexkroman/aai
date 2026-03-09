@@ -7,8 +7,8 @@ Deno.test("createKv memory fallback", async (t) => {
     const kv = createKv({ env: {} });
     assertEquals(typeof kv.get, "function");
     assertEquals(typeof kv.set, "function");
-    assertEquals(typeof kv.del, "function");
-    assertEquals(typeof kv.keys, "function");
+    assertEquals(typeof kv.delete, "function");
+    assertEquals(typeof kv.list, "function");
   });
 
   await t.step("get returns null for missing key", async () => {
@@ -16,44 +16,77 @@ Deno.test("createKv memory fallback", async (t) => {
     assertEquals(await kv.get("nope"), null);
   });
 
-  await t.step("set then get", async () => {
+  await t.step("set then get with auto-serialization", async () => {
     const kv = createKv({ env: {} });
-    await kv.set("k1", "v1");
-    assertEquals(await kv.get("k1"), "v1");
+    await kv.set("k1", { name: "alice", age: 30 });
+    assertEquals(await kv.get("k1"), { name: "alice", age: 30 });
   });
 
-  await t.step("del removes key", async () => {
+  await t.step("set then get with string value", async () => {
+    const kv = createKv({ env: {} });
+    await kv.set("k1", "hello");
+    assertEquals(await kv.get("k1"), "hello");
+  });
+
+  await t.step("set then get with number value", async () => {
+    const kv = createKv({ env: {} });
+    await kv.set("k1", 42);
+    assertEquals(await kv.get("k1"), 42);
+  });
+
+  await t.step("delete removes key", async () => {
     const kv = createKv({ env: {} });
     await kv.set("k1", "v1");
-    await kv.del("k1");
+    await kv.delete("k1");
     assertEquals(await kv.get("k1"), null);
   });
 
-  await t.step("keys lists all keys", async () => {
+  await t.step("list returns entries matching prefix", async () => {
     const kv = createKv({ env: {} });
-    await kv.set("a", "1");
-    await kv.set("b", "2");
-    await kv.set("c", "3");
-    const keys = (await kv.keys()).sort();
-    assertEquals(keys, ["a", "b", "c"]);
+    await kv.set("user:1", { name: "alice" });
+    await kv.set("user:2", { name: "bob" });
+    await kv.set("post:1", { title: "hello" });
+    const entries = await kv.list("user:");
+    assertEquals(entries.length, 2);
+    assertEquals(entries[0], { key: "user:1", value: { name: "alice" } });
+    assertEquals(entries[1], { key: "user:2", value: { name: "bob" } });
   });
 
-  await t.step("keys filters by pattern", async () => {
+  await t.step("list returns entries sorted by key", async () => {
     const kv = createKv({ env: {} });
-    await kv.set("user:1", "alice");
-    await kv.set("user:2", "bob");
-    await kv.set("post:1", "hello");
-    const keys = (await kv.keys("user:*")).sort();
-    assertEquals(keys, ["user:1", "user:2"]);
+    await kv.set("c", 3);
+    await kv.set("a", 1);
+    await kv.set("b", 2);
+    const entries = await kv.list("");
+    assertEquals(entries.map((e) => e.key), ["a", "b", "c"]);
   });
 
-  await t.step("keys with ? pattern", async () => {
+  await t.step("list with reverse", async () => {
     const kv = createKv({ env: {} });
-    await kv.set("a1", "x");
-    await kv.set("a2", "y");
-    await kv.set("ab", "z");
-    const keys = (await kv.keys("a?")).sort();
-    assertEquals(keys, ["a1", "a2", "ab"]);
+    await kv.set("a", 1);
+    await kv.set("b", 2);
+    await kv.set("c", 3);
+    const entries = await kv.list("", { reverse: true });
+    assertEquals(entries.map((e) => e.key), ["c", "b", "a"]);
+  });
+
+  await t.step("list with limit", async () => {
+    const kv = createKv({ env: {} });
+    await kv.set("a", 1);
+    await kv.set("b", 2);
+    await kv.set("c", 3);
+    const entries = await kv.list("", { limit: 2 });
+    assertEquals(entries.length, 2);
+    assertEquals(entries.map((e) => e.key), ["a", "b"]);
+  });
+
+  await t.step("list with reverse and limit", async () => {
+    const kv = createKv({ env: {} });
+    await kv.set("a", 1);
+    await kv.set("b", 2);
+    await kv.set("c", 3);
+    const entries = await kv.list("", { limit: 2, reverse: true });
+    assertEquals(entries.map((e) => e.key), ["c", "b"]);
   });
 
   await t.step("rejects oversized values", () => {
@@ -66,33 +99,26 @@ Deno.test("createKv memory fallback", async (t) => {
     );
   });
 
-  await t.step("TTL expires entries", async () => {
+  await t.step("expireIn expires entries", async () => {
     using time = new FakeTime();
     const kv = createKv({ env: {} });
-    await kv.set("temp", "val", 10);
+    await kv.set("temp", "val", { expireIn: 10_000 });
     assertEquals(await kv.get("temp"), "val");
 
     time.tick(11_000);
     assertEquals(await kv.get("temp"), null);
   });
 
-  await t.step("TTL=0 does not expire", async () => {
-    using time = new FakeTime();
-    const kv = createKv({ env: {} });
-    await kv.set("perm", "val", 0);
-
-    time.tick(100_000);
-    assertEquals(await kv.get("perm"), "val");
-  });
-
-  await t.step("expired keys excluded from keys()", async () => {
+  await t.step("expired entries excluded from list", async () => {
     using time = new FakeTime();
     const kv = createKv({ env: {} });
     await kv.set("alive", "1");
-    await kv.set("dying", "2", 5);
+    await kv.set("dying", "2", { expireIn: 5_000 });
 
     time.tick(6_000);
-    assertEquals(await kv.keys(), ["alive"]);
+    const entries = await kv.list("");
+    assertEquals(entries.length, 1);
+    assertEquals(entries[0].key, "alive");
   });
 
   await t.step("overwrite replaces value", async () => {
@@ -107,5 +133,22 @@ Deno.test("createKv memory fallback", async (t) => {
     const kv2 = createKv({ env: {} });
     await kv1.set("x", "from1");
     assertEquals(await kv2.get("x"), null);
+  });
+
+  await t.step("get with generic type", async () => {
+    const kv = createKv({ env: {} });
+    await kv.set("user", { name: "alice", age: 30 });
+    const user = await kv.get<{ name: string; age: number }>("user");
+    assertEquals(user?.name, "alice");
+    assertEquals(user?.age, 30);
+  });
+
+  await t.step("list with generic type", async () => {
+    const kv = createKv({ env: {} });
+    await kv.set("item:1", { title: "first" });
+    await kv.set("item:2", { title: "second" });
+    const entries = await kv.list<{ title: string }>("item:");
+    assertEquals(entries[0].value.title, "first");
+    assertEquals(entries[1].value.title, "second");
   });
 });

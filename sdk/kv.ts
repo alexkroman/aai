@@ -1,74 +1,98 @@
-export type KvClient = {
-  get(key: string): Promise<string | null>;
-  set(key: string, value: string, ttl?: number): Promise<void>;
-  del(key: string): Promise<void>;
-  keys(pattern?: string): Promise<string[]>;
+export type KvEntry<T = unknown> = { key: string; value: T };
+
+export type KvListOptions = {
+  limit?: number;
+  reverse?: boolean;
+};
+
+export type Kv = {
+  get<T = unknown>(key: string): Promise<T | null>;
+  set(
+    key: string,
+    value: unknown,
+    options?: { expireIn?: number },
+  ): Promise<void>;
+  delete(key: string): Promise<void>;
+  list<T = unknown>(
+    prefix: string,
+    options?: KvListOptions,
+  ): Promise<KvEntry<T>[]>;
 };
 
 const MAX_VALUE_SIZE = 65_536;
 
-function createMemoryKvClient(): KvClient {
-  const store = new Map<string, { value: string; expiresAt?: number }>();
+export function createMemoryKv(): Kv {
+  const store = new Map<string, { raw: string; expiresAt?: number }>();
 
   function isExpired(entry: { expiresAt?: number }): boolean {
     return entry.expiresAt !== undefined && entry.expiresAt <= Date.now();
   }
 
   return {
-    get(key) {
+    get<T = unknown>(key: string): Promise<T | null> {
       const entry = store.get(key);
       if (!entry || isExpired(entry)) {
         if (entry) store.delete(key);
         return Promise.resolve(null);
       }
-      return Promise.resolve(entry.value);
+      return Promise.resolve(JSON.parse(entry.raw) as T);
     },
 
-    set(key, value, ttl) {
-      if (value.length > MAX_VALUE_SIZE) {
+    set(
+      key: string,
+      value: unknown,
+      options?: { expireIn?: number },
+    ): Promise<void> {
+      const raw = JSON.stringify(value);
+      if (raw.length > MAX_VALUE_SIZE) {
         throw new Error(`Value exceeds max size of ${MAX_VALUE_SIZE} bytes`);
       }
+      const expireIn = options?.expireIn;
       store.set(key, {
-        value,
-        expiresAt: ttl && ttl > 0 ? Date.now() + ttl * 1000 : undefined,
+        raw,
+        expiresAt: expireIn && expireIn > 0 ? Date.now() + expireIn : undefined,
       });
       return Promise.resolve();
     },
 
-    del(key) {
+    delete(key: string): Promise<void> {
       store.delete(key);
       return Promise.resolve();
     },
 
-    keys(pattern) {
+    list<T = unknown>(
+      prefix: string,
+      options?: KvListOptions,
+    ): Promise<KvEntry<T>[]> {
       const now = Date.now();
-      const results: string[] = [];
+      const entries: KvEntry<T>[] = [];
       for (const [key, entry] of store) {
         if (entry.expiresAt && entry.expiresAt <= now) {
           store.delete(key);
           continue;
         }
-        results.push(key);
+        if (key.startsWith(prefix)) {
+          entries.push({ key, value: JSON.parse(entry.raw) as T });
+        }
       }
-      if (pattern) {
-        const regex = new RegExp(
-          "^" + pattern.replace(/\*/g, ".*").replace(/\?/g, ".") + "$",
-        );
-        return Promise.resolve(results.filter((k) => regex.test(k)));
+      entries.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+      if (options?.reverse) entries.reverse();
+      if (options?.limit && options.limit > 0) {
+        entries.length = Math.min(entries.length, options.limit);
       }
-      return Promise.resolve(results);
+      return Promise.resolve(entries);
     },
   };
 }
 
 export function createKv(
   ctx: { env: Record<string, string> },
-): KvClient {
+): Kv {
   const kvUrl = ctx.env.AAI_KV_URL;
   const kvToken = ctx.env.AAI_SCOPE_TOKEN;
 
   if (!kvUrl || !kvToken) {
-    return createMemoryKvClient();
+    return createMemoryKv();
   }
 
   async function kvFetch(body: Record<string, unknown>): Promise<unknown> {
@@ -94,22 +118,43 @@ export function createKv(
   }
 
   return {
-    async get(key) {
+    async get<T = unknown>(key: string): Promise<T | null> {
       const result = await kvFetch({ op: "get", key });
-      return result as string | null;
+      if (result === null || result === undefined) return null;
+      return (typeof result === "string" ? JSON.parse(result) : result) as T;
     },
 
-    async set(key, value, ttl) {
-      await kvFetch({ op: "set", key, value, ttl });
+    async set(
+      key: string,
+      value: unknown,
+      options?: { expireIn?: number },
+    ): Promise<void> {
+      const raw = JSON.stringify(value);
+      await kvFetch({
+        op: "set",
+        key,
+        value: raw,
+        ...(options?.expireIn
+          ? { ttl: Math.ceil(options.expireIn / 1000) }
+          : {}),
+      });
     },
 
-    async del(key) {
+    async delete(key: string): Promise<void> {
       await kvFetch({ op: "del", key });
     },
 
-    async keys(pattern) {
-      const result = await kvFetch({ op: "keys", pattern });
-      return result as string[];
+    async list<T = unknown>(
+      prefix: string,
+      options?: KvListOptions,
+    ): Promise<KvEntry<T>[]> {
+      const result = await kvFetch({
+        op: "list",
+        prefix,
+        limit: options?.limit,
+        reverse: options?.reverse,
+      });
+      return result as KvEntry<T>[];
     },
   };
 }

@@ -15,6 +15,6 @@ export type {
   ToolInput,
   Voice,
 } from "./types.ts";
-export type { KvClient } from "./kv.ts";
+export type { Kv, KvEntry, KvListOptions } from "./kv.ts";
 export type { KvToolsOptions } from "./kv_tools.ts";
 export type { Transport } from "./_schema.ts";

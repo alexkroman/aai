@@ -5,6 +5,7 @@ import type {
   ToolContext,
   ToolDef,
 } from "@aai/sdk/types";
+import { createKv } from "@aai/sdk/kv";
 import {
   createRpcCaller,
   type MessageTarget,
@@ -39,11 +40,13 @@ export async function executeToolCall(
 
   try {
     const signal = AbortSignal.timeout(TOOL_HANDLER_TIMEOUT);
+    const envCopy = { ...env };
     const ctx: ToolContext = {
       sessionId: sessionId ?? "",
-      env: { ...env },
+      env: envCopy,
       signal,
       state: (state ?? {}) as Record<string, unknown>,
+      kv: createKv({ env: envCopy }),
     };
     const result = await Promise.resolve(
       tool.execute(parsed.data, ctx),
@@ -125,10 +128,12 @@ export function startWorker(
 
     async invokeHook(req) {
       const state = getState(req.sessionId);
+      const envCopy = { ...env };
       const ctx: HookContext = {
         sessionId: req.sessionId,
-        env: { ...env },
+        env: envCopy,
         state: state as Record<string, unknown>,
+        kv: createKv({ env: envCopy }),
       };
       if (req.hook === "onConnect") {
         await agent.onConnect?.(ctx);
