@@ -1,5 +1,4 @@
-import { defineAgent } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, z } from "@aai/sdk";
 import knowledge from "./knowledge.json" with { type: "json" };
 
 type FaqEntry = { question: string; answer: string };
@@ -28,9 +27,8 @@ Rules:
       parameters: z.object({
         query: z.string().describe("The user's question to search for"),
       }),
-      execute: (args) => {
-        const { query } = args as { query: string };
-        const q = query.toLowerCase();
+      execute: ({ query }) => {
+        const q = (query as string).toLowerCase();
         const match = faqs.find((f) =>
           f.question.toLowerCase().includes(q) ||
           q.includes(f.question.toLowerCase()) ||

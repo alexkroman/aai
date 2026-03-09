@@ -65,7 +65,7 @@ Deno.test("defineAgent - tools are accessible for testing", async () => {
   });
   const result = await agent.tools.echo.execute(
     { text: "hello" },
-    { sessionId: "", env: {} },
+    { sessionId: "", env: {}, state: {} },
   );
   expect(result).toBe("hello");
 });

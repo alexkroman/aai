@@ -1,5 +1,4 @@
-import { defineAgent } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, z } from "@aai/sdk";
 
 const PICKS: Record<string, Record<string, string[]>> = {
   movie: {
@@ -88,9 +87,12 @@ Use run_code for sleep calculations:
         category: z.enum(["movie", "music", "book"]),
         mood: z.enum(["chill", "intense", "cozy", "spooky", "funny"]),
       }),
-      execute: (args) => {
-        const { category, mood } = args as { category: string; mood: string };
-        return { category, mood, picks: PICKS[category]?.[mood] ?? [] };
+      execute: ({ category, mood }) => {
+        return {
+          category,
+          mood,
+          picks: PICKS[category as string]?.[mood as string] ?? [],
+        };
       },
     },
   },

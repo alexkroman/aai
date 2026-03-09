@@ -1,5 +1,4 @@
-import { defineAgent, fetchJSON } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, fetchJSON, z } from "@aai/sdk";
 
 function first(field: unknown): string | undefined {
   return Array.isArray(field) ? field[0] : undefined;
@@ -9,15 +8,12 @@ async function lookupDrug(
   name: string,
 ): Promise<Record<string, unknown>> {
   const q = encodeURIComponent(name.toLowerCase());
-  let raw: Record<string, unknown>;
-  try {
-    raw = await fetchJSON<Record<string, unknown>>(
-      `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${q}"+openfda.brand_name:"${q}"&limit=1`,
-    );
-  } catch {
-    return { error: `Drug not found: ${name}` };
-  }
+  const raw = await fetchJSON<Record<string, unknown>>(
+    `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${q}"+openfda.brand_name:"${q}"&limit=1`,
+    { fallback: { error: `Drug not found: ${name}` } },
+  );
 
+  if ("error" in raw) return raw;
   const results = raw.results as Record<string, unknown>[] | undefined;
   if (!results?.length) return { error: `No FDA data found for: ${name}` };
 
@@ -42,17 +38,15 @@ type RxCui = {
 async function resolveRxCui(
   name: string,
 ): Promise<RxCui | null> {
-  try {
-    const raw = await fetchJSON<{ idGroup: { rxnormId?: string[] } }>(
-      `https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${
-        encodeURIComponent(name)
-      }`,
-    );
-    const id = raw.idGroup.rxnormId?.[0];
-    return id ? { name, rxcui: id } : null;
-  } catch {
-    return null;
-  }
+  const raw = await fetchJSON<{ idGroup: { rxnormId?: string[] } } | null>(
+    `https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${
+      encodeURIComponent(name)
+    }`,
+    { fallback: null },
+  );
+  if (!raw) return null;
+  const id = raw.idGroup.rxnormId?.[0];
+  return id ? { name, rxcui: id } : null;
 }
 
 async function checkInteractions(
@@ -72,14 +66,12 @@ async function checkInteractions(
   }
 
   const rxcuiList = resolved.map((r) => r.rxcui).join("+");
-  let raw: Record<string, unknown>;
-  try {
-    raw = await fetchJSON<Record<string, unknown>>(
-      `https://rxnav.nlm.nih.gov/REST/interaction/list.json?rxcuis=${rxcuiList}`,
-    );
-  } catch {
-    return { error: "Interaction lookup failed" };
-  }
+  const raw = await fetchJSON<Record<string, unknown>>(
+    `https://rxnav.nlm.nih.gov/REST/interaction/list.json?rxcuis=${rxcuiList}`,
+    { fallback: { error: "Interaction lookup failed" } },
+  );
+
+  if ("error" in raw) return raw;
 
   type InteractionGroup = {
     fullInteractionType?: {
@@ -134,10 +126,7 @@ Use run_code for health calculations:
           "Medication name (generic or brand, e.g. 'ibuprofen' or 'Advil')",
         ),
       }),
-      execute: (args) => {
-        const { name } = args as { name: string };
-        return lookupDrug(name);
-      },
+      execute: ({ name }) => lookupDrug(name as string),
     },
     check_interaction: {
       description:
@@ -147,10 +136,7 @@ Use run_code for health calculations:
           "Comma-separated medication names (e.g. 'ibuprofen, warfarin')",
         ),
       }),
-      execute: (args) => {
-        const { drugs } = args as { drugs: string };
-        return checkInteractions(drugs);
-      },
+      execute: ({ drugs }) => checkInteractions(drugs as string),
     },
   },
 });
