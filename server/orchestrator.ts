@@ -17,7 +17,7 @@ import type { ServerContext } from "./types.ts";
 import { handleDevWebSocket } from "./dev_session.ts";
 import { handleKv } from "./kv_handler.ts";
 import { createMemoryKvStore, type KvStore } from "./kv.ts";
-import { createTokenSigner, type TokenSigner } from "./scope_token.ts";
+import type { TokenSigner } from "./scope_token.ts";
 
 type Params = Record<string, string>;
 
@@ -53,18 +53,15 @@ function withCors(
   };
 }
 
-export async function createOrchestrator(opts: {
+export function createOrchestrator(opts: {
   store: BundleStore;
   kvStore?: KvStore;
-  tokenSigner?: TokenSigner;
-}): Promise<{ handler: Deno.ServeHandler; tokenSigner: TokenSigner }> {
+  tokenSigner: TokenSigner;
+}): { handler: Deno.ServeHandler; tokenSigner: TokenSigner } {
   const { store } = opts;
 
   const kvStore = opts.kvStore ?? createMemoryKvStore();
-  const tokenSigner = opts.tokenSigner ??
-    await createTokenSigner(
-      Deno.env.get("UPSTASH_REDIS_REST_TOKEN") ?? "dev-kv-signing-key",
-    );
+  const tokenSigner = opts.tokenSigner;
 
   const slots = new Map<string, AgentSlot>();
   const sessions = new Map<string, Session>();

@@ -2,6 +2,7 @@ import { deadline } from "@std/async/deadline";
 import { createOrchestrator } from "./orchestrator.ts";
 import { createBundleStore, createS3Client } from "./bundle_store_tigris.ts";
 import { createKvStore, createMemoryKvStore } from "./kv.ts";
+import { createTokenSigner } from "./scope_token.ts";
 
 try {
   const { load } = await import("@std/dotenv");
@@ -23,8 +24,17 @@ const store = createBundleStore(s3, bucket);
 
 const upstashUrl = Deno.env.get("UPSTASH_REDIS_REST_URL");
 const upstashToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
+const scopeSecret = Deno.env.get("KV_SCOPE_SECRET");
+
 let kvStore;
 if (upstashUrl && upstashToken) {
+  if (!scopeSecret) {
+    console.error(
+      "FATAL: KV_SCOPE_SECRET must be set when Upstash is configured. " +
+        "Generate one with: openssl rand -base64 32",
+    );
+    Deno.exit(1);
+  }
   kvStore = createKvStore(upstashUrl, upstashToken);
   console.info("KV storage: Upstash Redis");
 } else {
@@ -32,7 +42,11 @@ if (upstashUrl && upstashToken) {
   console.info("KV storage: in-memory (no Upstash configured)");
 }
 
-const { handler } = await createOrchestrator({ store, kvStore });
+const tokenSigner = await createTokenSigner(
+  scopeSecret ?? crypto.randomUUID(),
+);
+
+const { handler } = await createOrchestrator({ store, kvStore, tokenSigner });
 
 const port = parseInt(Deno.env.get("PORT") ?? "3100");
 const abort = new AbortController();

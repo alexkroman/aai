@@ -4,6 +4,7 @@ import {
   createBundleStore,
   createMemoryS3Client,
 } from "./bundle_store_tigris.ts";
+import { createTokenSigner, type TokenSigner } from "./scope_token.ts";
 
 export const flush = (): Promise<void> =>
   new Promise<void>((r) => setTimeout(r, 0));
@@ -48,4 +49,8 @@ export const VALID_ENV = {
 
 export function createTestStore(): BundleStore {
   return createBundleStore(createMemoryS3Client(), "test-bucket");
+}
+
+export function createTestTokenSigner(): Promise<TokenSigner> {
+  return createTokenSigner("test-secret-for-tests-only");
 }
