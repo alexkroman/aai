@@ -1,4 +1,8 @@
 {
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  },
   "imports": {
     "@aai/sdk": "jsr:@aai/sdk@^0.1.0",
     "@aai/ui": "jsr:@aai/ui@^0.1.0",

@@ -169,7 +169,13 @@ export type AgentEntry = {
 
 export const DEFAULT_SERVER = "https://aai-agent.fly.dev";
 
-const WORKSPACE_IMPORTS = new Set(["@aai/sdk", "@aai/ui", "zod"]);
+const WORKSPACE_IMPORTS = new Set([
+  "@aai/sdk",
+  "@aai/ui",
+  "zod",
+  "preact",
+  "preact/hooks",
+]);
 
 export async function hasExternalImports(dir: string): Promise<boolean> {
   try {
