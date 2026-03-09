@@ -162,7 +162,7 @@ async function testOneTool(
         name,
         ok: false,
         error:
-          `schema validation failed with sample args: ${sampleParse.error.message}`,
+          `schema validation failed with sample args: ${sampleParse.error.message} — check your Zod schema in the tool's parameters field`,
       };
     }
 
