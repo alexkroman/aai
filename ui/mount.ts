@@ -7,12 +7,12 @@ import {
   createSessionControls,
   SessionProvider,
   type SessionSignals,
-} from "./signals.tsx";
+} from "./signals.ts";
 import { applyTheme, defaultTheme, type Theme } from "./theme.ts";
 
-function BodyStyle({ theme }: { theme: Theme }) {
+function BodyStyle({ theme }: { theme: Theme }): ReturnType<typeof h> {
   return createPortal(
-    <style>{`body { margin: 0; background: ${theme.bg}; }`}</style>,
+    h("style", null, `body { margin: 0; background: ${theme.bg}; }`),
     document.head,
   );
 }
@@ -61,10 +61,10 @@ export function mount(
   const signals = createSessionControls(session);
 
   render(
-    <SessionProvider value={signals}>
-      <BodyStyle theme={theme} />
-      <Component />
-    </SessionProvider>,
+    h(SessionProvider, {
+      value: signals,
+      children: [h(BodyStyle, { theme }), h(Component, null)],
+    }),
     container,
   );
 

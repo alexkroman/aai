@@ -1,3 +1,4 @@
+import { h } from "preact";
 import type * as preact from "preact";
 import { createContext } from "preact";
 import { useContext } from "preact/hooks";
@@ -63,7 +64,7 @@ const Ctx = createContext<SessionSignals | null>(null);
 export function SessionProvider(
   { value, children }: { value: SessionSignals; children: ComponentChildren },
 ): preact.JSX.Element {
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return h(Ctx.Provider, { value }, children);
 }
 
 export function useSession(): SessionSignals {

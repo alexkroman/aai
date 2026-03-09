@@ -7,7 +7,7 @@ import {
   installMockWebSocket,
   setupDOM,
 } from "./_test_utils.ts";
-import { createSessionControls, useSession } from "./signals.tsx";
+import { createSessionControls, useSession } from "./signals.ts";
 import { createVoiceSession, type VoiceSession } from "./session.ts";
 
 function withSignalsEnv(

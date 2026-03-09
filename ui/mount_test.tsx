@@ -1,7 +1,7 @@
 import { expect } from "@std/expect";
 import { render } from "preact";
 import { installMockWebSocket, setupDOM } from "./_test_utils.ts";
-import { mount } from "./mount.tsx";
+import { mount } from "./mount.ts";
 import { defaultTheme } from "./theme.ts";
 
 function withMountEnv(

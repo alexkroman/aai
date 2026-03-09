@@ -1,4 +1,5 @@
 import { css, keyframes, useSession } from "@aai/ui";
+import type { Message } from "@aai/ui";
 import { useEffect, useRef } from "preact/hooks";
 
 const pulse = keyframes`
@@ -411,7 +412,7 @@ export default function App() {
                 operations.
               </div>
             )}
-            {msgs.map((m, i) => (
+            {msgs.map((m: Message, i: number) => (
               <div key={i} class={messageStyle(m.role)}>
                 <div
                   style={`font-size: 10px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;`}

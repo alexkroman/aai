@@ -3,7 +3,7 @@ import { FakeTime } from "@std/testing/time";
 import { render } from "preact";
 import { signal } from "@preact/signals";
 import { createMockSignals, getContainer, setupDOM } from "./_test_utils.ts";
-import { SessionProvider } from "./signals.tsx";
+import { SessionProvider } from "./signals.ts";
 import {
   App,
   ChatView,
@@ -11,8 +11,8 @@ import {
   MessageBubble,
   StateIndicator,
   Transcript,
-} from "./components.tsx";
-import type { SessionSignals } from "./signals.tsx";
+} from "./_components.tsx";
+import type { SessionSignals } from "./signals.ts";
 import type { AgentState, Message } from "./types.ts";
 
 function withDOM(

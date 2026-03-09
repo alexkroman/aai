@@ -1,4 +1,5 @@
 import { css, ErrorBanner, keyframes, useSession } from "@aai/ui";
+import type { Message } from "@aai/ui";
 import { useEffect, useRef } from "preact/hooks";
 
 /* ── animations ── */
@@ -355,7 +356,8 @@ export default function InfocomAdventure() {
     : "Idle";
 
   // Count moves and score from agent messages (rough heuristic)
-  const msgCount = messages.value.filter((m) => m.role === "user").length;
+  const msgCount =
+    messages.value.filter((m: Message) => m.role === "user").length;
 
   if (!started.value) {
     return (
@@ -392,7 +394,7 @@ export default function InfocomAdventure() {
         <ErrorBanner error={error} />
 
         <div class={messagesArea}>
-          {messages.value.map((msg, i) => (
+          {messages.value.map((msg: Message, i: number) => (
             <div
               key={i}
               class={`${messageLine} ${

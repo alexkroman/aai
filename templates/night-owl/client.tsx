@@ -6,6 +6,7 @@ import {
   Transcript,
   useSession,
 } from "@aai/ui";
+import type { Message } from "@aai/ui";
 import { useEffect, useRef } from "preact/hooks";
 
 const hero = css`
@@ -138,7 +139,7 @@ export default function NightOwl() {
       <ErrorBanner error={error} />
 
       <div class="messages">
-        {messages.value.map((msg, i) => (
+        {messages.value.map((msg: Message, i: number) => (
           <MessageBubble
             key={i}
             message={msg}

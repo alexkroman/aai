@@ -3,7 +3,7 @@ import { useRef } from "preact/hooks";
 import { useComputed, useSignalEffect } from "@preact/signals";
 import type { Signal } from "@preact/signals";
 import type { AgentState, Message, SessionError } from "./types.ts";
-import { useSession } from "./signals.tsx";
+import { useSession } from "./signals.ts";
 import {
   base,
   bubble,
@@ -38,7 +38,7 @@ export function ErrorBanner(
 }
 
 export function MessageBubble(
-  { message }: { message: Message },
+  { message }: { key?: unknown; message: Message },
 ): preact.JSX.Element {
   const isUser = message.role === "user";
   return (

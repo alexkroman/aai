@@ -2,6 +2,7 @@ import { parseArgs } from "@std/cli/parse-args";
 import { bold, cyan, green } from "@std/fmt/colors";
 import { error } from "./_output.ts";
 import { runBuild } from "./build.ts";
+import { ensureTypescriptSetup } from "./_discover.ts";
 
 export async function runBuildCommand(args: string[]): Promise<number> {
   const flags = parseArgs(args, {
@@ -24,6 +25,7 @@ ${bold("OPTIONS:")}
   }
 
   const cwd = Deno.env.get("INIT_CWD") || Deno.cwd();
+  await ensureTypescriptSetup(cwd);
 
   try {
     await runBuild({ agentDir: cwd });
