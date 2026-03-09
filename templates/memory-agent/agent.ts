@@ -1,4 +1,4 @@
-import { createKv, defineAgent, z } from "@aai/sdk";
+import { defineAgent, kvTools } from "@aai/sdk";
 
 export default defineAgent({
   name: "Memory Agent",
@@ -18,61 +18,6 @@ database" — just confirm naturally, like "Got it, I'll remember that."`,
     "Hey there. I'm an assistant with a long-term memory. Tell me things you want me to remember, and I'll recall them in future conversations.",
   builtinTools: ["web_search"],
   tools: {
-    save_memory: {
-      description:
-        "Save a piece of information to persistent memory. Use a descriptive key like 'user:name' or 'project:status'.",
-      parameters: z.object({
-        key: z.string().describe(
-          "A descriptive key for this memory (e.g. 'user:name', 'preference:color')",
-        ),
-        value: z.string().describe("The information to remember"),
-      }),
-      execute: async (args, ctx) => {
-        const { key, value } = args as { key: string; value: string };
-        const kv = createKv(ctx);
-        await kv.set(key, value);
-        return { saved: key };
-      },
-    },
-    recall_memory: {
-      description: "Retrieve a previously saved memory by its key.",
-      parameters: z.object({
-        key: z.string().describe("The key to look up"),
-      }),
-      execute: async (args, ctx) => {
-        const { key } = args as { key: string };
-        const kv = createKv(ctx);
-        const value = await kv.get(key);
-        if (value === null) return { found: false, key };
-        return { found: true, key, value };
-      },
-    },
-    list_memories: {
-      description:
-        "List all saved memory keys, optionally filtered by a pattern (e.g. 'user:*').",
-      parameters: z.object({
-        pattern: z.string().describe(
-          "Glob pattern to filter keys (e.g. 'user:*'). Use '*' for all.",
-        ).optional(),
-      }),
-      execute: async (args, ctx) => {
-        const { pattern } = args as { pattern?: string };
-        const kv = createKv(ctx);
-        const keys = await kv.keys(pattern ?? "*");
-        return { count: keys.length, keys };
-      },
-    },
-    forget_memory: {
-      description: "Delete a previously saved memory by its key.",
-      parameters: z.object({
-        key: z.string().describe("The key to delete"),
-      }),
-      execute: async (args, ctx) => {
-        const { key } = args as { key: string };
-        const kv = createKv(ctx);
-        await kv.del(key);
-        return { deleted: key };
-      },
-    },
+    ...kvTools(),
   },
 });

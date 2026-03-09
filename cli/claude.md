@@ -293,14 +293,47 @@ export default defineAgent({
 ## Persistent storage (KV)
 
 For data that persists across sessions (user preferences, accumulated knowledge,
-settings), use the `createKv` helper. Data is scoped per agent and per API key —
-agents cannot access each other's data.
+settings), use `kvTools()`. Data is scoped per agent and per API key — agents
+cannot access each other's data.
+
+### kvTools helper
+
+The fastest way to add persistent memory. Spreads four pre-built tools into your
+agent: `save_memory`, `recall_memory`, `list_memories`, `forget_memory`.
+
+```ts
+import { defineAgent, kvTools } from "@aai/sdk";
+
+export default defineAgent({
+  name: "Memory Agent",
+  tools: {
+    ...kvTools(),
+  },
+});
+```
+
+To customize tool names or descriptions:
+
+```ts
+tools: {
+  ...kvTools({
+    names: { save: "store_note", forget: "erase_note" },
+    descriptions: { save: "Store a note for later" },
+  }),
+},
+```
+
+See the `memory-agent` template for a full example.
+
+### createKv (low-level)
+
+For custom KV tools beyond the standard four, use `createKv(ctx)` directly:
 
 ```ts
 import { createKv, defineAgent, z } from "@aai/sdk";
 
 export default defineAgent({
-  name: "Memory Agent",
+  name: "Custom KV Agent",
   tools: {
     save: {
       description: "Save a value",
@@ -308,20 +341,10 @@ export default defineAgent({
         key: z.string().describe("Storage key"),
         value: z.string().describe("Value to store"),
       }),
-      execute: async (args, ctx) => {
-        const { key, value } = args as { key: string; value: string };
+      execute: async ({ key, value }, ctx) => {
         const kv = createKv(ctx);
-        await kv.set(key, value);
+        await kv.set(key as string, value as string);
         return { saved: key };
-      },
-    },
-    load: {
-      description: "Load a value",
-      parameters: z.object({ key: z.string() }),
-      execute: async (args, ctx) => {
-        const { key } = args as { key: string };
-        const kv = createKv(ctx);
-        return await kv.get(key);
       },
     },
   },
@@ -335,13 +358,7 @@ export default defineAgent({
 - `kv.del(key)` — delete a key
 - `kv.keys(pattern?)` — list keys matching a glob (e.g. `"user:*"`)
 
-Call `createKv(ctx)` inside tool `execute` functions or lifecycle hooks. The
-`ctx.env` contains the server-injected credentials automatically — no setup
-needed.
-
 Values are strings (max 64 KB). Use `JSON.stringify`/`JSON.parse` for objects.
-
-See the `memory-agent` template for a full example.
 
 ## Per-session state
 

@@ -32,7 +32,7 @@ if (upstashUrl && upstashToken) {
   console.info("KV storage: in-memory (no Upstash configured)");
 }
 
-const { handler } = createOrchestrator({ store, kvStore });
+const { handler } = await createOrchestrator({ store, kvStore });
 
 const port = parseInt(Deno.env.get("PORT") ?? "3100");
 const abort = new AbortController();

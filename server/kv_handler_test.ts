@@ -1,14 +1,18 @@
-import { expect } from "@std/expect";
-import { describe, it } from "@std/testing/bdd";
+import { assertEquals } from "@std/assert";
 import { handleKv } from "./kv_handler.ts";
-import { createMemoryKvStore, createScopeToken, type KvScope } from "./kv.ts";
+import { createMemoryKvStore, type KvScope } from "./kv.ts";
+import { createTokenSigner } from "./kv_token.ts";
 
 const scope: KvScope = { ownerHash: "owner1", slug: "ns/agent-a" };
 
-function kvReq(
-  token: string,
-  body: Record<string, unknown>,
-): Request {
+async function makeCtx() {
+  return {
+    kvStore: createMemoryKvStore(),
+    tokenSigner: await createTokenSigner("test-secret"),
+  };
+}
+
+function kvReq(token: string, body: Record<string, unknown>): Request {
   return new Request("http://localhost/kv", {
     method: "POST",
     headers: {
@@ -19,28 +23,28 @@ function kvReq(
   });
 }
 
-describe("handleKv", () => {
-  it("rejects missing Authorization header", async () => {
-    const kvStore = createMemoryKvStore();
+Deno.test("handleKv", async (t) => {
+  await t.step("rejects missing auth", async () => {
+    const ctx = await makeCtx();
     const req = new Request("http://localhost/kv", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "get", key: "k" }),
     });
-    const res = await handleKv(req, { kvStore });
-    expect(res.status).toBe(401);
+    assertEquals((await handleKv(req, ctx)).status, 401);
   });
 
-  it("rejects invalid scope token", async () => {
-    const kvStore = createMemoryKvStore();
-    const req = kvReq("bad-token", { op: "get", key: "k" });
-    const res = await handleKv(req, { kvStore });
-    expect(res.status).toBe(403);
+  await t.step("rejects bad token", async () => {
+    const ctx = await makeCtx();
+    assertEquals(
+      (await handleKv(kvReq("bad", { op: "get", key: "k" }), ctx)).status,
+      403,
+    );
   });
 
-  it("rejects invalid JSON body", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
+  await t.step("rejects bad JSON", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
     const req = new Request("http://localhost/kv", {
       method: "POST",
       headers: {
@@ -49,155 +53,117 @@ describe("handleKv", () => {
       },
       body: "not json",
     });
-    const res = await handleKv(req, { kvStore });
-    expect(res.status).toBe(400);
+    assertEquals((await handleKv(req, ctx)).status, 400);
   });
 
-  it("rejects invalid op", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
-    const req = kvReq(token, { op: "drop_table" });
-    const res = await handleKv(req, { kvStore });
-    expect(res.status).toBe(400);
+  await t.step("rejects invalid op", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
+    assertEquals(
+      (await handleKv(kvReq(token, { op: "drop_table" }), ctx)).status,
+      400,
+    );
   });
 
-  it("set and get round-trip", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
+  await t.step("set and get round-trip", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
 
     const setRes = await handleKv(
       kvReq(token, { op: "set", key: "k1", value: "v1" }),
-      { kvStore },
+      ctx,
     );
-    expect(setRes.status).toBe(200);
-    expect((await setRes.json()).result).toBe("OK");
+    assertEquals(setRes.status, 200);
+    assertEquals((await setRes.json()).result, "OK");
 
     const getRes = await handleKv(
       kvReq(token, { op: "get", key: "k1" }),
-      { kvStore },
+      ctx,
     );
-    expect(getRes.status).toBe(200);
-    expect((await getRes.json()).result).toBe("v1");
+    assertEquals((await getRes.json()).result, "v1");
   });
 
-  it("get returns null for missing key", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
-    const res = await handleKv(
-      kvReq(token, { op: "get", key: "nope" }),
-      { kvStore },
-    );
-    expect(res.status).toBe(200);
-    expect((await res.json()).result).toBeNull();
+  await t.step("get returns null for missing key", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
+    const res = await handleKv(kvReq(token, { op: "get", key: "nope" }), ctx);
+    assertEquals((await res.json()).result, null);
   });
 
-  it("del removes a key", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
-
-    await handleKv(
-      kvReq(token, { op: "set", key: "k1", value: "v1" }),
-      { kvStore },
-    );
-    await handleKv(
-      kvReq(token, { op: "del", key: "k1" }),
-      { kvStore },
-    );
-
-    const res = await handleKv(
-      kvReq(token, { op: "get", key: "k1" }),
-      { kvStore },
-    );
-    expect((await res.json()).result).toBeNull();
+  await t.step("del removes key", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
+    await handleKv(kvReq(token, { op: "set", key: "k1", value: "v1" }), ctx);
+    await handleKv(kvReq(token, { op: "del", key: "k1" }), ctx);
+    const res = await handleKv(kvReq(token, { op: "get", key: "k1" }), ctx);
+    assertEquals((await res.json()).result, null);
   });
 
-  it("keys lists stored keys", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
-
-    await handleKv(
-      kvReq(token, { op: "set", key: "a", value: "1" }),
-      { kvStore },
-    );
-    await handleKv(
-      kvReq(token, { op: "set", key: "b", value: "2" }),
-      { kvStore },
-    );
-
-    const res = await handleKv(
-      kvReq(token, { op: "keys" }),
-      { kvStore },
-    );
-    const body = await res.json();
-    expect(body.result.sort()).toEqual(["a", "b"]);
+  await t.step("keys lists stored keys", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
+    await handleKv(kvReq(token, { op: "set", key: "a", value: "1" }), ctx);
+    await handleKv(kvReq(token, { op: "set", key: "b", value: "2" }), ctx);
+    const body = await (
+      await handleKv(kvReq(token, { op: "keys" }), ctx)
+    ).json();
+    assertEquals(body.result.sort(), ["a", "b"]);
   });
 
-  it("different scope tokens are isolated", async () => {
-    const kvStore = createMemoryKvStore();
-    const scopeOther: KvScope = {
-      ownerHash: "owner1",
-      slug: "ns/agent-b",
-    };
-    const tokenA = await createScopeToken(scope);
-    const tokenB = await createScopeToken(scopeOther);
+  await t.step("scope isolation", async () => {
+    const ctx = await makeCtx();
+    const other: KvScope = { ownerHash: "owner1", slug: "ns/agent-b" };
+    const tokenA = await ctx.tokenSigner.sign(scope);
+    const tokenB = await ctx.tokenSigner.sign(other);
 
     await handleKv(
       kvReq(tokenA, { op: "set", key: "secret", value: "agent-a-data" }),
-      { kvStore },
+      ctx,
     );
 
-    // Agent B cannot read agent A's data
-    const res = await handleKv(
+    const getRes = await handleKv(
       kvReq(tokenB, { op: "get", key: "secret" }),
-      { kvStore },
+      ctx,
     );
-    expect((await res.json()).result).toBeNull();
+    assertEquals((await getRes.json()).result, null);
 
-    // Agent B's keys list is empty
-    const keysRes = await handleKv(
-      kvReq(tokenB, { op: "keys" }),
-      { kvStore },
-    );
-    expect((await keysRes.json()).result).toEqual([]);
+    const keysRes = await handleKv(kvReq(tokenB, { op: "keys" }), ctx);
+    assertEquals((await keysRes.json()).result, []);
   });
 
-  it("set requires key", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
-    const res = await handleKv(
-      kvReq(token, { op: "set", value: "v" }),
-      { kvStore },
+  await t.step("set requires key", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
+    assertEquals(
+      (await handleKv(kvReq(token, { op: "set", value: "v" }), ctx)).status,
+      400,
     );
-    expect(res.status).toBe(400);
   });
 
-  it("set requires value", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
-    const res = await handleKv(
-      kvReq(token, { op: "set", key: "k" }),
-      { kvStore },
+  await t.step("set requires value", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
+    assertEquals(
+      (await handleKv(kvReq(token, { op: "set", key: "k" }), ctx)).status,
+      400,
     );
-    expect(res.status).toBe(400);
   });
 
-  it("get requires key", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
-    const res = await handleKv(
-      kvReq(token, { op: "get" }),
-      { kvStore },
+  await t.step("get requires key", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
+    assertEquals(
+      (await handleKv(kvReq(token, { op: "get" }), ctx)).status,
+      400,
     );
-    expect(res.status).toBe(400);
   });
 
-  it("del requires key", async () => {
-    const kvStore = createMemoryKvStore();
-    const token = await createScopeToken(scope);
-    const res = await handleKv(
-      kvReq(token, { op: "del" }),
-      { kvStore },
+  await t.step("del requires key", async () => {
+    const ctx = await makeCtx();
+    const token = await ctx.tokenSigner.sign(scope);
+    assertEquals(
+      (await handleKv(kvReq(token, { op: "del" }), ctx)).status,
+      400,
     );
-    expect(res.status).toBe(400);
   });
 });

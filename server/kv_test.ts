@@ -1,142 +1,124 @@
-import { expect } from "@std/expect";
-import { describe, it } from "@std/testing/bdd";
-import {
-  createMemoryKvStore,
-  createScopeToken,
-  type KvScope,
-  verifyScopeToken,
-} from "./kv.ts";
+import { assertEquals, assertNotEquals, assertThrows } from "@std/assert";
+import { createMemoryKvStore, type KvScope } from "./kv.ts";
+import { createTokenSigner } from "./kv_token.ts";
 
-// ---------------------------------------------------------------------------
-// Scope tokens
-// ---------------------------------------------------------------------------
-
-describe("createScopeToken / verifyScopeToken", () => {
+Deno.test("TokenSigner", async (t) => {
   const scope: KvScope = { ownerHash: "abc123", slug: "ns/my-agent" };
 
-  it("round-trips a scope through sign and verify", async () => {
-    const token = await createScopeToken(scope);
-    const result = await verifyScopeToken(token);
-    expect(result).toEqual(scope);
+  await t.step("round-trips a scope", async () => {
+    const signer = await createTokenSigner("test-secret");
+    const token = await signer.sign(scope);
+    assertEquals(await signer.verify(token), scope);
   });
 
-  it("rejects a tampered token", async () => {
-    const token = await createScopeToken(scope);
-    // Flip a character in the middle of the token
+  await t.step("rejects tampered token", async () => {
+    const signer = await createTokenSigner("test-secret");
+    const token = await signer.sign(scope);
     const mid = Math.floor(token.length / 2);
     const tampered = token.slice(0, mid) +
       (token[mid] === "A" ? "B" : "A") +
       token.slice(mid + 1);
-    const result = await verifyScopeToken(tampered);
-    expect(result).toBeNull();
+    assertEquals(await signer.verify(tampered), null);
   });
 
-  it("rejects garbage input", async () => {
-    expect(await verifyScopeToken("not-a-token")).toBeNull();
-    expect(await verifyScopeToken("")).toBeNull();
+  await t.step("rejects garbage", async () => {
+    const signer = await createTokenSigner("test-secret");
+    assertEquals(await signer.verify("not-a-token"), null);
+    assertEquals(await signer.verify(""), null);
   });
 
-  it("different scopes produce different tokens", async () => {
+  await t.step("different scopes produce different tokens", async () => {
+    const signer = await createTokenSigner("test-secret");
     const other: KvScope = { ownerHash: "abc123", slug: "ns/other-agent" };
-    const t1 = await createScopeToken(scope);
-    const t2 = await createScopeToken(other);
-    expect(t1).not.toBe(t2);
+    assertNotEquals(await signer.sign(scope), await signer.sign(other));
   });
 
-  it("token for one scope does not verify as another", async () => {
-    const token = await createScopeToken(scope);
-    const result = await verifyScopeToken(token);
-    // It should decode to the original scope, not some other scope
-    expect(result!.slug).toBe("ns/my-agent");
-    expect(result!.ownerHash).toBe("abc123");
+  await t.step("wrong key rejects token", async () => {
+    const signer1 = await createTokenSigner("key-one");
+    const signer2 = await createTokenSigner("key-two");
+    const token = await signer1.sign(scope);
+    assertEquals(await signer2.verify(token), null);
   });
 });
 
-// ---------------------------------------------------------------------------
-// Memory KV store
-// ---------------------------------------------------------------------------
-
-describe("createMemoryKvStore", () => {
+Deno.test("MemoryKvStore", async (t) => {
   const scopeA: KvScope = { ownerHash: "owner1", slug: "ns/agent-a" };
   const scopeB: KvScope = { ownerHash: "owner1", slug: "ns/agent-b" };
   const scopeC: KvScope = { ownerHash: "owner2", slug: "ns/agent-a" };
 
-  it("get returns null for missing key", async () => {
+  await t.step("get returns null for missing key", async () => {
     const kv = createMemoryKvStore();
-    expect(await kv.get(scopeA, "missing")).toBeNull();
+    assertEquals(await kv.get(scopeA, "missing"), null);
   });
 
-  it("set and get round-trip", async () => {
+  await t.step("set then get", async () => {
     const kv = createMemoryKvStore();
     await kv.set(scopeA, "key1", "value1");
-    expect(await kv.get(scopeA, "key1")).toBe("value1");
+    assertEquals(await kv.get(scopeA, "key1"), "value1");
   });
 
-  it("del removes a key", async () => {
+  await t.step("del removes key", async () => {
     const kv = createMemoryKvStore();
     await kv.set(scopeA, "key1", "value1");
     await kv.del(scopeA, "key1");
-    expect(await kv.get(scopeA, "key1")).toBeNull();
+    assertEquals(await kv.get(scopeA, "key1"), null);
   });
 
-  it("keys lists all keys in scope", async () => {
+  await t.step("keys lists all in scope", async () => {
     const kv = createMemoryKvStore();
     await kv.set(scopeA, "a", "1");
     await kv.set(scopeA, "b", "2");
     await kv.set(scopeA, "c", "3");
-    const keys = await kv.keys(scopeA);
-    expect(keys.sort()).toEqual(["a", "b", "c"]);
+    assertEquals((await kv.keys(scopeA)).sort(), ["a", "b", "c"]);
   });
 
-  it("keys with pattern filters", async () => {
+  await t.step("keys filters by pattern", async () => {
     const kv = createMemoryKvStore();
     await kv.set(scopeA, "user:name", "alice");
     await kv.set(scopeA, "user:age", "30");
     await kv.set(scopeA, "pref:color", "blue");
-    const keys = await kv.keys(scopeA, "user:*");
-    expect(keys.sort()).toEqual(["user:age", "user:name"]);
+    assertEquals(
+      (await kv.keys(scopeA, "user:*")).sort(),
+      ["user:age", "user:name"],
+    );
   });
 
-  it("scopes are isolated — different slugs", async () => {
+  await t.step("different slugs are isolated", async () => {
     const kv = createMemoryKvStore();
     await kv.set(scopeA, "key", "from-a");
     await kv.set(scopeB, "key", "from-b");
-    expect(await kv.get(scopeA, "key")).toBe("from-a");
-    expect(await kv.get(scopeB, "key")).toBe("from-b");
+    assertEquals(await kv.get(scopeA, "key"), "from-a");
+    assertEquals(await kv.get(scopeB, "key"), "from-b");
   });
 
-  it("scopes are isolated — different owners", async () => {
+  await t.step("different owners are isolated", async () => {
     const kv = createMemoryKvStore();
     await kv.set(scopeA, "key", "owner1");
     await kv.set(scopeC, "key", "owner2");
-    expect(await kv.get(scopeA, "key")).toBe("owner1");
-    expect(await kv.get(scopeC, "key")).toBe("owner2");
+    assertEquals(await kv.get(scopeA, "key"), "owner1");
+    assertEquals(await kv.get(scopeC, "key"), "owner2");
   });
 
-  it("keys only returns keys for the given scope", async () => {
+  await t.step("keys only returns keys for given scope", async () => {
     const kv = createMemoryKvStore();
     await kv.set(scopeA, "a-key", "1");
     await kv.set(scopeB, "b-key", "2");
-    expect(await kv.keys(scopeA)).toEqual(["a-key"]);
-    expect(await kv.keys(scopeB)).toEqual(["b-key"]);
+    assertEquals(await kv.keys(scopeA), ["a-key"]);
+    assertEquals(await kv.keys(scopeB), ["b-key"]);
   });
 
-  it("rejects values exceeding max size", async () => {
+  await t.step("rejects oversized values", () => {
     const kv = createMemoryKvStore();
-    const big = "x".repeat(65_537);
-    try {
-      await kv.set(scopeA, "big", big);
-      throw new Error("should have thrown");
-    } catch (err: unknown) {
-      expect((err as Error).message).toMatch(/max size/);
-    }
+    assertThrows(
+      () => kv.set(scopeA, "big", "x".repeat(65_537)),
+      Error,
+      "max size",
+    );
   });
 
-  it("TTL expires entries", async () => {
+  await t.step("TTL=0 does not expire", async () => {
     const kv = createMemoryKvStore();
-    // Set with 0-second TTL (expires immediately in next cleanup)
-    await kv.set(scopeA, "ephemeral", "gone", 0);
-    // TTL=0 means no expiry per the implementation (ttl > 0 check)
-    expect(await kv.get(scopeA, "ephemeral")).toBe("gone");
+    await kv.set(scopeA, "ephemeral", "still-here", 0);
+    assertEquals(await kv.get(scopeA, "ephemeral"), "still-here");
   });
 });

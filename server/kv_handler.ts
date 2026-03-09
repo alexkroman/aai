@@ -1,18 +1,22 @@
 import { z } from "zod";
 import type { KvStore } from "./kv.ts";
-import { verifyScopeToken } from "./kv.ts";
+import type { TokenSigner } from "./kv_token.ts";
 
-const KvRequestSchema = z.object({
-  op: z.enum(["get", "set", "del", "keys"]),
-  key: z.string().optional(),
-  value: z.string().optional(),
-  ttl: z.number().optional(),
-  pattern: z.string().optional(),
-});
+const KvRequestSchema = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("get"), key: z.string() }),
+  z.object({
+    op: z.literal("set"),
+    key: z.string(),
+    value: z.string(),
+    ttl: z.number().optional(),
+  }),
+  z.object({ op: z.literal("del"), key: z.string() }),
+  z.object({ op: z.literal("keys"), pattern: z.string().optional() }),
+]);
 
 export async function handleKv(
   req: Request,
-  ctx: { kvStore: KvStore },
+  ctx: { kvStore: KvStore; tokenSigner: TokenSigner },
 ): Promise<Response> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -22,8 +26,7 @@ export async function handleKv(
     );
   }
 
-  const scopeToken = authHeader.slice("Bearer ".length);
-  const scope = await verifyScopeToken(scopeToken);
+  const scope = await ctx.tokenSigner.verify(authHeader.slice(7));
   if (!scope) {
     return Response.json(
       { error: "Invalid or tampered scope token" },
@@ -41,60 +44,36 @@ export async function handleKv(
   const parsed = KvRequestSchema.safeParse(json);
   if (!parsed.success) {
     return Response.json(
-      { error: `Invalid KV request: ${parsed.error.message}` },
+      { error: `Invalid request: ${parsed.error.message}` },
       { status: 400 },
     );
   }
 
-  const { op, key, value, ttl, pattern } = parsed.data;
+  const msg = parsed.data;
 
   try {
-    switch (op) {
+    switch (msg.op) {
       case "get": {
-        if (!key) {
-          return Response.json(
-            { error: "Missing key for get operation" },
-            { status: 400 },
-          );
-        }
-        const result = await ctx.kvStore.get(scope, key);
+        const result = await ctx.kvStore.get(scope, msg.key);
         return Response.json({ result });
       }
       case "set": {
-        if (!key) {
-          return Response.json(
-            { error: "Missing key for set operation" },
-            { status: 400 },
-          );
-        }
-        if (value === undefined) {
-          return Response.json(
-            { error: "Missing value for set operation" },
-            { status: 400 },
-          );
-        }
-        await ctx.kvStore.set(scope, key, value, ttl);
+        await ctx.kvStore.set(scope, msg.key, msg.value, msg.ttl);
         return Response.json({ result: "OK" });
       }
       case "del": {
-        if (!key) {
-          return Response.json(
-            { error: "Missing key for del operation" },
-            { status: 400 },
-          );
-        }
-        await ctx.kvStore.del(scope, key);
+        await ctx.kvStore.del(scope, msg.key);
         return Response.json({ result: "OK" });
       }
       case "keys": {
-        const result = await ctx.kvStore.keys(scope, pattern);
+        const result = await ctx.kvStore.keys(scope, msg.pattern);
         return Response.json({ result });
       }
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("KV operation failed", {
-      op,
+      op: msg.op,
       slug: scope.slug,
       error: message,
     });

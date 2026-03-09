@@ -17,6 +17,7 @@ import type { ServerContext } from "./types.ts";
 import { handleDevWebSocket } from "./dev_session.ts";
 import { handleKv } from "./kv_handler.ts";
 import { createMemoryKvStore, type KvStore } from "./kv.ts";
+import { createTokenSigner, type TokenSigner } from "./kv_token.ts";
 
 type Params = Record<string, string>;
 
@@ -52,17 +53,22 @@ function withCors(
   };
 }
 
-export function createOrchestrator(opts: {
+export async function createOrchestrator(opts: {
   store: BundleStore;
   kvStore?: KvStore;
-}): { handler: Deno.ServeHandler } {
+  tokenSigner?: TokenSigner;
+}): Promise<{ handler: Deno.ServeHandler; tokenSigner: TokenSigner }> {
   const { store } = opts;
 
   const kvStore = opts.kvStore ?? createMemoryKvStore();
+  const tokenSigner = opts.tokenSigner ??
+    await createTokenSigner(
+      Deno.env.get("UPSTASH_REDIS_REST_TOKEN") ?? "dev-kv-signing-key",
+    );
 
   const slots = new Map<string, AgentSlot>();
   const sessions = new Map<string, Session>();
-  const ctx: ServerContext = { slots, sessions, store };
+  const ctx: ServerContext = { slots, sessions, store, tokenSigner };
 
   const routes: Route[] = [
     {
@@ -97,14 +103,14 @@ export function createOrchestrator(opts: {
     {
       pattern: new URLPattern({ pathname: "/kv" }),
       method: ["POST"],
-      handler: (req) => handleKv(req, { kvStore }),
+      handler: (req) => handleKv(req, { kvStore, tokenSigner }),
     },
 
     {
       pattern: new URLPattern({ pathname: "/:namespace/:slug/deploy" }),
       method: ["POST"],
       handler: (req, match) =>
-        handleDeploy(req, groups(match), { slots, store }),
+        handleDeploy(req, groups(match), { slots, store, tokenSigner }),
     },
 
     {
@@ -168,5 +174,5 @@ export function createOrchestrator(opts: {
     route(routes, () => Response.json({ error: "Not found" }, { status: 404 })),
   );
 
-  return { handler };
+  return { handler, tokenSigner };
 }

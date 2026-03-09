@@ -6,7 +6,6 @@ import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { ServerContext } from "./types.ts";
 import { getServerBaseUrl, hashApiKey } from "./deploy.ts";
-import { createScopeToken } from "./kv.ts";
 
 export function handleDevWebSocket(
   req: Request,
@@ -112,7 +111,7 @@ async function registerDevAgent(
     existing.worker.handle.terminate();
   }
 
-  const kvToken = await createScopeToken({ ownerHash, slug });
+  const kvToken = await ctx.tokenSigner.sign({ ownerHash, slug });
   const envWithKv = {
     ...msg.env,
     AAI_KV_URL: `${baseUrl}/kv`,

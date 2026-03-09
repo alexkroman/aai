@@ -1,6 +1,6 @@
 {
   "name": "@aai/sdk",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
@@ -8,6 +8,7 @@
     "./define-agent": "./define_agent.ts",
     "./fetch-json": "./fetch_json.ts",
     "./kv": "./kv.ts",
+    "./kv-tools": "./kv_tools.ts",
     "./multi-tool": "./multi_tool.ts"
   },
   "imports": {

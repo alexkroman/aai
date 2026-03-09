@@ -3,7 +3,7 @@ import { loadPlatformConfig } from "./config.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { DeployBodySchema, normalizeTransport } from "@aai/sdk/schema";
-import { createScopeToken } from "./kv.ts";
+import type { TokenSigner } from "./kv_token.ts";
 
 export function getServerBaseUrl(req: Request): string {
   const flyApp = Deno.env.get("FLY_APP_NAME");
@@ -21,7 +21,11 @@ export async function hashApiKey(apiKey: string): Promise<string> {
 export async function handleDeploy(
   req: Request,
   params: Record<string, string>,
-  ctx: { slots: Map<string, AgentSlot>; store: BundleStore },
+  ctx: {
+    slots: Map<string, AgentSlot>;
+    store: BundleStore;
+    tokenSigner: TokenSigner;
+  },
 ): Promise<Response> {
   const { slots, store } = ctx;
   const namespace = params.namespace;
@@ -90,7 +94,7 @@ export async function handleDeploy(
   const transport = normalizeTransport(body.transport);
 
   const baseUrl = getServerBaseUrl(req);
-  const kvToken = await createScopeToken({
+  const kvToken = await ctx.tokenSigner.sign({
     ownerHash,
     slug: compositeSlug,
   });
