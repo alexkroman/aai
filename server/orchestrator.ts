@@ -17,7 +17,7 @@ import type { ServerContext } from "./types.ts";
 import { handleDevWebSocket } from "./dev_session.ts";
 import { handleKv } from "./kv_handler.ts";
 import { createMemoryKvStore, type KvStore } from "./kv.ts";
-import { createTokenSigner, type TokenSigner } from "./kv_token.ts";
+import { createTokenSigner, type TokenSigner } from "./scope_token.ts";
 
 type Params = Record<string, string>;
 

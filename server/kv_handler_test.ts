@@ -1,9 +1,10 @@
 import { assertEquals } from "@std/assert";
 import { handleKv } from "./kv_handler.ts";
-import { createMemoryKvStore, type KvScope } from "./kv.ts";
-import { createTokenSigner } from "./kv_token.ts";
+import { createMemoryKvStore } from "./kv.ts";
+import type { AgentScope } from "./scope_token.ts";
+import { createTokenSigner } from "./scope_token.ts";
 
-const scope: KvScope = { ownerHash: "owner1", slug: "ns/agent-a" };
+const scope: AgentScope = { ownerHash: "owner1", slug: "ns/agent-a" };
 
 async function makeCtx() {
   return {
@@ -112,7 +113,7 @@ Deno.test("handleKv", async (t) => {
 
   await t.step("scope isolation", async () => {
     const ctx = await makeCtx();
-    const other: KvScope = { ownerHash: "owner1", slug: "ns/agent-b" };
+    const other: AgentScope = { ownerHash: "owner1", slug: "ns/agent-b" };
     const tokenA = await ctx.tokenSigner.sign(scope);
     const tokenB = await ctx.tokenSigner.sign(other);
 

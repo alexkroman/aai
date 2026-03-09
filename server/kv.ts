@@ -1,29 +1,25 @@
 import { Redis } from "@upstash/redis";
+import type { AgentScope } from "./scope_token.ts";
 
 const MAX_VALUE_SIZE = 65_536;
 
-export type KvScope = {
-  ownerHash: string;
-  slug: string;
-};
-
 export type KvStore = {
-  get(scope: KvScope, key: string): Promise<string | null>;
+  get(scope: AgentScope, key: string): Promise<string | null>;
   set(
-    scope: KvScope,
+    scope: AgentScope,
     key: string,
     value: string,
     ttl?: number,
   ): Promise<void>;
-  del(scope: KvScope, key: string): Promise<void>;
-  keys(scope: KvScope, pattern?: string): Promise<string[]>;
+  del(scope: AgentScope, key: string): Promise<void>;
+  keys(scope: AgentScope, pattern?: string): Promise<string[]>;
 };
 
-function scopedKey(scope: KvScope, key: string): string {
+function scopedKey(scope: AgentScope, key: string): string {
   return `kv:${scope.ownerHash}:${scope.slug}:${key}`;
 }
 
-function scopePrefix(scope: KvScope): string {
+function scopePrefix(scope: AgentScope): string {
   return `kv:${scope.ownerHash}:${scope.slug}:`;
 }
 

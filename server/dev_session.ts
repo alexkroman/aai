@@ -115,7 +115,7 @@ async function registerDevAgent(
   const envWithKv = {
     ...msg.env,
     AAI_KV_URL: `${baseUrl}/kv`,
-    AAI_KV_TOKEN: kvToken,
+    AAI_SCOPE_TOKEN: kvToken,
   };
 
   const slot: AgentSlot = {

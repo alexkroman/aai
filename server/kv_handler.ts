@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { KvStore } from "./kv.ts";
-import type { TokenSigner } from "./kv_token.ts";
+import type { TokenSigner } from "./scope_token.ts";
 
 const KvRequestSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("get"), key: z.string() }),

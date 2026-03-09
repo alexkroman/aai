@@ -1,9 +1,10 @@
 import { assertEquals, assertNotEquals, assertThrows } from "@std/assert";
-import { createMemoryKvStore, type KvScope } from "./kv.ts";
-import { createTokenSigner } from "./kv_token.ts";
+import { createMemoryKvStore } from "./kv.ts";
+import type { AgentScope } from "./scope_token.ts";
+import { createTokenSigner } from "./scope_token.ts";
 
 Deno.test("TokenSigner", async (t) => {
-  const scope: KvScope = { ownerHash: "abc123", slug: "ns/my-agent" };
+  const scope: AgentScope = { ownerHash: "abc123", slug: "ns/my-agent" };
 
   await t.step("round-trips a scope", async () => {
     const signer = await createTokenSigner("test-secret");
@@ -29,7 +30,7 @@ Deno.test("TokenSigner", async (t) => {
 
   await t.step("different scopes produce different tokens", async () => {
     const signer = await createTokenSigner("test-secret");
-    const other: KvScope = { ownerHash: "abc123", slug: "ns/other-agent" };
+    const other: AgentScope = { ownerHash: "abc123", slug: "ns/other-agent" };
     assertNotEquals(await signer.sign(scope), await signer.sign(other));
   });
 
@@ -42,9 +43,9 @@ Deno.test("TokenSigner", async (t) => {
 });
 
 Deno.test("MemoryKvStore", async (t) => {
-  const scopeA: KvScope = { ownerHash: "owner1", slug: "ns/agent-a" };
-  const scopeB: KvScope = { ownerHash: "owner1", slug: "ns/agent-b" };
-  const scopeC: KvScope = { ownerHash: "owner2", slug: "ns/agent-a" };
+  const scopeA: AgentScope = { ownerHash: "owner1", slug: "ns/agent-a" };
+  const scopeB: AgentScope = { ownerHash: "owner1", slug: "ns/agent-b" };
+  const scopeC: AgentScope = { ownerHash: "owner2", slug: "ns/agent-a" };
 
   await t.step("get returns null for missing key", async () => {
     const kv = createMemoryKvStore();

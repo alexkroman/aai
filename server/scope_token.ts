@@ -1,9 +1,13 @@
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import type { KvScope } from "./kv.ts";
+
+export type AgentScope = {
+  ownerHash: string;
+  slug: string;
+};
 
 export type TokenSigner = {
-  sign(scope: KvScope): Promise<string>;
-  verify(token: string): Promise<KvScope | null>;
+  sign(scope: AgentScope): Promise<string>;
+  verify(token: string): Promise<AgentScope | null>;
 };
 
 export async function createTokenSigner(secret: string): Promise<TokenSigner> {

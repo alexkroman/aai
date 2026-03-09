@@ -9,7 +9,7 @@ export function createKv(
   ctx: { env: Record<string, string> },
 ): KvClient {
   const kvUrl = ctx.env.AAI_KV_URL;
-  const kvToken = ctx.env.AAI_KV_TOKEN;
+  const kvToken = ctx.env.AAI_SCOPE_TOKEN;
 
   if (!kvUrl || !kvToken) {
     throw new Error(

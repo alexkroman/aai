@@ -3,7 +3,7 @@ import { loadPlatformConfig } from "./config.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { DeployBodySchema, normalizeTransport } from "@aai/sdk/schema";
-import type { TokenSigner } from "./kv_token.ts";
+import type { TokenSigner } from "./scope_token.ts";
 
 export function getServerBaseUrl(req: Request): string {
   const flyApp = Deno.env.get("FLY_APP_NAME");
@@ -101,7 +101,7 @@ export async function handleDeploy(
   const envWithKv = {
     ...body.env,
     AAI_KV_URL: `${baseUrl}/kv`,
-    AAI_KV_TOKEN: kvToken,
+    AAI_SCOPE_TOKEN: kvToken,
   };
 
   await store.putAgent({

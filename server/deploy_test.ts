@@ -2,7 +2,7 @@ import { assertEquals, assertMatch, assertNotEquals } from "@std/assert";
 import { handleDeploy, hashApiKey } from "./deploy.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import { createTestStore, VALID_ENV } from "./_test_utils.ts";
-import { createTokenSigner } from "./kv_token.ts";
+import { createTokenSigner } from "./scope_token.ts";
 
 async function setup() {
   const store = createTestStore();
