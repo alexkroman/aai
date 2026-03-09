@@ -189,10 +189,15 @@ ${bold("OPTIONS:")}
 
   const cleanup = () => {
     ac.abort();
-    watcher.close();
+    try {
+      watcher.close();
+    } catch { /* already closed */ }
     localWorker.terminate();
-    controlWs.close();
+    try {
+      controlWs.close();
+    } catch { /* already closed */ }
     proxyServer.shutdown();
+    Deno.exit(0);
   };
 
   Deno.addSignalListener("SIGINT", cleanup);
