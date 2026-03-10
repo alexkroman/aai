@@ -115,6 +115,7 @@ requests through RPC to the host process. The host handler
 (SSRF protection) before executing the real fetch.
 
 **RPC architecture**: `core/_rpc.ts` provides three primitives:
+
 - `serveRpc` — unidirectional: only handles incoming requests
 - `createRpcCaller` — unidirectional: only makes outgoing calls
 - `createRpcEndpoint` — **bidirectional**: serves incoming requests AND makes

@@ -6,7 +6,7 @@ import {
   startWorker,
   TOOL_HANDLER_TIMEOUT,
 } from "./_worker_entry.ts";
-import { type MessageTarget, serveRpc } from "./_rpc.ts";
+import type { MessageTarget } from "./_rpc.ts";
 import type { ToolDef } from "@aai/sdk/types";
 
 function makeTool(
@@ -365,7 +365,7 @@ Deno.test("fetch proxy via RPC", async (t) => {
 
       // Set up host side with fetch handler
       const api = createWorkerApi(hostPort, {
-        async fetch(req) {
+        fetch(req) {
           // Simulate the host fetch handler
           return {
             status: 200,
@@ -414,7 +414,7 @@ Deno.test("fetch proxy via RPC", async (t) => {
                   "https://example.com",
                 );
                 capturedStatus = resp.status;
-                capturedHeaders = resp.headers.get("x-custom");
+                capturedHeaders = resp.headers.get("x-custom") ?? undefined;
                 return `${resp.status} ${resp.statusText}`;
               },
             },
@@ -425,7 +425,7 @@ Deno.test("fetch proxy via RPC", async (t) => {
       );
 
       const api = createWorkerApi(hostPort, {
-        async fetch() {
+        fetch() {
           return {
             status: 201,
             statusText: "Created",
@@ -476,7 +476,9 @@ Deno.test("fetch proxy via RPC", async (t) => {
 
       const api = createWorkerApi(hostPort, {
         fetch() {
-          throw new Error("Blocked request to private address: 169.254.169.254");
+          throw new Error(
+            "Blocked request to private address: 169.254.169.254",
+          );
         },
       });
 
@@ -525,7 +527,7 @@ Deno.test("fetch proxy via RPC", async (t) => {
       );
 
       const api = createWorkerApi(hostPort, {
-        async fetch(req) {
+        fetch(req) {
           capturedMethod = req.method;
           capturedHeaders = req.headers;
           capturedBody = req.body;

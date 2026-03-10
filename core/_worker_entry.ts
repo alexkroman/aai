@@ -233,7 +233,12 @@ function installFetchProxy(call: RpcCall): void {
       "fetch",
       { url, method, headers, body },
       FETCH_TIMEOUT_MS,
-    )) as { status: number; statusText: string; headers: Record<string, string>; body: string };
+    )) as {
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      body: string;
+    };
 
     return new Response(result.body, {
       status: result.status,
