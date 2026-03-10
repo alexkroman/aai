@@ -31,6 +31,7 @@ function ctx(overrides?: {
 
 function run(c: ReturnType<typeof ctx>, text: string, signal?: AbortSignal) {
   return executeTurn(text, {
+    agent: "test/agent",
     messages: c.messages,
     toolSchemas: c.toolSchemas,
     callLLM: c.callLLM,

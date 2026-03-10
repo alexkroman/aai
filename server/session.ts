@@ -9,6 +9,7 @@ import type { ChatMessage, LLMResponse, STTConfig } from "./types.ts";
 import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
 import type { WorkerApi } from "@aai/core/worker-entry";
 import { buildSystemPrompt } from "./system_prompt.ts";
+import * as metrics from "./metrics.ts";
 
 export type SessionTransport = {
   send(data: string | ArrayBuffer | Uint8Array): void;
@@ -43,6 +44,7 @@ export const _internals = {
 
 export type SessionOptions = {
   id: string;
+  agent: string;
   transport: SessionTransport;
   agentConfig: AgentConfig;
   toolSchemas: ToolSchema[];
@@ -67,12 +69,14 @@ export type Session = {
 export function createSession(opts: SessionOptions): Session {
   const {
     id,
+    agent,
     transport: ws,
     toolSchemas,
     platformConfig,
     executeTool,
     getWorkerApi,
   } = opts;
+  const agentLabel = { agent };
 
   const slotEnv = opts.env as Record<string, string> | undefined;
   let cachedWorkerApi: WorkerApi | undefined;
@@ -217,6 +221,8 @@ export function createSession(opts: SessionOptions): Session {
 
   async function handleTurn(text: string, turnOrder?: number): Promise<void> {
     cancelInflight();
+    metrics.turnsTotal.inc(agentLabel);
+    const turnStart = performance.now();
 
     trySendJson({
       type: "turn",
@@ -231,6 +237,7 @@ export function createSession(opts: SessionOptions): Session {
 
     try {
       const result = await executeTurn(text, {
+        agent,
         messages,
         toolSchemas,
         callLLM: boundCallLLM,
@@ -254,9 +261,14 @@ export function createSession(opts: SessionOptions): Session {
       if (abort.signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Turn failed:", msg);
+      metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
       trySendJson({ type: "error", message: msg });
     } finally {
       if (turnAbort === abort) turnAbort = null;
+      metrics.turnDuration.observe(
+        (performance.now() - turnStart) / 1000,
+        agentLabel,
+      );
     }
   }
 
@@ -283,6 +295,9 @@ export function createSession(opts: SessionOptions): Session {
 
   return {
     async start(): Promise<void> {
+      metrics.sessionsTotal.inc(agentLabel);
+      metrics.sessionsActive.inc(agentLabel);
+
       if (agentConfig.greeting) pendingGreeting = agentConfig.greeting;
 
       invokeHook("onConnect");
@@ -298,6 +313,7 @@ export function createSession(opts: SessionOptions): Session {
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;
+      metrics.sessionsActive.dec(agentLabel);
       const pending = turnPromise;
       cancelInflight();
       if (pending) await pending;

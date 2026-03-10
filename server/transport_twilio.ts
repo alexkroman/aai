@@ -166,6 +166,7 @@ export function handleTwilioStream(
 
   const session = createSession({
     id: `twilio-${crypto.randomUUID().slice(0, 8)}`,
+    agent: slug,
     transport,
     agentConfig: config,
     toolSchemas,

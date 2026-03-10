@@ -104,6 +104,7 @@ export async function handleWebSocket(
     createSession: (sessionId, ws) =>
       createSession({
         id: sessionId,
+        agent: slug,
         transport: ws,
         agentConfig: config,
         toolSchemas,

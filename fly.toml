@@ -23,6 +23,10 @@ primary_region = 'sjc'
 [deploy]
   strategy = "rolling"
 
+[metrics]
+  port = 8080
+  path = "/metrics"
+
 kill_signal = "SIGTERM"
 kill_timeout = "10s"
 

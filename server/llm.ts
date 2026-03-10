@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { ChatMessage, LLMResponse } from "./types.ts";
 import type { ToolSchema } from "@aai/sdk/types";
+import * as metrics from "./metrics.ts";
 
 export const _internals = {
   createClient: (apiKey: string, baseURL: string) =>
@@ -96,6 +97,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
     toolNames: opts.tools.map((t) => t.name),
   });
 
+  const llmStart = performance.now();
   try {
     // deno-lint-ignore no-explicit-any
     const params: any = {
@@ -130,6 +132,8 @@ export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
         : typeof choice?.message?.content,
     });
 
+    metrics.llmDuration.observe((performance.now() - llmStart) / 1000);
+
     return {
       id: resp.id,
       choices: (resp.choices ?? []).map((c) => ({
@@ -154,6 +158,8 @@ export async function callLLM(opts: CallLLMOptions): Promise<LLMResponse> {
       })),
     };
   } catch (err: unknown) {
+    metrics.llmDuration.observe((performance.now() - llmStart) / 1000);
+    metrics.errorsTotal.inc({ component: "llm" });
     const msg = err instanceof Error ? err.message : String(err);
     console.error("LLM request failed", {
       error: msg,
