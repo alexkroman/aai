@@ -27,7 +27,7 @@ export const DEFAULT_STT_CONFIG: STTConfig = {
   formatTurns: true,
   minEndOfTurnSilenceWhenConfident: 400,
   maxTurnSilence: 1000,
-  vadThreshold: 0.6,
+  vadThreshold: 0.7,
 };
 
 export type TTSConfig = {
