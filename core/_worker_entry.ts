@@ -43,12 +43,16 @@ export async function executeToolCall(
   try {
     const signal = AbortSignal.timeout(TOOL_HANDLER_TIMEOUT);
     const envCopy = { ...env };
+    let _kv: Kv | undefined = kv;
     const ctx: ToolContext = {
       sessionId: sessionId ?? "",
       env: envCopy,
       signal,
       state: (state ?? {}) as Record<string, unknown>,
-      kv: kv ?? createKv({ env: envCopy }),
+      get kv(): Kv {
+        _kv ??= createKv({ env: envCopy });
+        return _kv;
+      },
     };
     const result = await Promise.resolve(
       tool.execute(parsed.data, ctx),
@@ -112,14 +116,11 @@ export function startWorker(
   const toolHandlers = new Map(Object.entries(agent.tools));
   const sessions = new Map<string, unknown>();
   let mergedEnv = { ...env };
-  let sharedKv: Kv = createKv({ env: mergedEnv });
-
   function applyEnv(extra?: Record<string, string>): void {
     if (!extra) return;
     const updated = { ...mergedEnv, ...extra };
     if (JSON.stringify(updated) !== JSON.stringify(mergedEnv)) {
       mergedEnv = updated;
-      sharedKv = createKv({ env: mergedEnv });
     }
   }
 
@@ -144,7 +145,6 @@ export function startWorker(
         mergedEnv,
         req.sessionId,
         getState(req.sessionId ?? ""),
-        sharedKv,
       );
     },
 
@@ -155,7 +155,9 @@ export function startWorker(
         sessionId: req.sessionId,
         env: { ...mergedEnv },
         state: state as Record<string, unknown>,
-        kv: sharedKv,
+        get kv() {
+          return createKv({ env: mergedEnv });
+        },
       };
       if (req.hook === "onConnect") {
         await agent.onConnect?.(ctx);

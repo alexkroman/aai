@@ -92,7 +92,9 @@ export function createKv(
   const kvToken = ctx.env.AAI_SCOPE_TOKEN;
 
   if (!kvUrl || !kvToken) {
-    return createMemoryKv();
+    throw new Error(
+      "KV not configured: AAI_KV_URL and AAI_SCOPE_TOKEN must be set in env",
+    );
   }
 
   async function kvFetch(body: Record<string, unknown>): Promise<unknown> {
