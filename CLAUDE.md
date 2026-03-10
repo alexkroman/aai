@@ -68,7 +68,7 @@ never on each other.
 
 #### server/
 
-- `orchestrator.ts` — Hono app: deploy, health, WebSocket, Twilio, landing
+- `orchestrator.ts` — deploy, health, WebSocket, Twilio, landing
   page routes
 - `session.ts` — per-connection session: wires STT → turn handler → TTS,
   manages interruptions
@@ -130,7 +130,7 @@ types are defined in `core/_rpc_schema.ts`.
 ## Conventions
 
 - **Runtime**: Deno (not Node). Use `@std/*` for standard library.
-- **Frameworks**: Hono (server), Preact (client UI)
+- **Frameworks**: Preact (client UI)
 - **Testing**: `@std/testing/bdd` (`describe`/`it`) + `@std/expect`. Test files
   are co-located: `foo.ts` → `foo_test.ts`
 - **Browser behavior**: CLI opens the browser only when scaffolding a new agent,

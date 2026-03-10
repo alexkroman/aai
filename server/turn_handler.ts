@@ -1,6 +1,7 @@
 import { FINAL_ANSWER_TOOL, USER_INPUT_TOOL } from "./builtin_tools.ts";
 import type { ChatMessage, LLMResponse } from "./types.ts";
 import type { ToolSchema } from "@aai/sdk/types";
+import * as metrics from "./metrics.ts";
 
 const MAX_TOOL_ITERATIONS = 5;
 
@@ -31,6 +32,7 @@ export type TurnCallLLMOptions = {
 };
 
 export type ExecuteTurnOptions = {
+  agent: string;
   messages: ChatMessage[];
   toolSchemas: ToolSchema[];
   callLLM: (opts: TurnCallLLMOptions) => Promise<LLMResponse>;
@@ -43,6 +45,7 @@ export async function executeTurn(
   opts: ExecuteTurnOptions,
 ): Promise<string> {
   const {
+    agent,
     messages,
     toolSchemas,
     callLLM,
@@ -147,7 +150,12 @@ export async function executeTurn(
             return `Error: Invalid JSON arguments for tool "${tc.function.name}"`;
           }
           console.debug("tool call", { tool: tc.function.name, args });
+          const toolStart = performance.now();
           const result = await executeTool(tc.function.name, args);
+          metrics.toolDuration.observe(
+            (performance.now() - toolStart) / 1000,
+            { agent, tool: tc.function.name },
+          );
           console.debug("tool result", {
             tool: tc.function.name,
             resultLength: result.length,

@@ -88,6 +88,7 @@ function createMockSessionOptions() {
 
   const opts: SessionOptions = {
     id: "test-session-id",
+    agent: "test/agent",
     transport: createMockTransport(),
     agentConfig: {
       instructions: "Test instructions",

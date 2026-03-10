@@ -48,4 +48,45 @@ Deno.test("createOrchestrator", async (t) => {
     );
     assertEquals(res.status, 200);
   });
+
+  await t.step("serves /metrics in Prometheus text format", async () => {
+    using store = createTestStore();
+    const tokenSigner = await createTestTokenSigner();
+    const { handler } = await createOrchestrator({ store, tokenSigner });
+    const res = await handler(
+      new Request("http://localhost/metrics"),
+      DUMMY_INFO,
+    );
+    assertEquals(res.status, 200);
+    assertEquals(
+      res.headers.get("Content-Type"),
+      "text/plain; version=0.0.4",
+    );
+    const body = await res.text();
+    assertStringIncludes(body, "aai_sessions_total");
+    assertStringIncludes(body, "# TYPE");
+  });
+
+  await t.step(
+    "serves per-agent /metrics with agent label stripped",
+    async () => {
+      using store = createTestStore();
+      const tokenSigner = await createTestTokenSigner();
+      const { handler } = await createOrchestrator({ store, tokenSigner });
+      const res = await handler(
+        new Request("http://localhost/test-ns/test-agent/metrics"),
+        DUMMY_INFO,
+      );
+      assertEquals(res.status, 200);
+      assertEquals(
+        res.headers.get("Content-Type"),
+        "text/plain; version=0.0.4",
+      );
+      const body = await res.text();
+      assertStringIncludes(body, "aai_sessions_total");
+      assertStringIncludes(body, "aai_tool_duration_seconds");
+      // Global metrics should not appear
+      assertEquals(body.includes("aai_llm_duration_seconds"), false);
+    },
+  );
 });
