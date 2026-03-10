@@ -176,6 +176,28 @@ export function startWorker(
 
 const FETCH_TIMEOUT_MS = 30_000;
 
+/** Serialize a BodyInit value to a string suitable for RPC transport. */
+async function serializeBody(body: BodyInit | null): Promise<string | null> {
+  if (body == null) return null;
+  if (typeof body === "string") return body;
+  if (body instanceof URLSearchParams) return body.toString();
+  if (body instanceof ArrayBuffer) {
+    return new TextDecoder().decode(body);
+  }
+  if (body instanceof Blob) {
+    return await body.text();
+  }
+  if (body instanceof ReadableStream) {
+    return await new Response(body).text();
+  }
+  if (body instanceof FormData) {
+    // FormData can't be cleanly serialized to a string; convert to URL-encoded
+    return new URLSearchParams(body as unknown as Record<string, string>)
+      .toString();
+  }
+  return String(body);
+}
+
 /** Replace globalThis.fetch with an RPC-backed proxy to the host process. */
 function installFetchProxy(call: RpcCall): void {
   globalThis.fetch = async (
@@ -194,7 +216,7 @@ function installFetchProxy(call: RpcCall): void {
         new Headers(init?.headers ?? input.headers).entries(),
       );
       body = init?.body != null
-        ? String(init.body)
+        ? await serializeBody(init.body)
         : input.body != null
         ? await input.text()
         : null;
@@ -204,7 +226,7 @@ function installFetchProxy(call: RpcCall): void {
       headers = Object.fromEntries(
         new Headers(init?.headers).entries(),
       );
-      body = init?.body != null ? String(init.body) : null;
+      body = init?.body != null ? await serializeBody(init.body) : null;
     }
 
     const result = (await call(

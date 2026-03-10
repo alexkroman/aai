@@ -1,11 +1,12 @@
 import { expect } from "@std/expect";
 import { z } from "zod";
 import {
+  createWorkerApi,
   executeToolCall,
   startWorker,
   TOOL_HANDLER_TIMEOUT,
 } from "./_worker_entry.ts";
-import type { MessageTarget } from "./_rpc.ts";
+import { type MessageTarget, serveRpc } from "./_rpc.ts";
 import type { ToolDef } from "@aai/sdk/types";
 
 function makeTool(
@@ -293,4 +294,332 @@ Deno.test("startWorker", async (t) => {
     // Both should have count: 0 because state was re-created
     expect(states).toEqual([{ count: 0 }, { count: 0 }]);
   });
+});
+
+Deno.test("fetch proxy via RPC", async (t) => {
+  /**
+   * Creates a linked pair of mock ports that forward messages to each other,
+   * simulating a MessageChannel for unit tests.
+   */
+  function createLinkedPorts(): [
+    MessageTarget & { sent: unknown[] },
+    MessageTarget & { sent: unknown[] },
+  ] {
+    const portA: MessageTarget & { sent: unknown[] } = {
+      onmessage: null,
+      sent: [],
+      postMessage(message: unknown) {
+        this.sent.push(message);
+        // Forward to portB's onmessage
+        queueMicrotask(() =>
+          portB.onmessage?.({ data: message } as MessageEvent)
+        );
+      },
+    };
+    const portB: MessageTarget & { sent: unknown[] } = {
+      onmessage: null,
+      sent: [],
+      postMessage(message: unknown) {
+        this.sent.push(message);
+        // Forward to portA's onmessage
+        queueMicrotask(() =>
+          portA.onmessage?.({ data: message } as MessageEvent)
+        );
+      },
+    };
+    return [portA, portB];
+  }
+
+  await t.step(
+    "worker fetch proxies through host via RPC",
+    async () => {
+      const [workerPort, hostPort] = createLinkedPorts();
+
+      // Set up worker side (startWorker installs fetch proxy)
+      let capturedFetch: typeof globalThis.fetch | undefined;
+      startWorker(
+        {
+          name: "Test",
+          env: [],
+          transport: ["websocket"],
+          instructions: "",
+          greeting: "",
+          voice: "luna",
+          tools: {
+            do_fetch: {
+              description: "fetch something",
+              execute: async () => {
+                // Capture the monkeypatched fetch
+                capturedFetch = globalThis.fetch;
+                const resp = await globalThis.fetch(
+                  "https://api.example.com/data",
+                );
+                return await resp.text();
+              },
+            },
+          },
+        },
+        {},
+        workerPort,
+      );
+
+      // Set up host side with fetch handler
+      const api = createWorkerApi(hostPort, {
+        async fetch(req) {
+          // Simulate the host fetch handler
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: `{"proxied":"${req.url}"}`,
+          };
+        },
+      });
+
+      // Call executeTool which internally calls fetch
+      const result = await api.executeTool(
+        "do_fetch",
+        {},
+        "s1",
+        5000,
+      );
+      expect(result).toBe('{"proxied":"https://api.example.com/data"}');
+      expect(capturedFetch).toBeDefined();
+      // The monkeypatched fetch should NOT be the original
+      expect(capturedFetch).not.toBe(undefined);
+    },
+  );
+
+  await t.step(
+    "fetch proxy returns proper Response object",
+    async () => {
+      const [workerPort, hostPort] = createLinkedPorts();
+
+      let capturedStatus: number | undefined;
+      let capturedHeaders: string | undefined;
+
+      startWorker(
+        {
+          name: "Test",
+          env: [],
+          transport: ["websocket"],
+          instructions: "",
+          greeting: "",
+          voice: "luna",
+          tools: {
+            check_response: {
+              description: "check response properties",
+              execute: async () => {
+                const resp = await globalThis.fetch(
+                  "https://example.com",
+                );
+                capturedStatus = resp.status;
+                capturedHeaders = resp.headers.get("x-custom");
+                return `${resp.status} ${resp.statusText}`;
+              },
+            },
+          },
+        },
+        {},
+        workerPort,
+      );
+
+      const api = createWorkerApi(hostPort, {
+        async fetch() {
+          return {
+            status: 201,
+            statusText: "Created",
+            headers: { "x-custom": "test-value" },
+            body: "",
+          };
+        },
+      });
+
+      const result = await api.executeTool(
+        "check_response",
+        {},
+        "s1",
+        5000,
+      );
+      expect(result).toBe("201 Created");
+      expect(capturedStatus).toBe(201);
+      expect(capturedHeaders).toBe("test-value");
+    },
+  );
+
+  await t.step(
+    "fetch proxy propagates host errors",
+    async () => {
+      const [workerPort, hostPort] = createLinkedPorts();
+
+      startWorker(
+        {
+          name: "Test",
+          env: [],
+          transport: ["websocket"],
+          instructions: "",
+          greeting: "",
+          voice: "luna",
+          tools: {
+            bad_fetch: {
+              description: "fetch blocked URL",
+              execute: async () => {
+                await globalThis.fetch("http://169.254.169.254/metadata");
+                return "should not reach";
+              },
+            },
+          },
+        },
+        {},
+        workerPort,
+      );
+
+      const api = createWorkerApi(hostPort, {
+        fetch() {
+          throw new Error("Blocked request to private address: 169.254.169.254");
+        },
+      });
+
+      const result = await api.executeTool(
+        "bad_fetch",
+        {},
+        "s1",
+        5000,
+      );
+      expect(result).toContain("Blocked request to private address");
+    },
+  );
+
+  await t.step(
+    "fetch proxy sends method and headers",
+    async () => {
+      const [workerPort, hostPort] = createLinkedPorts();
+      let capturedMethod: string | undefined;
+      let capturedHeaders: Record<string, string> | undefined;
+      let capturedBody: string | null | undefined;
+
+      startWorker(
+        {
+          name: "Test",
+          env: [],
+          transport: ["websocket"],
+          instructions: "",
+          greeting: "",
+          voice: "luna",
+          tools: {
+            post_data: {
+              description: "POST some data",
+              execute: async () => {
+                const resp = await globalThis.fetch("https://api.example.com", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: '{"hello":"world"}',
+                });
+                return await resp.text();
+              },
+            },
+          },
+        },
+        {},
+        workerPort,
+      );
+
+      const api = createWorkerApi(hostPort, {
+        async fetch(req) {
+          capturedMethod = req.method;
+          capturedHeaders = req.headers;
+          capturedBody = req.body;
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "posted",
+          };
+        },
+      });
+
+      const result = await api.executeTool(
+        "post_data",
+        {},
+        "s1",
+        5000,
+      );
+      expect(result).toBe("posted");
+      expect(capturedMethod).toBe("POST");
+      expect(capturedHeaders?.["content-type"]).toBe("application/json");
+      expect(capturedBody).toBe('{"hello":"world"}');
+    },
+  );
+});
+
+Deno.test("createWorkerApi with hostHandlers", async (t) => {
+  await t.step(
+    "creates bidirectional RPC when hostHandlers provided",
+    async () => {
+      function createMockPort(): MessageTarget & { sent: unknown[] } {
+        return {
+          onmessage: null,
+          sent: [] as unknown[],
+          postMessage(message: unknown) {
+            this.sent.push(message);
+          },
+        };
+      }
+
+      const port = createMockPort();
+      let fetchCalled = false;
+      const api = createWorkerApi(port, {
+        fetch() {
+          fetchCalled = true;
+          return { status: 200, statusText: "OK", headers: {}, body: "" };
+        },
+      });
+
+      // Should still function as a caller for executeTool
+      const promise = api.executeTool("greet", {}, "s1", 5000);
+      expect(port.sent.length).toBe(1);
+
+      // Simulate incoming fetch request (host should serve it)
+      port.onmessage?.({
+        data: {
+          id: 100,
+          type: "fetch",
+          url: "https://example.com",
+          method: "GET",
+          headers: {},
+          body: null,
+        },
+      } as MessageEvent);
+      await new Promise((r) => setTimeout(r, 10));
+      expect(fetchCalled).toBe(true);
+
+      // Resolve the outgoing call
+      port.onmessage?.({
+        data: { id: 0, result: "tool-result" },
+      } as MessageEvent);
+      expect(await promise).toBe("tool-result");
+    },
+  );
+
+  await t.step(
+    "uses unidirectional caller when no hostHandlers",
+    () => {
+      function createMockPort(): MessageTarget & { sent: unknown[] } {
+        return {
+          onmessage: null,
+          sent: [] as unknown[],
+          postMessage(message: unknown) {
+            this.sent.push(message);
+          },
+        };
+      }
+
+      const port = createMockPort();
+      const api = createWorkerApi(port);
+
+      // Should still function as a caller
+      api.executeTool("greet", {}, "s1", 5000);
+      expect(port.sent.length).toBe(1);
+    },
+  );
 });
