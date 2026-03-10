@@ -49,6 +49,7 @@ export async function createVoiceIO(
       sampleRate: contextRate,
       echoCancellation: true,
       noiseSuppression: true,
+      autoGainControl: true,
     },
   });
 
