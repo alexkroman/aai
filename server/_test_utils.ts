@@ -4,7 +4,7 @@ import {
   createBundleStore,
   createMemoryS3Client,
 } from "./bundle_store_tigris.ts";
-import { createTokenSigner, type TokenSigner } from "./scope_token.ts";
+import { importScopeKey } from "./scope_token.ts";
 import { createMemoryKvStore, type KvStore } from "./kv.ts";
 
 export const flush = (): Promise<void> =>
@@ -52,8 +52,8 @@ export function createTestStore(): BundleStore {
   return createBundleStore(createMemoryS3Client(), "test-bucket");
 }
 
-export function createTestTokenSigner(): Promise<TokenSigner> {
-  return createTokenSigner("test-secret-for-tests-only");
+export function createTestScopeKey(): Promise<CryptoKey> {
+  return importScopeKey("test-secret-for-tests-only");
 }
 
 export function createTestKvStore(): KvStore {

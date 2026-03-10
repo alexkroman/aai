@@ -7,8 +7,8 @@ import {
 } from "./auth.ts";
 import {
   createTestKvStore,
+  createTestScopeKey,
   createTestStore,
-  createTestTokenSigner,
 } from "./_test_utils.ts";
 import type { ServerContext } from "./types.ts";
 
@@ -59,7 +59,7 @@ async function makeCtx(): Promise<ServerContext> {
     devSlots: new Map(),
     sessions: new Map(),
     store: createTestStore(),
-    tokenSigner: await createTestTokenSigner(),
+    scopeKey: await createTestScopeKey(),
     kvStore: createTestKvStore(),
   };
 }
