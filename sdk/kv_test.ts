@@ -1,30 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { createKv, createMemoryKv } from "./kv.ts";
+import { createMemoryKv } from "./kv.ts";
 import { FakeTime } from "@std/testing/time";
-
-Deno.test("createKv throws when env vars are missing", () => {
-  assertThrows(
-    () => createKv({ env: {} }),
-    Error,
-    "KV not configured",
-  );
-});
-
-Deno.test("createKv throws when only AAI_KV_URL is set", () => {
-  assertThrows(
-    () => createKv({ env: { AAI_KV_URL: "http://localhost/kv" } }),
-    Error,
-    "KV not configured",
-  );
-});
-
-Deno.test("createKv throws when only AAI_SCOPE_TOKEN is set", () => {
-  assertThrows(
-    () => createKv({ env: { AAI_SCOPE_TOKEN: "tok" } }),
-    Error,
-    "KV not configured",
-  );
-});
 
 Deno.test("createMemoryKv", async (t) => {
   await t.step("get returns null for missing key", async () => {

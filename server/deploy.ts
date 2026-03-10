@@ -5,13 +5,6 @@ import type { ServerContext } from "./types.ts";
 
 export { hashApiKey } from "./auth.ts";
 
-export function getServerBaseUrl(req: Request): string {
-  const flyApp = Deno.env.get("FLY_APP_NAME");
-  if (flyApp) return `https://${flyApp}.fly.dev`;
-  const u = new URL(req.url);
-  return `${u.protocol}//${u.host}`;
-}
-
 export async function handleDeploy(
   req: Request,
   compositeSlug: string,
@@ -59,20 +52,9 @@ export async function handleDeploy(
 
   const transport = normalizeTransport(body.transport);
 
-  const baseUrl = getServerBaseUrl(req);
-  const kvToken = await ctx.tokenSigner.sign({
-    ownerHash,
-    slug: compositeSlug,
-  });
-  const envWithKv = {
-    ...body.env,
-    AAI_KV_URL: `${baseUrl}/kv`,
-    AAI_SCOPE_TOKEN: kvToken,
-  };
-
   await store.putAgent({
     slug: compositeSlug,
-    env: envWithKv,
+    env: body.env,
     transport,
     worker: body.worker,
     client: body.client,
@@ -83,11 +65,12 @@ export async function handleDeploy(
 
   const slot: AgentSlot = {
     slug: compositeSlug,
-    env: envWithKv,
+    env: body.env,
     transport,
     config: body.config,
     name: body.config?.name,
     toolSchemas: body.toolSchemas,
+    ownerHash,
     activeSessions: 0,
   };
   slots.set(compositeSlug, slot);

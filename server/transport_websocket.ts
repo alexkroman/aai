@@ -96,7 +96,14 @@ export async function handleWebSocket(
   const config = slot.config!;
   const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
   const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
-  const { executeTool, getWorkerApi } = createToolExecutor(slot, ctx.store);
+  const kvCtx = slot.ownerHash
+    ? { kvStore: ctx.kvStore, scope: { ownerHash: slot.ownerHash, slug } }
+    : undefined;
+  const { executeTool, getWorkerApi } = createToolExecutor(
+    slot,
+    ctx.store,
+    kvCtx,
+  );
 
   const resume = new URL(req.url).searchParams.has("resume");
   const { socket, response } = _internals.upgradeWebSocket(req);

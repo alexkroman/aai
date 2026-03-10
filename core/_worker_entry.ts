@@ -5,7 +5,7 @@ import type {
   ToolContext,
   ToolDef,
 } from "@aai/sdk/types";
-import { createKv, type Kv } from "@aai/sdk/kv";
+import type { Kv, KvEntry } from "@aai/sdk/kv";
 import {
   createRpcCaller,
   createRpcEndpoint,
@@ -43,15 +43,14 @@ export async function executeToolCall(
   try {
     const signal = AbortSignal.timeout(TOOL_HANDLER_TIMEOUT);
     const envCopy = { ...env };
-    let _kv: Kv | undefined = kv;
     const ctx: ToolContext = {
       sessionId: sessionId ?? "",
       env: envCopy,
       signal,
       state: (state ?? {}) as Record<string, unknown>,
       get kv(): Kv {
-        _kv ??= createKv({ env: envCopy });
-        return _kv;
+        if (!kv) throw new Error("KV not available");
+        return kv;
       },
     };
     const result = await Promise.resolve(
@@ -116,12 +115,20 @@ export function startWorker(
   const toolHandlers = new Map(Object.entries(agent.tools));
   const sessions = new Map<string, unknown>();
   let mergedEnv = { ...env };
+  // deno-lint-ignore prefer-const
+  let rpcKv: Kv | undefined;
+
   function applyEnv(extra?: Record<string, string>): void {
     if (!extra) return;
     const updated = { ...mergedEnv, ...extra };
     if (JSON.stringify(updated) !== JSON.stringify(mergedEnv)) {
       mergedEnv = updated;
     }
+  }
+
+  function getKv(): Kv {
+    if (!rpcKv) throw new Error("KV not available (RPC not initialized)");
+    return rpcKv;
   }
 
   function getState(sessionId: string): unknown {
@@ -145,6 +152,7 @@ export function startWorker(
         mergedEnv,
         req.sessionId,
         getState(req.sessionId ?? ""),
+        getKv(),
       );
     },
 
@@ -156,7 +164,7 @@ export function startWorker(
         env: { ...mergedEnv },
         state: state as Record<string, unknown>,
         get kv() {
-          return createKv({ env: mergedEnv });
+          return getKv();
         },
       };
       if (req.hook === "onConnect") {
@@ -173,7 +181,62 @@ export function startWorker(
   };
 
   const call = createRpcEndpoint(port, handlers);
+  rpcKv = createRpcKv(call);
   installFetchProxy(call);
+}
+
+const KV_TIMEOUT_MS = 10_000;
+
+function createRpcKv(call: RpcCall): Kv {
+  async function kvCall(
+    params: Record<string, unknown>,
+  ): Promise<unknown> {
+    const resp = (await call("kv", params, KV_TIMEOUT_MS)) as {
+      result: unknown;
+    };
+    return resp.result;
+  }
+
+  return {
+    async get<T = unknown>(key: string): Promise<T | null> {
+      const result = await kvCall({ op: "get", key });
+      if (result === null || result === undefined) return null;
+      return (typeof result === "string" ? JSON.parse(result) : result) as T;
+    },
+
+    async set(
+      key: string,
+      value: unknown,
+      options?: { expireIn?: number },
+    ): Promise<void> {
+      const raw = JSON.stringify(value);
+      await kvCall({
+        op: "set",
+        key,
+        value: raw,
+        ...(options?.expireIn
+          ? { ttl: Math.ceil(options.expireIn / 1000) }
+          : {}),
+      });
+    },
+
+    async delete(key: string): Promise<void> {
+      await kvCall({ op: "del", key });
+    },
+
+    async list<T = unknown>(
+      prefix: string,
+      options?: { limit?: number; reverse?: boolean },
+    ): Promise<KvEntry<T>[]> {
+      const result = await kvCall({
+        op: "list",
+        prefix,
+        limit: options?.limit,
+        reverse: options?.reverse,
+      });
+      return result as KvEntry<T>[];
+    },
+  };
 }
 
 const FETCH_TIMEOUT_MS = 30_000;

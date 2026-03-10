@@ -5,7 +5,11 @@ import {
   requireOwner,
   verifyOwner,
 } from "./auth.ts";
-import { createTestStore, createTestTokenSigner } from "./_test_utils.ts";
+import {
+  createTestKvStore,
+  createTestStore,
+  createTestTokenSigner,
+} from "./_test_utils.ts";
 import type { ServerContext } from "./types.ts";
 
 Deno.test("hashApiKey produces consistent 64-char hex", async () => {
@@ -56,6 +60,7 @@ async function makeCtx(): Promise<ServerContext> {
     sessions: new Map(),
     store: createTestStore(),
     tokenSigner: await createTestTokenSigner(),
+    kvStore: createTestKvStore(),
   };
 }
 

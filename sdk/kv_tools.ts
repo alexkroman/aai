@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { createKv } from "./kv.ts";
 import type { ToolDef } from "./types.ts";
 
 export type KvToolsOptions = {
@@ -50,7 +49,7 @@ export function kvTools(
         value: z.string().describe("The information to remember"),
       }),
       execute: async ({ key, value }, ctx) => {
-        const kv = createKv(ctx);
+        const { kv } = ctx;
         await kv.set(key as string, value as string);
         return { saved: key };
       },
@@ -61,7 +60,7 @@ export function kvTools(
         key: z.string().describe("The key to look up"),
       }),
       execute: async ({ key }, ctx) => {
-        const kv = createKv(ctx);
+        const { kv } = ctx;
         const value = await kv.get(key as string);
         if (value === null) return { found: false, key };
         return { found: true, key, value };
@@ -75,7 +74,7 @@ export function kvTools(
         ).optional(),
       }),
       execute: async ({ prefix }, ctx) => {
-        const kv = createKv(ctx);
+        const { kv } = ctx;
         const entries = await kv.list((prefix as string) ?? "");
         return { count: entries.length, keys: entries.map((e) => e.key) };
       },
@@ -86,7 +85,7 @@ export function kvTools(
         key: z.string().describe("The key to delete"),
       }),
       execute: async ({ key }, ctx) => {
-        const kv = createKv(ctx);
+        const { kv } = ctx;
         await kv.delete(key as string);
         return { deleted: key };
       },
