@@ -1,9 +1,5 @@
-import {
-  DevAuthSchema,
-  type DevRegister,
-  DevRegisterSchema,
-} from "@aai/core/protocol";
-import { createWebSocketTarget } from "@aai/core/rpc";
+import { type DevRegister, DevRegisterSchema } from "@aai/core/protocol";
+import { createWebSocketEndpoint } from "@aai/core/ws-endpoint";
 import { createWorkerApi } from "@aai/core/worker-entry";
 import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
@@ -15,53 +11,28 @@ import {
 } from "./worker_pool.ts";
 import type { ServerContext } from "./types.ts";
 import { claimNamespace, verifyOwner } from "./auth.ts";
+import { signScopeToken, verifyScopeToken } from "./scope_token.ts";
 import { loadPlatformConfig } from "./config.ts";
 import { createSession, type Session } from "./session.ts";
 import { handleSessionWebSocket } from "./ws_handler.ts";
-import type { ZodType } from "zod";
 
 export const _internals = {
   upgradeWebSocket: (req: Request) => Deno.upgradeWebSocket(req),
 };
 
-/** Yield parsed protocol messages from a WebSocket, skipping RPC and binary. */
-function protocolMessages(socket: WebSocket): ReadableStream<unknown> {
-  let closed = false;
-  return new ReadableStream({
-    start(controller) {
-      socket.addEventListener("message", (event) => {
-        if (closed) return;
-        if (typeof event.data !== "string") return;
-        if (event.data.length > 1_000_000) return;
-        let json: unknown;
-        try {
-          json = JSON.parse(event.data);
-        } catch {
-          return;
-        }
-        // Skip RPC messages
-        if (typeof (json as Record<string, unknown>).id === "number") return;
-        controller.enqueue(json);
-      });
-      socket.addEventListener("close", () => {
-        if (closed) return;
-        closed = true;
-        controller.close();
-      });
-    },
+/** Wait for the first JSON message on a WebSocket. */
+function nextJsonMessage(socket: WebSocket): Promise<unknown | null> {
+  return new Promise((resolve) => {
+    socket.addEventListener("message", function onMsg(event) {
+      if (typeof event.data !== "string") return;
+      if (event.data.length > 1_000_000) return;
+      try {
+        socket.removeEventListener("message", onMsg);
+        resolve(JSON.parse(event.data));
+      } catch { /* ignore non-JSON */ }
+    });
+    socket.addEventListener("close", () => resolve(null), { once: true });
   });
-}
-
-/** Read the next message from the stream and parse it with a Zod schema. */
-async function nextMessage<T>(
-  reader: ReadableStreamDefaultReader<unknown>,
-  schema: ZodType<T>,
-): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
-  const { value, done } = await reader.read();
-  if (done) return { ok: false, error: "Connection closed" };
-  const parsed = schema.safeParse(value);
-  if (!parsed.success) return { ok: false, error: parsed.error.message };
-  return { ok: true, data: parsed.data };
 }
 
 function sendError(socket: WebSocket, message: string) {
@@ -96,7 +67,7 @@ export function handleDevWebSocket(
     console.error("Dev control WebSocket error", { slug, error: msg });
   });
 
-  runDevSession(socket, slug, req, ctx);
+  runDevSession(socket, slug, ctx);
 
   return response;
 }
@@ -104,21 +75,24 @@ export function handleDevWebSocket(
 async function runDevSession(
   socket: WebSocket,
   slug: string,
-  _req: Request,
   ctx: ServerContext,
 ): Promise<void> {
-  const reader = protocolMessages(socket).getReader();
+  const msg = await nextJsonMessage(socket);
+  if (!msg) return;
 
-  // Phase 1: Authenticate
-  const auth = await nextMessage(reader, DevAuthSchema);
-  if (!auth.ok) {
-    sendError(socket, "First message must be dev_auth with a token");
+  const parsed = DevRegisterSchema.safeParse(msg);
+  if (!parsed.success) {
+    sendError(socket, "First message must be dev_register with a token");
     socket.close();
     return;
   }
 
   const namespace = slug.split("/")[0];
-  const ownerHash = await verifyOwner(auth.data.token, namespace, ctx.store);
+  const ownerHash = await verifyOwner(
+    parsed.data.token,
+    namespace,
+    ctx.store,
+  );
   if (!ownerHash) {
     sendError(socket, `Namespace "${namespace}" is owned by another user.`);
     socket.close();
@@ -126,27 +100,17 @@ async function runDevSession(
   }
 
   await claimNamespace(namespace, ownerHash, ctx.store);
-  socket.send(JSON.stringify({ type: "dev_authenticated" }));
-
-  // Phase 2: Register
-  const reg = await nextMessage(reader, DevRegisterSchema);
-  if (!reg.ok) {
-    sendError(socket, `Invalid registration: ${reg.error}`);
-    socket.close();
-    return;
-  }
-
-  registerDevAgent(socket, slug, reg.data, ownerHash, ctx);
+  await registerDevAgent(socket, slug, parsed.data, ownerHash, ctx);
 }
 
-export function registerDevAgent(
+export async function registerDevAgent(
   ws: WebSocket,
   slug: string,
   msg: DevRegister,
   ownerHash: string,
   ctx: ServerContext,
-): void {
-  const workerApi = createWorkerApi(createWebSocketTarget(ws));
+): Promise<void> {
+  const workerApi = createWorkerApi(createWebSocketEndpoint(ws));
 
   const agentConfig: AgentConfig = {
     name: msg.config.name,
@@ -168,7 +132,7 @@ export function registerDevAgent(
     existing.worker.handle.terminate();
   }
 
-  const devToken = crypto.randomUUID();
+  const devToken = await signScopeToken(ctx.scopeKey, { ownerHash, slug });
 
   const slot: AgentSlot = {
     slug,
@@ -184,7 +148,6 @@ export function registerDevAgent(
       api: workerApi,
     },
     _dev: true,
-    _devToken: devToken,
   };
   ctx.devSlots.set(slug, slot);
 
@@ -197,11 +160,11 @@ export function registerDevAgent(
   ws.send(JSON.stringify({ type: "dev_registered", slug, devToken }));
 }
 
-export function handleDevSessionWebSocket(
+export async function handleDevSessionWebSocket(
   req: Request,
   slug: string,
   ctx: ServerContext,
-): Response {
+): Promise<Response> {
   const slot = ctx.devSlots.get(slug);
   if (!slot) {
     return Response.json({ error: "No dev session for this agent" }, {
@@ -210,7 +173,11 @@ export function handleDevSessionWebSocket(
   }
 
   const token = new URL(req.url).searchParams.get("token");
-  if (!token || token !== slot._devToken) {
+  if (!token) {
+    return Response.json({ error: "Missing token" }, { status: 401 });
+  }
+  const scope = await verifyScopeToken(ctx.scopeKey, token);
+  if (!scope || scope.slug !== slug) {
     return Response.json({ error: "Invalid dev token" }, { status: 403 });
   }
 

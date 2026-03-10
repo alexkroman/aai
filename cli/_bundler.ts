@@ -84,7 +84,7 @@ const WORKSPACE_ALIASES: Record<string, string> = {
   "@aai/sdk/kv": resolve(AAI_ROOT, "sdk/kv.ts"),
   "@aai/core/worker-entry": resolve(AAI_ROOT, "core/_worker_entry.ts"),
   "@aai/core/protocol": resolve(AAI_ROOT, "core/_protocol.ts"),
-  "@aai/core/rpc": resolve(AAI_ROOT, "core/_rpc.ts"),
+  "@aai/core/ws-endpoint": resolve(AAI_ROOT, "core/_ws_endpoint.ts"),
   "@aai/core/rpc-schema": resolve(AAI_ROOT, "core/_rpc_schema.ts"),
   "@aai/core/deno-worker": resolve(AAI_ROOT, "core/_deno_worker.ts"),
   "@aai/ui": resolve(AAI_ROOT, "ui/mod.ts"),
@@ -154,6 +154,7 @@ const NPM_PACKAGE_NAMES = [
   "@preact/signals",
   "goober",
   "lodash-es",
+  "comlink",
 ];
 
 function buildNpmAliases(): Record<string, string> {
@@ -188,7 +189,7 @@ function workspaceAliasPlugin(): Plugin {
       // This avoids relying on the deno plugin's npm resolver, which fails in
       // compiled binaries where node_modules aren't fully available.
       build.onResolve(
-        { filter: /^(preact|@preact\/signals|goober|lodash-es)/ },
+        { filter: /^(preact|@preact\/signals|goober|lodash-es|comlink)/ },
         (args) => {
           const resolved = npmAliases![args.path];
           if (resolved) return { path: resolved, namespace: "file" };

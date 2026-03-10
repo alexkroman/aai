@@ -1,3 +1,4 @@
+import * as Comlink from "comlink";
 import { z } from "zod";
 import type {
   AgentDef,
@@ -6,13 +7,7 @@ import type {
   ToolDef,
 } from "@aai/sdk/types";
 import type { Kv, KvEntry } from "@aai/sdk/kv";
-import {
-  createRpcCaller,
-  createRpcEndpoint,
-  type MessageTarget,
-  type RpcCall,
-  type RpcHandlers,
-} from "./_rpc.ts";
+import { deadline } from "@std/async/deadline";
 
 export const TOOL_HANDLER_TIMEOUT = 30_000;
 
@@ -83,26 +78,105 @@ export type WorkerApi = {
     timeoutMs?: number,
     env?: Record<string, string>,
   ): Promise<void>;
+  /** Release the underlying Comlink proxy and its MessagePort resources. */
+  dispose?: () => Promise<void>;
 };
 
+/** API shape the host exposes to the worker via Comlink.proxy. */
+export type HostApi = {
+  fetch(req: {
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    body: string | null;
+  }): Promise<{
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: string;
+  }>;
+  kv(req: {
+    op: string;
+    key?: string;
+    value?: string;
+    ttl?: number;
+    prefix?: string;
+    limit?: number;
+    reverse?: boolean;
+  }): Promise<{ result: unknown }>;
+};
+
+/** API shape exposed by the worker via Comlink. */
+export type ExposedWorkerApi = {
+  /** Receive a MessagePort for calling back to the host (fetch/kv). */
+  init(hostPort: MessagePort): void;
+  /** Release the host callback port (for clean test teardown). */
+  dispose(): void;
+  executeTool(
+    name: string,
+    args: Record<string, unknown>,
+    sessionId?: string,
+    env?: Record<string, string>,
+  ): Promise<string>;
+  invokeHook(
+    hook: string,
+    sessionId: string,
+    text?: string,
+    error?: string,
+    env?: Record<string, string>,
+  ): Promise<void>;
+};
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs?: number): Promise<T> {
+  if (!timeoutMs) return promise;
+  return deadline(promise, timeoutMs).catch((err) => {
+    throw err.name === "TimeoutError"
+      ? new Error(`RPC timed out after ${timeoutMs}ms`)
+      : err;
+  });
+}
+
+/**
+ * Create a WorkerApi backed by Comlink. Use for Worker/MessagePort endpoints.
+ * Pass hostApi to enable fetch/kv proxy from worker to host.
+ */
 export function createWorkerApi(
-  port: MessageTarget,
-  hostHandlers?: RpcHandlers,
+  endpoint: Comlink.Endpoint,
+  hostApi?: HostApi,
 ): WorkerApi {
-  const call = hostHandlers
-    ? createRpcEndpoint(port, hostHandlers)
-    : createRpcCaller(port);
+  const remote = Comlink.wrap<ExposedWorkerApi>(endpoint);
+  let hostPort: MessagePort | undefined;
+  let ready: Promise<void>;
+
+  if (hostApi) {
+    const ch = new MessageChannel();
+    hostPort = ch.port1;
+    Comlink.expose(hostApi, ch.port1);
+    ready = remote.init(Comlink.transfer(ch.port2, [ch.port2]));
+  } else {
+    ready = Promise.resolve();
+  }
+
   return {
     async executeTool(name, args, sessionId, timeoutMs, env) {
-      const raw = await call(
-        "executeTool",
-        { name, args, sessionId, env },
+      await ready;
+      const raw = await withTimeout(
+        remote.executeTool(name, args, sessionId, env),
         timeoutMs,
       );
       return typeof raw === "string" ? raw : String(raw ?? "");
     },
     async invokeHook(hook, sessionId, extra, timeoutMs, env) {
-      await call("invokeHook", { hook, sessionId, ...extra, env }, timeoutMs);
+      await ready;
+      await withTimeout(
+        remote.invokeHook(hook, sessionId, extra?.text, extra?.error, env),
+        timeoutMs,
+      );
+    },
+    async dispose() {
+      await remote.dispose();
+      remote[Comlink.releaseProxy]();
+      hostPort?.close();
     },
   };
 }
@@ -110,13 +184,13 @@ export function createWorkerApi(
 export function startWorker(
   agent: AgentDef,
   env: Record<string, string>,
-  endpoint?: MessageTarget,
+  endpoint?: Comlink.Endpoint,
 ): void {
   const toolHandlers = new Map(Object.entries(agent.tools));
   const sessions = new Map<string, unknown>();
   let mergedEnv = { ...env };
-  // deno-lint-ignore prefer-const
-  let rpcKv: Kv | undefined;
+  let proxyKv: Kv | undefined;
+  let hostPort: MessagePort | undefined;
 
   function applyEnv(extra?: Record<string, string>): void {
     if (!extra) return;
@@ -126,11 +200,6 @@ export function startWorker(
     }
   }
 
-  function getKv(): Kv {
-    if (!rpcKv) throw new Error("KV not available (RPC not initialized)");
-    return rpcKv;
-  }
-
   function getState(sessionId: string): unknown {
     if (!sessions.has(sessionId) && agent.state) {
       sessions.set(sessionId, agent.state());
@@ -138,63 +207,83 @@ export function startWorker(
     return sessions.get(sessionId) ?? {};
   }
 
-  const port: MessageTarget = endpoint ?? self as unknown as MessageTarget;
+  const api: ExposedWorkerApi = {
+    init(port: MessagePort) {
+      hostPort = port;
+      const remote = Comlink.wrap<HostApi>(port);
+      proxyKv = createProxyKv(remote);
+      installFetchProxy(remote);
+    },
 
-  const handlers: RpcHandlers = {
-    executeTool(req) {
-      applyEnv(req.env);
-      const tool = toolHandlers.get(req.name);
-      if (!tool) return `Error: Unknown tool "${req.name}"`;
-      return executeToolCall(
-        req.name,
-        req.args,
+    dispose() {
+      hostPort?.close();
+    },
+
+    async executeTool(name, args, sessionId, env) {
+      applyEnv(env);
+      const tool = toolHandlers.get(name);
+      if (!tool) return `Error: Unknown tool "${name}"`;
+      return await executeToolCall(
+        name,
+        args,
         tool,
         mergedEnv,
-        req.sessionId,
-        getState(req.sessionId ?? ""),
-        getKv(),
+        sessionId,
+        getState(sessionId ?? ""),
+        proxyKv,
       );
     },
 
-    async invokeHook(req) {
-      applyEnv(req.env);
-      const state = getState(req.sessionId);
+    async invokeHook(hook, sessionId, text, error, env) {
+      applyEnv(env);
+      const state = getState(sessionId);
       const ctx: HookContext = {
-        sessionId: req.sessionId,
+        sessionId,
         env: { ...mergedEnv },
         state: state as Record<string, unknown>,
         get kv() {
-          return getKv();
+          if (!proxyKv) throw new Error("KV not available");
+          return proxyKv;
         },
       };
-      if (req.hook === "onConnect") {
+      if (hook === "onConnect") {
         await agent.onConnect?.(ctx);
-      } else if (req.hook === "onDisconnect") {
+      } else if (hook === "onDisconnect") {
         await agent.onDisconnect?.(ctx);
-        sessions.delete(req.sessionId);
-      } else if (req.hook === "onTurn" && req.text !== undefined) {
-        await agent.onTurn?.(req.text, ctx);
-      } else if (req.hook === "onError" && req.error !== undefined) {
-        agent.onError?.(new Error(req.error), ctx);
+        sessions.delete(sessionId);
+      } else if (hook === "onTurn" && text !== undefined) {
+        await agent.onTurn?.(text, ctx);
+      } else if (hook === "onError" && error !== undefined) {
+        agent.onError?.(new Error(error), ctx);
       }
     },
   };
 
-  const call = createRpcEndpoint(port, handlers);
-  rpcKv = createRpcKv(call);
-  installFetchProxy(call);
+  const port = endpoint ?? (self as unknown as Comlink.Endpoint);
+  Comlink.expose(api, port);
 }
 
 const KV_TIMEOUT_MS = 10_000;
 
-function createRpcKv(call: RpcCall): Kv {
+function createProxyKv(hostApi: Comlink.Remote<HostApi>): Kv {
   async function kvCall(
     params: Record<string, unknown>,
   ): Promise<unknown> {
-    const resp = (await call("kv", params, KV_TIMEOUT_MS)) as {
-      result: unknown;
-    };
-    return resp.result;
+    const resp = await withTimeout(
+      hostApi.kv(
+        params as {
+          op: string;
+          key?: string;
+          value?: string;
+          ttl?: number;
+          prefix?: string;
+          limit?: number;
+          reverse?: boolean;
+        },
+      ),
+      KV_TIMEOUT_MS,
+    );
+    return (resp as { result: unknown }).result;
   }
 
   return {
@@ -263,8 +352,8 @@ async function serializeBody(body: BodyInit | null): Promise<string | null> {
   return String(body);
 }
 
-/** Replace globalThis.fetch with an RPC-backed proxy to the host process. */
-function installFetchProxy(call: RpcCall): void {
+/** Replace globalThis.fetch with a proxy to the host process via Comlink. */
+function installFetchProxy(hostApi: Comlink.Remote<HostApi>): void {
   globalThis.fetch = async (
     input: string | URL | Request,
     init?: RequestInit,
@@ -294,16 +383,10 @@ function installFetchProxy(call: RpcCall): void {
       body = init?.body != null ? await serializeBody(init.body) : null;
     }
 
-    const result = (await call(
-      "fetch",
-      { url, method, headers, body },
+    const result = await withTimeout(
+      hostApi.fetch({ url, method, headers, body }),
       FETCH_TIMEOUT_MS,
-    )) as {
-      status: number;
-      statusText: string;
-      headers: Record<string, string>;
-      body: string;
-    };
+    );
 
     return new Response(result.body, {
       status: result.status,

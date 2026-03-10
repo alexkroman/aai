@@ -1,12 +1,15 @@
 import { encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
 import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
-import { createWorkerApi, type WorkerApi } from "@aai/core/worker-entry";
+import {
+  createWorkerApi,
+  type HostApi,
+  type WorkerApi,
+} from "@aai/core/worker-entry";
 import type { ExecuteTool } from "@aai/core/worker-entry";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "@aai/core/rpc-schema";
 import { createDenoWorker } from "@aai/core/deno-worker";
-import type { RpcHandlers } from "@aai/core/rpc";
 import { assertPublicUrl } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentScope } from "./scope_token.ts";
@@ -27,7 +30,6 @@ export type AgentSlot = {
   activeSessions: number;
   idleTimer?: ReturnType<typeof setTimeout>;
   _dev?: boolean;
-  _devToken?: string;
 };
 
 async function spawnAgent(
@@ -64,13 +66,13 @@ async function spawnAgent(
     }) as EventListener,
   );
 
-  const api = createWorkerApi(worker, createHostHandlers(kvCtx));
+  const api = createWorkerApi(worker, createHostApi(kvCtx));
   slot.worker = { handle: worker, api };
 }
 
-function createHostHandlers(
+function createHostApi(
   kvCtx?: { kvStore: KvStore; scope: AgentScope },
-): RpcHandlers {
+): HostApi {
   return {
     async fetch(req) {
       await assertPublicUrl(req.url);
@@ -93,7 +95,7 @@ function createHostHandlers(
       };
     },
 
-    async kv(req) {
+    async kv(req): Promise<{ result: unknown }> {
       if (!kvCtx) throw new Error("KV not configured for this agent");
       const { kvStore, scope } = kvCtx;
       switch (req.op) {
@@ -112,6 +114,8 @@ function createHostHandlers(
               reverse: req.reverse,
             }),
           };
+        default:
+          throw new Error(`Unknown KV operation: ${req.op}`);
       }
     },
   };

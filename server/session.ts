@@ -116,9 +116,9 @@ export function createSession(opts: SessionOptions): Session {
   const doExecuteBuiltinTool = _internals.executeBuiltinTool;
 
   let stt: SttHandle | null = null;
+  const sessionAbort = new AbortController();
   let turnAbort: AbortController | null = null;
   let turnPromise: Promise<void> | null = null;
-  let stopped = false;
   let audioFrameCount = 0;
   let pendingGreeting: string | null = null;
   let messages: ChatMessage[] = [{
@@ -196,7 +196,7 @@ export function createSession(opts: SessionOptions): Session {
       onClose: () => {
         console.info("STT closed");
         stt = null;
-        if (!stopped) {
+        if (!sessionAbort.signal.aborted) {
           console.info("Attempting STT reconnect");
           doConnectSttWithEvents().catch((err: unknown) => {
             const msg = err instanceof Error ? err.message : String(err);
@@ -231,6 +231,7 @@ export function createSession(opts: SessionOptions): Session {
 
     const abort = new AbortController();
     turnAbort = abort;
+    const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
 
     try {
       const result = await executeTurn(text, {
@@ -239,23 +240,23 @@ export function createSession(opts: SessionOptions): Session {
         toolSchemas,
         callLLM: boundCallLLM,
         executeTool: boundExecuteTool,
-        signal: abort.signal,
+        signal,
       });
-      if (abort.signal.aborted) return;
+      if (signal.aborted) return;
 
       if (result) {
         trySendJson({ type: "chat", text: result });
         await tts.synthesizeStream(
           result,
           (chunk) => trySend(chunk),
-          abort.signal,
+          signal,
         );
-        if (!abort.signal.aborted) trySendJson({ type: "tts_done" });
+        if (!signal.aborted) trySendJson({ type: "tts_done" });
       } else {
         trySendJson({ type: "tts_done" });
       }
     } catch (err: unknown) {
-      if (abort.signal.aborted) return;
+      if (signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Turn failed:", msg);
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
@@ -272,13 +273,14 @@ export function createSession(opts: SessionOptions): Session {
   function speakText(text: string): void {
     const abort = new AbortController();
     turnAbort = abort;
+    const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
     const p = tts
-      .synthesizeStream(text, (chunk) => trySend(chunk), abort.signal)
+      .synthesizeStream(text, (chunk) => trySend(chunk), signal)
       .then(() => {
-        if (!abort.signal.aborted) trySendJson({ type: "tts_done" });
+        if (!signal.aborted) trySendJson({ type: "tts_done" });
       })
       .catch((err: unknown) => {
-        if (abort.signal.aborted) return;
+        if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : String(err);
         console.error("TTS failed:", msg);
         trySendJson({ type: "error", message: msg });
@@ -308,11 +310,10 @@ export function createSession(opts: SessionOptions): Session {
     },
 
     async stop(): Promise<void> {
-      if (stopped) return;
-      stopped = true;
+      if (sessionAbort.signal.aborted) return;
+      sessionAbort.abort();
       metrics.sessionsActive.dec(agentLabel);
       const pending = turnPromise;
-      cancelInflight();
       if (pending) await pending;
       stt?.close();
       tts.close();

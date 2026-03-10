@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRpcCaller } from "@aai/core/rpc";
+import * as Comlink from "comlink";
 import type { ToolSchema } from "@aai/sdk/types";
 import { htmlToMarkdown } from "./html.ts";
 import { createDenoWorker } from "@aai/core/deno-worker";
@@ -201,8 +201,6 @@ const runCodeParams = z.object({
   ),
 });
 
-const TIMEOUT_MS = 30_000;
-
 const SANDBOX_WORKER_URL = import.meta.resolve("./sandbox_worker.ts");
 
 const runCode = defineTool({
@@ -225,12 +223,13 @@ const runCode = defineTool({
       ffi: false,
     });
 
+    type SandboxApi = {
+      execute(code: string): Promise<{ output: string; error?: string }>;
+    };
+
     try {
-      const call = createRpcCaller(worker);
-      const result = await call("execute", { code }, TIMEOUT_MS) as {
-        output: string;
-        error?: string;
-      };
+      const api = Comlink.wrap<SandboxApi>(worker);
+      const result = await api.execute(code);
 
       if (result.error) {
         return JSON.stringify({ error: result.error });

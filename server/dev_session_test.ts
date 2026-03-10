@@ -65,7 +65,7 @@ Deno.test("handleDevWebSocket upgrades WebSocket connection", async () => {
   }
 });
 
-Deno.test("handleDevWebSocket rejects non-auth first message", async () => {
+Deno.test("handleDevWebSocket rejects invalid first message", async () => {
   const ctx = await setup();
   const req = new Request("http://localhost/dev/test", {
     headers: { upgrade: "websocket" },
@@ -81,7 +81,7 @@ Deno.test("handleDevWebSocket rejects non-auth first message", async () => {
 
   await flush();
 
-  // Send a dev_register before dev_auth — should be rejected
+  // Send a dev_register without the required token field — should be rejected
   mockSocket.simulateMessage(JSON.stringify({
     type: "dev_register",
     config: {
@@ -101,7 +101,7 @@ Deno.test("handleDevWebSocket rejects non-auth first message", async () => {
   const sent = mockSocket.sentJson();
   const errorMsg = sent.find((m) => m.type === "dev_error");
   expect(errorMsg).toBeDefined();
-  expect(errorMsg!.message).toContain("dev_auth");
+  expect(errorMsg!.message).toContain("dev_register");
 });
 
 Deno.test("handleDevWebSocket authenticates and registers via protocol", async () => {
@@ -120,22 +120,10 @@ Deno.test("handleDevWebSocket authenticates and registers via protocol", async (
 
   await flush();
 
-  // Phase 1: Send dev_auth
-  mockSocket.simulateMessage(JSON.stringify({
-    type: "dev_auth",
-    token: "my-api-key",
-  }));
-
-  await flush();
-  await flush();
-
-  const sent = mockSocket.sentJson();
-  const authMsg = sent.find((m) => m.type === "dev_authenticated");
-  expect(authMsg).toBeDefined();
-
-  // Phase 2: Send dev_register
+  // Single message: dev_register with token
   mockSocket.simulateMessage(JSON.stringify({
     type: "dev_register",
+    token: "my-api-key",
     config: {
       name: "Test Agent",
       instructions: "test",
@@ -148,12 +136,12 @@ Deno.test("handleDevWebSocket authenticates and registers via protocol", async (
     client: "console.log('client');",
   }));
 
-  await flush();
-  await flush();
-  await flush();
+  // Multiple flushes needed for the async chain:
+  // parse → verifyOwner (crypto) → claimNamespace → registerDevAgent (signScopeToken)
+  for (let i = 0; i < 10; i++) await flush();
 
-  const allSent = mockSocket.sentJson();
-  const regMsg = allSent.find((m) => m.type === "dev_registered");
+  const sent = mockSocket.sentJson();
+  const regMsg = sent.find((m) => m.type === "dev_registered");
   expect(regMsg).toBeDefined();
   expect(ctx.devSlots.has("ns/agent")).toBe(true);
   expect(ctx.devSlots.get("ns/agent")!._dev).toBe(true);
@@ -234,10 +222,19 @@ Deno.test("handleDevWebSocket rejects different owner for claimed namespace", as
   // Wait for MockWebSocket open event (queued microtask)
   await flush();
 
-  // Phase 1: Attacker sends dev_auth with their key
+  // Attacker sends dev_register with their key
   mockSocket.simulateMessage(JSON.stringify({
-    type: "dev_auth",
+    type: "dev_register",
     token: "attacker-key",
+    config: {
+      name: "Agent",
+      instructions: "test",
+      greeting: "hi",
+      voice: "luna",
+    },
+    toolSchemas: [],
+    env: {},
+    transport: ["websocket"],
   }));
 
   // Wait for async namespace ownership check to complete
@@ -259,6 +256,7 @@ function makeDevRegister(
 ): DevRegister {
   return {
     type: "dev_register",
+    token: "test-api-key",
     transport: ["websocket"],
     config: {
       name: "Dev Agent",
