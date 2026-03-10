@@ -1,6 +1,7 @@
 import { deadline } from "@std/async/deadline";
 import { type STTConfig, SttMessageSchema } from "./types.ts";
 import { createWebSocketWithHeaders } from "./_deno_ws.ts";
+import * as metrics from "./metrics.ts";
 
 const STT_CONNECTION_TIMEOUT = 10_000;
 
@@ -37,6 +38,7 @@ export async function connectStt(
     params.set("prompt", config.prompt);
   }
 
+  const sttStart = performance.now();
   const url = `${config.wssBase}?${params}`;
   console.info("Connecting to STT", {
     url: config.wssBase,
@@ -62,6 +64,10 @@ export async function connectStt(
       STT_CONNECTION_TIMEOUT,
     );
   } catch (err: unknown) {
+    metrics.sttConnectDuration.observe(
+      (performance.now() - sttStart) / 1000,
+    );
+    metrics.errorsTotal.inc({ component: "stt" });
     ws.close();
     if (err instanceof DOMException && err.name === "TimeoutError") {
       throw new Error("STT connection timeout");
@@ -69,6 +75,7 @@ export async function connectStt(
     throw err;
   }
 
+  metrics.sttConnectDuration.observe((performance.now() - sttStart) / 1000);
   console.info("STT WebSocket connected");
 
   // Wire up event handlers — flat, no nesting

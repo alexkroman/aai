@@ -1,6 +1,7 @@
 import { debounce } from "@std/async/debounce";
 import type { TTSConfig } from "./types.ts";
 import { createWebSocketWithHeaders } from "./_deno_ws.ts";
+import * as metrics from "./metrics.ts";
 
 const IDLE_MS = 300;
 const NO_AUDIO_TIMEOUT_MS = 5000;
@@ -145,21 +146,28 @@ export function createTtsClient(config: TTSConfig) {
       if (disposed || signal?.aborted) return;
 
       console.info("synthesizeStream start", { voice: config.voice });
+      const ttsStart = performance.now();
 
-      const conn = await connect();
-      if (signal?.aborted) return;
+      try {
+        const conn = await connect();
+        if (signal?.aborted) return;
 
-      onAudioCb = onAudio;
-      if (typeof chunks === "string") {
-        conn.send(chunks);
-      } else {
-        for await (const text of chunks) {
-          if (signal?.aborted) return;
-          conn.send(text);
+        onAudioCb = onAudio;
+        if (typeof chunks === "string") {
+          conn.send(chunks);
+        } else {
+          for await (const text of chunks) {
+            if (signal?.aborted) return;
+            conn.send(text);
+          }
         }
+        conn.send("<FLUSH>");
+        await waitForCompletion(signal);
+      } finally {
+        metrics.ttsDuration.observe(
+          (performance.now() - ttsStart) / 1000,
+        );
       }
-      conn.send("<FLUSH>");
-      await waitForCompletion(signal);
     },
 
     close(): void {

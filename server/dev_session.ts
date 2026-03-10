@@ -240,6 +240,7 @@ export function handleDevSessionWebSocket(
     createSession: (sessionId, ws) =>
       createSession({
         id: sessionId,
+        agent: slug,
         transport: ws,
         agentConfig: config,
         toolSchemas,

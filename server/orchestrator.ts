@@ -22,6 +22,7 @@ import {
 import { handleKv } from "./kv_handler.ts";
 import { createMemoryKvStore, type KvStore } from "./kv.ts";
 import type { TokenSigner } from "./scope_token.ts";
+import { serialize as serializeMetrics, serializeForAgent } from "./metrics.ts";
 
 type Params = Record<string, string>;
 
@@ -109,6 +110,14 @@ export function createOrchestrator(opts: {
       method: ["GET"],
       handler: () => Response.json({ status: "ok" }),
     },
+    {
+      pattern: new URLPattern({ pathname: "/metrics" }),
+      method: ["GET"],
+      handler: () =>
+        new Response(serializeMetrics(), {
+          headers: { "Content-Type": "text/plain; version=0.0.4" },
+        }),
+    },
 
     {
       pattern: new URLPattern({ pathname: "/kv" }),
@@ -145,6 +154,15 @@ export function createOrchestrator(opts: {
       handler: withSlug((req, s) => handleDevSessionWebSocket(req, s, ctx)),
     },
 
+    {
+      pattern: new URLPattern({ pathname: "/:namespace/:slug/metrics" }),
+      method: ["GET"],
+      handler: withSlug((_req, s) =>
+        new Response(serializeForAgent(s), {
+          headers: { "Content-Type": "text/plain; version=0.0.4" },
+        })
+      ),
+    },
     {
       pattern: new URLPattern({ pathname: "/:namespace/:slug/health" }),
       method: ["GET"],
