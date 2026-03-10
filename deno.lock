@@ -53,6 +53,7 @@
     "npm:@preact/signals@2.8.1": "2.8.1_preact@10.28.4",
     "npm:@preact/signals@^2.8.1": "2.8.1_preact@10.28.4",
     "npm:@upstash/redis@^1.36.1": "1.36.4",
+    "npm:comlink@^4.4.2": "4.4.2",
     "npm:esbuild-wasm@~0.27.3": "0.27.3",
     "npm:esbuild@~0.25.5": "0.25.12",
     "npm:goober@2.1.18": "2.1.18_csstype@3.2.3",
@@ -1436,6 +1437,9 @@
         "delayed-stream"
       ]
     },
+    "comlink@4.4.2": {
+      "integrity": "sha512-OxGdvBmJuNKSCMO4NTl1L47VRp6xn2wG4F/2hYzB6tiCb709otOxtEYCSvK80PtjODfXXZu8ds+Nw5kVCjqd2g=="
+    },
     "commander@13.1.0": {
       "integrity": "sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw=="
     },
@@ -2229,6 +2233,7 @@
       "jsr:@std/testing@^1.0.17",
       "jsr:@zod/zod@^4.3.6",
       "npm:@preact/signals@^2.8.1",
+      "npm:comlink@^4.4.2",
       "npm:esbuild-wasm@~0.27.3",
       "npm:goober@^2.1.18",
       "npm:lodash-es@4",

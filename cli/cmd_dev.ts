@@ -5,11 +5,9 @@ import { bold, cyan, dim, green } from "@std/fmt/colors";
 import { error, stepInfo } from "./_output.ts";
 import { runBuild } from "./build.ts";
 import type { AgentEntry } from "./_discover.ts";
-import {
-  createWebSocketTarget,
-  type RpcHandlers,
-  serveRpc,
-} from "@aai/core/rpc";
+import * as Comlink from "comlink";
+import type { ExposedWorkerApi } from "@aai/core/worker-entry";
+import { createWebSocketEndpoint } from "@aai/core/ws-endpoint";
 import { createDenoWorker } from "@aai/core/deno-worker";
 import { createWorkerApi } from "@aai/core/worker-entry";
 
@@ -32,7 +30,7 @@ function spawnLocalWorker(
     sys: false,
   });
   return {
-    workerApi: createWorkerApi(worker),
+    workerApi: createWorkerApi(worker as unknown as import("comlink").Endpoint),
     terminate: () => worker.terminate(),
   };
 }
@@ -248,7 +246,7 @@ function pipeWebSockets(clientWs: WebSocket, serverWs: WebSocket): void {
   });
 }
 
-/** Wait for the next protocol message (skipping RPC) from a WebSocket. */
+/** Wait for the next protocol message from a WebSocket. */
 function nextWsMessage(
   ws: WebSocket,
 ): Promise<Record<string, unknown> | null> {
@@ -261,7 +259,6 @@ function nextWsMessage(
       } catch {
         return;
       }
-      if (typeof msg.id === "number") return; // skip RPC
       ws.removeEventListener("message", onMsg);
       resolve(msg);
     });
@@ -312,21 +309,10 @@ async function connectAndRegister(
     }
   });
 
-  // Phase 1: Authenticate
-  ws.send(JSON.stringify({ type: "dev_auth", token: apiKey }));
-  const authMsg = await nextWsMessage(ws);
-  if (!authMsg || authMsg.type === "dev_error") {
-    throw new Error(
-      (authMsg?.message as string) ?? "Server rejected authentication",
-    );
-  }
-  if (authMsg.type !== "dev_authenticated") {
-    throw new Error(`Unexpected message: ${authMsg.type}`);
-  }
-
-  // Phase 2: Register
+  // Authenticate and register in a single message
   ws.send(JSON.stringify({
     type: "dev_register",
+    token: apiKey,
     config: manifest.config ?? {
       instructions: "",
       greeting: "",
@@ -346,25 +332,31 @@ async function connectAndRegister(
     throw new Error(`Unexpected message: ${regMsg.type}`);
   }
 
-  // Phase 3: Serve RPC
-  const target = createWebSocketTarget(ws);
-  const handlers: RpcHandlers = {
-    executeTool: (req) =>
-      localWorker.workerApi.executeTool(
-        req.name,
-        req.args,
-        undefined,
+  // Phase 3: Expose worker API via Comlink over WebSocket
+  const endpoint = createWebSocketEndpoint(ws);
+  const devApi: ExposedWorkerApi = {
+    init() {},
+    dispose() {},
+    executeTool(name, args, sessionId, env) {
+      return localWorker.workerApi.executeTool(
+        name,
+        args,
+        sessionId,
         30_000,
-      ),
-    invokeHook: (req) =>
-      localWorker.workerApi.invokeHook(
-        req.hook,
-        req.sessionId,
-        { text: req.text, error: req.error },
+        env,
+      );
+    },
+    invokeHook(hook, sessionId, text, error, env) {
+      return localWorker.workerApi.invokeHook(
+        hook,
+        sessionId,
+        { text, error },
         5_000,
-      ),
+        env,
+      );
+    },
   };
-  serveRpc(target, handlers);
+  Comlink.expose(devApi, endpoint);
 
   const devToken = regMsg.devToken as string;
   if (!devToken) {

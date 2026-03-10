@@ -103,29 +103,27 @@ never on each other.
 ### Agent Isolation
 
 Agent code runs in Deno Workers with **all permissions false** (including
-`net: false`). The worker communicates with the host via bidirectional RPC over
-`postMessage`. Custom tool `execute` functions run inside the worker; built-in
+`net: false`). The worker communicates with the host via Comlink over
+`MessagePort`. Custom tool `execute` functions run inside the worker; built-in
 tools run on the host.
 
 **Fetch proxy**: Since workers have no network access, `globalThis.fetch` is
 monkeypatched in the worker entry (`core/_worker_entry.ts`) to proxy HTTP
-requests through RPC to the host process. The host handler
+requests through Comlink to the host process. The host handler
 (`server/worker_pool.ts`) validates each URL via `assertPublicUrl()`
 (`server/builtin_tools.ts`) to block requests to private/internal addresses
 (SSRF protection) before executing the real fetch.
 
-**RPC architecture**: `core/_rpc.ts` provides three primitives:
+**Comlink architecture**: All worker ↔ host communication uses Comlink
+(`npm:comlink`). Production workers use Comlink over `MessagePort` (structured
+clone). Dev workers use Comlink over WebSocket via `createWebSocketEndpoint`
+(`core/_ws_endpoint.ts`), which JSON-serializes Comlink messages. Both paths
+produce the same `WorkerApi` interface via `createWorkerApi`.
 
-- `serveRpc` — unidirectional: only handles incoming requests
-- `createRpcCaller` — unidirectional: only makes outgoing calls
-- `createRpcEndpoint` — **bidirectional**: serves incoming requests AND makes
-  outgoing calls on the same `MessageTarget` (discriminates by `type` field
-  presence)
-
-The worker uses `createRpcEndpoint` (serves executeTool/invokeHook, calls
-fetch). The host uses `createRpcEndpoint` when `hostHandlers` are provided to
-`createWorkerApi` (serves fetch, calls executeTool/invokeHook). RPC message
-types are defined in `core/_rpc_schema.ts`.
+The `HostApi` type (fetch + kv proxy) is exposed to production workers via a
+dedicated `MessageChannel` — the host calls `Comlink.expose(hostApi, port1)` and
+transfers `port2` to the worker. Dev workers don't need this because they run
+with `net: true`.
 
 ## Conventions
 

@@ -6,7 +6,6 @@ import {
   trackSessionOpen,
 } from "./worker_pool.ts";
 import type { WorkerApi } from "@aai/core/worker-entry";
-import { createRpcCaller } from "@aai/core/rpc";
 import { VALID_ENV } from "./_test_utils.ts";
 
 function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
@@ -98,52 +97,4 @@ Deno.test("trackSessionClose does not set idle timer when no live agent", () => 
   const slot = makeSlot({ activeSessions: 1 });
   trackSessionClose(slot);
   expect(slot.idleTimer).toBeUndefined();
-});
-
-// --- createRpcCaller ---
-
-function echoServer(port: MessagePort): void {
-  port.onmessage = (e: MessageEvent) => {
-    const msg = e.data;
-    port.postMessage({ id: msg.id, result: { type: msg.type, ...msg } });
-  };
-}
-
-Deno.test("createRpcCaller sends message and resolves with result", async () => {
-  const { port1, port2 } = new MessageChannel();
-  echoServer(port2);
-  const call = createRpcCaller(port1);
-  const result = await call("ping");
-  expect((result as Record<string, unknown>).type).toBe("ping");
-  port1.close();
-  port2.close();
-});
-
-Deno.test("createRpcCaller passes payload fields in message", async () => {
-  const { port1, port2 } = new MessageChannel();
-  echoServer(port2);
-  const call = createRpcCaller(port1);
-  const result = await call("test", { foo: "bar" }) as Record<string, unknown>;
-  expect(result.foo).toBe("bar");
-  port1.close();
-  port2.close();
-});
-
-Deno.test("createRpcCaller rejects on error response", async () => {
-  const { port1, port2 } = new MessageChannel();
-  port2.onmessage = (e: MessageEvent) => {
-    port2.postMessage({ id: e.data.id, error: "boom" });
-  };
-  const call = createRpcCaller(port1);
-  await expect(call("fail")).rejects.toThrow("boom");
-  port1.close();
-  port2.close();
-});
-
-Deno.test("createRpcCaller rejects on timeout", async () => {
-  const { port1, port2 } = new MessageChannel();
-  const call = createRpcCaller(port1);
-  await expect(call("slow", undefined, 50)).rejects.toThrow("timed out");
-  port1.close();
-  port2.close();
 });

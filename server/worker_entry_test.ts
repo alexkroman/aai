@@ -2,8 +2,11 @@ import { z } from "zod";
 import { expect } from "@std/expect";
 import type { AgentDef, ToolDef } from "@aai/sdk/types";
 import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
-import { startWorker, type WorkerApi } from "@aai/core/worker-entry";
-import { createRpcCaller } from "@aai/core/rpc";
+import {
+  createWorkerApi,
+  startWorker,
+  type WorkerApi,
+} from "@aai/core/worker-entry";
 
 function makeAgent(tools: Record<string, ToolDef>): AgentDef {
   return {
@@ -19,24 +22,11 @@ function makeAgent(tools: Record<string, ToolDef>): AgentDef {
 
 function createHarness(
   agent: AgentDef,
-  env: Record<string, string> = {},
+  _env: Record<string, string> = {},
 ) {
   const channel = new MessageChannel();
-  startWorker(agent, env, channel.port1);
-  const call = createRpcCaller(channel.port2);
-  const workerApi: WorkerApi = {
-    async executeTool(name, args, sessionId, timeoutMs) {
-      const raw = await call(
-        "executeTool",
-        { name, args, sessionId },
-        timeoutMs,
-      );
-      return typeof raw === "string" ? raw : String(raw ?? "");
-    },
-    async invokeHook(hook, sessionId, extra, timeoutMs) {
-      await call("invokeHook", { hook, sessionId, ...extra }, timeoutMs);
-    },
-  };
+  startWorker(agent, _env, channel.port1);
+  const workerApi: WorkerApi = createWorkerApi(channel.port2);
 
   return {
     workerApi,

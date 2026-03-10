@@ -19,6 +19,7 @@ Deno.test("DevRegisterSchema", async (t) => {
   await t.step("accepts valid message", () => {
     const result = DevRegisterSchema.safeParse({
       type: "dev_register",
+      token: "test-api-key",
       config: {
         instructions: "Be helpful",
         greeting: "Hello",
