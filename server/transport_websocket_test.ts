@@ -14,8 +14,8 @@ import type { AgentSlot } from "./worker_pool.ts";
 import type { ServerContext } from "./types.ts";
 import {
   createTestKvStore,
+  createTestScopeKey,
   createTestStore,
-  createTestTokenSigner,
 } from "./_test_utils.ts";
 import { MockWebSocket } from "./_mock_ws.ts";
 
@@ -45,7 +45,7 @@ async function setup(slots?: Map<string, AgentSlot>): Promise<ServerContext> {
     devSlots: new Map(),
     sessions: new Map(),
     store: createTestStore(),
-    tokenSigner: await createTestTokenSigner(),
+    scopeKey: await createTestScopeKey(),
     kvStore: createTestKvStore(),
   };
 }

@@ -9,8 +9,8 @@ import type { DevRegister } from "@aai/core/protocol";
 import type { ServerContext } from "./types.ts";
 import {
   createTestKvStore,
+  createTestScopeKey,
   createTestStore,
-  createTestTokenSigner,
 } from "./_test_utils.ts";
 import { MockWebSocket } from "./_mock_ws.ts";
 import { hashApiKey } from "./deploy.ts";
@@ -22,7 +22,7 @@ async function setup(): Promise<ServerContext> {
     devSlots: new Map(),
     sessions: new Map(),
     store: createTestStore(),
-    tokenSigner: await createTestTokenSigner(),
+    scopeKey: await createTestScopeKey(),
     kvStore: createTestKvStore(),
   };
 }

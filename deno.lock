@@ -18,6 +18,7 @@
     "jsr:@std/bytes@^1.0.2": "1.0.6",
     "jsr:@std/bytes@^1.0.6": "1.0.6",
     "jsr:@std/cli@^1.0.28": "1.0.28",
+    "jsr:@std/crypto@^1.0.4": "1.0.5",
     "jsr:@std/data-structures@^1.0.10": "1.0.10",
     "jsr:@std/dotenv@*": "0.225.6",
     "jsr:@std/dotenv@0.225.6": "0.225.6",
@@ -140,6 +141,9 @@
         "jsr:@std/fmt@^1.0.9",
         "jsr:@std/internal"
       ]
+    },
+    "@std/crypto@1.0.5": {
+      "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
     },
     "@std/data-structures@1.0.10": {
       "integrity": "f574f86b0e07c69b9edc555fcc814b57d29258bad39fd5a34ba8a80ecf033cfe"
@@ -2211,6 +2215,7 @@
       "jsr:@std/async@^1.2.0",
       "jsr:@std/bytes@^1.0.6",
       "jsr:@std/cli@^1.0.28",
+      "jsr:@std/crypto@^1.0.4",
       "jsr:@std/dotenv@0.225.6",
       "jsr:@std/encoding@^1.0.7",
       "jsr:@std/expect@^1.0.18",

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { KvStore } from "./kv.ts";
-import type { TokenSigner } from "./scope_token.ts";
+import { verifyScopeToken } from "./scope_token.ts";
+import { bearerToken } from "./auth.ts";
 
 const KvRequestSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("get"), key: z.string() }),
@@ -22,17 +23,17 @@ const KvRequestSchema = z.discriminatedUnion("op", [
 
 export async function handleKv(
   req: Request,
-  ctx: { kvStore: KvStore; tokenSigner: TokenSigner },
+  ctx: { kvStore: KvStore; scopeKey: CryptoKey },
 ): Promise<Response> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
+  const token = bearerToken(req);
+  if (!token) {
     return Response.json(
       { error: "Missing Authorization header" },
       { status: 401 },
     );
   }
 
-  const scope = await ctx.tokenSigner.verify(authHeader.slice(7));
+  const scope = await verifyScopeToken(ctx.scopeKey, token);
   if (!scope) {
     return Response.json(
       { error: "Invalid or tampered scope token" },

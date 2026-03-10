@@ -97,10 +97,7 @@ export function createSession(opts: SessionOptions): Session {
     ? { ...opts.agentConfig, greeting: "" }
     : opts.agentConfig;
 
-  const env: Record<string, string | undefined> = {
-    ...opts.env,
-    BRAVE_API_KEY: platformConfig.braveApiKey || opts.env?.BRAVE_API_KEY,
-  };
+  const env: Record<string, string | undefined> = { ...opts.env };
   const config: PlatformConfig = {
     ...platformConfig,
     sttConfig: {
