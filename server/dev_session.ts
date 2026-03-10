@@ -14,7 +14,6 @@ import {
   trackSessionOpen,
 } from "./worker_pool.ts";
 import type { ServerContext } from "./types.ts";
-import { getServerBaseUrl } from "./deploy.ts";
 import { claimNamespace, verifyOwner } from "./auth.ts";
 import { loadPlatformConfig } from "./config.ts";
 import { createSession, type Session } from "./session.ts";
@@ -105,7 +104,7 @@ export function handleDevWebSocket(
 async function runDevSession(
   socket: WebSocket,
   slug: string,
-  req: Request,
+  _req: Request,
   ctx: ServerContext,
 ): Promise<void> {
   const reader = protocolMessages(socket).getReader();
@@ -137,18 +136,16 @@ async function runDevSession(
     return;
   }
 
-  const baseUrl = getServerBaseUrl(req);
-  await registerDevAgent(socket, slug, reg.data, ownerHash, baseUrl, ctx);
+  registerDevAgent(socket, slug, reg.data, ownerHash, ctx);
 }
 
-export async function registerDevAgent(
+export function registerDevAgent(
   ws: WebSocket,
   slug: string,
   msg: DevRegister,
   ownerHash: string,
-  baseUrl: string,
   ctx: ServerContext,
-): Promise<void> {
+): void {
   const workerApi = createWorkerApi(createWebSocketTarget(ws));
 
   const agentConfig: AgentConfig = {
@@ -171,22 +168,16 @@ export async function registerDevAgent(
     existing.worker.handle.terminate();
   }
 
-  const kvToken = await ctx.tokenSigner.sign({ ownerHash, slug });
-  const envWithKv = {
-    ...msg.env,
-    AAI_KV_URL: `${baseUrl}/kv`,
-    AAI_SCOPE_TOKEN: kvToken,
-  };
-
   const devToken = crypto.randomUUID();
 
   const slot: AgentSlot = {
     slug,
-    env: envWithKv,
+    env: msg.env,
     transport: msg.transport,
     config: agentConfig,
     name: agentConfig.name ?? slug,
     toolSchemas: customToolSchemas,
+    ownerHash,
     activeSessions: existing?.activeSessions ?? 0,
     worker: {
       handle: { terminate() {} },
@@ -232,7 +223,14 @@ export function handleDevSessionWebSocket(
   const config = slot.config!;
   const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
   const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
-  const { executeTool, getWorkerApi } = createToolExecutor(slot, ctx.store);
+  const kvCtx = slot.ownerHash
+    ? { kvStore: ctx.kvStore, scope: { ownerHash: slot.ownerHash, slug } }
+    : undefined;
+  const { executeTool, getWorkerApi } = createToolExecutor(
+    slot,
+    ctx.store,
+    kvCtx,
+  );
 
   const resume = new URL(req.url).searchParams.has("resume");
   const { socket, response } = _internals.upgradeWebSocket(req);

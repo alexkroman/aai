@@ -5,12 +5,13 @@ import type {
   ToolContext,
   ToolDef,
 } from "@aai/sdk/types";
-import { createKv, type Kv } from "@aai/sdk/kv";
+import type { Kv, KvEntry } from "@aai/sdk/kv";
 import {
   createRpcCaller,
+  createRpcEndpoint,
   type MessageTarget,
+  type RpcCall,
   type RpcHandlers,
-  serveRpc,
 } from "./_rpc.ts";
 
 export const TOOL_HANDLER_TIMEOUT = 30_000;
@@ -47,7 +48,10 @@ export async function executeToolCall(
       env: envCopy,
       signal,
       state: (state ?? {}) as Record<string, unknown>,
-      kv: kv ?? createKv({ env: envCopy }),
+      get kv(): Kv {
+        if (!kv) throw new Error("KV not available");
+        return kv;
+      },
     };
     const result = await Promise.resolve(
       tool.execute(parsed.data, ctx),
@@ -81,8 +85,13 @@ export type WorkerApi = {
   ): Promise<void>;
 };
 
-export function createWorkerApi(port: MessageTarget): WorkerApi {
-  const call = createRpcCaller(port);
+export function createWorkerApi(
+  port: MessageTarget,
+  hostHandlers?: RpcHandlers,
+): WorkerApi {
+  const call = hostHandlers
+    ? createRpcEndpoint(port, hostHandlers)
+    : createRpcCaller(port);
   return {
     async executeTool(name, args, sessionId, timeoutMs, env) {
       const raw = await call(
@@ -106,15 +115,20 @@ export function startWorker(
   const toolHandlers = new Map(Object.entries(agent.tools));
   const sessions = new Map<string, unknown>();
   let mergedEnv = { ...env };
-  let sharedKv: Kv = createKv({ env: mergedEnv });
+  // deno-lint-ignore prefer-const
+  let rpcKv: Kv | undefined;
 
   function applyEnv(extra?: Record<string, string>): void {
     if (!extra) return;
     const updated = { ...mergedEnv, ...extra };
     if (JSON.stringify(updated) !== JSON.stringify(mergedEnv)) {
       mergedEnv = updated;
-      sharedKv = createKv({ env: mergedEnv });
     }
+  }
+
+  function getKv(): Kv {
+    if (!rpcKv) throw new Error("KV not available (RPC not initialized)");
+    return rpcKv;
   }
 
   function getState(sessionId: string): unknown {
@@ -138,7 +152,7 @@ export function startWorker(
         mergedEnv,
         req.sessionId,
         getState(req.sessionId ?? ""),
-        sharedKv,
+        getKv(),
       );
     },
 
@@ -149,7 +163,9 @@ export function startWorker(
         sessionId: req.sessionId,
         env: { ...mergedEnv },
         state: state as Record<string, unknown>,
-        kv: sharedKv,
+        get kv() {
+          return getKv();
+        },
       };
       if (req.hook === "onConnect") {
         await agent.onConnect?.(ctx);
@@ -164,5 +180,135 @@ export function startWorker(
     },
   };
 
-  serveRpc(port, handlers);
+  const call = createRpcEndpoint(port, handlers);
+  rpcKv = createRpcKv(call);
+  installFetchProxy(call);
+}
+
+const KV_TIMEOUT_MS = 10_000;
+
+function createRpcKv(call: RpcCall): Kv {
+  async function kvCall(
+    params: Record<string, unknown>,
+  ): Promise<unknown> {
+    const resp = (await call("kv", params, KV_TIMEOUT_MS)) as {
+      result: unknown;
+    };
+    return resp.result;
+  }
+
+  return {
+    async get<T = unknown>(key: string): Promise<T | null> {
+      const result = await kvCall({ op: "get", key });
+      if (result === null || result === undefined) return null;
+      return (typeof result === "string" ? JSON.parse(result) : result) as T;
+    },
+
+    async set(
+      key: string,
+      value: unknown,
+      options?: { expireIn?: number },
+    ): Promise<void> {
+      const raw = JSON.stringify(value);
+      await kvCall({
+        op: "set",
+        key,
+        value: raw,
+        ...(options?.expireIn
+          ? { ttl: Math.ceil(options.expireIn / 1000) }
+          : {}),
+      });
+    },
+
+    async delete(key: string): Promise<void> {
+      await kvCall({ op: "del", key });
+    },
+
+    async list<T = unknown>(
+      prefix: string,
+      options?: { limit?: number; reverse?: boolean },
+    ): Promise<KvEntry<T>[]> {
+      const result = await kvCall({
+        op: "list",
+        prefix,
+        limit: options?.limit,
+        reverse: options?.reverse,
+      });
+      return result as KvEntry<T>[];
+    },
+  };
+}
+
+const FETCH_TIMEOUT_MS = 30_000;
+
+/** Serialize a BodyInit value to a string suitable for RPC transport. */
+async function serializeBody(body: BodyInit | null): Promise<string | null> {
+  if (body == null) return null;
+  if (typeof body === "string") return body;
+  if (body instanceof URLSearchParams) return body.toString();
+  if (body instanceof ArrayBuffer) {
+    return new TextDecoder().decode(body);
+  }
+  if (body instanceof Blob) {
+    return await body.text();
+  }
+  if (body instanceof ReadableStream) {
+    return await new Response(body).text();
+  }
+  if (body instanceof FormData) {
+    // FormData can't be cleanly serialized to a string; convert to URL-encoded
+    return new URLSearchParams(body as unknown as Record<string, string>)
+      .toString();
+  }
+  return String(body);
+}
+
+/** Replace globalThis.fetch with an RPC-backed proxy to the host process. */
+function installFetchProxy(call: RpcCall): void {
+  globalThis.fetch = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    let url: string;
+    let method: string;
+    let headers: Record<string, string>;
+    let body: string | null;
+
+    if (input instanceof Request) {
+      url = input.url;
+      method = init?.method ?? input.method;
+      headers = Object.fromEntries(
+        new Headers(init?.headers ?? input.headers).entries(),
+      );
+      body = init?.body != null
+        ? await serializeBody(init.body)
+        : input.body != null
+        ? await input.text()
+        : null;
+    } else {
+      url = String(input);
+      method = init?.method ?? "GET";
+      headers = Object.fromEntries(
+        new Headers(init?.headers).entries(),
+      );
+      body = init?.body != null ? await serializeBody(init.body) : null;
+    }
+
+    const result = (await call(
+      "fetch",
+      { url, method, headers, body },
+      FETCH_TIMEOUT_MS,
+    )) as {
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      body: string;
+    };
+
+    return new Response(result.body, {
+      status: result.status,
+      statusText: result.statusText,
+      headers: result.headers,
+    });
+  };
 }

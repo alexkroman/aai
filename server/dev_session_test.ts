@@ -7,7 +7,11 @@ import {
 } from "./dev_session.ts";
 import type { DevRegister } from "@aai/core/protocol";
 import type { ServerContext } from "./types.ts";
-import { createTestStore, createTestTokenSigner } from "./_test_utils.ts";
+import {
+  createTestKvStore,
+  createTestStore,
+  createTestTokenSigner,
+} from "./_test_utils.ts";
 import { MockWebSocket } from "./_mock_ws.ts";
 import { hashApiKey } from "./deploy.ts";
 import { flush } from "./_test_utils.ts";
@@ -19,6 +23,7 @@ async function setup(): Promise<ServerContext> {
     sessions: new Map(),
     store: createTestStore(),
     tokenSigner: await createTestTokenSigner(),
+    kvStore: createTestKvStore(),
   };
 }
 
@@ -281,7 +286,6 @@ Deno.test("registerDevAgent creates dev slot without persisting to store", async
     "ns/dev-agent",
     msg,
     ownerHash,
-    "http://localhost:3000",
     ctx,
   );
 
@@ -290,8 +294,6 @@ Deno.test("registerDevAgent creates dev slot without persisting to store", async
   expect(slot).toBeDefined();
   expect(slot!.name).toBe("Dev Agent");
   expect(slot!._dev).toBe(true);
-  expect(slot!.env.AAI_KV_URL).toBe("http://localhost:3000/kv");
-  expect(slot!.env.AAI_SCOPE_TOKEN).toBeDefined();
 
   // Production slots should not be affected
   expect(ctx.slots.has("ns/dev-agent")).toBe(false);
@@ -339,7 +341,6 @@ Deno.test("registerDevAgent terminates existing worker", async () => {
     "ns/dev-agent",
     msg,
     ownerHash,
-    "http://localhost:3000",
     ctx,
   );
 
@@ -375,7 +376,6 @@ Deno.test("registerDevAgent includes builtin tools in log", async () => {
     "ns/tool-agent",
     msg,
     await hashApiKey("key"),
-    "http://localhost:3000",
     ctx,
   );
 

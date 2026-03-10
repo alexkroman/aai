@@ -68,6 +68,52 @@ Deno.test("RpcRequestSchema", async (t) => {
     expect(result.success).toBe(true);
   });
 
+  await t.step("accepts fetch", () => {
+    const result = RpcRequestSchema.safeParse({
+      id: 4,
+      type: "fetch",
+      url: "https://example.com/api",
+      method: "GET",
+      headers: { "Accept": "application/json" },
+      body: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  await t.step("accepts fetch with body", () => {
+    const result = RpcRequestSchema.safeParse({
+      id: 5,
+      type: "fetch",
+      url: "https://example.com/api",
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"key":"value"}',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  await t.step("rejects fetch missing url", () => {
+    const result = RpcRequestSchema.safeParse({
+      id: 6,
+      type: "fetch",
+      method: "GET",
+      headers: {},
+      body: null,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  await t.step("rejects fetch missing method", () => {
+    const result = RpcRequestSchema.safeParse({
+      id: 7,
+      type: "fetch",
+      url: "https://example.com",
+      headers: {},
+      body: null,
+    });
+    expect(result.success).toBe(false);
+  });
+
   await t.step("rejects unknown type", () => {
     const result = RpcRequestSchema.safeParse({
       id: 4,

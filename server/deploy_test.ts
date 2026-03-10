@@ -3,6 +3,7 @@ import { handleDeploy } from "./deploy.ts";
 import { hashApiKey, requireOwner } from "./auth.ts";
 import type { ServerContext } from "./types.ts";
 import {
+  createTestKvStore,
   createTestStore,
   createTestTokenSigner,
   VALID_ENV,
@@ -15,6 +16,7 @@ async function setup(): Promise<ServerContext> {
     sessions: new Map(),
     store: createTestStore(),
     tokenSigner: await createTestTokenSigner(),
+    kvStore: createTestKvStore(),
   };
 }
 

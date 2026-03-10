@@ -87,7 +87,14 @@ export function createOrchestrator(opts: {
   const slots = new Map<string, AgentSlot>();
   const devSlots = new Map<string, AgentSlot>();
   const sessions = new Map<string, Session>();
-  const ctx: ServerContext = { slots, devSlots, sessions, store, tokenSigner };
+  const ctx: ServerContext = {
+    slots,
+    devSlots,
+    sessions,
+    store,
+    tokenSigner,
+    kvStore,
+  };
 
   const routes: Route[] = [
     {

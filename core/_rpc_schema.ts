@@ -44,7 +44,26 @@ export type RpcRequest =
     error?: string;
     env?: Record<string, string>;
   }
-  | { id: number; type: "execute"; code: string };
+  | { id: number; type: "execute"; code: string }
+  | {
+    id: number;
+    type: "fetch";
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    body: string | null;
+  }
+  | {
+    id: number;
+    type: "kv";
+    op: "get" | "set" | "del" | "list";
+    key?: string;
+    value?: string;
+    ttl?: number;
+    prefix?: string;
+    limit?: number;
+    reverse?: boolean;
+  };
 
 export const RpcRequestSchema: z.ZodType<RpcRequest> = z.discriminatedUnion(
   "type",
@@ -70,6 +89,25 @@ export const RpcRequestSchema: z.ZodType<RpcRequest> = z.discriminatedUnion(
       id: z.number(),
       type: z.literal("execute"),
       code: z.string(),
+    }),
+    z.object({
+      id: z.number(),
+      type: z.literal("fetch"),
+      url: z.string(),
+      method: z.string(),
+      headers: z.record(z.string(), z.string()),
+      body: z.string().nullable(),
+    }),
+    z.object({
+      id: z.number(),
+      type: z.literal("kv"),
+      op: z.enum(["get", "set", "del", "list"]),
+      key: z.string().optional(),
+      value: z.string().optional(),
+      ttl: z.number().optional(),
+      prefix: z.string().optional(),
+      limit: z.number().optional(),
+      reverse: z.boolean().optional(),
     }),
   ],
 );
