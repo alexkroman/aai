@@ -11,5 +11,11 @@
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.7",
     "@cliffy/testing": "jsr:@cliffy/testing@^1.0.0-rc.7"
+  },
+  "publish": {
+    "exclude": [
+      "*_test.ts",
+      "__snapshots__/"
+    ]
   }
 }
