@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { renderAgentPage } from "./html.ts";
-import { handleSessionWebSocket } from "./ws_handler.ts";
+import { createSessionWSEvents } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
 import {
   type AgentSlot,
@@ -12,10 +12,7 @@ import {
 } from "./worker_pool.ts";
 import type { HonoEnv } from "./hono_env.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-
-export const _internals = {
-  upgradeWebSocket: (req: Request) => Deno.upgradeWebSocket(req),
-};
+import { upgradeWebSocket } from "./ws_upgrade.ts";
 
 export async function discoverSlot(
   slug: string,
@@ -58,20 +55,20 @@ export async function handleAgentPage(c: Context<HonoEnv>) {
   return c.html(renderAgentPage(slot.name ?? slug, `/${slug}`));
 }
 
-export async function handleWebSocket(c: Context<HonoEnv>) {
+export const handleWebSocket = upgradeWebSocket(async (c) => {
   const { slug, slots, store, kvStore, sessions } = c.var;
   const slot = await resolveSlot(slug, slots, store);
   if (!slot) throw new HTTPException(404, { message: "Not found" });
 
   const setup = prepareSession(slot, slug, store, kvStore);
   const resume = c.req.query("resume") !== undefined;
-  const { socket, response } = _internals.upgradeWebSocket(c.req.raw);
-  handleSessionWebSocket(socket, sessions, {
-    createSession: (sessionId, ws) =>
+
+  return createSessionWSEvents(sessions, {
+    createSession: (sessionId, transport) =>
       createSession({
         id: sessionId,
         agent: slug,
-        transport: ws,
+        transport,
         ...setup,
         skipGreeting: resume,
       }),
@@ -79,8 +76,7 @@ export async function handleWebSocket(c: Context<HonoEnv>) {
     onOpen: () => trackSessionOpen(slot),
     onClose: () => trackSessionClose(slot),
   });
-  return response;
-}
+});
 
 export async function handleStaticFile(c: Context<HonoEnv>) {
   const { slug, slots, store } = c.var;
@@ -101,7 +97,10 @@ export async function handleStaticFile(c: Context<HonoEnv>) {
 
   const content = await store.getFile(slug, spec.key);
   if (!content) throw new HTTPException(404, { message: "Not found" });
-  c.header("Content-Type", spec.ct);
-  c.header("Cache-Control", "no-cache");
-  return c.body(content);
+  return c.body(content, {
+    headers: {
+      "Content-Type": spec.ct,
+      "Cache-Control": "no-cache",
+    },
+  });
 }

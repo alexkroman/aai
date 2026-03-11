@@ -67,10 +67,10 @@ export function createOrchestrator(opts: {
   app.get("/favicon.svg", serveFavicon);
   app.get("/install", (c) => c.text(INSTALL_SCRIPT));
   app.get("/health", (c) => c.json({ status: "ok" }));
-  app.get("/metrics", (c) => {
-    c.header("Content-Type", "text/plain; version=0.0.4");
-    return c.body(serializeMetrics());
-  });
+  app.get("/metrics", (c) =>
+    c.body(serializeMetrics(), {
+      headers: { "Content-Type": "text/plain; version=0.0.4" },
+    }));
   app.get("/", (c) => c.html(renderLandingPage()));
 
   // --- Agent routes (require valid slug + inject shared state) ---
@@ -106,10 +106,10 @@ export function createOrchestrator(opts: {
   agent.all("/stream", requireUpgrade, handleTwilioStream);
 
   // Agent public endpoints
-  agent.get("/metrics", (c) => {
-    c.header("Content-Type", "text/plain; version=0.0.4");
-    return c.body(serializeForAgent(c.var.slug));
-  });
+  agent.get("/metrics", (c) =>
+    c.body(serializeForAgent(c.var.slug), {
+      headers: { "Content-Type": "text/plain; version=0.0.4" },
+    }));
   agent.get("/health", handleAgentHealth);
   agent.all("/websocket", requireUpgrade, handleWebSocket);
   agent.get("/client.js", etag(), handleStaticFile);

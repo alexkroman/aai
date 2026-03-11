@@ -2,7 +2,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { expect } from "@std/expect";
 import { stub } from "@std/testing/mock";
 import { createOrchestrator } from "./orchestrator.ts";
-import { _internals } from "./transport_websocket.ts";
+import { _internals } from "./ws_upgrade.ts";
 import { hashApiKey } from "./auth.ts";
 import { signScopeToken } from "./scope_token.ts";
 import {
