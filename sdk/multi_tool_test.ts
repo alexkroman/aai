@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
 import { z } from "zod";
-import { multiTool } from "./multi_tool.ts";
+import { action, multiTool } from "./multi_tool.ts";
 import type { ToolContext } from "./types.ts";
 import { createMemoryKv } from "./kv.ts";
 
@@ -56,7 +56,9 @@ Deno.test("multiTool", async (t) => {
       },
     });
     expect(await tool.execute({ action: "add" }, makeCtx())).toBe("added");
-    expect(await tool.execute({ action: "remove" }, makeCtx())).toBe("removed");
+    expect(await tool.execute({ action: "remove" }, makeCtx())).toBe(
+      "removed",
+    );
   });
 
   await t.step("returns error for unknown action", async () => {
@@ -74,14 +76,14 @@ Deno.test("multiTool", async (t) => {
     const tool = multiTool({
       description: "test",
       actions: {
-        move: {
+        move: action({
           schema: z.object({ room: z.string() }),
           execute: () => "moved",
-        },
-        take: {
+        }),
+        take: action({
           schema: z.object({ item: z.string() }),
           execute: () => "taken",
-        },
+        }),
       },
     });
     // action + room + item should all be in the schema
@@ -93,10 +95,10 @@ Deno.test("multiTool", async (t) => {
     const tool = multiTool({
       description: "test",
       actions: {
-        move: {
+        move: action({
           schema: z.object({ room: z.string() }),
           execute: (args) => `moved to ${args.room}`,
-        },
+        }),
       },
     });
     const result = await tool.execute(
@@ -112,10 +114,10 @@ Deno.test("multiTool", async (t) => {
       const tool = multiTool({
         description: "test",
         actions: {
-          move: {
+          move: action({
             schema: z.object({ room: z.string() }),
             execute: (args) => `moved to ${args.room}`,
-          },
+          }),
         },
       });
       const result = await tool.execute(
@@ -132,7 +134,7 @@ Deno.test("multiTool", async (t) => {
       description: "test",
       actions: {
         check: {
-          execute: (_args, ctx) => {
+          execute: (_args: Record<string, unknown>, ctx: ToolContext) => {
             capturedCtx = ctx;
             return "ok";
           },

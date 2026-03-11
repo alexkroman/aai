@@ -4,7 +4,7 @@ snapshot[`cli help and version output > help 1`] = `
 stdout:
 "
    ▄▀█ ▄▀█ █   Voice agent development kit
-   █▀█ █▀█ █   v0.1.78
+   █▀█ █▀█ █   v0.1.80
 
   Usage   aai <command> [options]
 
@@ -35,7 +35,7 @@ stderr:
 
 snapshot[`cli help and version output > version 1`] = `
 stdout:
-"aai 0.1.78
+"aai 0.1.80
 "
 stderr:
 ""
@@ -44,7 +44,7 @@ stderr:
 snapshot[`cli help and version output > newHelp 1`] = `
 stdout:
 "
-  aai new  v0.1.78
+  aai new  v0.1.80
   Scaffold a new agent project
 
   Arguments
@@ -70,7 +70,7 @@ stderr:
 snapshot[`cli help and version output > devHelp 1`] = `
 stdout:
 '
-  aai dev  v0.1.78
+  aai dev  v0.1.80
   Run local dev server with file watching
 
   Options
@@ -90,7 +90,7 @@ stderr:
 snapshot[`cli help and version output > deployHelp 1`] = `
 stdout:
 "
-  aai deploy  v0.1.78
+  aai deploy  v0.1.80
   Bundle and deploy to production
 
   Options
@@ -110,7 +110,7 @@ stderr:
 snapshot[`cli help and version output > buildHelp 1`] = `
 stdout:
 "
-  aai build  v0.1.78
+  aai build  v0.1.80
   Validate and bundle the agent
 
 "
@@ -121,7 +121,7 @@ stderr:
 snapshot[`cli help and version output > typesHelp 1`] = `
 stdout:
 "
-  aai types  v0.1.78
+  aai types  v0.1.80
   Set up TypeScript tooling for an existing agent
 
 "

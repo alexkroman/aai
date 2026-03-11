@@ -1,4 +1,5 @@
-import { defineAgent, multiTool, z } from "@aai/sdk";
+import { action, defineAgent, multiTool, z } from "@aai/sdk";
+import type { ToolContext } from "@aai/sdk";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -601,7 +602,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
       description:
         "Manage incidents: create from incoming calls, triage, update status, escalate, get details, or add notes.",
       actions: {
-        create: {
+        create: action({
           schema: z.object({
             location: z.string().describe("Address or location description"),
             description: z.string().describe(
@@ -616,22 +617,17 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               "Known hazards: fire, chemical, electrical, structural, weapons",
             ).optional(),
           }),
-          execute: (args, ctx) => {
-            const {
+          execute: (
+            {
               location,
               description,
               callerName,
               callerPhone,
               estimatedCasualties,
               hazards,
-            } = args as {
-              location: string;
-              description: string;
-              callerName?: string;
-              callerPhone?: string;
-              estimatedCasualties?: number;
-              hazards?: string[];
-            };
+            },
+            ctx,
+          ) => {
             const state = ctx.state as unknown as DispatchState;
             state.incidentCounter++;
             const id = `INC-${String(state.incidentCounter).padStart(4, "0")}`;
@@ -700,8 +696,8 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
                 : `${id} created. Triage score ${triageScore}. ${recommended.length} resource(s) recommended.`,
             };
           },
-        },
-        triage: {
+        }),
+        triage: action({
           schema: z.object({
             incidentId: z.string().describe("The incident ID"),
             severity: z.enum(["critical", "urgent", "moderate", "minor"])
@@ -723,22 +719,17 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               .optional(),
             notes: z.string().describe("Triage notes").optional(),
           }),
-          execute: (args, ctx) => {
-            const {
+          execute: (
+            {
               incidentId,
               severity,
               type,
               additionalHazards,
               casualtyUpdate,
               notes,
-            } = args as {
-              incidentId: string;
-              severity?: Severity;
-              type?: IncidentType;
-              additionalHazards?: string[];
-              casualtyUpdate?: number;
-              notes?: string;
-            };
+            },
+            ctx,
+          ) => {
             const state = ctx.state as unknown as DispatchState;
             const inc = state.incidents[incidentId];
             if (!inc) return { error: `Incident ${incidentId} not found` };
@@ -793,8 +784,8 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               systemAlertLevel: state.alertLevel,
             };
           },
-        },
-        update_status: {
+        }),
+        update_status: action({
           schema: z.object({
             incidentId: z.string().describe("The incident ID"),
             status: z.enum(["en_route", "on_scene", "resolved", "escalated"])
@@ -805,13 +796,10 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               treated: z.number().optional(),
             }).describe("Updated casualty numbers").optional(),
           }),
-          execute: (args, ctx) => {
-            const { incidentId, status, notes, casualtyUpdate } = args as {
-              incidentId: string;
-              status: Status;
-              notes?: string;
-              casualtyUpdate?: { confirmed?: number; treated?: number };
-            };
+          execute: (
+            { incidentId, status, notes, casualtyUpdate },
+            ctx,
+          ) => {
             const state = ctx.state as unknown as DispatchState;
             const inc = state.incidents[incidentId];
             if (!inc) return { error: `Incident ${incidentId} not found` };
@@ -871,8 +859,8 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               systemAlertLevel: state.alertLevel,
             };
           },
-        },
-        escalate: {
+        }),
+        escalate: action({
           schema: z.object({
             incidentId: z.string().describe("The incident ID"),
             reason: z.string().describe("Reason for escalation"),
@@ -883,14 +871,10 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               "Escalated severity level",
             ).optional(),
           }),
-          execute: (args, ctx) => {
-            const { incidentId, reason, requestMutualAid, newSeverity } =
-              args as {
-                incidentId: string;
-                reason: string;
-                requestMutualAid?: boolean;
-                newSeverity?: "critical" | "urgent";
-              };
+          execute: (
+            { incidentId, reason, requestMutualAid, newSeverity },
+            ctx,
+          ) => {
             const state = ctx.state as unknown as DispatchState;
             const inc = state.incidents[incidentId];
             if (!inc) return { error: `Incident ${incidentId} not found` };
@@ -965,13 +949,12 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
                 `ESCALATION CONFIRMED — ${incidentId} now Level ${inc.escalationLevel}. ${additionalResources.length} additional resource(s) available for dispatch.`,
             };
           },
-        },
-        get: {
+        }),
+        get: action({
           schema: z.object({
             incidentId: z.string().describe("The incident ID"),
           }),
-          execute: (args, ctx) => {
-            const { incidentId } = args as { incidentId: string };
+          execute: ({ incidentId }, ctx) => {
             const state = ctx.state as unknown as DispatchState;
             const inc = state.incidents[incidentId];
             if (!inc) return { error: `Incident ${incidentId} not found` };
@@ -1003,8 +986,8 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
                 .map((p) => p.name),
             };
           },
-        },
-        add_note: {
+        }),
+        add_note: action({
           schema: z.object({
             incidentId: z.string().describe("The incident ID"),
             note: z.string().describe("The note to add"),
@@ -1012,12 +995,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               "Who reported this — unit callsign or caller",
             ).optional(),
           }),
-          execute: (args, ctx) => {
-            const { incidentId, note, source } = args as {
-              incidentId: string;
-              note: string;
-              source?: string;
-            };
+          execute: ({ incidentId, note, source }, ctx) => {
             const state = ctx.state as unknown as DispatchState;
             const inc = state.incidents[incidentId];
             if (!inc) return { error: `Incident ${incidentId} not found` };
@@ -1033,7 +1011,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               totalNotes: inc.notes.length,
             };
           },
-        },
+        }),
       },
     }),
 
@@ -1041,7 +1019,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
       description:
         "Manage resources: dispatch units to incidents, list available resources, or update unit status.",
       actions: {
-        dispatch: {
+        dispatch: action({
           schema: z.object({
             incidentId: z.string().describe("The incident ID"),
             callsigns: z.array(z.string()).describe(
@@ -1054,13 +1032,10 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               "Dispatch priority — affects simulated ETA",
             ).optional(),
           }),
-          execute: (args, ctx) => {
-            const { incidentId, callsigns, autoDispatch, priority } = args as {
-              incidentId: string;
-              callsigns?: string[];
-              autoDispatch?: boolean;
-              priority?: "routine" | "priority" | "emergency";
-            };
+          execute: (
+            { incidentId, callsigns, autoDispatch, priority },
+            ctx,
+          ) => {
             const state = ctx.state as unknown as DispatchState;
             const inc = state.incidents[incidentId];
             if (!inc) return { error: `Incident ${incidentId} not found` };
@@ -1142,8 +1117,8 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
                 : undefined,
             };
           },
-        },
-        get_available: {
+        }),
+        get_available: action({
           schema: z.object({
             type: z.enum([
               "ambulance",
@@ -1157,8 +1132,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               "all",
             ]).describe("Filter by resource type, or 'all'").optional(),
           }),
-          execute: (args, ctx) => {
-            const { type } = args as { type?: string };
+          execute: ({ type }, ctx) => {
             const state = ctx.state as unknown as DispatchState;
             let resources = state.resources;
             if (type && type !== "all") {
@@ -1183,8 +1157,8 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               },
             };
           },
-        },
-        update_status: {
+        }),
+        update_status: action({
           schema: z.object({
             callsign: z.string().describe("The resource callsign"),
             status: z.enum([
@@ -1196,12 +1170,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
             ]).describe("New status"),
             notes: z.string().describe("Status notes").optional(),
           }),
-          execute: (args, ctx) => {
-            const { callsign, status, notes } = args as {
-              callsign: string;
-              status: Resource["status"];
-              notes?: string;
-            };
+          execute: ({ callsign, status, notes }, ctx) => {
             const state = ctx.state as unknown as DispatchState;
             const resource = state.resources.find((r) =>
               r.callsign.toLowerCase() === callsign.toLowerCase()
@@ -1242,7 +1211,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               systemAlertLevel: state.alertLevel,
             };
           },
-        },
+        }),
       },
     }),
 
@@ -1251,7 +1220,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         "Operational tools: view the dashboard, look up response protocols, or run training scenarios.",
       actions: {
         dashboard: {
-          execute: (_args, ctx) => {
+          execute: (_args: Record<string, unknown>, ctx: ToolContext) => {
             const state = ctx.state as unknown as DispatchState;
 
             const activeIncidents = Object.values(state.incidents)
@@ -1311,7 +1280,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
             };
           },
         },
-        protocols: {
+        protocols: action({
           schema: z.object({
             incidentType: z.enum([
               "medical",
@@ -1326,14 +1295,10 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
             severity: z.enum(["critical", "urgent", "moderate", "minor"])
               .describe("Severity level"),
           }),
-          execute: (args) => {
-            const { incidentType, severity } = args as {
-              incidentType: string;
-              severity: string;
-            };
+          execute: ({ incidentType, severity }) => {
             const protocols = getApplicableProtocols(
-              incidentType as IncidentType,
-              severity as Severity,
+              incidentType,
+              severity,
             );
             if (protocols.length === 0) {
               return {
@@ -1350,8 +1315,8 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               })),
             };
           },
-        },
-        run_scenario: {
+        }),
+        run_scenario: action({
           schema: z.object({
             scenario: z.enum([
               "mass_casualty",
@@ -1361,8 +1326,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               "highway_pileup",
             ]).describe("Scenario type to simulate"),
           }),
-          execute: (args, ctx) => {
-            const { scenario } = args as { scenario: string };
+          execute: ({ scenario }, ctx) => {
             const state = ctx.state as unknown as DispatchState;
             const scenarios: Record<
               string,
@@ -1529,7 +1493,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
                 `SCENARIO ACTIVE: ${s.narrative}. ${created.length} incidents created. Awaiting dispatch orders.`,
             };
           },
-        },
+        }),
       },
     }),
   },

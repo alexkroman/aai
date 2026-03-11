@@ -2,7 +2,7 @@ export { defineAgent } from "./define_agent.ts";
 export { fetchJSON, httpError } from "./fetch_json.ts";
 export { createMemoryKv } from "./kv.ts";
 export { kvTools } from "./kv_tools.ts";
-export { multiTool } from "./multi_tool.ts";
+export { action, multiTool } from "./multi_tool.ts";
 export { z } from "zod";
 export { tool } from "./types.ts";
 export type {

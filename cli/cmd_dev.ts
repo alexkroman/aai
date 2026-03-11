@@ -1,7 +1,7 @@
 import { Command } from "@cliffy/command";
 import { debounce } from "@std/async/debounce";
 import { encodeBase64 } from "@std/encoding/base64";
-import { bold, green } from "@std/fmt/colors";
+import { bold, brightMagenta } from "@std/fmt/colors";
 import { error, stepInfo } from "./_output.ts";
 import { runBuild } from "./build.ts";
 import {
@@ -430,6 +430,6 @@ function printReady(
 ): void {
   const fullPath = `${namespace}/${agent.slug}`;
   const url = `http://localhost:${port}/${fullPath}`;
-  console.log(`\n  ${green(bold(url))}\n`);
+  console.log(`\n  ${brightMagenta(bold(url))}\n`);
   stepInfo("Watch", "for changes...");
 }

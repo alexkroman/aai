@@ -1,4 +1,4 @@
-import { defineAgent, multiTool, z } from "@aai/sdk";
+import { action, defineAgent, multiTool, z } from "@aai/sdk";
 import type { ToolContext } from "@aai/sdk";
 
 type GameState = {
@@ -91,69 +91,68 @@ ATMOSPHERE:
             };
           },
         },
-        move: {
+        move: action({
           schema: z.object({
             value: z.string().describe("Room name to move to"),
           }),
-          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+          execute: ({ value }, ctx) => {
             const g = s(ctx);
-            g.currentRoom = args.value as string;
+            g.currentRoom = value;
             g.moves++;
             return { currentRoom: g.currentRoom, moves: g.moves };
           },
-        },
-        take: {
+        }),
+        take: action({
           schema: z.object({
             value: z.string().describe("Item name to take"),
           }),
-          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+          execute: ({ value }, ctx) => {
             const g = s(ctx);
-            const item = args.value as string;
-            if (!g.inventory.includes(item)) g.inventory.push(item);
+            if (!g.inventory.includes(value)) g.inventory.push(value);
             return { inventory: g.inventory };
           },
-        },
-        drop: {
+        }),
+        drop: action({
           schema: z.object({
             value: z.string().describe("Item name to drop"),
           }),
-          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+          execute: ({ value }, ctx) => {
             const g = s(ctx);
-            g.inventory = g.inventory.filter((i) => i !== args.value);
+            g.inventory = g.inventory.filter((i) => i !== value);
             return { inventory: g.inventory };
           },
-        },
-        score: {
+        }),
+        score: action({
           schema: z.object({
             value: z.string().describe("Points to add"),
           }),
-          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+          execute: ({ value }, ctx) => {
             const g = s(ctx);
-            g.score += parseInt(args.value as string) || 0;
+            g.score += parseInt(value) || 0;
             return { score: g.score };
           },
-        },
-        flag: {
+        }),
+        flag: action({
           schema: z.object({
             value: z.string().describe("Flag name to set"),
           }),
-          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+          execute: ({ value }, ctx) => {
             const g = s(ctx);
-            g.flags[args.value as string] = true;
+            g.flags[value] = true;
             return { flags: g.flags };
           },
-        },
-        history: {
+        }),
+        history: action({
           schema: z.object({
             value: z.string().describe("Command text to log"),
           }),
-          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
+          execute: ({ value }, ctx) => {
             const g = s(ctx);
-            g.history.push(args.value as string);
+            g.history.push(value);
             g.moves++;
             return { moves: g.moves, recentHistory: g.history.slice(-5) };
           },
-        },
+        }),
       },
     }),
   },

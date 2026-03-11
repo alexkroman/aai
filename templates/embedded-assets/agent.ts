@@ -1,4 +1,4 @@
-import { defineAgent, multiTool, z } from "@aai/sdk";
+import { action, defineAgent, multiTool, z } from "@aai/sdk";
 import knowledge from "./knowledge.json" with { type: "json" };
 
 type FaqEntry = { question: string; answer: string };
@@ -25,12 +25,12 @@ Rules:
       description:
         "Search or browse the embedded FAQ knowledge base. Use 'search' to find answers, 'list' to see all topics.",
       actions: {
-        search: {
+        search: action({
           schema: z.object({
             query: z.string().describe("The user's question to search for"),
           }),
           execute: ({ query }) => {
-            const q = (query as string).toLowerCase();
+            const q = query.toLowerCase();
             const match = faqs.find((f) =>
               f.question.toLowerCase().includes(q) ||
               q.includes(f.question.toLowerCase()) ||
@@ -38,7 +38,7 @@ Rules:
             );
             return match ?? { result: "No matching FAQ found." };
           },
-        },
+        }),
         list: {
           execute: () => faqs.map((f) => f.question),
         },

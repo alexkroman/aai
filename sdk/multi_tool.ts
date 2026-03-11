@@ -1,13 +1,27 @@
 import { z } from "zod";
 import type { ToolContext, ToolDef } from "./types.ts";
 
-type ActionDef = {
+export type ActionDef = {
   schema?: z.ZodObject<z.ZodRawShape>;
   execute: (
     args: Record<string, unknown>,
     ctx: ToolContext,
   ) => Promise<unknown> | unknown;
 };
+
+/**
+ * Define a typed multiTool action. Infers execute args from the Zod schema
+ * so you can destructure without `as string` casts.
+ */
+export function action<P extends z.ZodObject<z.ZodRawShape>>(def: {
+  schema: P;
+  execute: (
+    args: z.infer<P>,
+    ctx: ToolContext,
+  ) => Promise<unknown> | unknown;
+}): ActionDef {
+  return def as unknown as ActionDef;
+}
 
 export function multiTool(opts: {
   description: string;

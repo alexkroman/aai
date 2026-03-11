@@ -2,7 +2,7 @@ import { Command } from "@cliffy/command";
 import { Select } from "@cliffy/prompt";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
-import { cyan } from "@std/fmt/colors";
+import { brightBlue } from "@std/fmt/colors";
 import { ensureClaudeMd, ensureTypescriptSetup } from "./_discover.ts";
 
 export const newCommand: Command = new Command()
@@ -17,7 +17,7 @@ export const newCommand: Command = new Command()
     if (!force && await exists(join(cwd, "agent.ts"))) {
       console.log(
         `agent.ts already exists in this directory. Use ${
-          cyan("--force")
+          brightBlue("--force")
         } to overwrite.`,
       );
       Deno.exit(1);
@@ -44,6 +44,6 @@ export const newCommand: Command = new Command()
     await ensureClaudeMd(cwd);
     await ensureTypescriptSetup(cwd);
 
-    console.log(`Run ${cyan("aai dev")} to start a local dev server.`);
-    console.log(`Run ${cyan("aai deploy")} to deploy to production.\n`);
+    console.log(`Run ${brightBlue("aai dev")} to start a local dev server.`);
+    console.log(`Run ${brightBlue("aai deploy")} to deploy to production.\n`);
   }) as unknown as Command;

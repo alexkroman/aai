@@ -1,5 +1,5 @@
-import { cyan, dim, green, red } from "@std/fmt/colors";
-import { error, step } from "./_output.ts";
+import { brightBlue, brightMagenta, dim, red } from "@std/fmt/colors";
+import { detail, error, step } from "./_output.ts";
 import { type AgentEntry, loadAgent } from "./_discover.ts";
 import { bundleAgent, type BundleOutput } from "./_bundler.ts";
 import { validateAgent, type ValidationResult } from "./_validate.ts";
@@ -38,10 +38,12 @@ export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
         const preview = t.result !== undefined
           ? dim(" → " + JSON.stringify(t.result).slice(0, 80))
           : "";
-        console.log(`  ${green("✓")} ${cyan(t.name)}${preview}`);
+        detail(`${brightMagenta("✓")} ${brightBlue(t.name)}${preview}`);
       } else {
-        console.log(
-          `  ${red("✗")} ${cyan(t.name)} ${red(t.error ?? "unknown error")}`,
+        detail(
+          `${red("✗")} ${brightBlue(t.name)} ${
+            red(t.error ?? "unknown error")
+          }`,
         );
       }
     }
