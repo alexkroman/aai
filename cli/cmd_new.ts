@@ -1,5 +1,4 @@
 import { Command } from "@cliffy/command";
-import { Select } from "@cliffy/prompt";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { brightBlue } from "@std/fmt/colors";
@@ -25,25 +24,15 @@ export const newCommand: Command = new Command()
 
     const cliDir = dirname(fromFileUrl(import.meta.url));
     const templatesDir = join(cliDir, "..", "templates");
-    const { listTemplates, runNew } = await import("./new.ts");
-    const templates = await listTemplates(templatesDir);
+    const { runNew } = await import("./new.ts");
 
     if (!template) {
-      try {
-        template = await Select.prompt({
-          message: "Choose a template",
-          options: templates,
-        });
-      } catch {
-        // stdin is not a TTY — fall back to default
-        template = "simple";
-      }
+      template = "simple";
     }
 
     await runNew({ targetDir: cwd, template, templatesDir, name });
     await ensureClaudeMd(cwd);
     await ensureTypescriptSetup(cwd);
 
-    console.log(`Run ${brightBlue("aai dev")} to start a local dev server.`);
     console.log(`Run ${brightBlue("aai deploy")} to deploy to production.\n`);
   }) as unknown as Command;

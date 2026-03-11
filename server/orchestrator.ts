@@ -15,10 +15,6 @@ import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { Session } from "./session.ts";
 import { handleTwilioStream, handleTwilioVoice } from "./transport_twilio.ts";
-import {
-  handleDevSessionWebSocket,
-  handleDevWebSocket,
-} from "./dev_session.ts";
 import { handleKv, validateKvRequest } from "./kv_handler.ts";
 import { createMemoryKvStore, type KvStore } from "./kv.ts";
 import type { ScopeKey } from "./scope_token.ts";
@@ -43,7 +39,6 @@ export function createOrchestrator(opts: {
   const scopeKey = opts.scopeKey;
 
   const slots = new Map<string, AgentSlot>();
-  const devSlots = new Map<string, AgentSlot>();
   const sessions = new Map<string, Session>();
 
   const app = new Hono<HonoEnv>();
@@ -85,7 +80,6 @@ export function createOrchestrator(opts: {
   agent.use("*", slugValidation);
   agent.use("*", async (c, next) => {
     c.set("slots", slots);
-    c.set("devSlots", devSlots);
     c.set("sessions", sessions);
     c.set("store", store);
     c.set("scopeKey", scopeKey);
@@ -112,10 +106,6 @@ export function createOrchestrator(opts: {
   // Twilio
   agent.post("/voice", handleTwilioVoice);
   agent.all("/stream", requireUpgrade, handleTwilioStream);
-
-  // Dev mode
-  agent.all("/dev", requireUpgrade, handleDevWebSocket);
-  agent.all("/dev/websocket", handleDevSessionWebSocket);
 
   // Agent public endpoints
   agent.get("/metrics", (c) => {

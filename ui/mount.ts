@@ -56,10 +56,8 @@ export function mount(
   const signals = createSessionControls(session);
   const styleEl = injectBodyStyle(theme);
 
-  render(
-    html`<${SessionProvider} value="${signals}"><${Component} /></${SessionProvider}>`,
-    container,
-  );
+  // deno-fmt-ignore
+  render(html`<${SessionProvider} value="${signals}"><${Component} /></${SessionProvider}>`, container);
 
   const handle: MountHandle = {
     session,

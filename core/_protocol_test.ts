@@ -5,8 +5,6 @@ import {
   ClientMessageSchema,
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-  DevRegisteredSchema,
-  DevRegisterSchema,
   PROTOCOL_VERSION,
   ServerMessageSchema,
 } from "./_protocol.ts";
@@ -21,45 +19,6 @@ Deno.test("protocol constants", async (t) => {
   });
   await t.step("audio format", () => {
     expect(AUDIO_FORMAT).toBe("pcm16");
-  });
-});
-
-Deno.test("DevRegisterSchema", async (t) => {
-  await t.step("accepts valid message", () => {
-    const result = DevRegisterSchema.safeParse({
-      type: "dev_register",
-      token: "test-api-key",
-      config: {
-        instructions: "Be helpful",
-        greeting: "Hello",
-        voice: "luna",
-      },
-      toolSchemas: [],
-      env: { ASSEMBLYAI_API_KEY: "test" },
-      transport: ["websocket"],
-      client: "console.log('hi')",
-    });
-    expect(result.success).toBe(true);
-  });
-
-  await t.step("rejects missing fields", () => {
-    const result = DevRegisterSchema.safeParse({ type: "dev_register" });
-    expect(result.success).toBe(false);
-  });
-});
-
-Deno.test("DevRegisteredSchema", async (t) => {
-  await t.step("accepts valid message", () => {
-    const result = DevRegisteredSchema.safeParse({
-      type: "dev_registered",
-      slug: "my-agent",
-    });
-    expect(result.success).toBe(true);
-  });
-
-  await t.step("rejects missing slug", () => {
-    const result = DevRegisteredSchema.safeParse({ type: "dev_registered" });
-    expect(result.success).toBe(false);
   });
 });
 

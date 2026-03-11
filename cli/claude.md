@@ -18,7 +18,7 @@ export default defineAgent({
 });
 ```
 
-Run it: `aai dev`
+Run it: `aai deploy`
 
 ## Imports
 
@@ -568,7 +568,6 @@ export default defineAgent({
 ## CLI commands
 
 ```sh
-aai dev          # Local dev server with file watching
 aai deploy       # Bundle and deploy to production
 aai deploy --dry-run  # Validate and bundle without deploying
 aai new          # Scaffold a new agent project
@@ -580,7 +579,7 @@ Install: `curl -fsSL https://aai-agent.fly.dev/install | sh`
 
 ## Build validation
 
-`aai dev` and `aai deploy` validate before bundling:
+`aai deploy` validates before bundling:
 
 1. Checks for a default export from `defineAgent()`
 2. Validates `name` is a non-empty string
@@ -601,5 +600,3 @@ Install: `curl -fsSL https://aai-agent.fly.dev/install | sh`
 - **"bundle failed"** — TypeScript syntax error — check imports, brackets
 - **Tool test shows "✗"** — `execute` threw with sample args — may be expected
   if tool needs real data
-- **Dev server shows error but still running** — Previous working version still
-  serves — fix and save

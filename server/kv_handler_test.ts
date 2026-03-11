@@ -58,7 +58,10 @@ async function postKv(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return { status: res.status, json: (await res.json()) as Record<string, unknown> };
+  return {
+    status: res.status,
+    json: (await res.json()) as Record<string, unknown>,
+  };
 }
 
 // --- validation ---
@@ -222,6 +225,6 @@ Deno.test("kv: returns 500 when store throws", async () => {
 
   const { status, json } = await postKv(app, { op: "get", key: "x" });
   expect(status).toBe(500);
-  expect((json.error as string)).toContain("KV operation failed");
-  expect((json.error as string)).toContain("db down");
+  expect(json.error as string).toContain("KV operation failed");
+  expect(json.error as string).toContain("db down");
 });

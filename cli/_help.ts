@@ -27,10 +27,7 @@ export function rootHelp(this: Command): string {
 
   const cmds: [string, string, string][] = [
     ["new", "[dir]", "Scaffold a new agent project"],
-    ["build", "", "Validate and bundle the agent"],
-    ["dev", "", "Run local dev server with file watching"],
     ["deploy", "", "Bundle and deploy to production"],
-    ["types", "", "Set up TypeScript tooling for an agent"],
   ];
 
   for (const [name, args, desc] of cmds) {
@@ -61,11 +58,6 @@ export function rootHelp(this: Command): string {
     }`,
   );
   lines.push(`    ${dim("$")} ${brightMagenta("cd my-agent")}`);
-  lines.push(
-    `    ${dim("$")} ${brightMagenta("aai dev")}             ${
-      dim("Start local dev server")
-    }`,
-  );
   lines.push(
     `    ${dim("$")} ${brightMagenta("aai deploy")}          ${
       dim("Deploy to production")

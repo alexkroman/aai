@@ -2,10 +2,7 @@ import { Command } from "@cliffy/command";
 import { error } from "./_output.ts";
 import { promptUpgradeIfAvailable } from "./_update.ts";
 import { newCommand } from "./cmd_new.ts";
-import { buildCommand } from "./cmd_build.ts";
-import { devCommand } from "./cmd_dev.ts";
 import { deployCommand } from "./cmd_deploy.ts";
-import { typesCommand } from "./cmd_types.ts";
 import { rootHelp, subcommandHelp } from "./_help.ts";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
@@ -21,10 +18,7 @@ if (isCompiled) {
 for (
   const cmd of [
     newCommand,
-    buildCommand,
-    devCommand,
     deployCommand,
-    typesCommand,
   ]
 ) {
   cmd.help(subcommandHelp);
@@ -37,10 +31,7 @@ const cli: Command = new Command()
   .help(rootHelp)
   .default("new")
   .command("new", newCommand)
-  .command("build", buildCommand)
-  .command("dev", devCommand)
-  .command("deploy", deployCommand)
-  .command("types", typesCommand) as unknown as Command;
+  .command("deploy", deployCommand) as unknown as Command;
 
 if (import.meta.main) {
   try {

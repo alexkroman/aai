@@ -30,7 +30,6 @@ export type AgentSlot = {
   initializing?: Promise<void>;
   activeSessions: number;
   idleTimer?: ReturnType<typeof setTimeout>;
-  _dev?: boolean;
 };
 
 async function spawnAgent(
@@ -256,7 +255,7 @@ export function prepareSession(
     : undefined;
   const { executeTool, getWorkerApi } = createToolExecutor(slot, store, kvCtx);
 
-  if ((slot.toolSchemas ?? []).length > 0 && !slot._dev) {
+  if ((slot.toolSchemas ?? []).length > 0) {
     const getWorkerCode = (s: string) => store.getFile(s, "worker");
     ensureAgent(slot, getWorkerCode, kvCtx).catch(() => {});
   }

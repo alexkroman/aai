@@ -3,49 +3,11 @@
 // satisfy JSR's no-slow-types rule for published packages.
 
 import { z } from "zod";
-import {
-  type AgentConfig,
-  AgentConfigSchema,
-  type ToolSchema,
-  ToolSchemaSchema,
-  type Transport,
-  TransportSchema,
-} from "@aai/sdk/schema";
 
 export const PROTOCOL_VERSION = 1;
 export const DEFAULT_STT_SAMPLE_RATE = 16_000;
 export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
 export const AUDIO_FORMAT = "pcm16" as const;
-
-export type DevRegister = {
-  type: "dev_register";
-  token: string;
-  config: AgentConfig;
-  toolSchemas: ToolSchema[];
-  env: Record<string, string>;
-  transport: Transport[];
-  client?: string;
-};
-
-export const DevRegisterSchema: z.ZodType<DevRegister> = z.object({
-  type: z.literal("dev_register"),
-  token: z.string().min(1),
-  config: AgentConfigSchema,
-  toolSchemas: z.array(ToolSchemaSchema),
-  env: z.record(z.string(), z.string()),
-  transport: z.array(TransportSchema),
-  client: z.string().optional(),
-});
-
-export type DevRegistered = {
-  type: "dev_registered";
-  slug: string;
-};
-
-export const DevRegisteredSchema: z.ZodType<DevRegistered> = z.object({
-  type: z.literal("dev_registered"),
-  slug: z.string(),
-});
 
 export type ServerMessage =
   | {

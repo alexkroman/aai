@@ -112,7 +112,8 @@ Deno.test("buildNpmAliases: resolves subpath packages", () => {
 // --- stripTypes ---
 
 Deno.test("stripTypes: removes TypeScript type annotations", async () => {
-  const ts = `const x: number = 42;\ninterface Foo { bar: string }\nconst y = x;`;
+  const ts =
+    `const x: number = 42;\ninterface Foo { bar: string }\nconst y = x;`;
   const js = await stripTypes(ts);
   expect(js).toContain("const x = 42");
   expect(js).toContain("const y = x");

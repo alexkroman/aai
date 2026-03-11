@@ -160,9 +160,24 @@ function ensureBounceCSS(): void {
 }
 
 const dotStyles = [
-  { ...styles.stateDot, background: "var(--aai-text-muted)", animation: "aai-bounce 1.4s infinite ease-in-out both", animationDelay: "0s" },
-  { ...styles.stateDot, background: "var(--aai-text-muted)", animation: "aai-bounce 1.4s infinite ease-in-out both", animationDelay: "0.16s" },
-  { ...styles.stateDot, background: "var(--aai-text-muted)", animation: "aai-bounce 1.4s infinite ease-in-out both", animationDelay: "0.32s" },
+  {
+    ...styles.stateDot,
+    background: "var(--aai-text-muted)",
+    animation: "aai-bounce 1.4s infinite ease-in-out both",
+    animationDelay: "0s",
+  },
+  {
+    ...styles.stateDot,
+    background: "var(--aai-text-muted)",
+    animation: "aai-bounce 1.4s infinite ease-in-out both",
+    animationDelay: "0.16s",
+  },
+  {
+    ...styles.stateDot,
+    background: "var(--aai-text-muted)",
+    animation: "aai-bounce 1.4s infinite ease-in-out both",
+    animationDelay: "0.32s",
+  },
 ];
 
 // --- Components ---
@@ -247,10 +262,14 @@ function MessageList() {
   return html`
     <div style="${styles.messageList}">
       ${messages.value.map((msg: Message, i: number) =>
-        html`<${MessageBubble} key="${i}" message="${msg}" />`
+        html`
+          <${MessageBubble} key="${i}" message="${msg}" />
+        `
       )}
       <${Transcript} text="${transcript}" />
-      ${state.value === "thinking" && html`<${ThinkingIndicator} />`}
+      ${state.value === "thinking" && html`
+        <${ThinkingIndicator} />
+      `}
       <div ref="${scrollRef}" />
     </div>
   `;
@@ -314,5 +333,7 @@ export function App(): preact.JSX.Element {
     `;
   }
 
-  return html`<${ChatView} />`;
+  return html`
+    <${ChatView} />
+  `;
 }

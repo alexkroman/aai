@@ -4,17 +4,14 @@ snapshot[`cli help and version output > help 1`] = `
 stdout:
 "
    ▄▀█ ▄▀█ █   Voice agent development kit
-   █▀█ █▀█ █   v0.1.80
+   █▀█ █▀█ █   v0.1.83
 
   Usage   aai <command> [options]
 
   Commands
 
     new      [dir]  Scaffold a new agent project
-    build           Validate and bundle the agent
-    dev             Run local dev server with file watching
     deploy          Bundle and deploy to production
-    types           Set up TypeScript tooling for an agent
 
   Options
 
@@ -25,7 +22,6 @@ stdout:
 
     \$ aai new my-agent    Create a new agent
     \$ cd my-agent
-    \$ aai dev             Start local dev server
     \$ aai deploy          Deploy to production
 
 "
@@ -35,7 +31,7 @@ stderr:
 
 snapshot[`cli help and version output > version 1`] = `
 stdout:
-"aai 0.1.80
+"aai 0.1.83
 "
 stderr:
 ""
@@ -44,7 +40,7 @@ stderr:
 snapshot[`cli help and version output > newHelp 1`] = `
 stdout:
 "
-  aai new  v0.1.80
+  aai new  v0.1.83
   Scaffold a new agent project
 
   Arguments
@@ -67,30 +63,10 @@ stderr:
 ""
 `;
 
-snapshot[`cli help and version output > devHelp 1`] = `
-stdout:
-'
-  aai dev  v0.1.80
-  Run local dev server with file watching
-
-  Options
-
-    -p, --port (default: 3000)
-      Port for local proxy server
-    -s, --server (default: "https://aai-agent.fly.dev")
-      Production server URL
-    -h, --help
-      Show this help
-
-'
-stderr:
-""
-`;
-
 snapshot[`cli help and version output > deployHelp 1`] = `
 stdout:
 "
-  aai deploy  v0.1.80
+  aai deploy  v0.1.83
   Bundle and deploy to production
 
   Options
@@ -101,28 +77,6 @@ stdout:
       Validate and bundle without deploying
     -h, --help
       Show this help
-
-"
-stderr:
-""
-`;
-
-snapshot[`cli help and version output > buildHelp 1`] = `
-stdout:
-"
-  aai build  v0.1.80
-  Validate and bundle the agent
-
-"
-stderr:
-""
-`;
-
-snapshot[`cli help and version output > typesHelp 1`] = `
-stdout:
-"
-  aai types  v0.1.80
-  Set up TypeScript tooling for an existing agent
 
 "
 stderr:

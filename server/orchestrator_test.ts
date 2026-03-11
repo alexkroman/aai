@@ -3,7 +3,6 @@ import { expect } from "@std/expect";
 import { stub } from "@std/testing/mock";
 import { createOrchestrator } from "./orchestrator.ts";
 import { _internals } from "./transport_websocket.ts";
-import { _internals as devInternals } from "./dev_session.ts";
 import { hashApiKey } from "./auth.ts";
 import { signScopeToken } from "./scope_token.ts";
 import {
@@ -469,36 +468,4 @@ Deno.test("kv rejects invalid op", async () => {
     DUMMY_INFO,
   );
   assertEquals(res.status, 400);
-});
-
-// =============================================================================
-// Dev WebSocket
-// =============================================================================
-
-Deno.test("dev websocket returns 400 without upgrade header", async () => {
-  const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/ns/agent/dev"), DUMMY_INFO);
-  assertEquals(res.status, 400);
-});
-
-Deno.test("dev websocket upgrades connection", async () => {
-  const { handler } = await createTestOrchestrator();
-  const mockSocket = new MockWebSocket("ws://test");
-  const upgradeStub = stub(
-    devInternals,
-    "upgradeWebSocket",
-    () => ({
-      socket: mockSocket as unknown as WebSocket,
-      response: new Response(null, { status: 101 }),
-    }),
-  );
-  try {
-    const res = await handler(
-      req("/ns/agent/dev", { headers: { upgrade: "websocket" } }),
-      DUMMY_INFO,
-    );
-    assertEquals(res.status, 101);
-  } finally {
-    upgradeStub.restore();
-  }
 });

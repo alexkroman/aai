@@ -85,7 +85,6 @@ const WORKSPACE_ALIASES: Record<string, string> = {
   "@aai/sdk/kv": resolve(AAI_ROOT, "sdk/kv.ts"),
   "@aai/core/worker-entry": resolve(AAI_ROOT, "core/_worker_entry.ts"),
   "@aai/core/protocol": resolve(AAI_ROOT, "core/_protocol.ts"),
-  "@aai/core/ws-endpoint": resolve(AAI_ROOT, "core/_ws_endpoint.ts"),
   "@aai/core/rpc-schema": resolve(AAI_ROOT, "core/_rpc_schema.ts"),
   "@aai/core/deno-worker": resolve(AAI_ROOT, "core/_deno_worker.ts"),
   "@aai/ui": resolve(AAI_ROOT, "ui/mod.ts"),
