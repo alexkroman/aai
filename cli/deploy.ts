@@ -41,8 +41,6 @@ async function attemptDeploy(
       worker,
       client,
       transport: manifest.transport,
-      config: manifest.config,
-      toolSchemas: manifest.toolSchemas,
     }),
   });
 }

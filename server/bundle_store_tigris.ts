@@ -19,20 +19,6 @@ export type BundleStore = {
     client: string;
     client_map?: string;
     owner_hash?: string;
-    config?: {
-      name?: string;
-      instructions: string;
-      greeting: string;
-      voice: string;
-      sttPrompt?: string;
-      stopWhen?: number;
-      builtinTools?: string[];
-    };
-    toolSchemas?: {
-      name: string;
-      description: string;
-      parameters: Record<string, unknown>;
-    }[];
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;
@@ -169,8 +155,6 @@ export function createBundleStore(
         env: bundle.env,
         transport: bundle.transport,
         ...(bundle.owner_hash ? { owner_hash: bundle.owner_hash } : {}),
-        ...(bundle.config ? { config: bundle.config } : {}),
-        ...(bundle.toolSchemas ? { toolSchemas: bundle.toolSchemas } : {}),
       };
       await put(
         objectKey(bundle.slug, "manifest.json"),

@@ -4,12 +4,10 @@ import {
   formatMessages,
   initialize,
   type Plugin,
-  transform,
 } from "esbuild";
 import type { InitializeOptions } from "esbuild-wasm-types";
 import { denoPlugin } from "@deno/esbuild-plugin";
 import { dirname, fromFileUrl, join, resolve } from "@std/path";
-import { toFileUrl } from "@std/path/to-file-url";
 import type { AgentEntry } from "./_discover.ts";
 
 export function bundleError(message: string): Error {
@@ -58,12 +56,6 @@ function ensureInit() {
     });
   }
   return esbuildReady;
-}
-
-async function stripTypes(source: string): Promise<string> {
-  await ensureInit();
-  const result = await transform(source, { loader: "ts" });
-  return result.code;
 }
 
 export const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
@@ -231,33 +223,7 @@ export const _internals = {
   getOutputText,
   jsBytes,
   buildNpmAliases,
-  stripTypes,
 };
-
-export async function importTempModule(
-  sourcePath: string,
-  opts?: { rewriteSdkImports?: boolean },
-): Promise<Record<string, unknown>> {
-  const absPath = resolve(sourcePath);
-  const dir = dirname(absPath);
-  const source = await Deno.readTextFile(absPath);
-  let js = await stripTypes(source);
-  if (opts?.rewriteSdkImports) {
-    const sdkPath = toFileUrl(resolve(AAI_ROOT, "sdk/mod.ts")).href;
-    js = js.replace(
-      /from\s*["']@aai\/sdk["']/g,
-      `from "${sdkPath}"`,
-    );
-  }
-  js = js.replace(
-    /from\s*["'](\.\.?\/[^"']+)["']/g,
-    (_, rel: string) => `from "${toFileUrl(resolve(dir, rel)).href}"`,
-  );
-  const dataUrl = `data:application/javascript;charset=utf-8,${
-    encodeURIComponent(js)
-  }`;
-  return await import(dataUrl);
-}
 
 export type BundleOutput = {
   worker: string;
@@ -336,8 +302,6 @@ export async function bundleAgent(
     {
       env: agent.env,
       transport: agent.transport,
-      config: agent.config,
-      toolSchemas: agent.toolSchemas,
     },
     null,
     2,

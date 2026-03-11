@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import { handleSessionWebSocket } from "./ws_handler.ts";
+import { createSessionWSEvents } from "./ws_handler.ts";
 import type { Session } from "./session.ts";
 import { MockWebSocket } from "./_mock_ws.ts";
 import { flush } from "./_test_utils.ts";
@@ -42,10 +42,23 @@ function setup(overrides?: { onOpen?: () => void; onClose?: () => void }) {
   const sessions = new Map<string, Session>();
   const spy = createSpySession();
 
-  handleSessionWebSocket(ws as unknown as WebSocket, sessions, {
+  const events = createSessionWSEvents(sessions, {
     createSession: () => spy,
     ...overrides,
   });
+
+  // Wire WSEvents to MockWebSocket
+  const sender = ws as unknown as import("./ws_upgrade.ts").WSSender;
+  ws.addEventListener("open", (e) => events.onOpen!(e, sender));
+  ws.addEventListener(
+    "message",
+    (e) => events.onMessage!(e as MessageEvent, sender),
+  );
+  ws.addEventListener(
+    "close",
+    (e) => void events.onClose!(e as CloseEvent, sender),
+  );
+  ws.addEventListener("error", (e) => events.onError!(e, sender));
 
   return { ws, sessions, spy };
 }

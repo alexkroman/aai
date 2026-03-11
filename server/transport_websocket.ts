@@ -41,26 +41,33 @@ export async function resolveSlot(
   return slot;
 }
 
-export async function handleAgentHealth(c: Context<HonoEnv>) {
-  const { slug, slots, store } = c.var;
+async function requireSlot(
+  slug: string,
+  slots: Map<string, AgentSlot>,
+  store: BundleStore,
+): Promise<AgentSlot> {
   const slot = await resolveSlot(slug, slots, store);
   if (!slot) throw new HTTPException(404, { message: `Not found: ${slug}` });
+  return slot;
+}
+
+export async function handleAgentHealth(c: Context<HonoEnv>) {
+  const { slug, slots, store } = c.var;
+  const slot = await requireSlot(slug, slots, store);
   return c.json({ status: "ok", slug, name: slot.name ?? slug });
 }
 
 export async function handleAgentPage(c: Context<HonoEnv>) {
   const { slug, slots, store } = c.var;
-  const slot = await resolveSlot(slug, slots, store);
-  if (!slot) throw new HTTPException(404, { message: "Not found" });
+  const slot = await requireSlot(slug, slots, store);
   return c.html(renderAgentPage(slot.name ?? slug, `/${slug}`));
 }
 
 export const handleWebSocket = upgradeWebSocket(async (c) => {
   const { slug, slots, store, kvStore, sessions } = c.var;
-  const slot = await resolveSlot(slug, slots, store);
-  if (!slot) throw new HTTPException(404, { message: "Not found" });
+  const slot = await requireSlot(slug, slots, store);
 
-  const setup = prepareSession(slot, slug, store, kvStore);
+  const setup = await prepareSession(slot, slug, store, kvStore);
   const resume = c.req.query("resume") !== undefined;
 
   return createSessionWSEvents(sessions, {
@@ -80,8 +87,7 @@ export const handleWebSocket = upgradeWebSocket(async (c) => {
 
 export async function handleStaticFile(c: Context<HonoEnv>) {
   const { slug, slots, store } = c.var;
-  const slot = await resolveSlot(slug, slots, store);
-  if (!slot) throw new HTTPException(404, { message: "Not found" });
+  await requireSlot(slug, slots, store);
 
   const STATIC_FILES: Record<
     string,

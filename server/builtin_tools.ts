@@ -3,7 +3,7 @@ import { jsonSchema, tool as vercelTool } from "ai";
 import * as Comlink from "comlink";
 import type { ToolSchema } from "@aai/sdk/schema";
 import TurndownService from "turndown";
-import { createDenoWorker } from "@aai/core/deno-worker";
+import { createDenoWorker, LOCKED_PERMISSIONS } from "@aai/core/deno-worker";
 import { matchSubnets } from "@std/net/unstable-ip";
 
 const turndown = new TurndownService({ headingStyle: "atx" });
@@ -222,15 +222,11 @@ const runCode = defineTool({
 
     console.info("run_code", { codeLength: code.length });
 
-    const worker = createDenoWorker(SANDBOX_WORKER_URL, "sandbox", {
-      net: false,
-      read: false,
-      write: false,
-      env: false,
-      sys: false,
-      run: false,
-      ffi: false,
-    });
+    const worker = createDenoWorker(
+      SANDBOX_WORKER_URL,
+      "sandbox",
+      LOCKED_PERMISSIONS,
+    );
 
     type SandboxApi = {
       execute(code: string): Promise<{ output: string; error?: string }>;

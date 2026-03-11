@@ -10,14 +10,6 @@ function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
     slug: "ns/test-agent",
     env: VALID_ENV,
     transport: ["websocket"],
-    config: {
-      name: "Test Agent",
-      instructions: "test",
-      greeting: "hello",
-      voice: "luna",
-    },
-    name: "Test Agent",
-    toolSchemas: [],
     activeSessions: 0,
     ...overrides,
   };
@@ -48,11 +40,6 @@ Deno.test("discoverSlot lazy-loads from store", async () => {
     transport: ["websocket"],
     worker: "console.log('w');",
     client: "console.log('c');",
-    config: {
-      instructions: "test",
-      greeting: "hello",
-      voice: "luna",
-    },
   });
   const result = await discoverSlot("ns/stored-agent", slots, store);
   expect(result).not.toBe(null);

@@ -50,11 +50,6 @@ export const deployCommand: Command = new Command()
       apiKey,
     });
 
-    const tools = [
-      ...(agent.config?.builtinTools ?? []),
-      ...(agent.toolSchemas ?? []).map((t) => t.name),
-    ];
-
     const deployedPath = `${deployed.namespace}/${deployed.slug}`;
     if (agent.transport.includes("websocket")) {
       stepInfo("App", `${serverUrl}/${deployedPath}`);
@@ -63,8 +58,5 @@ export const deployCommand: Command = new Command()
       stepInfo("Twilio", `${serverUrl}/${deployedPath}/voice`);
     }
 
-    stepInfo("Agent", agent.config?.name ?? deployed.slug);
-    if (tools.length > 0) {
-      stepInfo("Tools", tools.join(", "));
-    }
+    stepInfo("Agent", deployed.slug);
   }) as unknown as Command;

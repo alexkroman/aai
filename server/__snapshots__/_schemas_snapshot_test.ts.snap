@@ -96,49 +96,6 @@ snapshot[`DeployBodySchema snapshot 1`] = `
       minLength: 1,
       type: "string",
     },
-    config: {
-      additionalProperties: false,
-      properties: {
-        builtinTools: {
-          items: {
-            enum: [
-              "web_search",
-              "visit_webpage",
-              "fetch_json",
-              "run_code",
-              "user_input",
-              "final_answer",
-            ],
-            type: "string",
-          },
-          type: "array",
-        },
-        greeting: {
-          type: "string",
-        },
-        instructions: {
-          type: "string",
-        },
-        name: {
-          type: "string",
-        },
-        stopWhen: {
-          type: "number",
-        },
-        sttPrompt: {
-          type: "string",
-        },
-        voice: {
-          type: "string",
-        },
-      },
-      required: [
-        "instructions",
-        "greeting",
-        "voice",
-      ],
-      type: "object",
-    },
     env: {
       additionalProperties: {
         type: "string",
@@ -147,33 +104,6 @@ snapshot[`DeployBodySchema snapshot 1`] = `
         type: "string",
       },
       type: "object",
-    },
-    toolSchemas: {
-      items: {
-        additionalProperties: false,
-        properties: {
-          description: {
-            type: "string",
-          },
-          name: {
-            type: "string",
-          },
-          parameters: {
-            additionalProperties: {},
-            propertyNames: {
-              type: "string",
-            },
-            type: "object",
-          },
-        },
-        required: [
-          "name",
-          "description",
-          "parameters",
-        ],
-        type: "object",
-      },
-      type: "array",
     },
     transport: {
       anyOf: [
@@ -206,7 +136,6 @@ snapshot[`DeployBodySchema snapshot 1`] = `
     "env",
     "worker",
     "client",
-    "config",
   ],
   type: "object",
 }

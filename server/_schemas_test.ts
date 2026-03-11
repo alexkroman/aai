@@ -98,11 +98,6 @@ Deno.test("DeployBodySchema", async (t) => {
       env: { ASSEMBLYAI_API_KEY: "test" },
       worker: "code",
       client: "code",
-      config: {
-        instructions: "Help",
-        greeting: "Hi",
-        voice: "luna",
-      },
     });
     expect(result.success).toBe(true);
   });
@@ -112,11 +107,6 @@ Deno.test("DeployBodySchema", async (t) => {
       env: {},
       worker: "",
       client: "code",
-      config: {
-        instructions: "Help",
-        greeting: "Hi",
-        voice: "luna",
-      },
     });
     expect(result.success).toBe(false);
   });
@@ -127,14 +117,12 @@ Deno.test("DeployBodySchema", async (t) => {
       worker: "code",
       client: "code",
       transport: "twilio",
-      config: { instructions: "x", greeting: "x", voice: "x" },
     });
     const asArray = DeployBodySchema.safeParse({
       env: {},
       worker: "code",
       client: "code",
       transport: ["websocket", "twilio"],
-      config: { instructions: "x", greeting: "x", voice: "x" },
     });
     expect(asString.success).toBe(true);
     expect(asArray.success).toBe(true);
@@ -243,14 +231,6 @@ Deno.test("AgentMetadataSchema", async (t) => {
       env: { KEY: "val" },
       transport: ["websocket", "twilio"],
       owner_hash: "abc123",
-      config: {
-        instructions: "Help",
-        greeting: "Hi",
-        voice: "luna",
-      },
-      toolSchemas: [
-        { name: "greet", description: "Say hi", parameters: {} },
-      ],
     });
     expect(result.success).toBe(true);
   });

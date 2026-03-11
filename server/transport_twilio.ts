@@ -141,12 +141,12 @@ export function handleTwilioVoice(c: Context<HonoEnv>) {
   );
 }
 
-export const handleTwilioStream = upgradeWebSocket((c) => {
+export const handleTwilioStream = upgradeWebSocket(async (c) => {
   const { slug, slots, store, kvStore } = c.var;
   const slot = getTwilioSlot(slug, slots);
   if (!slot) throw new HTTPException(404, { message: "Not found" });
 
-  const setup = prepareSession(slot, slug, store, kvStore);
+  const setup = await prepareSession(slot, slug, store, kvStore);
 
   type TwilioTransport = SessionTransport & { streamSid: string | null };
   let transport: TwilioTransport;

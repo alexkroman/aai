@@ -11,8 +11,7 @@ export type WsSessionOptions = {
 
 /**
  * Creates Hono-style WSEvents that manage a session lifecycle.
- * The returned handlers can be used with upgradeWebSocket() or
- * attached to a raw WebSocket via handleSessionWebSocket().
+ * The returned handlers can be used with upgradeWebSocket().
  */
 export function createSessionWSEvents(
   sessions: Map<string, Session>,
@@ -129,21 +128,4 @@ export function createSessionWSEvents(
       console.error("WebSocket error", { ...ctx, sid, error: msg });
     },
   };
-}
-
-/**
- * Attaches session WSEvents to a raw WebSocket.
- * Thin wrapper around createSessionWSEvents for backward compatibility.
- */
-export function handleSessionWebSocket(
-  ws: WebSocket,
-  sessions: Map<string, Session>,
-  opts: WsSessionOptions,
-): void {
-  const events = createSessionWSEvents(sessions, opts);
-
-  ws.addEventListener("open", (e) => events.onOpen!(e, ws));
-  ws.addEventListener("message", (e) => events.onMessage!(e, ws));
-  ws.addEventListener("close", (e) => void events.onClose!(e, ws));
-  ws.addEventListener("error", (e) => events.onError!(e, ws));
 }

@@ -10,7 +10,7 @@ import {
 import type { ExecuteTool } from "@aai/core/worker-entry";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "./_schemas.ts";
-import { createDenoWorker } from "@aai/core/deno-worker";
+import { createDenoWorker, LOCKED_PERMISSIONS } from "@aai/core/deno-worker";
 import { assertPublicUrl, getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentScope } from "./scope_token.ts";
@@ -30,6 +30,7 @@ export type AgentSlot = {
   initializing?: Promise<void>;
   activeSessions: number;
   idleTimer?: ReturnType<typeof setTimeout>;
+  configLoaded?: boolean;
 };
 
 async function spawnAgent(
@@ -48,15 +49,7 @@ async function spawnAgent(
   if (!code) throw new Error(`Worker code not found for ${slug}`);
   const workerUrl = `data:application/javascript;base64,${encodeBase64(code)}`;
 
-  const worker = createDenoWorker(workerUrl, slug, {
-    net: false,
-    read: false,
-    env: false,
-    run: false,
-    write: false,
-    ffi: false,
-    sys: false,
-  });
+  const worker = createDenoWorker(workerUrl, slug, LOCKED_PERMISSIONS);
 
   worker.addEventListener(
     "error",
@@ -68,6 +61,14 @@ async function spawnAgent(
 
   const api = createWorkerApi(worker, createHostApi(kvCtx));
   slot.worker = { handle: worker, api };
+
+  if (!slot.configLoaded) {
+    const { config, toolSchemas } = await api.getConfig();
+    slot.config = config;
+    slot.name = config.name;
+    slot.toolSchemas = toolSchemas;
+    slot.configLoaded = true;
+  }
 }
 
 function createHostApi(
@@ -198,38 +199,10 @@ export function registerSlot(
     slug: metadata.slug,
     env: metadata.env,
     transport: metadata.transport,
-    config: metadata.config,
-    name: metadata.config?.name,
-    toolSchemas: metadata.toolSchemas,
     ownerHash: metadata.owner_hash,
     activeSessions: 0,
   });
   return true;
-}
-
-export function createToolExecutor(
-  slot: AgentSlot,
-  store: BundleStore,
-  kvCtx?: { kvStore: KvStore; scope: AgentScope },
-): { executeTool: ExecuteTool; getWorkerApi?: () => Promise<WorkerApi> } {
-  const customTools = slot.toolSchemas ?? [];
-  const getWorkerCode = (s: string) => store.getFile(s, "worker");
-  if (customTools.length === 0) {
-    return {
-      executeTool: () => Promise.resolve("Error: No custom tools"),
-    };
-  }
-  const getWorkerApi = async () => {
-    await ensureAgent(slot, getWorkerCode, kvCtx);
-    return slot.worker!.api;
-  };
-  return {
-    executeTool: async (name, args, sessionId) => {
-      const api = await getWorkerApi();
-      return api.executeTool(name, args, sessionId, 30_000, slot.env);
-    },
-    getWorkerApi,
-  };
 }
 
 export type SessionSetup = {
@@ -237,28 +210,35 @@ export type SessionSetup = {
   toolSchemas: ToolSchema[];
   platformConfig: ReturnType<typeof loadPlatformConfig>;
   executeTool: ExecuteTool;
-  getWorkerApi?: () => Promise<WorkerApi>;
+  getWorkerApi: () => Promise<WorkerApi>;
   env?: Record<string, string | undefined>;
 };
 
-export function prepareSession(
+export async function prepareSession(
   slot: AgentSlot,
   slug: string,
   store: BundleStore,
   kvStore: KvStore,
-): SessionSetup {
-  const config = slot.config!;
-  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
-  const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
+): Promise<SessionSetup> {
   const kvCtx = slot.ownerHash
     ? { kvStore, scope: { ownerHash: slot.ownerHash, slug } }
     : undefined;
-  const { executeTool, getWorkerApi } = createToolExecutor(slot, store, kvCtx);
+  const getWorkerCode = (s: string) => store.getFile(s, "worker");
+  const getWorkerApi = async () => {
+    await ensureAgent(slot, getWorkerCode, kvCtx);
+    return slot.worker!.api;
+  };
+  const executeTool: ExecuteTool = async (name, args, sessionId) => {
+    const api = await getWorkerApi();
+    return api.executeTool(name, args, sessionId, 30_000, slot.env);
+  };
 
-  if ((slot.toolSchemas ?? []).length > 0) {
-    const getWorkerCode = (s: string) => store.getFile(s, "worker");
-    ensureAgent(slot, getWorkerCode, kvCtx).catch(() => {});
-  }
+  // Boot worker and extract config from agent definition
+  await getWorkerApi();
+  const config = slot.config!;
+
+  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
+  const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
 
   return {
     agentConfig: config,

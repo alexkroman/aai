@@ -49,8 +49,6 @@ export function createTestStore(): BundleStore {
         env: bundle.env,
         transport: bundle.transport,
         ...(bundle.owner_hash ? { owner_hash: bundle.owner_hash } : {}),
-        ...(bundle.config ? { config: bundle.config } : {}),
-        ...(bundle.toolSchemas ? { toolSchemas: bundle.toolSchemas } : {}),
       };
       objects.set(
         objectKey(bundle.slug, "manifest.json"),

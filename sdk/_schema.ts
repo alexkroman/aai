@@ -37,8 +37,6 @@ export type DeployBody = {
   worker: string;
   client: string;
   transport?: Transport | Transport[];
-  config: AgentConfig;
-  toolSchemas?: ToolSchema[];
 };
 
 export type AgentEnv = {

@@ -1,7 +1,7 @@
 import type { Context } from "hono";
-import { validator } from "hono/validator";
 import { z } from "zod";
 import type { HonoEnv } from "./hono_env.ts";
+import { jsonValidator } from "./_validation.ts";
 
 const KvRequestSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("get"), key: z.string() }),
@@ -21,16 +21,10 @@ const KvRequestSchema = z.discriminatedUnion("op", [
   }),
 ]);
 
-export const validateKvRequest = validator("json", (value, c) => {
-  const parsed = KvRequestSchema.safeParse(value);
-  if (!parsed.success) {
-    return c.json(
-      { error: `Invalid request: ${parsed.error.message}` },
-      400,
-    );
-  }
-  return parsed.data;
-});
+export const validateKvRequest = jsonValidator(
+  KvRequestSchema,
+  "Invalid request",
+);
 
 export async function handleKv(c: Context<HonoEnv>) {
   const { scope, kvStore } = c.var;

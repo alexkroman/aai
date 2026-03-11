@@ -17,8 +17,6 @@ export type AgentMetadata = {
   env: Record<string, string>;
   transport: Transport[];
   owner_hash?: string;
-  config?: AgentConfig;
-  toolSchemas?: ToolSchema[];
 };
 
 export const TransportSchema: z.ZodType<Transport> = z.enum([
@@ -59,8 +57,6 @@ export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
     TransportSchema,
     z.array(TransportSchema),
   ]).optional(),
-  config: AgentConfigSchema,
-  toolSchemas: z.array(ToolSchemaSchema).optional(),
 });
 
 export const EnvSchema: z.ZodType<AgentEnv> = z.object({
@@ -73,8 +69,6 @@ export const AgentMetadataSchema: z.ZodType<AgentMetadata> = z.object({
   env: z.record(z.string(), z.string()).default({}),
   transport: z.array(TransportSchema).default(["websocket"]),
   owner_hash: z.string().optional(),
-  config: AgentConfigSchema.optional(),
-  toolSchemas: z.array(ToolSchemaSchema).optional(),
 });
 
 export const ServerMessageSchema: z.ZodType<ServerMessage> = z

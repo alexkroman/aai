@@ -6,6 +6,7 @@ import type {
   ToolContext,
   ToolDef,
 } from "@aai/sdk/types";
+import type { AgentConfig, ToolSchema } from "@aai/sdk/schema";
 import type { Kv, KvEntry } from "@aai/sdk/kv";
 import { deadline } from "@std/async/deadline";
 
@@ -63,7 +64,13 @@ export async function executeToolCall(
   }
 }
 
+export type WorkerConfig = {
+  config: AgentConfig;
+  toolSchemas: ToolSchema[];
+};
+
 export type WorkerApi = {
+  getConfig(): Promise<WorkerConfig>;
   executeTool(
     name: string,
     args: Record<string, unknown>,
@@ -112,6 +119,8 @@ export type ExposedWorkerApi = {
   init(hostPort: MessagePort): void;
   /** Release the host callback port (for clean test teardown). */
   dispose(): void;
+  /** Return agent config and tool schemas extracted from the agent definition. */
+  getConfig(): WorkerConfig;
   executeTool(
     name: string,
     args: Record<string, unknown>,
@@ -158,6 +167,10 @@ export function createWorkerApi(
   }
 
   return {
+    async getConfig() {
+      await ready;
+      return await withTimeout(remote.getConfig(), 5_000);
+    },
     async executeTool(name, args, sessionId, timeoutMs, env) {
       await ready;
       const raw = await withTimeout(
@@ -193,11 +206,7 @@ export function startWorker(
   let hostPort: MessagePort | undefined;
 
   function applyEnv(extra?: Record<string, string>): void {
-    if (!extra) return;
-    const updated = { ...mergedEnv, ...extra };
-    if (JSON.stringify(updated) !== JSON.stringify(mergedEnv)) {
-      mergedEnv = updated;
-    }
+    if (extra) mergedEnv = { ...mergedEnv, ...extra };
   }
 
   function getState(sessionId: string): unknown {
@@ -206,6 +215,8 @@ export function startWorker(
     }
     return sessions.get(sessionId) ?? {};
   }
+
+  const EMPTY_PARAMS = z.object({});
 
   const api: ExposedWorkerApi = {
     init(port: MessagePort) {
@@ -217,6 +228,30 @@ export function startWorker(
 
     dispose() {
       hostPort?.close();
+    },
+
+    getConfig(): WorkerConfig {
+      const toolSchemas: ToolSchema[] = Object.entries(agent.tools).map(
+        ([name, def]) => ({
+          name,
+          description: def.description,
+          parameters: z.toJSONSchema(def.parameters ?? EMPTY_PARAMS),
+        }),
+      );
+      return {
+        config: {
+          name: agent.name,
+          instructions: agent.instructions,
+          greeting: agent.greeting,
+          voice: agent.voice,
+          sttPrompt: agent.sttPrompt,
+          stopWhen: agent.stopWhen,
+          builtinTools: agent.builtinTools
+            ? [...agent.builtinTools]
+            : undefined,
+        },
+        toolSchemas,
+      };
     },
 
     async executeTool(name, args, sessionId, env) {
@@ -352,6 +387,10 @@ async function serializeBody(body: BodyInit | null): Promise<string | null> {
   return String(body);
 }
 
+function headersToRecord(h?: HeadersInit): Record<string, string> {
+  return Object.fromEntries(new Headers(h).entries());
+}
+
 /** Replace globalThis.fetch with a proxy to the host process via Comlink. */
 function installFetchProxy(hostApi: Comlink.Remote<HostApi>): void {
   globalThis.fetch = async (
@@ -366,9 +405,7 @@ function installFetchProxy(hostApi: Comlink.Remote<HostApi>): void {
     if (input instanceof Request) {
       url = input.url;
       method = init?.method ?? input.method;
-      headers = Object.fromEntries(
-        new Headers(init?.headers ?? input.headers).entries(),
-      );
+      headers = headersToRecord(init?.headers ?? input.headers);
       body = init?.body != null
         ? await serializeBody(init.body)
         : input.body != null
@@ -377,9 +414,7 @@ function installFetchProxy(hostApi: Comlink.Remote<HostApi>): void {
     } else {
       url = String(input);
       method = init?.method ?? "GET";
-      headers = Object.fromEntries(
-        new Headers(init?.headers).entries(),
-      );
+      headers = headersToRecord(init?.headers);
       body = init?.body != null ? await serializeBody(init.body) : null;
     }
 

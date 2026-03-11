@@ -19,11 +19,6 @@ function deployBody(overrides?: Record<string, unknown>) {
     env: VALID_ENV,
     worker: "console.log('w');",
     client: "console.log('c');",
-    config: {
-      instructions: "test",
-      greeting: "hello",
-      voice: "luna",
-    },
     ...overrides,
   });
 }

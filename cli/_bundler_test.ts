@@ -8,7 +8,6 @@ const {
   getOutputText,
   jsBytes,
   buildNpmAliases,
-  stripTypes,
 } = _internals;
 
 // --- bundleError ---
@@ -107,29 +106,4 @@ Deno.test("buildNpmAliases: resolves subpath packages", () => {
   const aliases = buildNpmAliases();
   // preact/hooks is a subpath
   expect(aliases["preact/hooks"]).toBeDefined();
-});
-
-// --- stripTypes ---
-
-Deno.test("stripTypes: removes TypeScript type annotations", async () => {
-  const ts =
-    `const x: number = 42;\ninterface Foo { bar: string }\nconst y = x;`;
-  const js = await stripTypes(ts);
-  expect(js).toContain("const x = 42");
-  expect(js).toContain("const y = x");
-  expect(js).not.toContain("interface");
-  expect(js).not.toContain(": number");
-});
-
-Deno.test("stripTypes: preserves runtime code", async () => {
-  const ts = `function add(a: number, b: number): number { return a + b; }`;
-  const js = await stripTypes(ts);
-  expect(js).toContain("function add");
-  expect(js).toContain("return a + b");
-});
-
-Deno.test("stripTypes: handles import/export statements", async () => {
-  const ts = `export type Foo = string;\nexport const bar = 1;`;
-  const js = await stripTypes(ts);
-  expect(js).toContain("bar = 1");
 });
