@@ -10,6 +10,18 @@ import { createMemoryKvStore, type KvStore } from "./kv.ts";
 export const flush = (): Promise<void> =>
   new Promise<void>((r) => setTimeout(r, 0));
 
+/** Poll `predicate` every tick until it returns true, or throw after `ms`. */
+export async function waitFor(
+  predicate: () => boolean,
+  ms = 1000,
+): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error("waitFor timed out");
+    await flush();
+  }
+}
+
 export const DUMMY_INFO: Deno.ServeHandlerInfo = {
   remoteAddr: { transport: "tcp" as const, hostname: "127.0.0.1", port: 0 },
   completed: Promise.resolve(),
