@@ -1,35 +1,15 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { expect } from "@std/expect";
 import { stub } from "@std/testing/mock";
-import { createOrchestrator } from "./orchestrator.ts";
 import { _internals as _wsInternals } from "./transport_websocket.ts";
 import { hashApiKey } from "./auth.ts";
 import { signScopeToken } from "./scope_token.ts";
 import {
-  createTestKvStore,
-  createTestScopeKey,
-  createTestStore,
+  createTestOrchestrator,
+  deployBody,
   DUMMY_INFO,
-  VALID_ENV,
 } from "./_test_utils.ts";
 import { MockWebSocket } from "./_mock_ws.ts";
-
-function deployBody(overrides?: Record<string, unknown>) {
-  return JSON.stringify({
-    env: VALID_ENV,
-    worker: "console.log('w');",
-    client: "console.log('c');",
-    ...overrides,
-  });
-}
-
-async function createTestOrchestrator() {
-  const store = createTestStore();
-  const scopeKey = await createTestScopeKey();
-  const kvStore = createTestKvStore();
-  const handler = createOrchestrator({ store, scopeKey, kvStore });
-  return { handler, store, scopeKey, kvStore };
-}
 
 function req(path: string, init?: RequestInit) {
   return new Request(`http://localhost${path}`, init);

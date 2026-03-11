@@ -1,18 +1,7 @@
 import { expect } from "@std/expect";
 import { discoverSlot, resolveSlot } from "./transport_websocket.ts";
 import type { AgentSlot } from "./worker_pool.ts";
-import { createTestStore } from "./_test_utils.ts";
-
-const VALID_ENV = { ASSEMBLYAI_API_KEY: "test-key" };
-
-function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
-  return {
-    slug: "ns/test-agent",
-    env: VALID_ENV,
-    transport: ["websocket"],
-    ...overrides,
-  };
-}
+import { createTestStore, makeSlot, VALID_ENV } from "./_test_utils.ts";
 
 // --- discoverSlot ---
 

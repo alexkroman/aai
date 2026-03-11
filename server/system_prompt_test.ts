@@ -1,16 +1,7 @@
 import { expect } from "@std/expect";
 import { buildSystemPrompt } from "./system_prompt.ts";
-import { type AgentConfig, DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
-
-function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
-  return {
-    name: "Test",
-    instructions: "Test",
-    greeting: "Hi",
-    voice: "luna",
-    ...overrides,
-  };
-}
+import { DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
+import { makeConfig } from "./_test_utils.ts";
 
 Deno.test("buildSystemPrompt", async (t) => {
   await t.step("includes default instructions", () => {

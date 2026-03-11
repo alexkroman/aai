@@ -1,8 +1,10 @@
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
-import type { AgentMetadata } from "./worker_pool.ts";
+import type { AgentMetadata, AgentSlot } from "./worker_pool.ts";
+import type { AgentConfig } from "@aai/sdk/types";
 import { AgentMetadataSchema } from "./_schemas.ts";
+import { createOrchestrator } from "./orchestrator.ts";
 
 export const flush = (): Promise<void> =>
   new Promise<void>((r) => setTimeout(r, 0));
@@ -111,6 +113,53 @@ export function createTestStore(): BundleStore {
 
 export function createTestScopeKey(): Promise<ScopeKey> {
   return importScopeKey("test-secret-for-tests-only");
+}
+
+/** Create a minimal AgentConfig for tests. */
+export function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
+  return {
+    name: "Test",
+    instructions: "Test",
+    greeting: "Hi",
+    voice: "luna",
+    ...overrides,
+  };
+}
+
+/** Create a minimal AgentSlot for tests. */
+export function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
+  return {
+    slug: "ns/test-agent",
+    env: VALID_ENV,
+    transport: ["websocket"],
+    ...overrides,
+  };
+}
+
+/** Build a deploy request body. */
+export function deployBody(
+  overrides?: Record<string, unknown>,
+): string {
+  return JSON.stringify({
+    env: VALID_ENV,
+    worker: "console.log('w');",
+    client: "console.log('c');",
+    ...overrides,
+  });
+}
+
+/** Create a fully wired test orchestrator. */
+export async function createTestOrchestrator(): Promise<{
+  handler: Deno.ServeHandler;
+  store: BundleStore;
+  scopeKey: ScopeKey;
+  kvStore: KvStore;
+}> {
+  const store = createTestStore();
+  const scopeKey = await createTestScopeKey();
+  const kvStore = createTestKvStore();
+  const handler = createOrchestrator({ store, scopeKey, kvStore });
+  return { handler, store, scopeKey, kvStore };
 }
 
 export function createTestKvStore(): KvStore {
