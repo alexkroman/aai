@@ -25,6 +25,7 @@ const PACKAGES: string[] = rootConfig.workspace;
 const DEPENDENTS: Record<string, string[]> = {
   sdk: ["cli", "core", "server", "ui"],
   core: ["cli", "server", "ui"],
+  ui: ["cli"],
 };
 
 function bumpPatch(version: string): string {
