@@ -14,7 +14,7 @@ import {
 } from "./_test_utils.ts";
 import { MockWebSocket } from "./_mock_ws.ts";
 import { hashApiKey } from "./deploy.ts";
-import { flush } from "./_test_utils.ts";
+import { flush, waitFor } from "./_test_utils.ts";
 
 async function setup(): Promise<ServerContext> {
   return {
@@ -136,14 +136,11 @@ Deno.test("handleDevWebSocket authenticates and registers via protocol", async (
     client: "console.log('client');",
   }));
 
-  // Multiple flushes needed for the async chain:
-  // parse → verifyOwner (crypto) → claimNamespace → registerDevAgent (signScopeToken)
-  for (let i = 0; i < 10; i++) await flush();
+  await waitFor(() => ctx.devSlots.has("ns/agent"));
 
   const sent = mockSocket.sentJson();
   const regMsg = sent.find((m) => m.type === "dev_registered");
   expect(regMsg).toBeDefined();
-  expect(ctx.devSlots.has("ns/agent")).toBe(true);
   expect(ctx.devSlots.get("ns/agent")!._dev).toBe(true);
 });
 
@@ -238,8 +235,9 @@ Deno.test("handleDevWebSocket rejects different owner for claimed namespace", as
   }));
 
   // Multiple flushes needed for the async chain:
-  // simulateMessage → parse → hashApiKey → getNamespaceOwner → sendError
-  for (let i = 0; i < 10; i++) await flush();
+  await waitFor(() =>
+    mockSocket.sentJson().some((m) => m.type === "dev_error")
+  );
 
   // Should have sent a dev_error and no slot created
   const sent = mockSocket.sentJson();
