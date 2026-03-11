@@ -10,7 +10,6 @@ function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
     slug: "ns/test-agent",
     env: VALID_ENV,
     transport: ["websocket"],
-    activeSessions: 0,
     ...overrides,
   };
 }

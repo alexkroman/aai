@@ -1,6 +1,10 @@
 import { expect } from "@std/expect";
-import { assertSpyCalls, spy } from "@std/testing/mock";
-import { connectStt } from "./stt.ts";
+import { spy } from "@std/testing/mock";
+import {
+  connectStt,
+  type SttTranscriptDetail,
+  type SttTurnDetail,
+} from "./stt.ts";
 import { DEFAULT_STT_CONFIG } from "./types.ts";
 import type { TurnEvent } from "assemblyai";
 import { StreamingTranscriber } from "assemblyai";
@@ -126,112 +130,114 @@ function installMockSDK(): {
   return { restore, [Symbol.dispose]: restore };
 }
 
-function createMockSttEvents() {
-  return {
-    onTranscript: spy(
-      (_text: string, _isFinal: boolean, _turnOrder?: number) => {},
-    ),
-    onTurn: spy((_text: string, _turnOrder?: number) => {}),
-    onTermination: spy(
-      (_audioDuration: number, _sessionDuration: number) => {},
-    ),
-    onError: spy((_err: Error) => {}),
-    onClose: spy(() => {}),
-  };
-}
-
 Deno.test("connectStt", async (t) => {
   await t.step("handle.send relays audio to SDK", async () => {
     using _sdk = installMockSDK();
-    const events = createMockSttEvents();
-    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG, events);
+    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
     handle.send(new Uint8Array([1, 2, 3]));
     expect(lastMock!.sentAudio).toHaveLength(1);
   });
 
   await t.step("handle.clear sends ForceEndpoint", async () => {
     using _sdk = installMockSDK();
-    const events = createMockSttEvents();
-    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG, events);
+    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
     handle.clear();
     expect(lastMock!.sentMessages).toEqual([{ type: "ForceEndpoint" }]);
   });
 
   await t.step("handle.close closes transcriber", async () => {
     using _sdk = installMockSDK();
-    const events = createMockSttEvents();
-    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG, events);
+    const onClose = spy(() => {});
+    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
+    handle.addEventListener("close", onClose);
     handle.close();
-    assertSpyCalls(events.onClose, 1);
+    expect(onClose.calls.length).toBe(1);
   });
 
-  await t.step("dispatches completed Turn as onTurn", async () => {
+  await t.step("dispatches completed Turn as turn event", async () => {
     using _sdk = installMockSDK();
-    const events = createMockSttEvents();
-    await connectStt("test-key", DEFAULT_STT_CONFIG, events);
+    const onTurn = spy((_e: Event) => {});
+    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
+    handle.addEventListener("turn", onTurn);
 
     lastMock!.emitTurn({
       transcript: "What is the weather?",
       end_of_turn: true,
     });
 
-    assertSpyCalls(events.onTurn, 1);
-    expect(events.onTurn.calls[0].args).toEqual([
-      "What is the weather?",
-      0,
-    ]);
+    expect(onTurn.calls.length).toBe(1);
+    const detail = (onTurn.calls[0].args[0] as CustomEvent<SttTurnDetail>)
+      .detail;
+    expect(detail).toEqual({ text: "What is the weather?", turnOrder: 0 });
   });
 
-  await t.step("dispatches partial Turn as onTranscript", async () => {
+  await t.step("dispatches partial Turn as transcript event", async () => {
     using _sdk = installMockSDK();
-    const events = createMockSttEvents();
-    await connectStt("test-key", DEFAULT_STT_CONFIG, events);
+    const onTurn = spy((_e: Event) => {});
+    const onTranscript = spy((_e: Event) => {});
+    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
+    handle.addEventListener("turn", onTurn);
+    handle.addEventListener("transcript", onTranscript);
 
     lastMock!.emitTurn({
       transcript: "partial text",
       end_of_turn: false,
     });
 
-    assertSpyCalls(events.onTurn, 0);
-    assertSpyCalls(events.onTranscript, 1);
-    expect(events.onTranscript.calls[0].args[0]).toBe("partial text");
+    expect(onTurn.calls.length).toBe(0);
+    expect(onTranscript.calls.length).toBe(1);
+    const detail =
+      (onTranscript.calls[0].args[0] as CustomEvent<SttTranscriptDetail>)
+        .detail;
+    expect(detail.text).toBe("partial text");
   });
 
   await t.step("skips Turn with empty transcript", async () => {
     using _sdk = installMockSDK();
-    const events = createMockSttEvents();
-    await connectStt("test-key", DEFAULT_STT_CONFIG, events);
+    const onTurn = spy((_e: Event) => {});
+    const onTranscript = spy((_e: Event) => {});
+    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
+    handle.addEventListener("turn", onTurn);
+    handle.addEventListener("transcript", onTranscript);
 
     lastMock!.emitTurn({
       transcript: "   ",
       end_of_turn: true,
     });
 
-    assertSpyCalls(events.onTurn, 0);
-    assertSpyCalls(events.onTranscript, 0);
+    expect(onTurn.calls.length).toBe(0);
+    expect(onTranscript.calls.length).toBe(0);
   });
 
-  await t.step("fires onError on SDK error", async () => {
+  await t.step("fires error event on SDK error", async () => {
     using _sdk = installMockSDK();
-    const events = createMockSttEvents();
-    await connectStt("test-key", DEFAULT_STT_CONFIG, events);
+    const onError = spy((_e: Event) => {});
+    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
+    handle.addEventListener("error", onError);
     lastMock!.emitError(new Error("something went wrong"));
-    assertSpyCalls(events.onError, 1);
+    expect(onError.calls.length).toBe(1);
   });
 
-  await t.step("fires onClose on unexpected WebSocket close", async () => {
-    using _sdk = installMockSDK();
-    const events = createMockSttEvents();
-    await connectStt("test-key", DEFAULT_STT_CONFIG, events);
-    lastMock!.emitClose(1006, "");
-    assertSpyCalls(events.onClose, 1);
-    assertSpyCalls(events.onError, 1);
-  });
+  await t.step(
+    "fires close and error events on unexpected WebSocket close",
+    async () => {
+      using _sdk = installMockSDK();
+      const onClose = spy((_e: Event) => {});
+      const onError = spy((_e: Event) => {});
+      const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
+      handle.addEventListener("close", onClose);
+      handle.addEventListener("error", onError);
+      lastMock!.emitClose(1006, "");
+      expect(onClose.calls.length).toBe(1);
+      expect(onError.calls.length).toBe(1);
+    },
+  );
 
   await t.step("passes turnOrder on completed Turn", async () => {
     using _sdk = installMockSDK();
-    const events = createMockSttEvents();
-    await connectStt("test-key", DEFAULT_STT_CONFIG, events);
+    const onTurn = spy((_e: Event) => {});
+    const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
+    handle.addEventListener("turn", onTurn);
 
     lastMock!.emitTurn({
       transcript: "Hello",
@@ -239,16 +245,19 @@ Deno.test("connectStt", async (t) => {
       turn_order: 3,
     });
 
-    assertSpyCalls(events.onTurn, 1);
-    expect(events.onTurn.calls[0].args).toEqual(["Hello", 3]);
+    expect(onTurn.calls.length).toBe(1);
+    const detail = (onTurn.calls[0].args[0] as CustomEvent<SttTurnDetail>)
+      .detail;
+    expect(detail).toEqual({ text: "Hello", turnOrder: 3 });
   });
 
   await t.step(
     "passes turnOrder on partial Turn as transcript",
     async () => {
       using _sdk = installMockSDK();
-      const events = createMockSttEvents();
-      await connectStt("test-key", DEFAULT_STT_CONFIG, events);
+      const onTranscript = spy((_e: Event) => {});
+      const handle = await connectStt("test-key", DEFAULT_STT_CONFIG);
+      handle.addEventListener("transcript", onTranscript);
 
       lastMock!.emitTurn({
         transcript: "partial",
@@ -256,22 +265,20 @@ Deno.test("connectStt", async (t) => {
         turn_order: 2,
       });
 
-      assertSpyCalls(events.onTranscript, 1);
-      expect(events.onTranscript.calls[0].args).toEqual([
-        "partial",
-        false,
-        2,
-      ]);
+      expect(onTranscript.calls.length).toBe(1);
+      const detail =
+        (onTranscript.calls[0].args[0] as CustomEvent<SttTranscriptDetail>)
+          .detail;
+      expect(detail).toEqual({ text: "partial", isFinal: false, turnOrder: 2 });
     },
   );
 
   await t.step("passes prompt config to SDK", async () => {
     using _sdk = installMockSDK();
-    const events = createMockSttEvents();
     await connectStt("test-key", {
       ...DEFAULT_STT_CONFIG,
       sttPrompt: "Transcribe medical terms",
-    }, events);
+    });
     expect(lastMock!.params).toBeDefined();
   });
 });

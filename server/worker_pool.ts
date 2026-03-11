@@ -16,7 +16,7 @@ import type { KvStore } from "./kv.ts";
 import type { AgentScope } from "./scope_token.ts";
 export type { AgentMetadata } from "./_schemas.ts";
 
-const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const IDLE_MS = 5 * 60 * 1000;
 
 export type AgentSlot = {
   slug: string;
@@ -28,9 +28,8 @@ export type AgentSlot = {
   ownerHash?: string;
   worker?: { handle: { terminate(): void }; api: WorkerApi };
   initializing?: Promise<void>;
-  activeSessions: number;
-  idleTimer?: ReturnType<typeof setTimeout>;
   configLoaded?: boolean;
+  idleTimer?: ReturnType<typeof setTimeout>;
 };
 
 async function spawnAgent(
@@ -51,11 +50,27 @@ async function spawnAgent(
 
   const worker = createDenoWorker(workerUrl, slug, LOCKED_PERMISSIONS);
 
+  let lastCrash = 0;
   worker.addEventListener(
     "error",
     ((event: ErrorEvent) => {
-      console.error("Worker error", { slug, error: event.message });
-      if (slot.worker?.handle === worker) slot.worker = undefined;
+      console.error("Worker died", { slug, error: event.message });
+      if (slot.worker?.handle !== worker) return;
+      slot.worker = undefined;
+
+      const now = Date.now();
+      if (now - lastCrash < 5_000) {
+        console.error("Worker crash loop, not respawning", { slug });
+        return;
+      }
+      lastCrash = now;
+      console.info("Respawning worker", { slug });
+      spawnAgent(slot, getWorkerCode, kvCtx).catch((err: unknown) => {
+        console.error("Worker respawn failed", {
+          slug,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
     }) as EventListener,
   );
 
@@ -122,6 +137,19 @@ function createHostApi(
   };
 }
 
+function resetIdleTimer(slot: AgentSlot): void {
+  if (slot.idleTimer) clearTimeout(slot.idleTimer);
+  const id = setTimeout(() => {
+    if (!slot.worker) return;
+    console.info("Evicting idle worker", { slug: slot.slug });
+    slot.worker.handle.terminate();
+    slot.worker = undefined;
+    slot.idleTimer = undefined;
+  }, IDLE_MS);
+  Deno.unrefTimer(id);
+  slot.idleTimer = id;
+}
+
 export function ensureAgent(
   slot: AgentSlot,
   getWorkerCode?: (slug: string) => Promise<string | null>,
@@ -130,21 +158,17 @@ export function ensureAgent(
   const t0 = performance.now();
 
   if (slot.worker) {
-    console.info("Agent ready", {
-      slug: slot.slug,
-      cached: true,
-      durationMs: Math.round(performance.now() - t0),
-    });
+    resetIdleTimer(slot);
     return Promise.resolve();
   }
   if (slot.initializing) return slot.initializing;
 
   slot.initializing = spawnAgent(slot, getWorkerCode, kvCtx).then(() => {
     slot.initializing = undefined;
+    resetIdleTimer(slot);
     console.info("Agent ready", {
       slug: slot.slug,
       name: slot.name,
-      cached: false,
       durationMs: Math.round(performance.now() - t0),
     });
   }).catch((err) => {
@@ -153,32 +177,6 @@ export function ensureAgent(
   });
 
   return slot.initializing;
-}
-
-export function trackSessionOpen(slot: AgentSlot): void {
-  slot.activeSessions++;
-  if (slot.idleTimer) {
-    clearTimeout(slot.idleTimer);
-    slot.idleTimer = undefined;
-  }
-}
-
-export function trackSessionClose(
-  slot: AgentSlot,
-): void {
-  slot.activeSessions = Math.max(0, slot.activeSessions - 1);
-  if (slot.activeSessions === 0 && slot.worker) {
-    const timerId = setTimeout(() => {
-      if (slot.activeSessions === 0 && slot.worker) {
-        console.info("Evicting idle agent Worker", { slug: slot.slug });
-        slot.worker.handle.terminate();
-        slot.worker = undefined;
-        slot.idleTimer = undefined;
-      }
-    }, IDLE_TIMEOUT_MS);
-    Deno.unrefTimer(timerId);
-    slot.idleTimer = timerId;
-  }
 }
 
 export function registerSlot(
@@ -200,7 +198,6 @@ export function registerSlot(
     env: metadata.env,
     transport: metadata.transport,
     ownerHash: metadata.owner_hash,
-    activeSessions: 0,
   });
   return true;
 }

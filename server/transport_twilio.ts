@@ -2,12 +2,7 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import {
-  type AgentSlot,
-  prepareSession,
-  trackSessionClose,
-  trackSessionOpen,
-} from "./worker_pool.ts";
+import { type AgentSlot, prepareSession } from "./worker_pool.ts";
 import { createSession, type SessionTransport } from "./session.ts";
 import type { HonoEnv } from "./hono_env.ts";
 import {
@@ -162,7 +157,6 @@ export const handleTwilioStream = upgradeWebSocket(async (c) => {
         transport,
         ...setup,
       });
-      trackSessionOpen(slot);
       audioBuf = createAudioBuffer((chunk) => session.onAudio(chunk));
       console.info("Twilio media stream connected", { slug });
       void session.start();
@@ -207,7 +201,6 @@ export const handleTwilioStream = upgradeWebSocket(async (c) => {
     onClose() {
       console.info("Twilio media stream disconnected", { slug });
       if (session) void session.stop();
-      if (slot) trackSessionClose(slot);
     },
 
     onError(event) {

@@ -3,13 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { renderAgentPage } from "./html.ts";
 import { createSessionWSEvents } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
-import {
-  type AgentSlot,
-  prepareSession,
-  registerSlot,
-  trackSessionClose,
-  trackSessionOpen,
-} from "./worker_pool.ts";
+import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
 import type { HonoEnv } from "./hono_env.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { upgradeWebSocket } from "./ws_upgrade.ts";
@@ -82,8 +76,6 @@ export const handleWebSocket = upgradeWebSocket(async (c) => {
         skipGreeting: resume,
       }),
     logContext: { slug },
-    onOpen: () => trackSessionOpen(slot),
-    onClose: () => trackSessionClose(slot),
   });
 });
 

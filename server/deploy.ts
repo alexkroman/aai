@@ -55,7 +55,6 @@ export async function handleDeploy(c: Context<HonoEnv>) {
     env: body.env,
     transport,
     ownerHash,
-    activeSessions: 0,
   };
   slots.set(slug, slot);
 

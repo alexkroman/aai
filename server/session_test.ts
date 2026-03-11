@@ -6,7 +6,7 @@ import {
   type SessionTransport,
 } from "./session.ts";
 import type { AgentConfig } from "@aai/sdk/types";
-import type { SttEvents } from "./stt.ts";
+import type { SttHandle, SttTranscriptDetail, SttTurnDetail } from "./stt.ts";
 import { DEFAULT_STT_CONFIG, DEFAULT_TTS_CONFIG } from "./types.ts";
 import type { PlatformConfig } from "./config.ts";
 
@@ -42,11 +42,11 @@ function createMockPlatformConfig(): PlatformConfig {
 }
 
 function createMockSessionOptions() {
-  const sttHandle = {
+  const sttHandle = Object.assign(new EventTarget(), {
     send: spy((_audio: Uint8Array) => {}),
     clear: spy(() => {}),
     close: spy(() => {}),
-  };
+  });
 
   const streamedText: string[] = [];
   const ttsClient = {
@@ -128,7 +128,7 @@ function setup(options?: SetupOptions) {
   };
 }
 
-function setupWithSttEvents(options?: SetupOptions) {
+function setupWithSttHandle(options?: SetupOptions) {
   const mocks = createMockSessionOptions();
   if (options?.agentConfig) {
     mocks.opts.agentConfig = {
@@ -137,16 +137,13 @@ function setupWithSttEvents(options?: SetupOptions) {
     };
   }
 
-  const events: { current: SttEvents | null } = { current: null };
+  const handle = Object.assign(new EventTarget(), {
+    send: () => {},
+    clear: () => {},
+    close: () => {},
+  }) as SttHandle;
 
-  mocks.opts.connectStt = (_key, _config, sttEvents) => {
-    events.current = sttEvents;
-    return Promise.resolve({
-      send: () => {},
-      clear: () => {},
-      close: () => {},
-    });
-  };
+  mocks.opts.connectStt = () => Promise.resolve(handle);
 
   const transport = mocks.opts.transport as ReturnType<
     typeof createMockTransport
@@ -156,7 +153,7 @@ function setupWithSttEvents(options?: SetupOptions) {
   return {
     session,
     transport,
-    events,
+    handle,
     ...mocks,
   };
 }
@@ -244,9 +241,13 @@ Deno.test("onReset sends RESET and re-sends greeting", async () => {
 });
 
 Deno.test("relays STT partial transcript to browser", async () => {
-  const ctx = setupWithSttEvents();
+  const ctx = setupWithSttHandle();
   await ctx.session.start();
-  ctx.events.current!.onTranscript("partial text", false);
+  ctx.handle.dispatchEvent(
+    new CustomEvent<SttTranscriptDetail>("transcript", {
+      detail: { text: "partial text", isFinal: false },
+    }),
+  );
   const transcript = getSentJson(ctx.transport).find((m) =>
     m.type === "partial_transcript"
   );
@@ -254,9 +255,13 @@ Deno.test("relays STT partial transcript to browser", async () => {
 });
 
 Deno.test("relays STT final transcript to browser", async () => {
-  const ctx = setupWithSttEvents();
+  const ctx = setupWithSttHandle();
   await ctx.session.start();
-  ctx.events.current!.onTranscript("done", true, 3);
+  ctx.handle.dispatchEvent(
+    new CustomEvent<SttTranscriptDetail>("transcript", {
+      detail: { text: "done", isFinal: true, turnOrder: 3 },
+    }),
+  );
   const transcript = getSentJson(ctx.transport).find((m) =>
     m.type === "final_transcript"
   );
@@ -265,9 +270,13 @@ Deno.test("relays STT final transcript to browser", async () => {
 });
 
 Deno.test("omits turn_order on final transcript when undefined", async () => {
-  const ctx = setupWithSttEvents();
+  const ctx = setupWithSttHandle();
   await ctx.session.start();
-  ctx.events.current!.onTranscript("done", true);
+  ctx.handle.dispatchEvent(
+    new CustomEvent<SttTranscriptDetail>("transcript", {
+      detail: { text: "done", isFinal: true },
+    }),
+  );
   const transcript = getSentJson(ctx.transport).find((m) =>
     m.type === "final_transcript"
   );
@@ -275,9 +284,13 @@ Deno.test("omits turn_order on final transcript when undefined", async () => {
 });
 
 Deno.test("forwards turn_order in turn messages", async () => {
-  const ctx = setupWithSttEvents();
+  const ctx = setupWithSttHandle();
   await ctx.session.start();
-  ctx.events.current!.onTurn("What is the weather?", 5);
+  ctx.handle.dispatchEvent(
+    new CustomEvent<SttTurnDetail>("turn", {
+      detail: { text: "What is the weather?", turnOrder: 5 },
+    }),
+  );
   // Check the turn message was sent immediately (before LLM call)
   await new Promise((r) => setTimeout(r, 10));
   const turn = getSentJson(ctx.transport).find((m) => m.type === "turn");

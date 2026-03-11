@@ -8,7 +8,7 @@ const NO_AUDIO_TIMEOUT_MS = 5000;
 
 export function createTtsClient(config: TTSConfig) {
   let ws: WebSocket | null = null;
-  let disposed = false;
+  const lifecycle = new AbortController();
 
   let onAudioCb: ((chunk: Uint8Array) => void) | null = null;
   let completionResolve: (() => void) | null = null;
@@ -140,7 +140,7 @@ export function createTtsClient(config: TTSConfig) {
   return {
     /** Pre-establish the WebSocket so first synthesis has no connection delay. */
     warmup(): void {
-      if (!disposed && !ws) {
+      if (!lifecycle.signal.aborted && !ws) {
         connect().catch(() => {/* will retry on synthesize */});
       }
     },
@@ -150,7 +150,7 @@ export function createTtsClient(config: TTSConfig) {
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
     ): Promise<void> {
-      if (disposed || signal?.aborted) return;
+      if (lifecycle.signal.aborted || signal?.aborted) return;
 
       console.info("synthesizeStream start", { voice: config.voice });
       const ttsStart = performance.now();
@@ -178,7 +178,7 @@ export function createTtsClient(config: TTSConfig) {
     },
 
     close(): void {
-      disposed = true;
+      lifecycle.abort();
       finishSynthesis();
       if (ws) {
         if (ws.readyState === WebSocket.OPEN) {

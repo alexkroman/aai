@@ -1,7 +1,12 @@
 import type { PlatformConfig } from "./config.ts";
 import { createModel } from "./model.ts";
 import type { ExecuteTool } from "@aai/core/worker-entry";
-import { connectStt, type SttEvents, type SttHandle } from "./stt.ts";
+import {
+  connectStt,
+  type SttHandle,
+  type SttTranscriptDetail,
+  type SttTurnDetail,
+} from "./stt.ts";
 import { createTtsClient } from "./tts.ts";
 import { getBuiltinVercelTools } from "./builtin_tools.ts";
 import { executeTurn } from "./turn_handler.ts";
@@ -43,7 +48,6 @@ export type SessionOptions = {
   connectStt?: (
     apiKey: string,
     config: STTConfig,
-    events: SttEvents,
   ) => Promise<SttHandle>;
   createTtsClient?: (
     config: Parameters<typeof createTtsClient>[0],
@@ -188,41 +192,69 @@ export function createSession(opts: SessionOptions): Session {
   }
 
   async function doConnectSttWithEvents(): Promise<void> {
-    const events: SttEvents = {
-      onTranscript: (text, isFinal, turnOrder) => {
-        console.info("transcript", { text, isFinal, turnOrder });
-        if (isFinal) {
+    try {
+      const handle = await doConnectStt(config.apiKey, config.sttConfig);
+
+      handle.addEventListener(
+        "transcript",
+        ((
+          e: CustomEvent<SttTranscriptDetail>,
+        ) => {
+          const { text, isFinal, turnOrder } = e.detail;
+          console.info("transcript", { text, isFinal, turnOrder });
+          if (isFinal) {
+            trySendJson({
+              type: "final_transcript",
+              text,
+              ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
+            });
+          } else {
+            trySendJson({ type: "partial_transcript", text });
+          }
+        }) as EventListener,
+      );
+
+      handle.addEventListener(
+        "turn",
+        ((e: CustomEvent<SttTurnDetail>) => {
+          const { text, turnOrder } = e.detail;
+          console.info("turn", { text, turnOrder });
+          const prev = turnPromise;
+          const next = (prev ?? Promise.resolve())
+            .catch(() => {})
+            .then(() => handleTurn(text, turnOrder))
+            .finally(() => {
+              if (turnPromise === next) turnPromise = null;
+            });
+          turnPromise = next;
+        }) as EventListener,
+      );
+
+      handle.addEventListener(
+        "termination",
+        ((
+          e: CustomEvent<{ audioDuration: number; sessionDuration: number }>,
+        ) => {
+          const { audioDuration, sessionDuration } = e.detail;
+          console.info("STT termination", { audioDuration, sessionDuration });
+        }) as EventListener,
+      );
+
+      handle.addEventListener(
+        "error",
+        ((
+          e: CustomEvent<{ error: Error }>,
+        ) => {
+          const err = e.detail.error;
+          console.error("STT error:", err.message);
           trySendJson({
-            type: "final_transcript",
-            text,
-            ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
+            type: "error",
+            message: err.message,
           });
-        } else {
-          trySendJson({ type: "partial_transcript", text });
-        }
-      },
-      onTurn: (text, turnOrder) => {
-        console.info("turn", { text, turnOrder });
-        const prev = turnPromise;
-        const next = (prev ?? Promise.resolve())
-          .catch(() => {})
-          .then(() => handleTurn(text, turnOrder))
-          .finally(() => {
-            if (turnPromise === next) turnPromise = null;
-          });
-        turnPromise = next;
-      },
-      onTermination: (audioDuration, sessionDuration) => {
-        console.info("STT termination", { audioDuration, sessionDuration });
-      },
-      onError: (err) => {
-        console.error("STT error:", err.message);
-        trySendJson({
-          type: "error",
-          message: err.message,
-        });
-      },
-      onClose: () => {
+        }) as EventListener,
+      );
+
+      handle.addEventListener("close", () => {
         console.info("STT closed");
         stt = null;
         if (!sessionAbort.signal.aborted) {
@@ -233,11 +265,9 @@ export function createSession(opts: SessionOptions): Session {
             trySendJson({ type: "error", message: msg });
           });
         }
-      },
-    };
+      });
 
-    try {
-      stt = await doConnectStt(config.apiKey, config.sttConfig, events);
+      stt = handle;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("STT connect failed:", msg);

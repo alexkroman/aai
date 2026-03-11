@@ -3,15 +3,18 @@ import type { TurnEvent } from "assemblyai";
 import type { STTConfig } from "./types.ts";
 import * as metrics from "./metrics.ts";
 
-export type SttEvents = {
-  onTranscript: (text: string, isFinal: boolean, turnOrder?: number) => void;
-  onTurn: (text: string, turnOrder?: number) => void;
-  onTermination: (audioDuration: number, sessionDuration: number) => void;
-  onError: (err: Error) => void;
-  onClose: () => void;
+export type SttTranscriptDetail = {
+  text: string;
+  isFinal: boolean;
+  turnOrder?: number;
+};
+export type SttTurnDetail = { text: string; turnOrder?: number };
+export type SttTerminationDetail = {
+  audioDuration: number;
+  sessionDuration: number;
 };
 
-export type SttHandle = {
+export type SttHandle = EventTarget & {
   send: (audio: Uint8Array) => void;
   clear: () => void;
   close: () => void;
@@ -20,7 +23,6 @@ export type SttHandle = {
 export async function connectStt(
   apiKey: string,
   config: STTConfig,
-  events: SttEvents,
 ): Promise<SttHandle> {
   const sttStart = performance.now();
 
@@ -46,6 +48,7 @@ export async function connectStt(
     ...(config.sttPrompt ? { prompt: config.sttPrompt } : {}),
   });
 
+  const target = new EventTarget();
   let msgCount = 0;
 
   transcriber.on("turn", (turn: TurnEvent) => {
@@ -63,26 +66,42 @@ export async function connectStt(
     if (!text) return;
 
     if (turn.end_of_turn) {
-      events.onTurn(text, turn.turn_order);
+      target.dispatchEvent(
+        new CustomEvent<SttTurnDetail>("turn", {
+          detail: { text, turnOrder: turn.turn_order },
+        }),
+      );
     } else {
-      events.onTranscript(text, false, turn.turn_order);
+      target.dispatchEvent(
+        new CustomEvent<SttTranscriptDetail>("transcript", {
+          detail: { text, isFinal: false, turnOrder: turn.turn_order },
+        }),
+      );
     }
   });
 
   transcriber.on("error", (err: Error) => {
     metrics.errorsTotal.inc({ component: "stt" });
-    events.onError(err);
+    target.dispatchEvent(
+      new CustomEvent<{ error: Error }>("error", { detail: { error: err } }),
+    );
   });
 
   transcriber.on("close", (code: number, reason: string) => {
     console.info("STT WebSocket closed", { code, reason, msgCount });
     if (code !== 1000 && code !== 1005) {
       console.error("WebSocket closed unexpectedly", { code, reason });
-      events.onError(
-        new Error(`STT WebSocket closed unexpectedly (code ${code})`),
+      target.dispatchEvent(
+        new CustomEvent<{ error: Error }>("error", {
+          detail: {
+            error: new Error(
+              `STT WebSocket closed unexpectedly (code ${code})`,
+            ),
+          },
+        }),
       );
     }
-    events.onClose();
+    target.dispatchEvent(new Event("close"));
   });
 
   try {
@@ -101,7 +120,7 @@ export async function connectStt(
   metrics.sttConnectDuration.observe((performance.now() - sttStart) / 1000);
   console.info("STT WebSocket connected");
 
-  return {
+  return Object.assign(target, {
     send(audio: Uint8Array) {
       try {
         transcriber.sendAudio(audio.buffer as ArrayBuffer);
@@ -119,5 +138,5 @@ export async function connectStt(
     close() {
       transcriber.close(false).catch(() => {});
     },
-  };
+  }) as SttHandle;
 }
