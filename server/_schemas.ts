@@ -28,14 +28,14 @@ export type AgentMetadata = {
   slug: string;
   env: Record<string, string>;
   transport: Transport[];
-  owner_hash?: string;
+  owner_hash: string;
 };
 
 export const AgentMetadataSchema: z.ZodType<AgentMetadata> = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
   transport: z.array(TransportSchema).default(["websocket"]),
-  owner_hash: z.string().optional(),
+  owner_hash: z.string(),
 });
 
 // KV HTTP endpoint: base operations + server-only `keys` operation.

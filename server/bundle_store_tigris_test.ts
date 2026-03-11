@@ -6,6 +6,7 @@ Deno.test("TigrisBundleStore", async (t) => {
     using store = createTestStore();
     await store.putAgent({
       slug: "hello",
+      owner_hash: "test-owner",
       env: VALID_ENV,
       transport: ["websocket"],
       worker: "console.log('worker');",
@@ -17,6 +18,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       slug: "hello",
       env: VALID_ENV,
       transport: ["websocket"],
+      owner_hash: "test-owner",
     });
 
     const worker = await store.getFile("hello", "worker");
@@ -30,6 +32,7 @@ Deno.test("TigrisBundleStore", async (t) => {
     using store = createTestStore();
     await store.putAgent({
       slug: "gone",
+      owner_hash: "test-owner",
       env: VALID_ENV,
       transport: ["websocket"],
       worker: "w",
@@ -46,6 +49,7 @@ Deno.test("TigrisBundleStore", async (t) => {
     using store = createTestStore();
     await store.putAgent({
       slug: "x",
+      owner_hash: "test-owner",
       env: VALID_ENV,
       transport: ["websocket"],
       worker: "old",
@@ -53,6 +57,7 @@ Deno.test("TigrisBundleStore", async (t) => {
     });
     await store.putAgent({
       slug: "x",
+      owner_hash: "test-owner",
       env: { ...VALID_ENV, EXTRA: "val" },
       transport: ["websocket"],
       worker: "new",
@@ -69,6 +74,7 @@ Deno.test("TigrisBundleStore", async (t) => {
     const big = "x".repeat(150_000);
     await store.putAgent({
       slug: "big",
+      owner_hash: "test-owner",
       env: VALID_ENV,
       transport: ["websocket"],
       worker: big,
@@ -91,6 +97,7 @@ Deno.test("TigrisBundleStore", async (t) => {
     using store = createTestStore();
     await store.putAgent({
       slug: "nomap",
+      owner_hash: "test-owner",
       env: VALID_ENV,
       transport: ["websocket"],
       worker: "w",
@@ -103,6 +110,7 @@ Deno.test("TigrisBundleStore", async (t) => {
     using store = createTestStore();
     await store.putAgent({
       slug: "mapped",
+      owner_hash: "test-owner",
       env: VALID_ENV,
       transport: ["websocket"],
       worker: "w",

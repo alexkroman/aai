@@ -191,7 +191,7 @@ Deno.test("VoiceSession", async (t) => {
         ws.simulateMessage(
           JSON.stringify({ type: "final_transcript", text: "hello world" }),
         );
-        expect(session.transcript.value).toBe("hello world");
+        expect(session.transcript.value).toBe("");
         session.disconnect();
       }),
     );
@@ -208,7 +208,7 @@ Deno.test("VoiceSession", async (t) => {
         expect(session.messages.value).toHaveLength(1);
         expect(session.messages.value[0].role).toBe("user");
         expect(session.messages.value[0].text).toBe("Hello");
-        expect(session.transcript.value).toBe("Hello");
+        expect(session.transcript.value).toBe("");
         expect(session.state.value).toBe("thinking");
         session.disconnect();
       }),

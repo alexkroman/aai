@@ -8,7 +8,10 @@ export const newCommand: Command = new Command()
   .description("Scaffold a new agent project")
   .arguments("[dir:string]")
   .option("-n, --name <name:string>", "Agent name")
-  .option("-t, --template <template:string>", "Template to use")
+  .option(
+    "-t, --template <template:string>",
+    "Template to use (e.g. smart-research, memory-agent, dispatch-center)",
+  )
   .option("-f, --force", "Overwrite existing agent.ts")
   .action(async ({ name, template, force }, dir) => {
     const cwd = dir ?? (Deno.env.get("INIT_CWD") || Deno.cwd());

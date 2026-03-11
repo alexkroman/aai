@@ -24,6 +24,7 @@ Deno.test("discoverSlot lazy-loads from store", async () => {
   const slots = new Map<string, AgentSlot>();
   await store.putAgent({
     slug: "ns/stored-agent",
+    owner_hash: "test-owner",
     env: VALID_ENV,
     transport: ["websocket"],
     worker: "console.log('w');",

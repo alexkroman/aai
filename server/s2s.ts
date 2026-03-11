@@ -12,7 +12,7 @@ export type S2sConfig = {
 
 export const DEFAULT_S2S_CONFIG: S2sConfig = {
   wssUrl: "wss://speech-to-speech.us.assemblyai.com/v1/realtime",
-  inputSampleRate: 16_000,
+  inputSampleRate: 24_000,
   outputSampleRate: 24_000,
 };
 
@@ -27,8 +27,6 @@ export type S2sSessionConfig = {
   system_prompt: string;
   tools: S2sToolSchema[];
   voice?: string;
-  input_sample_rate?: number;
-  output_sample_rate?: number;
 };
 
 export type S2sToolCall = {

@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 export const PROTOCOL_VERSION = 2;
-export const DEFAULT_INPUT_SAMPLE_RATE = 16_000;
+export const DEFAULT_INPUT_SAMPLE_RATE = 24_000;
 export const DEFAULT_OUTPUT_SAMPLE_RATE = 24_000;
 export const AUDIO_FORMAT = "pcm16" as const;
 
@@ -17,6 +17,7 @@ export type ServerMessage =
     input_sample_rate: number;
     output_sample_rate: number;
   }
+  | { type: "partial_transcript"; text: string }
   | { type: "final_transcript"; text: string }
   | { type: "chat"; text: string }
   | { type: "tts_done" }
@@ -34,6 +35,7 @@ export const ServerMessageSchema: z.ZodType<ServerMessage> = z
       input_sample_rate: z.number().int().positive(),
       output_sample_rate: z.number().int().positive(),
     }),
+    z.object({ type: z.literal("partial_transcript"), text: z.string() }),
     z.object({
       type: z.literal("final_transcript"),
       text: z.string(),

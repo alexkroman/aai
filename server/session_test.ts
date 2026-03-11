@@ -118,7 +118,7 @@ Deno.test("start sends READY message with protocol v2 metadata", async () => {
   expect(ready).toBeDefined();
   expect(ready!.protocol_version).toBe(2);
   expect(ready!.audio_format).toBe("pcm16");
-  expect(ready!.input_sample_rate).toBe(16_000);
+  expect(ready!.input_sample_rate).toBe(24_000);
   expect(ready!.output_sample_rate).toBe(24_000);
 });
 

@@ -80,7 +80,8 @@ export function createSessionWSEvents(
     },
 
     onMessage(event, ws) {
-      const isBinary = event.data instanceof ArrayBuffer;
+      const isBinary = event.data instanceof ArrayBuffer ||
+        event.data instanceof Uint8Array;
 
       if (!isBinary && (event.data as string).length > 1_000_000) return;
 
@@ -103,7 +104,10 @@ export function createSessionWSEvents(
       }
 
       if (isBinary) {
-        session?.onAudio(new Uint8Array(event.data));
+        const audio = event.data instanceof Uint8Array
+          ? event.data
+          : new Uint8Array(event.data as ArrayBuffer);
+        session?.onAudio(audio);
         return;
       }
 

@@ -113,12 +113,12 @@ Deno.test("createAudioBuffer", async (t) => {
 
 // --- decodeTwilioFrame ---
 
-Deno.test("decodeTwilioFrame produces PCM16 bytes at 16kHz", () => {
-  // 80 mulaw samples at 8kHz = 10ms → should produce 160 PCM16 samples at 16kHz = 320 bytes
+Deno.test("decodeTwilioFrame produces PCM16 bytes at 24kHz", () => {
+  // 80 mulaw samples at 8kHz = 10ms → should produce 240 PCM16 samples at 24kHz = 480 bytes
   const mulaw = new Uint8Array(80).fill(0xff); // silence
   const b64 = encodeBase64(mulaw);
   const result = decodeTwilioFrame(b64);
-  expect(result.length).toBe(320); // 160 samples × 2 bytes
+  expect(result.length).toBe(480); // 240 samples × 2 bytes
 });
 
 // --- twilio transport adapter ---

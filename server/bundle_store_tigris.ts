@@ -18,7 +18,7 @@ export type BundleStore = {
     worker: string;
     client: string;
     client_map?: string;
-    owner_hash?: string;
+    owner_hash: string;
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;
@@ -154,7 +154,7 @@ export function createBundleStore(
         slug: bundle.slug,
         env: bundle.env,
         transport: bundle.transport,
-        ...(bundle.owner_hash ? { owner_hash: bundle.owner_hash } : {}),
+        owner_hash: bundle.owner_hash,
       };
       await put(
         objectKey(bundle.slug, "manifest.json"),

@@ -255,12 +255,15 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
           reconnector.reset();
           void handleReady(msg);
           break;
-        case "final_transcript":
+        case "partial_transcript":
           transcript.value = msg.text;
+          break;
+        case "final_transcript":
           messages.value = [
             ...messages.value,
             { role: "user", text: msg.text },
           ];
+          transcript.value = "";
           state.value = "thinking";
           break;
         case "chat":

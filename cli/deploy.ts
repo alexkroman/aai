@@ -13,14 +13,16 @@ import {
 
 export const deployCommand: Command = new Command()
   .description("Bundle and deploy to production")
-  .option("-s, --server <url:string>", "Server URL")
-  .option("--local [url:string]", "Use local server", { hidden: true })
+  .option(
+    "--local [url:string]",
+    "Deploy to local server (default: http://localhost:3100)",
+  )
   .option("--dry-run", "Validate and bundle without deploying")
-  .action(async ({ server, local, dryRun }) => {
+  .action(async ({ local, dryRun }) => {
     const cwd = Deno.env.get("INIT_CWD") || Deno.cwd();
     const serverUrl = local !== undefined
       ? (typeof local === "string" ? local : "http://localhost:3100")
-      : (server || DEFAULT_SERVER);
+      : DEFAULT_SERVER;
 
     const apiKey = await getApiKey();
     const namespace = await getNamespace();

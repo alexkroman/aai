@@ -249,8 +249,6 @@ export function createSession(opts: SessionOptions): Session {
           const sessionConfig: S2sSessionConfig = {
             system_prompt: systemPrompt,
             tools: s2sTools,
-            input_sample_rate: s2sConfig.inputSampleRate,
-            output_sample_rate: s2sConfig.outputSampleRate,
           };
           if (agentConfig.voice) {
             sessionConfig.voice = agentConfig.voice;
@@ -266,6 +264,13 @@ export function createSession(opts: SessionOptions): Session {
           s2sSessionId = null;
           handle.close();
           // close handler will trigger reconnect with no session_id
+        }) as EventListener,
+      );
+
+      handle.addEventListener(
+        "user_transcript_delta",
+        ((e: CustomEvent<{ text: string }>) => {
+          trySendJson({ type: "partial_transcript", text: e.detail.text });
         }) as EventListener,
       );
 

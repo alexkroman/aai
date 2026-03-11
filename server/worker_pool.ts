@@ -25,7 +25,7 @@ export type AgentSlot = {
   config?: AgentConfig;
   name?: string;
   toolSchemas?: ToolSchema[];
-  ownerHash?: string;
+  ownerHash: string;
   worker?: { handle: { terminate(): void }; api: WorkerApi };
   initializing?: Promise<void>;
   configLoaded?: boolean;
@@ -219,9 +219,7 @@ export async function prepareSession(
   store: BundleStore,
   kvStore: KvStore,
 ): Promise<SessionSetup> {
-  const kvCtx = slot.ownerHash
-    ? { kvStore, scope: { ownerHash: slot.ownerHash, slug } }
-    : undefined;
+  const kvCtx = { kvStore, scope: { ownerHash: slot.ownerHash, slug } };
   const getWorkerCode = (s: string) => store.getFile(s, "worker");
   const getWorkerApi = async () => {
     await ensureAgent(slot, getWorkerCode, kvCtx);

@@ -64,6 +64,44 @@ export function rootHelp(this: Command): string {
     }`,
   );
   lines.push("");
+  lines.push(`  ${bold(brightBlue("Templates"))}`);
+  lines.push("");
+  lines.push(
+    `    ${dim("Use")} ${brightMagenta("-t")} ${dim("with")} ${
+      brightMagenta("new")
+    } ${dim("to start from a template:")}`,
+  );
+  lines.push(
+    `    ${dim("$")} ${brightMagenta("aai new")} ${brightBlue("-t")} ${
+      brightMagenta("smart-research")
+    } ${brightBlue("my-agent")}`,
+  );
+  lines.push("");
+  lines.push(
+    `    ${
+      dim(
+        "simple, code-interpreter, dispatch-center, embedded-assets,",
+      )
+    }`,
+  );
+  lines.push(
+    `    ${
+      dim(
+        "health-assistant, infocom-adventure, math-buddy, memory-agent,",
+      )
+    }`,
+  );
+  lines.push(
+    `    ${
+      dim(
+        "night-owl, personal-finance, smart-research, travel-concierge,",
+      )
+    }`,
+  );
+  lines.push(
+    `    ${dim("twilio-phone, web-researcher")}`,
+  );
+  lines.push("");
 
   return lines.join("\n");
 }

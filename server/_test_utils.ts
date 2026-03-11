@@ -50,7 +50,7 @@ export function createTestStore(): BundleStore {
         slug: bundle.slug,
         env: bundle.env,
         transport: bundle.transport,
-        ...(bundle.owner_hash ? { owner_hash: bundle.owner_hash } : {}),
+        owner_hash: bundle.owner_hash,
       };
       objects.set(
         objectKey(bundle.slug, "manifest.json"),
@@ -132,6 +132,7 @@ export function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
     slug: "ns/test-agent",
     env: VALID_ENV,
     transport: ["websocket"],
+    ownerHash: "test-owner",
     ...overrides,
   };
 }

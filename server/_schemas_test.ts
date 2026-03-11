@@ -210,11 +210,15 @@ Deno.test("ClientMessageSchema", async (t) => {
 
 Deno.test("AgentMetadataSchema", async (t) => {
   await t.step("accepts minimal metadata", () => {
-    const result = AgentMetadataSchema.safeParse({ slug: "test" });
+    const result = AgentMetadataSchema.safeParse({
+      slug: "test",
+      owner_hash: "abc",
+    });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.env).toEqual({});
       expect(result.data.transport).toEqual(["websocket"]);
+      expect(result.data.owner_hash).toBe("abc");
     }
   });
 
