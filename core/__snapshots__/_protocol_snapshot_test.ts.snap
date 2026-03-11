@@ -419,3 +419,135 @@ snapshot[`ClientMessageSchema snapshot 1`] = `
   ],
 }
 `;
+
+snapshot[`AudioFrameSpec snapshot 1`] = `
+{
+  bitsPerSample: 16,
+  bytesPerSample: 2,
+  channels: 1,
+  endianness: "little",
+  format: "pcm16",
+}
+`;
+
+snapshot[`ServerStateMachine snapshot 1`] = `
+{
+  initial: "connected",
+  transitions: {
+    audio: [
+      "audio",
+      "tts_done",
+      "cancelled",
+      "error",
+      "pong",
+    ],
+    cancelled: [
+      "partial_transcript",
+      "final_transcript",
+      "error",
+      "pong",
+    ],
+    chat: [
+      "audio",
+      "tts_done",
+      "cancelled",
+      "error",
+      "pong",
+    ],
+    connected: [
+      "ready",
+    ],
+    error: [
+      "partial_transcript",
+      "final_transcript",
+      "error",
+      "pong",
+    ],
+    final_transcript: [
+      "partial_transcript",
+      "final_transcript",
+      "turn",
+      "cancelled",
+      "error",
+      "pong",
+    ],
+    partial_transcript: [
+      "partial_transcript",
+      "final_transcript",
+      "cancelled",
+      "error",
+      "pong",
+    ],
+    pong: "*",
+    ready: [
+      "partial_transcript",
+      "final_transcript",
+      "error",
+      "pong",
+    ],
+    reset: [
+      "partial_transcript",
+      "final_transcript",
+      "chat",
+      "error",
+      "pong",
+    ],
+    tts_done: [
+      "partial_transcript",
+      "final_transcript",
+      "chat",
+      "error",
+      "pong",
+    ],
+    turn: [
+      "chat",
+      "error",
+      "pong",
+    ],
+  },
+}
+`;
+
+snapshot[`ClientStateMachine snapshot 1`] = `
+{
+  initial: "connected",
+  transitions: {
+    audio: [
+      "audio",
+      "cancel",
+      "reset",
+      "ping",
+    ],
+    audio_ready: [
+      "audio",
+      "cancel",
+      "reset",
+      "ping",
+    ],
+    cancel: [
+      "audio",
+      "cancel",
+      "reset",
+      "ping",
+    ],
+    connected: [
+      "audio_ready",
+      "history",
+      "ping",
+    ],
+    history: [
+      "audio_ready",
+      "history",
+      "ping",
+    ],
+    ping: "*",
+    reset: [
+      "audio_ready",
+      "audio",
+      "cancel",
+      "reset",
+      "ping",
+    ],
+  },
+}
+`;
