@@ -1,6 +1,7 @@
 import { encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
-import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
+import type { AgentConfig } from "@aai/sdk/types";
+import type { ToolSchema } from "@aai/sdk/schema";
 import {
   createWorkerApi,
   type HostApi,

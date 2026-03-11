@@ -138,6 +138,13 @@ export function createTtsClient(config: TTSConfig) {
   }
 
   return {
+    /** Pre-establish the WebSocket so first synthesis has no connection delay. */
+    warmup(): void {
+      if (!disposed && !ws) {
+        connect().catch(() => {/* will retry on synthesize */});
+      }
+    },
+
     async synthesizeStream(
       chunks: string | AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,

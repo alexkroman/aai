@@ -1,4 +1,3 @@
-import { z } from "zod";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
@@ -10,7 +9,7 @@ export type STTConfig = {
   wssBase: string;
   tokenExpiresIn: number;
   formatTurns: boolean;
-  minEndOfTurnSilenceWhenConfident: number;
+  minTurnSilence: number;
   maxTurnSilence: number;
   vadThreshold: number;
   sttPrompt?: string;
@@ -18,11 +17,11 @@ export type STTConfig = {
 
 export const DEFAULT_STT_CONFIG: STTConfig = {
   sampleRate: DEFAULT_STT_SAMPLE_RATE,
-  speechModel: "u3-pro",
+  speechModel: "u3-rt-pro",
   wssBase: "wss://streaming.assemblyai.com/v3/ws",
   tokenExpiresIn: 480,
   formatTurns: true,
-  minEndOfTurnSilenceWhenConfident: 400,
+  minTurnSilence: 400,
   maxTurnSilence: 1000,
   vadThreshold: 0.7,
 };
@@ -50,49 +49,3 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
 };
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
-
-export type ChatMessage = {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string | null;
-  tool_calls?: {
-    id: string;
-    type: "function";
-    function: { name: string; arguments: string; [key: string]: unknown };
-    [key: string]: unknown;
-  }[];
-  tool_call_id?: string;
-  [key: string]: unknown;
-};
-
-const ChatMessageSchema: z.ZodType<ChatMessage> = z.object({
-  role: z.enum(["system", "user", "assistant", "tool"]),
-  content: z.string().nullable(),
-  tool_calls: z.array(
-    z.object({
-      id: z.string(),
-      type: z.literal("function"),
-      function: z.object({ name: z.string(), arguments: z.string() })
-        .passthrough(),
-    }).passthrough(),
-  ).optional(),
-  tool_call_id: z.string().optional(),
-}).passthrough();
-
-export type LLMResponse = {
-  id?: string;
-  choices: {
-    index?: number;
-    message: ChatMessage;
-    finish_reason: string;
-  }[];
-  [key: string]: unknown;
-};
-
-export const LLMResponseSchema: z.ZodType<LLMResponse> = z.object({
-  id: z.string().optional(),
-  choices: z.array(z.object({
-    index: z.number().optional(),
-    message: ChatMessageSchema,
-    finish_reason: z.string(),
-  })).nullable().transform((v) => v ?? []),
-}).passthrough();

@@ -3,7 +3,8 @@ import { HTTPException } from "hono/http-exception";
 import { type DevRegister, DevRegisterSchema } from "@aai/core/protocol";
 import { createWebSocketEndpoint } from "@aai/core/ws-endpoint";
 import { createWorkerApi } from "@aai/core/worker-entry";
-import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
+import type { AgentConfig } from "@aai/sdk/types";
+import type { ToolSchema } from "@aai/sdk/schema";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import {
   type AgentSlot,

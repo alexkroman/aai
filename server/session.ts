@@ -1,14 +1,16 @@
 import type { PlatformConfig } from "./config.ts";
-import { callLLM, type CallLLMOptions } from "./llm.ts";
+import { createModel } from "./model.ts";
 import type { ExecuteTool } from "@aai/core/worker-entry";
 import { connectStt, type SttEvents, type SttHandle } from "./stt.ts";
 import { createTtsClient } from "./tts.ts";
-import { executeBuiltinTool } from "./builtin_tools.ts";
-import { executeTurn, type TurnCallLLMOptions } from "./turn_handler.ts";
-import type { ChatMessage, LLMResponse, STTConfig } from "./types.ts";
-import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
+import { getBuiltinVercelTools } from "./builtin_tools.ts";
+import { executeTurn } from "./turn_handler.ts";
+import type { STTConfig } from "./types.ts";
+import type { AgentConfig } from "@aai/sdk/types";
+import type { ToolSchema } from "@aai/sdk/schema";
 import type { WorkerApi } from "@aai/core/worker-entry";
 import { buildSystemPrompt } from "./system_prompt.ts";
+import { type CoreMessage, jsonSchema, tool as vercelTool } from "ai";
 import * as metrics from "./metrics.ts";
 import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/core/protocol";
 
@@ -18,6 +20,7 @@ export type SessionTransport = {
 };
 
 export type TtsClient = {
+  warmup(): void;
   synthesizeStream(
     chunks: string | AsyncIterable<string>,
     onAudio: (chunk: Uint8Array) => void,
@@ -32,15 +35,9 @@ export const _internals = {
     config: STTConfig,
     events: SttEvents,
   ) => Promise<SttHandle>,
-  callLLM: callLLM as (opts: CallLLMOptions) => Promise<LLMResponse>,
   createTtsClient: createTtsClient as (
     config: Parameters<typeof createTtsClient>[0],
   ) => TtsClient,
-  executeBuiltinTool: executeBuiltinTool as (
-    name: string,
-    args: Record<string, unknown>,
-    env?: Record<string, string | undefined>,
-  ) => Promise<string | null>,
 };
 
 export type SessionOptions = {
@@ -66,6 +63,38 @@ export type Session = {
   onHistory(messages: { role: "user" | "assistant"; text: string }[]): void;
   waitForTurn(): Promise<void>;
 };
+
+// deno-lint-ignore no-explicit-any
+type VercelToolSet = Record<string, any>;
+
+function buildVercelTools(
+  customSchemas: ToolSchema[],
+  builtinNames: readonly string[],
+  executeTool: ExecuteTool,
+  sessionId: string,
+  env: Record<string, string | undefined>,
+): VercelToolSet {
+  // Builtin tools (Zod schemas, some with execute, some without)
+  const tools = getBuiltinVercelTools(builtinNames, env);
+
+  // Custom tools from the worker (JSON schemas, execute via RPC)
+  for (const schema of customSchemas) {
+    tools[schema.name] = vercelTool({
+      description: schema.description,
+      parameters: jsonSchema(schema.parameters),
+      execute: async (args) => {
+        const result = await executeTool(
+          schema.name,
+          args as Record<string, unknown>,
+          sessionId,
+        );
+        return result;
+      },
+    });
+  }
+
+  return tools;
+}
 
 export function createSession(opts: SessionOptions): Session {
   const {
@@ -112,9 +141,31 @@ export function createSession(opts: SessionOptions): Session {
   };
 
   const doConnectStt = _internals.connectStt;
-  const doCallLLM = _internals.callLLM;
   const tts: TtsClient = _internals.createTtsClient(config.ttsConfig);
-  const doExecuteBuiltinTool = _internals.executeBuiltinTool;
+  tts.warmup();
+
+  // Create the Vercel AI model with gateway middleware
+  const model = createModel({
+    apiKey: config.apiKey,
+    model: config.model,
+    gatewayBase: config.llmGatewayBase,
+  });
+
+  // Build system prompt
+  const hasTools = toolSchemas.length > 0 ||
+    (agentConfig.builtinTools?.length ?? 0) > 0;
+  const systemPrompt = buildSystemPrompt(agentConfig, hasTools, {
+    voice: true,
+  });
+
+  // Build Vercel tool set
+  const tools = buildVercelTools(
+    toolSchemas,
+    agentConfig.builtinTools ?? [],
+    executeTool,
+    id,
+    env,
+  );
 
   let stt: SttHandle | null = null;
   const sessionAbort = new AbortController();
@@ -122,27 +173,7 @@ export function createSession(opts: SessionOptions): Session {
   let turnPromise: Promise<void> | null = null;
   let audioFrameCount = 0;
   let pendingGreeting: string | null = null;
-  let messages: ChatMessage[] = [{
-    role: "system",
-    content: buildSystemPrompt(agentConfig, toolSchemas, { voice: true }),
-  }];
-
-  function boundCallLLM(turnOpts: TurnCallLLMOptions): Promise<LLMResponse> {
-    return doCallLLM({
-      ...turnOpts,
-      apiKey: config.apiKey,
-      model: config.model,
-      gatewayBase: config.llmGatewayBase,
-    });
-  }
-
-  async function boundExecuteTool(
-    name: string,
-    args: Record<string, unknown>,
-  ): Promise<string> {
-    const builtin = await doExecuteBuiltinTool(name, args, env);
-    return builtin ?? await executeTool(name, args, id);
-  }
+  let messages: CoreMessage[] = [];
 
   function trySend(data: string | Uint8Array): void {
     try {
@@ -237,10 +268,10 @@ export function createSession(opts: SessionOptions): Session {
     try {
       const result = await executeTurn(text, {
         agent,
+        model,
+        system: systemPrompt,
         messages,
-        toolSchemas,
-        callLLM: boundCallLLM,
-        executeTool: boundExecuteTool,
+        tools,
         signal,
         stopWhen: agentConfig.stopWhen,
       });
@@ -260,7 +291,15 @@ export function createSession(opts: SessionOptions): Session {
     } catch (err: unknown) {
       if (signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("Turn failed:", msg);
+      // Log full error details for API errors (includes responseBody)
+      if (err instanceof Error && "responseBody" in err) {
+        console.error("Turn failed:", msg, {
+          responseBody: (err as { responseBody?: string }).responseBody,
+          statusCode: (err as { statusCode?: number }).statusCode,
+        });
+      } else {
+        console.error("Turn failed:", msg);
+      }
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
       trySendJson({ type: "error", message: msg });
     } finally {
@@ -353,7 +392,7 @@ export function createSession(opts: SessionOptions): Session {
     onReset(): void {
       cancelInflight();
       stt?.clear();
-      messages = messages.slice(0, 1);
+      messages = [];
       trySendJson({ type: "reset" });
 
       if (agentConfig.greeting) {

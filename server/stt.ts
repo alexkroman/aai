@@ -35,13 +35,12 @@ export async function connectStt(
     websocketBaseUrl: config.wssBase,
     sampleRate: config.sampleRate,
     speechModel: config.speechModel as
-      | "u3-pro"
       | "u3-rt-pro"
       | "whisper-rt"
       | "universal-streaming-english"
       | "universal-streaming-multilingual",
     formatTurns: config.formatTurns,
-    minEndOfTurnSilenceWhenConfident: config.minEndOfTurnSilenceWhenConfident,
+    minTurnSilence: config.minTurnSilence,
     maxTurnSilence: config.maxTurnSilence,
     vadThreshold: config.vadThreshold,
     ...(config.sttPrompt ? { prompt: config.sttPrompt } : {}),

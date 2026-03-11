@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { BuiltinTool, ToolSchema, Transport } from "./_schema.ts";
 import type { Kv } from "./kv.ts";
-export type { AgentConfig, BuiltinTool, ToolSchema } from "./_schema.ts";
+export type { AgentConfig, BuiltinTool } from "./_schema.ts";
 
 export type ToolContext<S = Record<string, unknown>> = {
   sessionId: string;

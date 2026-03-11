@@ -415,6 +415,9 @@ function renderDevPage(name: string, basePath: string): string {
   </head>
   <body>
     <main id="app"></main>
+    <script>window.__AAI_BASE__="${esc(basePath)}";window.__AAI_WS__="${
+    esc(basePath)
+  }/websocket";</script>
     <script type="module" src="${esc(basePath)}/client.js"></script>
   </body>
 </html>`;

@@ -1,42 +1,18 @@
+import { type CoreMessage, generateText, type LanguageModelV1 } from "ai";
 import { FINAL_ANSWER_TOOL, USER_INPUT_TOOL } from "./builtin_tools.ts";
-import type { ChatMessage, LLMResponse } from "./types.ts";
-import type { ToolSchema } from "@aai/sdk/types";
 import * as metrics from "./metrics.ts";
 
 const DEFAULT_STOP_WHEN = 5;
 
-function parseToolArg(
-  tc: { function: { arguments: string } },
-  field: string,
-): string {
-  try {
-    return (JSON.parse(tc.function.arguments) as Record<string, unknown>)[
-      field
-    ] as string ?? "";
-  } catch {
-    return "";
-  }
-}
-
-export type ToolChoiceParam =
-  | "auto"
-  | "required"
-  | { type: "function"; function: { name: string } }
-  | undefined;
-
-export type TurnCallLLMOptions = {
-  messages: ChatMessage[];
-  tools: ToolSchema[];
-  toolChoice?: ToolChoiceParam;
-  signal?: AbortSignal;
-};
+// deno-lint-ignore no-explicit-any
+type VercelToolSet = Record<string, any>;
 
 export type ExecuteTurnOptions = {
   agent: string;
-  messages: ChatMessage[];
-  toolSchemas: ToolSchema[];
-  callLLM: (opts: TurnCallLLMOptions) => Promise<LLMResponse>;
-  executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
+  model: LanguageModelV1;
+  system: string;
+  messages: CoreMessage[];
+  tools: VercelToolSet;
   signal: AbortSignal;
   stopWhen?: number;
 };
@@ -47,161 +23,80 @@ export async function executeTurn(
 ): Promise<string> {
   const {
     agent,
+    model,
+    system,
     messages,
-    toolSchemas,
-    callLLM,
-    executeTool,
+    tools,
     signal,
   } = opts;
-  const maxIterations = opts.stopWhen ?? DEFAULT_STOP_WHEN;
+  const maxSteps = opts.stopWhen ?? DEFAULT_STOP_WHEN;
+
+  const result = await generateText({
+    model,
+    system,
+    messages: [
+      ...messages,
+      { role: "user" as const, content: text },
+    ],
+    tools,
+    toolChoice: "auto",
+    maxSteps,
+    abortSignal: signal,
+    // deno-lint-ignore require-await
+    experimental_prepareStep: async ({ stepNumber }) => {
+      // On the last step, force final_answer so we don't get stuck
+      if (stepNumber === maxSteps - 1) {
+        return {
+          toolChoice: { type: "tool", toolName: FINAL_ANSWER_TOOL },
+        };
+      }
+      return undefined;
+    },
+    onStepFinish: ({ toolCalls }) => {
+      if (toolCalls) {
+        for (const tc of toolCalls) {
+          console.info("tool call", { tool: tc.toolName, agent });
+          metrics.toolDuration.observe(0, { agent, tool: tc.toolName });
+        }
+      }
+    },
+  });
+
+  // Append the user message + all response messages to conversation history
   messages.push({ role: "user", content: text });
+  messages.push(...result.response.messages);
 
-  const toolChoice: ToolChoiceParam = toolSchemas.length > 0
-    ? "required"
-    : undefined;
-  const finalAnswerSchema = toolSchemas.find(
-    (t) => t.name === FINAL_ANSWER_TOOL,
-  );
-
-  let tools = toolSchemas;
-  let choice: ToolChoiceParam = toolChoice;
-
-  for (let iteration = 0; iteration <= maxIterations; iteration++) {
-    if (signal.aborted) break;
-
-    console.debug("LLM call", {
-      callNum: iteration + 1,
-      messageCount: messages.length,
-      toolChoice: choice ?? "auto",
-      tools: tools.length,
-    });
-    const response = await callLLM({
-      messages,
-      tools,
-      toolChoice: choice,
-      signal,
-    });
-    console.debug("LLM response", {
-      callNum: iteration + 1,
-      finishReason: response.choices[0]?.finish_reason,
-    });
-
-    const res = response.choices[0];
-    if (!res) break;
-    const msg = res.message;
-
-    const answerTc = msg.tool_calls?.find((c) =>
-      c.function.name === FINAL_ANSWER_TOOL
+  // Check if the last step called final_answer or user_input
+  // These tools have no execute, so they stop the loop
+  const lastToolCalls = result.toolCalls;
+  if (lastToolCalls?.length) {
+    const answerCall = lastToolCalls.find(
+      (tc) => tc.toolName === FINAL_ANSWER_TOOL,
     );
-    if (answerTc) {
-      const answer = parseToolArg(answerTc, "answer");
-      messages.push({ role: "assistant", content: answer });
+    if (answerCall) {
+      const answer = (answerCall.args as { answer?: string }).answer ?? "";
       console.info("turn complete (final_answer)", {
         responseLength: answer.length,
       });
       return answer;
     }
 
-    const questionTc = msg.tool_calls?.find((c) =>
-      c.function.name === USER_INPUT_TOOL
+    const questionCall = lastToolCalls.find(
+      (tc) => tc.toolName === USER_INPUT_TOOL,
     );
-    if (questionTc) {
-      const question = parseToolArg(questionTc, "question");
-      messages.push({ role: "assistant", content: question });
+    if (questionCall) {
+      const question = (questionCall.args as { question?: string }).question ??
+        "";
       console.info("turn complete (user_input)", {
         questionLength: question.length,
       });
       return question;
     }
-
-    if (iteration === maxIterations) {
-      const fallback = msg.content ?? "Sorry, I couldn't generate a response.";
-      messages.push({ role: "assistant", content: fallback });
-      return fallback;
-    }
-
-    if (res.finish_reason === "max_tokens" && msg.tool_calls?.length) {
-      console.warn("tool call truncated by max_tokens, retrying", {
-        tools: msg.tool_calls.map((tc) => tc.function.name),
-        iteration: iteration + 1,
-      });
-      if (msg.content) {
-        messages.push({ role: "assistant", content: msg.content });
-      }
-    } else if (msg.tool_calls?.length) {
-      messages.push({
-        role: "assistant",
-        content: msg.content,
-        tool_calls: msg.tool_calls,
-      });
-      console.info("executing tools", {
-        tools: msg.tool_calls.map((tc) => tc.function.name),
-        iteration: iteration + 1,
-      });
-
-      const results = await Promise.allSettled(
-        msg.tool_calls.map(async (tc) => {
-          let args: Record<string, unknown>;
-          try {
-            args = JSON.parse(tc.function.arguments) as Record<string, unknown>;
-          } catch (err: unknown) {
-            console.error("Failed to parse tool arguments", {
-              err,
-              tool: tc.function.name,
-            });
-            return `Error: Invalid JSON arguments for tool "${tc.function.name}"`;
-          }
-          console.debug("tool call", { tool: tc.function.name, args });
-          const toolStart = performance.now();
-          const result = await executeTool(tc.function.name, args);
-          metrics.toolDuration.observe(
-            (performance.now() - toolStart) / 1000,
-            { agent, tool: tc.function.name },
-          );
-          console.debug("tool result", {
-            tool: tc.function.name,
-            resultLength: result.length,
-          });
-          return result;
-        }),
-      );
-
-      for (let j = 0; j < msg.tool_calls.length; j++) {
-        const r = results[j];
-        messages.push({
-          role: "tool",
-          content: r.status === "fulfilled" ? r.value : `Error: ${r.reason}`,
-          tool_call_id: msg.tool_calls[j].id,
-        });
-      }
-    } else if (
-      res.finish_reason === "tool_use" ||
-      res.finish_reason === "tool_calls"
-    ) {
-      console.warn(
-        "finish_reason indicates tool use but no tool_calls present, retrying",
-        { finishReason: res.finish_reason },
-      );
-      if (msg.content) {
-        messages.push({ role: "assistant", content: msg.content });
-      }
-    } else {
-      const responseText = msg.content ??
-        "Sorry, I couldn't generate a response.";
-      messages.push({ role: "assistant", content: responseText });
-      console.info("turn complete", { responseLength: responseText.length });
-      return responseText;
-    }
-
-    const nextIteration = iteration + 1;
-    if (nextIteration >= maxIterations && finalAnswerSchema) {
-      tools = [finalAnswerSchema];
-      choice = {
-        type: "function",
-        function: { name: FINAL_ANSWER_TOOL },
-      };
-    }
   }
 
-  return "";
+  // Fallback: use the text response
+  const responseText = result.text ||
+    "Sorry, I couldn't generate a response.";
+  console.info("turn complete", { responseLength: responseText.length });
+  return responseText;
 }

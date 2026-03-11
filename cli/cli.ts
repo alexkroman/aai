@@ -6,6 +6,7 @@ import { buildCommand } from "./cmd_build.ts";
 import { devCommand } from "./cmd_dev.ts";
 import { deployCommand } from "./cmd_deploy.ts";
 import { typesCommand } from "./cmd_types.ts";
+import { rootHelp, subcommandHelp } from "./_help.ts";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;
@@ -16,10 +17,24 @@ if (isCompiled) {
   await promptUpgradeIfAvailable(VERSION);
 }
 
+// Apply themed help to each subcommand
+for (
+  const cmd of [
+    newCommand,
+    buildCommand,
+    devCommand,
+    deployCommand,
+    typesCommand,
+  ]
+) {
+  cmd.help(subcommandHelp);
+}
+
 const cli: Command = new Command()
   .name("aai")
   .version(VERSION)
   .description("Voice agent development kit")
+  .help(rootHelp)
   .default("new")
   .command("new", newCommand)
   .command("build", buildCommand)

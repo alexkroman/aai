@@ -1,7 +1,8 @@
-import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
+import type { AgentConfig } from "@aai/sdk/types";
+import type { ToolSchema } from "@aai/sdk/schema";
 import type { ExecuteTool, WorkerApi } from "@aai/core/worker-entry";
 import type { AgentSlot } from "./worker_pool.ts";
-import { createToolExecutor } from "./worker_pool.ts";
+import { createToolExecutor, ensureAgent } from "./worker_pool.ts";
 import { loadPlatformConfig, type PlatformConfig } from "./config.ts";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
@@ -33,6 +34,15 @@ export function prepareSession(
     store,
     kvCtx,
   );
+
+  // Eagerly spawn worker if custom tools are configured
+  if ((slot.toolSchemas ?? []).length > 0 && !slot._dev) {
+    const getWorkerCode = (s: string) => store.getFile(s, "worker");
+    ensureAgent(slot, getWorkerCode, kvCtx).catch(() => {
+      /* will retry on first tool call */
+    });
+  }
+
   return {
     agentConfig: config,
     toolSchemas,

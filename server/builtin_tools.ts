@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { jsonSchema, tool as vercelTool } from "ai";
 import * as Comlink from "comlink";
-import type { ToolSchema } from "@aai/sdk/types";
+import type { ToolSchema } from "@aai/sdk/schema";
 import TurndownService from "turndown";
 import { createDenoWorker } from "@aai/core/deno-worker";
 import { matchSubnets } from "@std/net/unstable-ip";
@@ -302,7 +303,6 @@ const userInput = defineTool({
   description:
     "Ask the user a follow-up question and wait for their spoken response. Use this when you need clarification, a preference, or any additional input from the user before proceeding.",
   parameters: userInputParams,
-  // Intercepted by the turn handler before execute is called (like final_answer).
   execute: () => {
     throw new Error("user_input is handled by the turn handler");
   },
@@ -351,26 +351,44 @@ export function getBuiltinToolSchemas(names: readonly string[]): ToolSchema[] {
   });
 }
 
-export async function executeBuiltinTool(
-  name: string,
-  args: Record<string, unknown>,
+// deno-lint-ignore no-explicit-any
+type VercelToolSet = Record<string, any>;
+
+/**
+ * Build Vercel AI SDK tool objects for builtin tools.
+ * `final_answer` and `user_input` have no `execute` — this makes
+ * `generateText` stop the loop when the LLM calls them.
+ * Other builtins have `execute` and run on the host.
+ */
+export function getBuiltinVercelTools(
+  names: readonly string[],
   env: Record<string, string | undefined> = {},
-): Promise<string | null> {
-  const tool = BUILTIN_TOOLS[name];
-  if (!tool) return null;
-
-  const parsed = tool.parameters.safeParse(args);
-  if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((i) => `${i.path.join(".")}: ${i.message}`)
-      .join(", ");
-    return `Error: Invalid arguments for tool "${name}": ${issues}`;
+): VercelToolSet {
+  const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
+  const tools: VercelToolSet = {};
+  for (const name of allNames) {
+    const bt = BUILTIN_TOOLS[name];
+    if (!bt) continue;
+    const params = jsonSchema(z.toJSONSchema(bt.parameters));
+    if (name === FINAL_ANSWER_TOOL || name === USER_INPUT_TOOL) {
+      // No execute → generateText stops the loop when LLM calls these
+      tools[name] = vercelTool({
+        description: bt.description,
+        parameters: params,
+      });
+    } else {
+      tools[name] = vercelTool({
+        description: bt.description,
+        parameters: params,
+        execute: async (args) => {
+          const result = await bt.execute(
+            args as Record<string, unknown>,
+            env,
+          );
+          return result;
+        },
+      });
+    }
   }
-
-  try {
-    return await tool.execute(parsed.data, env);
-  } catch (err: unknown) {
-    console.error("Built-in tool execution failed", { err, tool: name });
-    return `Error: ${err instanceof Error ? err.message : String(err)}`;
-  }
+  return tools;
 }
