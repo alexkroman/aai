@@ -44,7 +44,7 @@ export async function connectStt(
     minEndOfTurnSilenceWhenConfident: config.minEndOfTurnSilenceWhenConfident,
     maxTurnSilence: config.maxTurnSilence,
     vadThreshold: config.vadThreshold,
-    ...(config.prompt ? { prompt: config.prompt } : {}),
+    ...(config.sttPrompt ? { prompt: config.sttPrompt } : {}),
   });
 
   let msgCount = 0;

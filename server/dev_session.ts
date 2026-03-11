@@ -118,7 +118,8 @@ export async function registerDevAgent(
     instructions: msg.config.instructions,
     greeting: msg.config.greeting,
     voice: msg.config.voice,
-    prompt: msg.config.prompt,
+    sttPrompt: msg.config.sttPrompt,
+    stopWhen: msg.config.stopWhen,
     builtinTools: msg.config.builtinTools,
   };
 

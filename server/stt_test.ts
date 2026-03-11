@@ -270,7 +270,7 @@ Deno.test("connectStt", async (t) => {
     const events = createMockSttEvents();
     await connectStt("test-key", {
       ...DEFAULT_STT_CONFIG,
-      prompt: "Transcribe medical terms",
+      sttPrompt: "Transcribe medical terms",
     }, events);
     expect(lastMock!.params).toBeDefined();
   });

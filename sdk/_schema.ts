@@ -37,7 +37,8 @@ export type AgentConfig = {
   instructions: string;
   greeting: string;
   voice: string;
-  prompt?: string;
+  sttPrompt?: string;
+  stopWhen?: number;
   builtinTools?: BuiltinTool[];
 };
 
@@ -46,7 +47,8 @@ export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
   instructions: z.string(),
   greeting: z.string(),
   voice: z.string(),
-  prompt: z.string().optional(),
+  sttPrompt: z.string().optional(),
+  stopWhen: z.number().optional(),
   builtinTools: z.array(BuiltinToolSchema).optional(),
 });
 

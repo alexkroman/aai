@@ -17,8 +17,6 @@ function s(ctx: ToolContext): GameState {
 export default defineAgent({
   name: "Infocom Adventure",
   voice: "orion",
-  prompt:
-    "Speak in a dramatic, atmospheric tone. Use pauses for suspense. Lower your voice for dark or dangerous moments. Be theatrical but not over the top.",
   greeting:
     "Welcome to the great underground empire. You are standing in an open field west of a white house, with a boarded front door. There is a small mailbox here. What would you like to do?",
 

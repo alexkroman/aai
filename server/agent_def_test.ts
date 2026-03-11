@@ -28,10 +28,12 @@ Deno.test("defineAgent - preserves explicit config", () => {
 Deno.test("defineAgent - stores optional fields", () => {
   const agent = defineAgent({
     name: "Test",
-    prompt: "Transcribe accurately",
+    sttPrompt: "Transcribe accurately",
+    stopWhen: 8,
     builtinTools: ["web_search"],
   });
-  expect(agent.prompt).toBe("Transcribe accurately");
+  expect(agent.sttPrompt).toBe("Transcribe accurately");
+  expect(agent.stopWhen).toBe(8);
   expect(agent.builtinTools).toEqual(["web_search"]);
 });
 

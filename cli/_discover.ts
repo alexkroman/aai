@@ -244,7 +244,8 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
       instructions: def.instructions,
       greeting: def.greeting,
       voice: def.voice,
-      prompt: def.prompt,
+      sttPrompt: def.sttPrompt,
+      stopWhen: def.stopWhen,
       builtinTools: def.builtinTools ? [...def.builtinTools] : undefined,
     }
     : undefined;

@@ -3,7 +3,7 @@ import type { ChatMessage, LLMResponse } from "./types.ts";
 import type { ToolSchema } from "@aai/sdk/types";
 import * as metrics from "./metrics.ts";
 
-const MAX_TOOL_ITERATIONS = 5;
+const DEFAULT_STOP_WHEN = 5;
 
 function parseToolArg(
   tc: { function: { arguments: string } },
@@ -38,6 +38,7 @@ export type ExecuteTurnOptions = {
   callLLM: (opts: TurnCallLLMOptions) => Promise<LLMResponse>;
   executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
   signal: AbortSignal;
+  stopWhen?: number;
 };
 
 export async function executeTurn(
@@ -52,6 +53,7 @@ export async function executeTurn(
     executeTool,
     signal,
   } = opts;
+  const maxIterations = opts.stopWhen ?? DEFAULT_STOP_WHEN;
   messages.push({ role: "user", content: text });
 
   const toolChoice: ToolChoiceParam = toolSchemas.length > 0
@@ -64,7 +66,7 @@ export async function executeTurn(
   let tools = toolSchemas;
   let choice: ToolChoiceParam = toolChoice;
 
-  for (let iteration = 0; iteration <= MAX_TOOL_ITERATIONS; iteration++) {
+  for (let iteration = 0; iteration <= maxIterations; iteration++) {
     if (signal.aborted) break;
 
     console.debug("LLM call", {
@@ -112,7 +114,7 @@ export async function executeTurn(
       return question;
     }
 
-    if (iteration === MAX_TOOL_ITERATIONS) {
+    if (iteration === maxIterations) {
       const fallback = msg.content ?? "Sorry, I couldn't generate a response.";
       messages.push({ role: "assistant", content: fallback });
       return fallback;
@@ -192,7 +194,7 @@ export async function executeTurn(
     }
 
     const nextIteration = iteration + 1;
-    if (nextIteration >= MAX_TOOL_ITERATIONS && finalAnswerSchema) {
+    if (nextIteration >= maxIterations && finalAnswerSchema) {
       tools = [finalAnswerSchema];
       choice = {
         type: "function",

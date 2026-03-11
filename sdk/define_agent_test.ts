@@ -81,13 +81,20 @@ Deno.test("defineAgent", async (t) => {
     expect(agent.onTurn).toBe(onTurn);
   });
 
-  await t.step("preserves prompt and builtinTools", () => {
+  await t.step("preserves sttPrompt, stopWhen, and builtinTools", () => {
     const agent = defineAgent({
       name: "Test",
-      prompt: "Speak slowly",
+      sttPrompt: "Transcribe accurately",
+      stopWhen: 10,
       builtinTools: ["web_search", "run_code"],
     });
-    expect(agent.prompt).toBe("Speak slowly");
+    expect(agent.sttPrompt).toBe("Transcribe accurately");
+    expect(agent.stopWhen).toBe(10);
     expect(agent.builtinTools).toEqual(["web_search", "run_code"]);
+  });
+
+  await t.step("stopWhen defaults to 5", () => {
+    const agent = defineAgent({ name: "Test" });
+    expect(agent.stopWhen).toBe(5);
   });
 });

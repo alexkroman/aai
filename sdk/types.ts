@@ -6,7 +6,7 @@ export type { AgentConfig, BuiltinTool, ToolSchema } from "./_schema.ts";
 export type ToolContext<S = Record<string, unknown>> = {
   sessionId: string;
   env: Record<string, string>;
-  signal?: AbortSignal;
+  abortSignal?: AbortSignal;
   state: S;
   kv: Kv;
 };
@@ -96,7 +96,8 @@ export type AgentOptions<S = any> = {
   instructions?: string;
   greeting?: string;
   voice?: Voice;
-  prompt?: string;
+  sttPrompt?: string;
+  stopWhen?: number;
   builtinTools?: BuiltinTool[];
   tools?: Record<string, ToolInput>;
   state?: () => S;
@@ -145,7 +146,8 @@ export type AgentDef = {
   readonly instructions: string;
   readonly greeting: string;
   readonly voice: string;
-  readonly prompt?: string;
+  readonly sttPrompt?: string;
+  readonly stopWhen: number;
   readonly builtinTools?: readonly BuiltinTool[];
   readonly tools: Readonly<Record<string, ToolDef>>;
   readonly state?: () => unknown;

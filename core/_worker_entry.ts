@@ -36,12 +36,12 @@ export async function executeToolCall(
   }
 
   try {
-    const signal = AbortSignal.timeout(TOOL_HANDLER_TIMEOUT);
+    const abortSignal = AbortSignal.timeout(TOOL_HANDLER_TIMEOUT);
     const envCopy = { ...env };
     const ctx: ToolContext = {
       sessionId: sessionId ?? "",
       env: envCopy,
-      signal,
+      abortSignal,
       state: (state ?? {}) as Record<string, unknown>,
       get kv(): Kv {
         if (!kv) throw new Error("KV not available");

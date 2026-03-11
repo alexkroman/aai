@@ -103,7 +103,7 @@ export function createSession(opts: SessionOptions): Session {
     ...platformConfig,
     sttConfig: {
       ...platformConfig.sttConfig,
-      ...(agentConfig.prompt ? { prompt: agentConfig.prompt } : {}),
+      ...(agentConfig.sttPrompt ? { sttPrompt: agentConfig.sttPrompt } : {}),
     },
     ttsConfig: {
       ...platformConfig.ttsConfig,
@@ -242,6 +242,7 @@ export function createSession(opts: SessionOptions): Session {
         callLLM: boundCallLLM,
         executeTool: boundExecuteTool,
         signal,
+        stopWhen: agentConfig.stopWhen,
       });
       if (signal.aborted) return;
 

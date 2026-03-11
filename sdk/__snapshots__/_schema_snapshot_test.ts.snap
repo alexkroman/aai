@@ -39,7 +39,10 @@ snapshot[`AgentConfigSchema snapshot 1`] = `
     name: {
       type: "string",
     },
-    prompt: {
+    stopWhen: {
+      type: "number",
+    },
+    sttPrompt: {
       type: "string",
     },
     voice: {
@@ -119,7 +122,10 @@ snapshot[`DeployBodySchema snapshot 1`] = `
         name: {
           type: "string",
         },
-        prompt: {
+        stopWhen: {
+          type: "number",
+        },
+        sttPrompt: {
           type: "string",
         },
         voice: {

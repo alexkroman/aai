@@ -57,7 +57,8 @@ defineAgent({
   instructions?: string;     // System prompt (sensible voice-first default provided)
   greeting?: string;         // Spoken on connect
   voice?: Voice;             // Rime TTS voice (default: "luna")
-  prompt?: string;           // TTS voice guidance — controls pacing, tone, emotion
+  sttPrompt?: string;        // STT guidance (jargon, names)
+  stopWhen?: number;         // Max tool iterations (default: 5)
   transport?: Transport[];   // "websocket" | "twilio" (default: ["websocket"])
   env?: string[];            // Env var names to load (default: ["ASSEMBLYAI_API_KEY"])
   builtinTools?: BuiltinTool[];
@@ -201,7 +202,7 @@ Every `execute` function and lifecycle hook receives a context object:
 // Tools get ToolContext
 ctx.sessionId; // string — unique per connection
 ctx.env; // Record<string, string> — env vars from .env
-ctx.signal; // AbortSignal — cancelled on interruption (tools only)
+ctx.abortSignal; // AbortSignal — cancelled on interruption (tools only)
 ctx.state; // per-session state (see "Per-session state")
 ctx.kv; // persistent KV store (see "Persistent storage")
 
@@ -226,7 +227,8 @@ Enable built-in tools via the `builtinTools` array. `user_input` and
 - **`final_answer`** — Deliver spoken response via TTS (auto-included). Params:
   `answer`
 
-The framework forces `final_answer` after 4 tool iterations.
+The framework forces `final_answer` after `stopWhen - 1` tool iterations
+(default: 4).
 
 ---
 
@@ -403,15 +405,15 @@ type Voice =
   | string; // any Rime speaker ID — https://docs.rime.ai/api-reference/voices
 ```
 
-### TTS voice guidance (`prompt`)
+### STT transcription guidance (`sttPrompt`)
 
-Controls how the voice speaks — pacing, tone, emotion. Does not affect what the
-LLM says:
+Helps the speech-to-text engine with domain-specific vocabulary — proper nouns,
+acronyms, jargon:
 
 ```ts
 export default defineAgent({
   voice: "orion",
-  prompt: "Speak in a dramatic, atmospheric tone. Use pauses for suspense.",
+  sttPrompt: "Transcribe technical terms: Kubernetes, gRPC, PostgreSQL",
 });
 ```
 

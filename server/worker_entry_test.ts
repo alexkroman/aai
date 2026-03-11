@@ -16,6 +16,7 @@ function makeAgent(tools: Record<string, ToolDef>): AgentDef {
     instructions: DEFAULT_INSTRUCTIONS,
     greeting: DEFAULT_GREETING,
     voice: "luna",
+    stopWhen: 5,
     tools,
   };
 }

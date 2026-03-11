@@ -55,7 +55,8 @@ Deno.test("AgentConfigSchema", async (t) => {
       instructions: "Help",
       greeting: "Hi",
       voice: "luna",
-      prompt: "Speak slowly",
+      sttPrompt: "Transcribe accurately",
+      stopWhen: 8,
       builtinTools: ["web_search", "run_code"],
     });
     expect(result.success).toBe(true);
