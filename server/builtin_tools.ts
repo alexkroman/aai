@@ -355,7 +355,7 @@ export function getBuiltinToolSchemas(
     return [{
       name: tool.name,
       description: tool.description,
-      parameters: z.toJSONSchema(tool.parameters),
+      parameters: z.toJSONSchema(tool.parameters) as ToolSchema["parameters"],
     }];
   });
 }

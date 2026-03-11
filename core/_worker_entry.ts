@@ -93,7 +93,7 @@ export type WorkerApi = {
     timeoutMs?: number,
     env?: Record<string, string>,
   ): Promise<void>;
-  resolveStopWhen(
+  resolveMaxSteps(
     sessionId: string,
     timeoutMs?: number,
     env?: Record<string, string>,
@@ -150,7 +150,7 @@ export type ExposedWorkerApi = {
     env?: Record<string, string>,
     stepJson?: string,
   ): Promise<void>;
-  resolveStopWhen(
+  resolveMaxSteps(
     sessionId: string,
     env?: Record<string, string>,
   ): Promise<number | null>;
@@ -219,10 +219,10 @@ export function createWorkerApi(
         timeoutMs,
       );
     },
-    async resolveStopWhen(sessionId, timeoutMs, env) {
+    async resolveMaxSteps(sessionId, timeoutMs, env) {
       await ready;
       return await withTimeout(
-        remote.resolveStopWhen(sessionId, env),
+        remote.resolveMaxSteps(sessionId, env),
         timeoutMs ?? 5_000,
       );
     },
@@ -282,7 +282,9 @@ export function startWorker(
         ([name, def]) => ({
           name,
           description: def.description,
-          parameters: z.toJSONSchema(def.parameters ?? EMPTY_PARAMS),
+          parameters: z.toJSONSchema(
+            def.parameters ?? EMPTY_PARAMS,
+          ) as ToolSchema["parameters"],
         }),
       );
       return {
@@ -292,9 +294,9 @@ export function startWorker(
           greeting: agent.greeting,
           voice: agent.voice,
           sttPrompt: agent.sttPrompt,
-          stopWhen: typeof agent.stopWhen === "function"
+          maxSteps: typeof agent.maxSteps === "function"
             ? undefined
-            : agent.stopWhen,
+            : agent.maxSteps,
           toolChoice: agent.toolChoice,
           builtinTools: agent.builtinTools
             ? [...agent.builtinTools]
@@ -348,9 +350,9 @@ export function startWorker(
     },
 
     // deno-lint-ignore require-await
-    async resolveStopWhen(sessionId, env) {
+    async resolveMaxSteps(sessionId, env) {
       applyEnv(env);
-      if (typeof agent.stopWhen !== "function") return null;
+      if (typeof agent.maxSteps !== "function") return null;
       const state = getState(sessionId);
       const ctx: HookContext = {
         sessionId,
@@ -361,7 +363,7 @@ export function startWorker(
           return proxyKv;
         },
       };
-      return agent.stopWhen(ctx);
+      return agent.maxSteps(ctx);
     },
 
     async resolveBeforeStep(sessionId, stepNumber, env) {

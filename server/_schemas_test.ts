@@ -45,7 +45,7 @@ Deno.test("AgentConfigSchema", async (t) => {
       greeting: "Hi",
       voice: "luna",
       sttPrompt: "Transcribe accurately",
-      stopWhen: 8,
+      maxSteps: 8,
       builtinTools: ["web_search", "run_code"],
     });
     expect(result.success).toBe(true);
@@ -72,9 +72,31 @@ Deno.test("ToolSchemaSchema", async (t) => {
   await t.step("rejects missing name", () => {
     const result = ToolSchemaSchema.safeParse({
       description: "Say hi",
-      parameters: {},
+      parameters: { type: "object" },
     });
     expect(result.success).toBe(false);
+  });
+
+  await t.step("rejects parameters without type: object", () => {
+    const result = ToolSchemaSchema.safeParse({
+      name: "greet",
+      description: "Say hi",
+      parameters: { type: "string" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  await t.step("accepts parameters with properties and required", () => {
+    const result = ToolSchemaSchema.safeParse({
+      name: "greet",
+      description: "Say hi",
+      parameters: {
+        type: "object",
+        properties: { name: { type: "string" } },
+        required: ["name"],
+      },
+    });
+    expect(result.success).toBe(true);
   });
 });
 

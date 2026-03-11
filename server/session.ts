@@ -324,19 +324,19 @@ export function createSession(opts: SessionOptions): Session {
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
 
     try {
-      // Resolve dynamic stopWhen if the agent uses a function
-      let stopWhen = agentConfig.stopWhen;
-      if (stopWhen === undefined && getWorkerApi) {
+      // Resolve dynamic maxSteps if the agent uses a function
+      let maxSteps = agentConfig.maxSteps;
+      if (maxSteps === undefined && getWorkerApi) {
         try {
           cachedWorkerApi ??= await getWorkerApi();
-          const resolved = await cachedWorkerApi.resolveStopWhen(
+          const resolved = await cachedWorkerApi.resolveMaxSteps(
             id,
             5_000,
             slotEnv,
           );
-          if (resolved !== null) stopWhen = resolved;
+          if (resolved !== null) maxSteps = resolved;
         } catch (err: unknown) {
-          console.warn("resolveStopWhen failed, using default", { err });
+          console.warn("resolveMaxSteps failed, using default", { err });
         }
       }
 
@@ -347,7 +347,7 @@ export function createSession(opts: SessionOptions): Session {
         messages,
         tools,
         signal,
-        stopWhen,
+        maxSteps,
         toolChoice: agentConfig.toolChoice,
         onStep: getWorkerApi
           ? async (step: StepResult<ToolSet>) => {

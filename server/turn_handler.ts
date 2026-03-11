@@ -21,7 +21,7 @@ export type ExecuteTurnOptions = {
   messages: CoreMessage[];
   tools: ToolSet;
   signal: AbortSignal;
-  stopWhen?: number;
+  maxSteps?: number;
   toolChoice?: ToolChoice;
   onStep?: (step: StepResult<ToolSet>) => void | Promise<void>;
   resolveBeforeStep?: (
@@ -41,7 +41,7 @@ export async function executeTurn(
     tools,
     signal,
   } = opts;
-  const maxSteps = opts.stopWhen ?? DEFAULT_STOP_WHEN;
+  const maxSteps = opts.maxSteps ?? DEFAULT_STOP_WHEN;
   const toolChoice = opts.toolChoice ?? "auto";
 
   const userMessage: CoreUserMessage = { role: "user", content: text };

@@ -124,7 +124,7 @@ Deno.test("startWorker via Comlink", async (t) => {
         instructions: "",
         greeting: "",
         voice: "luna",
-        stopWhen: 5,
+        maxSteps: 5,
         tools: {
           greet: {
             description: "Say hi",
@@ -154,7 +154,7 @@ Deno.test("startWorker via Comlink", async (t) => {
         instructions: "",
         greeting: "",
         voice: "luna",
-        stopWhen: 5,
+        maxSteps: 5,
         tools: {},
       },
       {},
@@ -180,7 +180,7 @@ Deno.test("startWorker via Comlink", async (t) => {
         instructions: "",
         greeting: "",
         voice: "luna",
-        stopWhen: 5,
+        maxSteps: 5,
         tools: {},
         onConnect: () => {
           connected = true;
@@ -209,7 +209,7 @@ Deno.test("startWorker via Comlink", async (t) => {
         instructions: "",
         greeting: "",
         voice: "luna",
-        stopWhen: 5,
+        maxSteps: 5,
         tools: {
           check: {
             description: "check state",
@@ -244,7 +244,7 @@ Deno.test("startWorker via Comlink", async (t) => {
         instructions: "",
         greeting: "",
         voice: "luna",
-        stopWhen: 5,
+        maxSteps: 5,
         tools: {
           check: {
             description: "check state",
@@ -295,7 +295,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
           instructions: "",
           greeting: "",
           voice: "luna",
-          stopWhen: 5,
+          maxSteps: 5,
           tools: {
             do_fetch: {
               description: "fetch something",
@@ -353,7 +353,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
           instructions: "",
           greeting: "",
           voice: "luna",
-          stopWhen: 5,
+          maxSteps: 5,
           tools: {
             check_response: {
               description: "check response properties",
@@ -414,7 +414,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
           instructions: "",
           greeting: "",
           voice: "luna",
-          stopWhen: 5,
+          maxSteps: 5,
           tools: {
             bad_fetch: {
               description: "fetch blocked URL",
@@ -471,7 +471,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
           instructions: "",
           greeting: "",
           voice: "luna",
-          stopWhen: 5,
+          maxSteps: 5,
           tools: {
             post_data: {
               description: "POST some data",
@@ -538,7 +538,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
           instructions: "",
           greeting: "",
           voice: "luna",
-          stopWhen: 5,
+          maxSteps: 5,
           tools: {
             do_fetch: {
               description: "fetch",
@@ -588,7 +588,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
           instructions: "",
           greeting: "",
           voice: "luna",
-          stopWhen: 5,
+          maxSteps: 5,
           tools: {
             greet: {
               description: "greet",

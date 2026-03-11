@@ -70,21 +70,21 @@ Deno.test("defineAgent", async (t) => {
     expect(agent.onTurn).toBe(onTurn);
   });
 
-  await t.step("preserves sttPrompt, stopWhen, and builtinTools", () => {
+  await t.step("preserves sttPrompt, maxSteps, and builtinTools", () => {
     const agent = defineAgent({
       name: "Test",
       sttPrompt: "Transcribe accurately",
-      stopWhen: 10,
+      maxSteps: 10,
       builtinTools: ["web_search", "run_code"],
     });
     expect(agent.sttPrompt).toBe("Transcribe accurately");
-    expect(agent.stopWhen).toBe(10);
+    expect(agent.maxSteps).toBe(10);
     expect(agent.builtinTools).toEqual(["web_search", "run_code"]);
   });
 
-  await t.step("stopWhen defaults to 5", () => {
+  await t.step("maxSteps defaults to 5", () => {
     const agent = defineAgent({ name: "Test" });
-    expect(agent.stopWhen).toBe(5);
+    expect(agent.maxSteps).toBe(5);
   });
 
   await t.step("returns frozen object", () => {

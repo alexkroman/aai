@@ -96,7 +96,7 @@ export type AgentOptions<S = any> = {
   greeting?: string;
   voice?: Voice;
   sttPrompt?: string;
-  stopWhen?: number | ((ctx: HookContext<S>) => number);
+  maxSteps?: number | ((ctx: HookContext<S>) => number);
   toolChoice?: ToolChoice;
   builtinTools?: BuiltinTool[];
   tools?: Record<string, ToolDef>;
@@ -143,7 +143,9 @@ export function agentToolsToSchemas(
   return Object.entries(tools).map(([name, def]) => ({
     name,
     description: def.description,
-    parameters: z.toJSONSchema(def.parameters ?? EMPTY_PARAMS),
+    parameters: z.toJSONSchema(
+      def.parameters ?? EMPTY_PARAMS,
+    ) as ToolSchema["parameters"],
   }));
 }
 
@@ -155,7 +157,7 @@ export type AgentDef = {
   readonly greeting: string;
   readonly voice: string;
   readonly sttPrompt?: string;
-  readonly stopWhen: number | ((ctx: HookContext) => number);
+  readonly maxSteps: number | ((ctx: HookContext) => number);
   readonly toolChoice?: ToolChoice;
   readonly builtinTools?: readonly BuiltinTool[];
   readonly tools: Readonly<Record<string, ToolDef>>;

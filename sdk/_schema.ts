@@ -49,7 +49,7 @@ export type AgentConfig = {
   greeting: string;
   voice: string;
   sttPrompt?: string;
-  stopWhen?: number;
+  maxSteps?: number;
   toolChoice?: ToolChoice;
   transport?: Transport | Transport[];
   builtinTools?: BuiltinTool[];
@@ -61,7 +61,7 @@ export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
   greeting: z.string().min(1),
   voice: z.string().min(1),
   sttPrompt: z.string().min(1).optional(),
-  stopWhen: z.number().int().positive().optional(),
+  maxSteps: z.number().int().positive().optional(),
   toolChoice: ToolChoiceSchema.optional(),
   transport: z.union([
     TransportSchema,
@@ -70,16 +70,30 @@ export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
   builtinTools: z.array(BuiltinToolSchema).optional(),
 });
 
+/**
+ * Serialized tool schema sent over the wire.
+ * `parameters` must be a valid JSON Schema object (with `type`, `properties`,
+ * etc.) — the Vercel AI SDK wraps it via `jsonSchema()`.
+ */
 export type ToolSchema = {
   name: string;
   description: string;
-  parameters: Record<string, unknown>;
+  parameters: {
+    type: "object";
+    properties?: Record<string, unknown>;
+    required?: string[];
+    [key: string]: unknown;
+  };
 };
 
 export const ToolSchemaSchema: z.ZodType<ToolSchema> = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
-  parameters: z.record(z.string(), z.unknown()),
+  parameters: z.object({
+    type: z.literal("object"),
+    properties: z.record(z.string(), z.unknown()).optional(),
+    required: z.array(z.string()).optional(),
+  }).catchall(z.unknown()),
 });
 
 export type DeployBody = {

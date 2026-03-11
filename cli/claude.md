@@ -55,7 +55,7 @@ defineAgent({
   greeting?: string;         // Spoken on connect
   voice?: Voice;             // Rime TTS voice (default: "luna")
   sttPrompt?: string;        // STT guidance (jargon, names)
-  stopWhen?: number | ((ctx: HookContext) => number);
+  maxSteps?: number | ((ctx: HookContext) => number);
   toolChoice?: ToolChoice;   // "auto" | "required" | "none"
   transport?: Transport[];   // "websocket" | "twilio" (default: ["websocket"])
   env?: string[];            // Env var names to load (default: ["ASSEMBLYAI_API_KEY"])
@@ -218,15 +218,15 @@ export default defineAgent({
 
 ---
 
-## Dynamic `stopWhen`
+## Dynamic `maxSteps`
 
-`stopWhen` can be a function that returns the max steps based on session state:
+`maxSteps` can be a function that returns the max steps based on session state:
 
 ```ts
 export default defineAgent({
   name: "Adaptive Agent",
   state: () => ({ complexity: "simple" }),
-  stopWhen: (ctx) => {
+  maxSteps: (ctx) => {
     const state = ctx.state as { complexity: string };
     return state.complexity === "complex" ? 10 : 5;
   },
@@ -273,7 +273,7 @@ Enable built-in tools via the `builtinTools` array. `user_input` and
 - **`final_answer`** — Deliver spoken response via TTS (auto-included). Params:
   `answer`
 
-The framework forces `final_answer` after `stopWhen - 1` tool iterations
+The framework forces `final_answer` after `maxSteps - 1` tool iterations
 (default: 4).
 
 ---

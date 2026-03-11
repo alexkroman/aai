@@ -7,7 +7,7 @@ import type { HookContext, StepInfo } from "@aai/sdk";
  * 2. ctx.messages — tools can read conversation history
  * 3. onStep — logs each step's tool calls
  * 4. onBeforeStep — restricts available tools based on research phase
- * 5. stopWhen as function — adapts max steps based on session complexity
+ * 5. maxSteps as function — adapts max steps based on session complexity
  */
 
 type ResearchState = {
@@ -35,8 +35,8 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
   // Feature 1: toolChoice — force the LLM to always use a tool
   toolChoice: "required",
 
-  // Feature 5: stopWhen as function — more steps for complex research
-  stopWhen: (ctx: HookContext<ResearchState>) => {
+  // Feature 5: maxSteps as function — more steps for complex research
+  maxSteps: (ctx: HookContext<ResearchState>) => {
     const state = ctx.state;
     return state.complexity === "deep" ? 10 : 5;
   },

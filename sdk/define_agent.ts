@@ -15,7 +15,7 @@ export function defineAgent(options: AgentOptions): AgentDef {
     greeting: options.greeting ?? DEFAULT_GREETING,
     voice: options.voice ?? "luna",
     sttPrompt: options.sttPrompt,
-    stopWhen: options.stopWhen ?? 5,
+    maxSteps: options.maxSteps ?? 5,
     toolChoice: options.toolChoice,
     builtinTools: options.builtinTools,
     tools: options.tools ?? {},
