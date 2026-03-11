@@ -12,8 +12,11 @@ import {
   TransportSchema,
 } from "@aai/sdk/schema";
 
+export const PROTOCOL_VERSION = 1;
 export const DEFAULT_STT_SAMPLE_RATE = 16_000;
 export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
+export type AudioFormat = "pcm16";
+export const AUDIO_FORMAT: AudioFormat = "pcm16";
 
 export type DevRegister = {
   type: "dev_register";
@@ -46,7 +49,13 @@ export const DevRegisteredSchema: z.ZodType<DevRegistered> = z.object({
 });
 
 export type ServerMessage =
-  | { type: "ready"; sample_rate: number; tts_sample_rate: number }
+  | {
+    type: "ready";
+    protocol_version: number;
+    audio_format: AudioFormat;
+    sample_rate: number;
+    tts_sample_rate: number;
+  }
   | { type: "partial_transcript"; text: string }
   | { type: "final_transcript"; text: string; turn_order?: number }
   | { type: "turn"; text: string; turn_order?: number }
@@ -61,6 +70,8 @@ export const ServerMessageSchema: z.ZodType<ServerMessage> = z
   .discriminatedUnion("type", [
     z.object({
       type: z.literal("ready"),
+      protocol_version: z.number(),
+      audio_format: z.literal("pcm16"),
       sample_rate: z.number(),
       tts_sample_rate: z.number(),
     }),

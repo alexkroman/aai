@@ -1,10 +1,12 @@
 import { expect } from "@std/expect";
 import {
+  AUDIO_FORMAT,
   ClientMessageSchema,
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
   DevRegisteredSchema,
   DevRegisterSchema,
+  PROTOCOL_VERSION,
   ServerMessageSchema,
 } from "./_protocol.ts";
 
@@ -12,6 +14,12 @@ Deno.test("protocol constants", async (t) => {
   await t.step("default sample rates", () => {
     expect(DEFAULT_STT_SAMPLE_RATE).toBe(16_000);
     expect(DEFAULT_TTS_SAMPLE_RATE).toBe(24_000);
+  });
+  await t.step("protocol version", () => {
+    expect(PROTOCOL_VERSION).toBe(1);
+  });
+  await t.step("audio format", () => {
+    expect(AUDIO_FORMAT).toBe("pcm16");
   });
 });
 
@@ -56,7 +64,13 @@ Deno.test("DevRegisteredSchema", async (t) => {
 
 Deno.test("ServerMessageSchema", async (t) => {
   const validMessages: [string, unknown][] = [
-    ["ready", { type: "ready", sample_rate: 16000, tts_sample_rate: 24000 }],
+    ["ready", {
+      type: "ready",
+      protocol_version: 1,
+      audio_format: "pcm16",
+      sample_rate: 16000,
+      tts_sample_rate: 24000,
+    }],
     ["partial_transcript", { type: "partial_transcript", text: "hello" }],
     [
       "final_transcript",
