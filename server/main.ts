@@ -1,7 +1,7 @@
 import { deadline } from "@std/async/deadline";
 import { createOrchestrator } from "./orchestrator.ts";
 import { createBundleStore, createS3Client } from "./bundle_store_tigris.ts";
-import { createKvStore, createMemoryKvStore } from "./kv.ts";
+import { createKvStore } from "./kv.ts";
 import { importScopeKey } from "./scope_token.ts";
 
 try {
@@ -9,41 +9,25 @@ try {
   await load({ export: true });
 } catch { /* .env not found — fine */ }
 
-const bucket = Deno.env.get("BUCKET_NAME") ?? "local";
-let s3;
-if (Deno.env.get("AWS_ENDPOINT_URL_S3")) {
-  s3 = createS3Client();
-} else {
-  const { createMemoryS3Client } = await import(
-    "./bundle_store_tigris.ts"
-  );
-  s3 = createMemoryS3Client();
-  console.info("Using in-memory storage (no S3 configured)");
+function requireEnv(name: string): string {
+  const value = Deno.env.get(name);
+  if (!value) {
+    console.error(`FATAL: ${name} must be set`);
+    Deno.exit(1);
+  }
+  return value;
 }
+
+const bucket = requireEnv("BUCKET_NAME");
+const s3 = createS3Client();
 const store = createBundleStore(s3, bucket);
 
-const upstashUrl = Deno.env.get("UPSTASH_REDIS_REST_URL");
-const upstashToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
-const scopeSecret = Deno.env.get("KV_SCOPE_SECRET");
+const kvStore = createKvStore(
+  requireEnv("UPSTASH_REDIS_REST_URL"),
+  requireEnv("UPSTASH_REDIS_REST_TOKEN"),
+);
 
-if (!scopeSecret && Deno.env.get("AWS_ENDPOINT_URL_S3")) {
-  console.error(
-    "FATAL: KV_SCOPE_SECRET must be set in production. " +
-      "Generate one with: openssl rand -base64 32",
-  );
-  Deno.exit(1);
-}
-
-let kvStore;
-if (upstashUrl && upstashToken) {
-  kvStore = createKvStore(upstashUrl, upstashToken);
-  console.info("KV storage: Upstash Redis");
-} else {
-  kvStore = createMemoryKvStore();
-  console.info("KV storage: in-memory (no Upstash configured)");
-}
-
-const scopeKey = await importScopeKey(scopeSecret ?? crypto.randomUUID());
+const scopeKey = await importScopeKey(requireEnv("KV_SCOPE_SECRET"));
 
 const handler = createOrchestrator({ store, kvStore, scopeKey });
 

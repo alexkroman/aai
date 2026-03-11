@@ -16,7 +16,7 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { Session } from "./session.ts";
 import { handleTwilioStream, handleTwilioVoice } from "./transport_twilio.ts";
 import { handleKv, validateKvRequest } from "./kv_handler.ts";
-import { createMemoryKvStore, type KvStore } from "./kv.ts";
+import type { KvStore } from "./kv.ts";
 import type { ScopeKey } from "./scope_token.ts";
 import { serialize as serializeMetrics, serializeForAgent } from "./metrics.ts";
 import type { HonoEnv } from "./hono_env.ts";
@@ -31,12 +31,10 @@ import {
 
 export function createOrchestrator(opts: {
   store: BundleStore;
-  kvStore?: KvStore;
+  kvStore: KvStore;
   scopeKey: ScopeKey;
 }): Deno.ServeHandler {
-  const { store } = opts;
-  const kvStore = opts.kvStore ?? createMemoryKvStore();
-  const scopeKey = opts.scopeKey;
+  const { store, kvStore, scopeKey } = opts;
 
   const slots = new Map<string, AgentSlot>();
   const sessions = new Map<string, Session>();
