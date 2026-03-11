@@ -150,7 +150,6 @@ function resolveNpmPackage(
 const NPM_PACKAGE_NAMES = [
   "preact",
   "preact/hooks",
-  "preact/compat",
   "@preact/signals",
   "htm",
   "lodash-es",
