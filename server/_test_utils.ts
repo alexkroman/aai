@@ -1,4 +1,4 @@
-import type { BundleStore } from "./bundle_store_tigris.ts";
+import type { BundleStore, NamespaceOwner } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentMetadata, AgentSlot } from "./worker_pool.ts";
@@ -50,7 +50,7 @@ export function createTestStore(): BundleStore {
         slug: bundle.slug,
         env: bundle.env,
         transport: bundle.transport,
-        ...(bundle.owner_hash ? { owner_hash: bundle.owner_hash } : {}),
+        ...(bundle.account_id ? { account_id: bundle.account_id } : {}),
       };
       objects.set(
         objectKey(bundle.slug, "manifest.json"),
@@ -92,18 +92,29 @@ export function createTestStore(): BundleStore {
       const data = objects.get(`namespaces/${namespace}/owner.json`);
       if (!data) return Promise.resolve(null);
       try {
-        return Promise.resolve(JSON.parse(data).owner_hash ?? null);
+        const parsed = JSON.parse(data);
+        if (!parsed.account_id || !Array.isArray(parsed.credential_hashes)) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(parsed as NamespaceOwner);
       } catch {
         return Promise.resolve(null);
       }
     },
 
-    putNamespaceOwner(namespace, ownerHash) {
+    putNamespaceOwner(namespace, owner) {
       objects.set(
         `namespaces/${namespace}/owner.json`,
-        JSON.stringify({ owner_hash: ownerHash }),
+        JSON.stringify(owner),
       );
       return Promise.resolve();
+    },
+
+    claimIfUnclaimed(namespace, owner) {
+      const key = `namespaces/${namespace}/owner.json`;
+      if (objects.has(key)) return Promise.resolve(false);
+      objects.set(key, JSON.stringify(owner));
+      return Promise.resolve(true);
     },
 
     close() {},
@@ -166,17 +177,17 @@ export function createTestKvStore(): KvStore {
   const store = new Map<string, string>();
 
   function scopedKey(
-    scope: { ownerHash: string; slug: string },
+    scope: { accountId: string; slug: string },
     key: string,
   ): string {
-    return `kv:${scope.ownerHash}:${scope.slug}:${key}`;
+    return `kv:${scope.accountId}:${scope.slug}:${key}`;
   }
 
   function scopePrefix(scope: {
-    ownerHash: string;
+    accountId: string;
     slug: string;
   }): string {
-    return `kv:${scope.ownerHash}:${scope.slug}:`;
+    return `kv:${scope.accountId}:${scope.slug}:`;
   }
 
   return {

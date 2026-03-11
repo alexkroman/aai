@@ -55,7 +55,7 @@ export const deployCommand: Command = new Command()
       stepInfo("App", `${serverUrl}/${deployedPath}`);
     }
     if (agent.transport.includes("twilio")) {
-      stepInfo("Twilio", `${serverUrl}/${deployedPath}/voice`);
+      stepInfo("Twilio", `${serverUrl}/${deployedPath}/twilio/voice`);
     }
 
     stepInfo("Agent", deployed.slug);

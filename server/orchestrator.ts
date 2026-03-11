@@ -22,6 +22,7 @@ import { serialize as serializeMetrics, serializeForAgent } from "./metrics.ts";
 import type { HonoEnv } from "./hono_env.ts";
 import {
   corsMiddleware,
+  requireInternal,
   requireOwnerMiddleware,
   requireScopeTokenMiddleware,
   requireUpgrade,
@@ -67,7 +68,7 @@ export function createOrchestrator(opts: {
   app.get("/favicon.svg", serveFavicon);
   app.get("/install", (c) => c.text(INSTALL_SCRIPT));
   app.get("/health", (c) => c.json({ status: "ok" }));
-  app.get("/metrics", (c) =>
+  app.get("/metrics", requireInternal, (c) =>
     c.body(serializeMetrics(), {
       headers: { "Content-Type": "text/plain; version=0.0.4" },
     }));
@@ -96,20 +97,25 @@ export function createOrchestrator(opts: {
   // Scope-token-authenticated
   agent.post(
     "/kv",
+    requireInternal,
     requireScopeTokenMiddleware(scopeKey),
     validateKvRequest,
     handleKv,
   );
 
   // Twilio
-  agent.post("/voice", handleTwilioVoice);
-  agent.all("/stream", requireUpgrade, handleTwilioStream);
+  agent.post("/twilio/voice", handleTwilioVoice);
+  agent.all("/twilio/stream", requireUpgrade, handleTwilioStream);
 
   // Agent public endpoints
-  agent.get("/metrics", (c) =>
-    c.body(serializeForAgent(c.var.slug), {
-      headers: { "Content-Type": "text/plain; version=0.0.4" },
-    }));
+  agent.get(
+    "/metrics",
+    requireOwnerMiddleware(store),
+    (c) =>
+      c.body(serializeForAgent(c.var.slug), {
+        headers: { "Content-Type": "text/plain; version=0.0.4" },
+      }),
+  );
   agent.get("/health", handleAgentHealth);
   agent.all("/websocket", requireUpgrade, handleWebSocket);
   agent.get("/client.js", etag(), handleStaticFile);

@@ -36,7 +36,7 @@ function createMockKvStore() {
 
 function createApp() {
   const kvStore = createMockKvStore();
-  const scope = { slug: "test-agent", ownerHash: "abc" };
+  const scope = { slug: "test-agent", accountId: "abc" };
 
   const app = new Hono<HonoEnv>();
   app.use("*", async (c, next) => {
@@ -213,7 +213,7 @@ Deno.test("kv: returns 500 when store throws", async () => {
     keys: () => Promise.reject(new Error("db down")),
     list: () => Promise.reject(new Error("db down")),
   };
-  const scope = { slug: "test-agent", ownerHash: "abc" };
+  const scope = { slug: "test-agent", accountId: "abc" };
 
   const app = new Hono<HonoEnv>();
   app.use("*", async (c, next) => {

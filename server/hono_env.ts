@@ -8,7 +8,7 @@ export type HonoEnv = {
   Bindings: Deno.ServeHandlerInfo;
   Variables: {
     slug: string;
-    ownerHash: string;
+    accountId: string;
     scope: AgentScope;
     slots: Map<string, AgentSlot>;
     sessions: Map<string, Session>;

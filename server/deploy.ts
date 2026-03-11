@@ -17,7 +17,7 @@ export const validateDeployBody = jsonValidator(
 export async function handleDeploy(
   c: Context<HonoEnv, string, { out: { json: DeployBody } }>,
 ) {
-  const { slug, ownerHash, slots, store } = c.var;
+  const { slug, accountId, slots, store } = c.var;
   const body = c.req.valid("json");
 
   try {
@@ -49,14 +49,14 @@ export async function handleDeploy(
     transport,
     worker: body.worker,
     client: body.client,
-    owner_hash: ownerHash,
+    account_id: accountId,
   });
 
   const slot: AgentSlot = {
     slug,
     env: body.env,
     transport,
-    ownerHash,
+    accountId,
   };
   slots.set(slug, slot);
 

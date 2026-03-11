@@ -126,7 +126,7 @@ export function handleTwilioVoice(c: Context<HonoEnv>) {
   }
 
   const host = c.req.header("host") ?? "localhost";
-  const streamUrl = `wss://${host}/${slug}/stream`;
+  const streamUrl = `wss://${host}/${slug}/twilio/stream`;
   console.info("Incoming call, connecting media stream", { slug, streamUrl });
   return c.body(
     `${TWIML_PREFIX}<Connect><Stream url="${streamUrl}" /></Connect>${TWIML_SUFFIX}`,

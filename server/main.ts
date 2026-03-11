@@ -3,6 +3,7 @@ import { createOrchestrator } from "./orchestrator.ts";
 import { createBundleStore, createS3Client } from "./bundle_store_tigris.ts";
 import { createKvStore } from "./kv.ts";
 import { importScopeKey } from "./scope_token.ts";
+import { deriveCredentialKey } from "./credentials.ts";
 
 try {
   const { load } = await import("@std/dotenv");
@@ -34,13 +35,15 @@ if (isDev) {
   scopeKey = await importScopeKey("dev-secret");
 } else {
   const bucket = requireEnv("BUCKET_NAME");
+  const kvSecret = requireEnv("KV_SCOPE_SECRET");
+  const credentialKey = await deriveCredentialKey(kvSecret);
   const s3 = createS3Client();
-  store = createBundleStore(s3, bucket);
+  store = createBundleStore(s3, bucket, credentialKey);
   kvStore = createKvStore(
     requireEnv("UPSTASH_REDIS_REST_URL"),
     requireEnv("UPSTASH_REDIS_REST_TOKEN"),
   );
-  scopeKey = await importScopeKey(requireEnv("KV_SCOPE_SECRET"));
+  scopeKey = await importScopeKey(kvSecret);
 }
 
 const handler = createOrchestrator({ store, kvStore, scopeKey });

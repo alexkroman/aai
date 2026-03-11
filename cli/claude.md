@@ -625,24 +625,16 @@ Install: `curl -fsSL https://aai-agent.fly.dev/install | sh`
 
 ## Build validation
 
-`aai deploy` validates before bundling:
+`aai deploy` bundles and deploys your agent:
 
-1. Checks for a default export from `defineAgent()`
-2. Validates `name` is a non-empty string
-3. For each custom tool: verifies `description`, validates Zod schema with
-   sample args, test-runs `execute()` (execution errors are OK — schema validity
-   is what matters)
-4. Bundles with esbuild
+1. Bundles agent code with esbuild (static compilation only — agent code is
+   never imported or executed by the CLI)
+2. Deploys the bundled JS to the server, where it runs inside a sandboxed Deno
+   Worker with all permissions denied
 
 ---
 
 ## Troubleshooting
 
-- **"missing default export"** — Use `export default defineAgent({...})`
-- **"missing env vars required by agent: X"** — Add to `.env` or remove from
-  `env` array
-- **"schema validation failed with sample args"** — Check `.min()`, `.regex()`,
-  `.refine()` validators
+- **"no agent found"** — Ensure `agent.ts` exists in the current directory
 - **"bundle failed"** — TypeScript syntax error — check imports, brackets
-- **Tool test shows "✗"** — `execute` threw with sample args — may be expected
-  if tool needs real data

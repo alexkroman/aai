@@ -1,5 +1,5 @@
 import { defineAgent, tool, z } from "@aai/sdk";
-import type { ToolContext } from "@aai/sdk";
+import type { HookContext, ToolContext } from "@aai/sdk";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -543,6 +543,23 @@ function now(): number {
   return Date.now();
 }
 
+// ─── KV persistence ─────────────────────────────────────────────────────────
+
+const STATE_KEY = "dispatch:state";
+
+async function saveState(
+  ctx: { kv: ToolContext["kv"]; state: unknown },
+): Promise<void> {
+  await ctx.kv.set(STATE_KEY, ctx.state as DispatchState);
+}
+
+async function loadState(ctx: HookContext<DispatchState>): Promise<void> {
+  const saved = await ctx.kv.get<DispatchState>(STATE_KEY);
+  if (saved) {
+    Object.assign(ctx.state, saved);
+  }
+}
+
 // ─── Agent definition ────────────────────────────────────────────────────────
 
 export default defineAgent({
@@ -551,7 +568,7 @@ export default defineAgent({
   transport: ["websocket", "twilio"],
 
   greeting:
-    "Dispatch Command Center online. All units standing by. I have 12 resources in the fleet, all currently available. System alert level is green. I'm ready to take incoming calls, manage active incidents, or run dispatch operations. What do we have.",
+    "Dispatch Command Center online. Restoring operational state. I'm ready to take incoming calls, manage active incidents, or run dispatch operations. Say 'dashboard' for a full status report. What do we have.",
 
   instructions:
     `You are the AI-powered Emergency Dispatch Command Center. You coordinate emergency response for a metropolitan area. You manage incidents from initial 911 call through resolution.
@@ -598,6 +615,10 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
 
   state: createState,
 
+  onConnect: async (ctx) => {
+    await loadState(ctx as HookContext<DispatchState>);
+  },
+
   tools: {
     incident_create: tool({
       description: "Create a new incident from an incoming emergency call.",
@@ -615,7 +636,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           "Known hazards: fire, chemical, electrical, structural, weapons",
         ).optional(),
       }),
-      execute: (
+      execute: async (
         {
           location,
           description,
@@ -669,6 +690,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
 
         state.incidents[id] = incident;
         recalculateAlertLevel(state);
+        await saveState(ctx);
 
         const protocols = getApplicableProtocols(recType, recSeverity);
         const recommended = recommendResources(
@@ -720,7 +742,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           .optional(),
         notes: z.string().describe("Triage notes").optional(),
       }),
-      execute: (
+      execute: async (
         {
           incidentId,
           severity,
@@ -758,6 +780,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         });
 
         recalculateAlertLevel(state);
+        await saveState(ctx);
 
         const protocols = getApplicableProtocols(inc.type, inc.severity);
         const recommended = recommendResources(
@@ -800,7 +823,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           treated: z.number().optional(),
         }).describe("Updated casualty numbers").optional(),
       }),
-      execute: (
+      execute: async (
         { incidentId, status, notes, casualtyUpdate },
         ctx,
       ) => {
@@ -854,6 +877,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         }
 
         recalculateAlertLevel(state);
+        await saveState(ctx);
 
         return {
           incidentId,
@@ -878,7 +902,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           "Escalated severity level",
         ).optional(),
       }),
-      execute: (
+      execute: async (
         { incidentId, reason, requestMutualAid, newSeverity },
         ctx,
       ) => {
@@ -932,6 +956,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           inc.hazards.length,
         );
         recalculateAlertLevel(state);
+        await saveState(ctx);
 
         const additionalResources = recommendResources(
           inc.type,
@@ -1007,7 +1032,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           "Who reported this — unit callsign or caller",
         ).optional(),
       }),
-      execute: ({ incidentId, note, source }, ctx) => {
+      execute: async ({ incidentId, note, source }, ctx) => {
         const state = ctx.state as unknown as DispatchState;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
@@ -1016,6 +1041,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         inc.notes.push(entry);
         inc.timeline.push({ time: now(), event: entry });
         inc.updatedAt = now();
+        await saveState(ctx);
 
         return {
           incidentId,
@@ -1040,7 +1066,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           "Dispatch priority — affects simulated ETA",
         ).optional(),
       }),
-      execute: (
+      execute: async (
         { incidentId, callsigns, autoDispatch, priority },
         ctx,
       ) => {
@@ -1108,6 +1134,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         }
 
         recalculateAlertLevel(state);
+        await saveState(ctx);
 
         const availableCount = state.resources.filter((r) =>
           r.status === "available"
@@ -1182,7 +1209,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         ]).describe("New status"),
         notes: z.string().describe("Status notes").optional(),
       }),
-      execute: ({ callsign, status, notes }, ctx) => {
+      execute: async ({ callsign, status, notes }, ctx) => {
         const state = ctx.state as unknown as DispatchState;
         const resource = state.resources.find((r) =>
           r.callsign.toLowerCase() === callsign.toLowerCase()
@@ -1214,6 +1241,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         }
 
         recalculateAlertLevel(state);
+        await saveState(ctx);
 
         return {
           callsign: resource.callsign,
@@ -1339,7 +1367,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           "highway_pileup",
         ]).describe("Scenario type to simulate"),
       }),
-      execute: ({ scenario }, ctx) => {
+      execute: async ({ scenario }, ctx) => {
         const state = ctx.state as unknown as DispatchState;
         const scenarios: Record<
           string,
@@ -1494,6 +1522,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         }
 
         recalculateAlertLevel(state);
+        await saveState(ctx);
 
         return {
           scenario,

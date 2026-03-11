@@ -84,7 +84,7 @@ export async function runDeploy(
         urls.push(`${opts.url}/${fullPath}`);
       }
       if (transport.includes("twilio")) {
-        urls.push(`${opts.url}/${fullPath}/voice`);
+        urls.push(`${opts.url}/${fullPath}/twilio/voice`);
       }
       step("Deploy", `${fullPath} -> ${urls[0] ?? opts.url}`);
       for (const url of urls.slice(1)) {
