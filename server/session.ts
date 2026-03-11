@@ -76,7 +76,7 @@ export function createSession(opts: SessionOptions): Session {
     if (!getWorkerApi) return;
     try {
       cachedWorkerApi ??= await getWorkerApi();
-      await cachedWorkerApi.invokeHook(hook, id, extra, 5_000, slotEnv);
+      await cachedWorkerApi.invokeHook(hook, id, extra, 30_000, slotEnv);
     } catch (err: unknown) {
       console.error(`${hook} hook failed`, { err });
     }
@@ -138,7 +138,7 @@ export function createSession(opts: SessionOptions): Session {
         cachedWorkerApi ??= await getWorkerApi();
         const resolved = await cachedWorkerApi.resolveMaxSteps(
           id,
-          5_000,
+          30_000,
           slotEnv,
         );
         if (resolved !== null) maxSteps = resolved;
@@ -169,7 +169,7 @@ export function createSession(opts: SessionOptions): Session {
         const beforeStep = await cachedWorkerApi.resolveBeforeStep(
           id,
           toolCallCount - 1,
-          5_000,
+          30_000,
           slotEnv,
         );
         if (beforeStep?.activeTools && !beforeStep.activeTools.includes(name)) {
@@ -201,7 +201,7 @@ export function createSession(opts: SessionOptions): Session {
       },
     });
 
-    console.info("tool call", { tool: name, agent });
+    console.info("tool call", { tool: name, call_id, args: parsedArgs, agent });
 
     // Execute
     let result: string;
@@ -222,6 +222,7 @@ export function createSession(opts: SessionOptions): Session {
       result = JSON.stringify({ error: msg });
     }
 
+    console.info("tool result", { tool: name, call_id, result });
     s2s?.sendToolResult(call_id, result);
   }
 
@@ -253,6 +254,9 @@ export function createSession(opts: SessionOptions): Session {
           if (agentConfig.voice) {
             sessionConfig.voice = agentConfig.voice;
           }
+          console.info("S2S session config", {
+            tools: JSON.stringify(s2sTools),
+          });
           handle.updateSession(sessionConfig);
         }) as EventListener,
       );

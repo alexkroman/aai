@@ -36,7 +36,7 @@ export async function executeToolCall(
     const issues = (parsed.error?.issues ?? [])
       .map((i: z.ZodIssue) => `${i.path.map(String).join(".")}: ${i.message}`)
       .join(", ");
-    return `Error: Invalid arguments for tool "${name}": ${issues}`;
+    return `Error: Invalid arguments for tool "${name}": ${issues}. Do NOT retry with the same arguments. Either ask the user for the missing information or try again with corrected arguments.`;
   }
 
   try {
