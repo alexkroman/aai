@@ -43,9 +43,9 @@ Deno.test("runDeploy", async (t) => {
       expect(String(deployCall.args[0])).toBe(
         "http://localhost:3000/my-ns/agent-a/deploy",
       );
-      expect(
-        (deployCall.args[1]?.headers as Record<string, string>)?.Authorization,
-      ).toBe("Bearer test-key");
+      const init = deployCall.args[1] as Record<string, unknown> | undefined;
+      const headers = init?.headers as Record<string, string> | undefined;
+      expect(headers?.Authorization).toBe("Bearer test-key");
       expect(result.namespace).toBe("my-ns");
       expect(result.slug).toBe("agent-a");
     } finally {

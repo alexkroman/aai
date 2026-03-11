@@ -64,7 +64,6 @@ export const handleWebSocket = upgradeWebSocket(async (c) => {
   const slot = await requireSlot(slug, slots, store);
 
   const setup = await _internals.prepareSession(slot, slug, store, kvStore);
-  const resume = c.req.query("resume") !== undefined;
 
   return createSessionWSEvents(sessions, {
     createSession: (sessionId, transport) =>
@@ -73,7 +72,6 @@ export const handleWebSocket = upgradeWebSocket(async (c) => {
         agent: slug,
         transport,
         ...setup,
-        skipGreeting: resume,
       }),
     logContext: { slug },
   });

@@ -17,9 +17,14 @@ export function buildSystemPrompt(
   hasTools: boolean,
   opts?: { voice?: boolean },
 ): string {
+  const greetingInstruction = config.greeting
+    ? `\n\nYour very first message to the user must be exactly: ${config.greeting}`
+    : "";
+
   const agentInstructions = config.instructions
     ? `\n\nAgent-Specific Instructions:\n${config.instructions}`
     : "";
+
   const toolReminder = hasTools
     ? "\n\nAnswer the user's request using the tool calling API provided to you. " +
       "NEVER write tool calls as text, XML, or code in your response — always use the structured tool calling mechanism. " +
@@ -33,8 +38,7 @@ export function buildSystemPrompt(
       "Do not answer from memory alone when a tool can provide accurate, up-to-date information." +
       "\n\nTool Preambles: When you decide to call a tool, ALWAYS say a brief natural phrase BEFORE the tool call " +
       '(e.g. "Let me look that up" or "One moment while I check"). ' +
-      "This fills silence while the tool executes. Keep preambles to one short sentence." +
-      "\n\nWhen you have your final response ready, call the final_answer tool with your spoken response in the answer parameter."
+      "This fills silence while the tool executes. Keep preambles to one short sentence."
     : "";
 
   const today = new Date().toLocaleDateString("en-US", {
@@ -45,6 +49,6 @@ export function buildSystemPrompt(
   });
 
   return DEFAULT_INSTRUCTIONS + `\n\nToday's date is ${today}.` +
-    agentInstructions + toolReminder +
+    greetingInstruction + agentInstructions + toolReminder +
     (opts?.voice ? VOICE_RULES : "");
 }

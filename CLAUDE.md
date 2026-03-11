@@ -3,9 +3,10 @@
 ## Overview
 
 AAI is a voice agent development kit. Users define agents via `defineAgent()`
-in `agent.ts`, and the CLI bundles and deploys them to a server that
-orchestrates STT (AssemblyAI) → LLM (Claude) → TTS (Rime) in real-time over
-WebSocket or Twilio.
+in `agent.ts`, and the CLI bundles and deploys them to a server that relays
+audio between the browser/Twilio client and AssemblyAI's Speech-to-Speech (S2S)
+API, which handles STT, LLM, and TTS in a single WebSocket connection. The
+server intercepts `tool.call` events to execute tools locally.
 
 ## Commands
 
@@ -67,18 +68,13 @@ never on each other.
 
 - `orchestrator.ts` — deploy, health, WebSocket, Twilio, landing
   page routes
-- `session.ts` — per-connection session: wires STT → turn handler → TTS,
-  manages interruptions
-- `turn_handler.ts` — agentic loop: LLM + tool calls (up to 5 iterations),
-  forces `final_answer` on last
+- `s2s.ts` — AssemblyAI Speech-to-Speech WebSocket client
+- `session.ts` — per-connection session: connects to S2S, relays audio,
+  intercepts tool calls for local execution
 - `worker_pool.ts` — spawns agent code in sandboxed Deno Workers (all
   permissions false), idle eviction, hosts fetch proxy handler
 - `_sandbox_worker.ts` — sandboxed Deno Worker for `run_code` tool
-- `builtin_tools.ts` — web_search, visit_webpage, fetch_json, run_code,
-  user_input, final_answer
-- `llm.ts` — Claude API calls (OpenAI-compatible format)
-- `stt.ts` — AssemblyAI streaming STT
-- `tts.ts` — Rime streaming TTS
+- `builtin_tools.ts` — web_search, visit_webpage, fetch_json, run_code
 - `transport_websocket.ts` / `transport_twilio.ts` — transport handlers
 
 #### ui/
@@ -90,10 +86,11 @@ never on each other.
 ### Data Flow
 
 1. User speaks → browser captures PCM audio → WebSocket → server
-1. Server forwards audio to AssemblyAI STT → receives transcript
-1. STT fires `onTurn` → `turn_handler.ts` runs agentic loop (LLM + tools)
-1. LLM response text → Rime TTS → audio chunks → WebSocket → browser
-1. Browser plays audio; user can interrupt at any time (cancels in-flight turn)
+1. Server forwards audio to AssemblyAI S2S API
+1. S2S handles STT → LLM → TTS internally
+1. On `tool.call`: server executes tool locally, sends result back to S2S
+1. S2S streams response audio → server relays to browser
+1. Browser plays audio; barge-in handled natively by S2S
 
 ### Agent Isolation
 

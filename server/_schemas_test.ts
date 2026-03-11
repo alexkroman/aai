@@ -161,17 +161,15 @@ Deno.test("ServerMessageSchema", async (t) => {
   const validMessages: [string, unknown][] = [
     ["ready", {
       type: "ready",
-      protocol_version: 1,
+      protocol_version: 2,
       audio_format: "pcm16",
-      sample_rate: 16000,
-      tts_sample_rate: 24000,
+      input_sample_rate: 16000,
+      output_sample_rate: 24000,
     }],
-    ["partial_transcript", { type: "partial_transcript", text: "hello" }],
     [
       "final_transcript",
-      { type: "final_transcript", text: "hello world", turn_order: 1 },
+      { type: "final_transcript", text: "hello world" },
     ],
-    ["turn", { type: "turn", text: "response" }],
     ["chat", { type: "chat", text: "hi" }],
     ["tts_done", { type: "tts_done" }],
     ["cancelled", { type: "cancelled" }],
@@ -203,23 +201,10 @@ Deno.test("ClientMessageSchema", async (t) => {
     });
   }
 
-  await t.step("accepts history with messages", () => {
-    const result = ClientMessageSchema.safeParse({
-      type: "history",
-      messages: [
-        { role: "user", text: "hello" },
-        { role: "assistant", text: "hi" },
-      ],
-    });
-    expect(result.success).toBe(true);
-  });
-
-  await t.step("rejects history with invalid role", () => {
-    const result = ClientMessageSchema.safeParse({
-      type: "history",
-      messages: [{ role: "system", text: "hello" }],
-    });
-    expect(result.success).toBe(false);
+  await t.step("rejects unknown type", () => {
+    expect(ClientMessageSchema.safeParse({ type: "history" }).success).toBe(
+      false,
+    );
   });
 });
 

@@ -1,7 +1,5 @@
 import { batch, type Signal, signal } from "@preact/signals";
 import {
-  DEFAULT_STT_SAMPLE_RATE,
-  DEFAULT_TTS_SAMPLE_RATE,
   PROTOCOL_VERSION,
   type ServerMessage as _ServerMessage,
 } from "@aai/core/protocol";
@@ -9,18 +7,7 @@ import {
 const SUPPORTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 const SUPPORTED_AUDIO_FORMATS = new Set(["pcm16"]);
 
-// Client-side variant: protocol_version and audio_format are optional for
-// backwards compatibility with older servers that don't send them.
-type ServerMessage =
-  | Omit<
-    Extract<_ServerMessage, { type: "ready" }>,
-    "protocol_version" | "audio_format"
-  >
-    & {
-      protocol_version?: number;
-      audio_format?: string;
-    }
-  | Exclude<_ServerMessage, { type: "ready" }>;
+type ServerMessage = _ServerMessage;
 
 import {
   type AgentState,
@@ -113,7 +100,6 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   let voiceIO: VoiceIO | null = null;
   const reconnector = createReconnect();
   let connectionController: AbortController | null = null;
-  let hasConnected = false;
   let audioSetupInFlight = false;
   let pongReceived = true;
 
@@ -179,16 +165,12 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     if (audioSetupInFlight) return;
 
     // Protocol version check — reject incompatible servers
-    const serverVersion = msg.protocol_version;
-    if (
-      serverVersion !== undefined &&
-      serverVersion !== SUPPORTED_PROTOCOL_VERSION
-    ) {
+    if (msg.protocol_version !== SUPPORTED_PROTOCOL_VERSION) {
       batch(() => {
         error.value = {
           code: "protocol",
           message:
-            `Server protocol v${serverVersion} is not compatible with client v${SUPPORTED_PROTOCOL_VERSION}. Please redeploy your agent.`,
+            `Server protocol v${msg.protocol_version} is not compatible with client v${SUPPORTED_PROTOCOL_VERSION}. Please redeploy your agent.`,
         };
         state.value = "error";
       });
@@ -196,13 +178,12 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     }
 
     // Audio format check — reject unknown formats
-    const audioFormat = msg.audio_format ?? "pcm16";
-    if (!SUPPORTED_AUDIO_FORMATS.has(audioFormat)) {
+    if (!SUPPORTED_AUDIO_FORMATS.has(msg.audio_format)) {
       batch(() => {
         error.value = {
           code: "protocol",
           message:
-            `Unsupported audio format "${audioFormat}". Please redeploy your agent.`,
+            `Unsupported audio format "${msg.audio_format}". Please redeploy your agent.`,
         };
         state.value = "error";
       });
@@ -226,8 +207,8 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
       ]);
       const currentWs = ws!;
       const io = await createVoiceIO({
-        sttSampleRate: msg.sample_rate ?? DEFAULT_STT_SAMPLE_RATE,
-        ttsSampleRate: msg.tts_sample_rate ?? DEFAULT_TTS_SAMPLE_RATE,
+        sttSampleRate: msg.input_sample_rate,
+        ttsSampleRate: msg.output_sample_rate,
         captureWorkletSrc: captureWorklet,
         playbackWorkletSrc: playbackWorklet,
         onMicData: (pcm16: ArrayBuffer) => {
@@ -271,18 +252,11 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     batch(() => {
       switch (msg.type) {
         case "ready":
-          hasConnected = true;
           reconnector.reset();
           void handleReady(msg);
           break;
-        case "partial_transcript":
-          transcript.value = msg.text;
-          break;
         case "final_transcript":
           transcript.value = msg.text;
-          break;
-        case "turn":
-          transcript.value = "";
           messages.value = [
             ...messages.value,
             { role: "user", text: msg.text },
@@ -343,21 +317,11 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     const wsPath = (globalThis as any).__AAI_WS__ as string ?? "websocket";
     const wsUrl = new URL(wsPath, base.endsWith("/") ? base : base + "/");
     wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
-    if (hasConnected) wsUrl.searchParams.set("resume", "1");
     const socket = new WebSocket(wsUrl);
     ws = socket;
     socket.binaryType = "arraybuffer";
 
     socket.addEventListener("open", () => {
-      if (hasConnected && messages.value.length > 0) {
-        socket.send(JSON.stringify({
-          type: "history",
-          messages: messages.value.map((m) => ({
-            role: m.role,
-            text: m.text,
-          })),
-        }));
-      }
       state.value = "ready";
       startPing(sig);
     }, { signal: sig });

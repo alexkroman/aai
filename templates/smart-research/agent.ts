@@ -72,7 +72,6 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
           "save_source",
           "mark_complex",
           "advance_phase",
-          "final_answer",
         ],
       };
     }
@@ -82,12 +81,11 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
           "analyze",
           "conversation_summary",
           "advance_phase",
-          "final_answer",
         ],
       };
     }
-    // respond phase: only final_answer
-    return { activeTools: ["final_answer"] };
+    // respond phase: no tools needed, agent speaks directly
+    return { activeTools: [] };
   },
 
   tools: {

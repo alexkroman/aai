@@ -19,17 +19,13 @@ export type BuiltinTool =
   | "web_search"
   | "visit_webpage"
   | "fetch_json"
-  | "run_code"
-  | "user_input"
-  | "final_answer";
+  | "run_code";
 
 export const BuiltinToolSchema: z.ZodType<BuiltinTool> = z.enum([
   "web_search",
   "visit_webpage",
   "fetch_json",
   "run_code",
-  "user_input",
-  "final_answer",
 ]);
 
 export type ToolChoice =
@@ -115,13 +111,11 @@ export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
 
 export type AgentEnv = {
   ASSEMBLYAI_API_KEY: string;
-  LLM_MODEL?: string;
   [key: string]: string | undefined;
 };
 
 export const EnvSchema: z.ZodType<AgentEnv> = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
-  LLM_MODEL: z.string().optional(),
 }).catchall(z.string());
 
 /** Config returned by the worker via Comlink RPC. */

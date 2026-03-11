@@ -23,8 +23,6 @@ snapshot[`AgentConfigSchema snapshot 1`] = `
           "visit_webpage",
           "fetch_json",
           "run_code",
-          "user_input",
-          "final_answer",
         ],
         type: "string",
       },
@@ -233,9 +231,6 @@ snapshot[`EnvSchema snapshot 1`] = `
       minLength: 1,
       type: "string",
     },
-    LLM_MODEL: {
-      type: "string",
-    },
   },
   required: [
     "ASSEMBLYAI_API_KEY",
@@ -255,17 +250,17 @@ snapshot[`ServerMessageSchema snapshot 1`] = `
           const: "pcm16",
           type: "string",
         },
+        input_sample_rate: {
+          exclusiveMinimum: 0,
+          maximum: 9007199254740991,
+          type: "integer",
+        },
+        output_sample_rate: {
+          exclusiveMinimum: 0,
+          maximum: 9007199254740991,
+          type: "integer",
+        },
         protocol_version: {
-          exclusiveMinimum: 0,
-          maximum: 9007199254740991,
-          type: "integer",
-        },
-        sample_rate: {
-          exclusiveMinimum: 0,
-          maximum: 9007199254740991,
-          type: "integer",
-        },
-        tts_sample_rate: {
           exclusiveMinimum: 0,
           maximum: 9007199254740991,
           type: "integer",
@@ -279,8 +274,8 @@ snapshot[`ServerMessageSchema snapshot 1`] = `
         "type",
         "protocol_version",
         "audio_format",
-        "sample_rate",
-        "tts_sample_rate",
+        "input_sample_rate",
+        "output_sample_rate",
       ],
       type: "object",
     },
@@ -289,53 +284,9 @@ snapshot[`ServerMessageSchema snapshot 1`] = `
       properties: {
         text: {
           type: "string",
-        },
-        type: {
-          const: "partial_transcript",
-          type: "string",
-        },
-      },
-      required: [
-        "type",
-        "text",
-      ],
-      type: "object",
-    },
-    {
-      additionalProperties: false,
-      properties: {
-        text: {
-          type: "string",
-        },
-        turn_order: {
-          maximum: 9007199254740991,
-          minimum: 0,
-          type: "integer",
         },
         type: {
           const: "final_transcript",
-          type: "string",
-        },
-      },
-      required: [
-        "type",
-        "text",
-      ],
-      type: "object",
-    },
-    {
-      additionalProperties: false,
-      properties: {
-        text: {
-          type: "string",
-        },
-        turn_order: {
-          maximum: 9007199254740991,
-          minimum: 0,
-          type: "integer",
-        },
-        type: {
-          const: "turn",
           type: "string",
         },
       },
@@ -494,45 +445,6 @@ snapshot[`ClientMessageSchema snapshot 1`] = `
       },
       required: [
         "type",
-      ],
-      type: "object",
-    },
-    {
-      additionalProperties: false,
-      properties: {
-        messages: {
-          items: {
-            additionalProperties: false,
-            properties: {
-              role: {
-                enum: [
-                  "user",
-                  "assistant",
-                ],
-                type: "string",
-              },
-              text: {
-                minLength: 1,
-                type: "string",
-              },
-            },
-            required: [
-              "role",
-              "text",
-            ],
-            type: "object",
-          },
-          minItems: 1,
-          type: "array",
-        },
-        type: {
-          const: "history",
-          type: "string",
-        },
-      },
-      required: [
-        "type",
-        "messages",
       ],
       type: "object",
     },

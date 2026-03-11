@@ -44,8 +44,6 @@ export function createSessionWSEvents(
       session?.onCancel();
     } else if (parsed.data.type === "reset") {
       session?.onReset();
-    } else if (parsed.data.type === "history") {
-      session?.onHistory(parsed.data.messages);
     }
   }
 

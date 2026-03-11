@@ -29,9 +29,6 @@ function createSpySession(): Session & { calls: string[] } {
     onReset() {
       calls.push("onReset");
     },
-    onHistory() {
-      calls.push("onHistory");
-    },
     waitForTurn() {
       return Promise.resolve();
     },

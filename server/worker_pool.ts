@@ -11,7 +11,7 @@ import type { ExecuteTool } from "@aai/core/worker-entry";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "./_schemas.ts";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "@aai/core/deno-worker";
-import { assertPublicUrl, getBuiltinToolSchemas } from "./builtin_tools.ts";
+import { assertPublicUrl } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentScope } from "./scope_token.ts";
 export type { AgentMetadata } from "./_schemas.ts";
@@ -236,8 +236,7 @@ export async function prepareSession(
   await getWorkerApi();
   const config = slot.config!;
 
-  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
-  const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
+  const toolSchemas = [...(slot.toolSchemas ?? [])];
 
   return {
     agentConfig: config,

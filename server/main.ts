@@ -18,16 +18,30 @@ function requireEnv(name: string): string {
   return value;
 }
 
-const bucket = requireEnv("BUCKET_NAME");
-const s3 = createS3Client();
-const store = createBundleStore(s3, bucket);
+const isDev = !Deno.env.get("BUCKET_NAME");
 
-const kvStore = createKvStore(
-  requireEnv("UPSTASH_REDIS_REST_URL"),
-  requireEnv("UPSTASH_REDIS_REST_TOKEN"),
-);
+let store;
+let kvStore;
+let scopeKey;
 
-const scopeKey = await importScopeKey(requireEnv("KV_SCOPE_SECRET"));
+if (isDev) {
+  console.info("DEV MODE — using in-memory stores (no S3/Redis required)");
+  const { createTestStore, createTestKvStore } = await import(
+    "./_test_utils.ts"
+  );
+  store = createTestStore();
+  kvStore = createTestKvStore();
+  scopeKey = await importScopeKey("dev-secret");
+} else {
+  const bucket = requireEnv("BUCKET_NAME");
+  const s3 = createS3Client();
+  store = createBundleStore(s3, bucket);
+  kvStore = createKvStore(
+    requireEnv("UPSTASH_REDIS_REST_URL"),
+    requireEnv("UPSTASH_REDIS_REST_TOKEN"),
+  );
+  scopeKey = await importScopeKey(requireEnv("KV_SCOPE_SECRET"));
+}
 
 const handler = createOrchestrator({ store, kvStore, scopeKey });
 

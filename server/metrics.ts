@@ -213,17 +213,6 @@ export const turnDuration = createHistogram(
   ["agent"],
 );
 
-export const ttsDuration = createHistogram(
-  "aai_tts_duration_seconds",
-  "TTS synthesis duration in seconds",
-);
-
-export const sttConnectDuration = createHistogram(
-  "aai_stt_connect_duration_seconds",
-  "STT WebSocket connection time in seconds",
-  [0.1, 0.25, 0.5, 1, 2.5, 5, 10],
-);
-
 export const toolDuration = createHistogram(
   "aai_tool_duration_seconds",
   "Tool execution duration in seconds",
@@ -244,8 +233,6 @@ const agentMetrics: Metric[] = [
 
 const allMetrics: Metric[] = [
   ...agentMetrics,
-  ttsDuration,
-  sttConnectDuration,
 ];
 
 /** Platform view: all metrics, all agents. */

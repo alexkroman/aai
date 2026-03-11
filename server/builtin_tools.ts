@@ -1,18 +1,10 @@
 import { z } from "zod";
-import {
-  jsonSchema,
-  tool as vercelTool,
-  type ToolExecutionOptions,
-  type ToolSet,
-} from "ai";
 import * as Comlink from "comlink";
-import type {
-  BuiltinTool as BuiltinToolName,
-  ToolSchema,
-} from "@aai/sdk/schema";
+import type { BuiltinTool as BuiltinToolName } from "@aai/sdk/schema";
 import TurndownService from "turndown";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "@aai/core/deno-worker";
 import { matchSubnets } from "@std/net/unstable-ip";
+import type { S2sToolSchema } from "./s2s.ts";
 
 const turndown = new TurndownService({ headingStyle: "atx" });
 turndown.remove(["script", "style", "head"]);
@@ -298,100 +290,42 @@ const fetchJson = defineTool({
   },
 });
 
-const userInputParams = z.object({
-  question: z.string().describe("The question to ask the user"),
-});
-
-const userInput = defineTool({
-  name: "user_input",
-  description:
-    "Ask the user a follow-up question and wait for their spoken response. Use this when you need clarification, a preference, or any additional input from the user before proceeding.",
-  parameters: userInputParams,
-  execute: () => {
-    throw new Error("user_input is handled by the turn handler");
-  },
-});
-
-const finalAnswerParams = z.object({
-  answer: z.string().describe(
-    "Your final response to the user. This will be spoken aloud.",
-  ),
-});
-
-const finalAnswer = defineTool({
-  name: "final_answer",
-  description:
-    "Provide your final answer to the user. You MUST call this tool to deliver every response — it is the only way to complete the task, otherwise you will be stuck in a loop.",
-  parameters: finalAnswerParams,
-  execute: (args) => {
-    return args.answer;
-  },
-});
-
-export const FINAL_ANSWER_TOOL: BuiltinToolName = "final_answer";
-export const USER_INPUT_TOOL: BuiltinToolName = "user_input";
-
-const REQUIRED_BUILTIN_TOOLS: BuiltinToolName[] = [
-  FINAL_ANSWER_TOOL,
-  USER_INPUT_TOOL,
-];
-
-const BUILTIN_TOOLS: Record<BuiltinToolName, BuiltinTool> = {
+const BUILTIN_TOOLS: Partial<Record<BuiltinToolName, BuiltinTool>> = {
   web_search: webSearch,
   visit_webpage: visitWebpage,
   run_code: runCode,
   fetch_json: fetchJson,
-  user_input: userInput,
-  final_answer: finalAnswer,
 };
 
-export function getBuiltinToolSchemas(
+/**
+ * Get S2S-format tool schemas for builtin tools.
+ */
+export function getBuiltinS2sToolSchemas(
   names: readonly BuiltinToolName[],
-): ToolSchema[] {
-  const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
-  return allNames.flatMap((name) => {
+): S2sToolSchema[] {
+  return names.flatMap((name) => {
     const tool = BUILTIN_TOOLS[name];
     if (!tool) return [];
     return [{
+      type: "function" as const,
       name: tool.name,
       description: tool.description,
-      parameters: z.toJSONSchema(tool.parameters) as ToolSchema["parameters"],
+      parameters: z.toJSONSchema(tool.parameters) as Record<string, unknown>,
     }];
   });
 }
 
 /**
- * Build Vercel AI SDK tool objects for builtin tools.
- * `final_answer` and `user_input` have no `execute` — this makes
- * `generateText` stop the loop when the LLM calls them.
- * Other builtins have `execute` and run on the host.
+ * Execute a builtin tool by name. Returns the string result.
  */
-export function getBuiltinVercelTools(
-  names: readonly BuiltinToolName[],
-  env: Record<string, string | undefined> = {},
-): ToolSet {
-  const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
-  const tools: ToolSet = {};
-  for (const name of allNames) {
-    const bt = BUILTIN_TOOLS[name];
-    if (!bt) continue;
-    const params = jsonSchema(z.toJSONSchema(bt.parameters));
-    if (name === FINAL_ANSWER_TOOL || name === USER_INPUT_TOOL) {
-      // No execute → generateText stops the loop when LLM calls these
-      tools[name] = vercelTool({
-        description: bt.description,
-        parameters: params,
-      });
-    } else {
-      tools[name] = vercelTool({
-        description: bt.description,
-        parameters: params,
-        execute: async (args: unknown, _options: ToolExecutionOptions) => {
-          const result = await bt.execute(args as Record<string, unknown>, env);
-          return result;
-        },
-      });
-    }
+export async function executeBuiltinTool(
+  name: string,
+  args: Record<string, unknown>,
+  env: Record<string, string | undefined>,
+): Promise<string> {
+  const tool = BUILTIN_TOOLS[name as BuiltinToolName];
+  if (!tool) {
+    return JSON.stringify({ error: `Unknown builtin tool: ${name}` });
   }
-  return tools;
+  return await tool.execute(args, env);
 }

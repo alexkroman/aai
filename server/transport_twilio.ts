@@ -6,8 +6,8 @@ import { type AgentSlot, prepareSession } from "./worker_pool.ts";
 import { createSession, type SessionTransport } from "./session.ts";
 import type { HonoEnv } from "./hono_env.ts";
 import {
-  DEFAULT_STT_SAMPLE_RATE,
-  DEFAULT_TTS_SAMPLE_RATE,
+  DEFAULT_INPUT_SAMPLE_RATE,
+  DEFAULT_OUTPUT_SAMPLE_RATE,
   ServerMessageSchema,
   TwilioMessageSchema,
 } from "@aai/core/protocol";
@@ -63,7 +63,7 @@ export function createTwilioTransport(ws: WSContext): SessionTransport & {
         bytes.byteLength >> 1,
       );
       const mulaw = pcm16ToMulaw(
-        resample(pcm16, DEFAULT_TTS_SAMPLE_RATE, MULAW_RATE),
+        resample(pcm16, DEFAULT_OUTPUT_SAMPLE_RATE, MULAW_RATE),
       );
       ws.send(JSON.stringify({
         event: "media",
@@ -99,7 +99,7 @@ export function createAudioBuffer(
 
 export function decodeTwilioFrame(payload: string): Uint8Array {
   const pcm16 = mulawToPcm16(decodeBase64(payload));
-  const resampled = resample(pcm16, MULAW_RATE, DEFAULT_STT_SAMPLE_RATE);
+  const resampled = resample(pcm16, MULAW_RATE, DEFAULT_INPUT_SAMPLE_RATE);
   return new Uint8Array(
     resampled.buffer,
     resampled.byteOffset,

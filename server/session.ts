@@ -1,30 +1,20 @@
 import type { PlatformConfig } from "./config.ts";
-import { createModel } from "./model.ts";
 import type { ExecuteTool } from "@aai/core/worker-entry";
 import {
-  connectStt,
-  type SttHandle,
-  type SttTranscriptDetail,
-  type SttTurnDetail,
-} from "./stt.ts";
-import { createTtsClient } from "./tts.ts";
-import { getBuiltinVercelTools } from "./builtin_tools.ts";
-import { executeTurn } from "./turn_handler.ts";
-import type { STTConfig } from "./types.ts";
+  connectS2s,
+  type S2sHandle,
+  type S2sSessionConfig,
+  type S2sToolCall,
+  type S2sToolSchema,
+} from "./s2s.ts";
+import {
+  executeBuiltinTool,
+  getBuiltinS2sToolSchemas,
+} from "./builtin_tools.ts";
 import type { AgentConfig } from "@aai/sdk/types";
-import type { BuiltinTool, ToolSchema } from "@aai/sdk/schema";
+import type { ToolSchema } from "@aai/sdk/schema";
 import type { WorkerApi } from "@aai/core/worker-entry";
 import { buildSystemPrompt } from "./system_prompt.ts";
-import {
-  type CoreAssistantMessage,
-  type CoreMessage,
-  type CoreUserMessage,
-  jsonSchema,
-  type StepResult,
-  tool as vercelTool,
-  type ToolExecutionOptions,
-  type ToolSet,
-} from "ai";
 import type { Message } from "@aai/sdk/types";
 import * as metrics from "./metrics.ts";
 import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/core/protocol";
@@ -32,16 +22,6 @@ import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/core/protocol";
 export type SessionTransport = {
   send(data: string | ArrayBuffer | Uint8Array): void;
   readonly readyState: 0 | 1 | 2 | 3;
-};
-
-export type TtsClient = {
-  warmup(): void;
-  synthesizeStream(
-    chunks: string | AsyncIterable<string>,
-    onAudio: (chunk: Uint8Array) => void,
-    signal?: AbortSignal,
-  ): Promise<void>;
-  close(): void;
 };
 
 export type SessionOptions = {
@@ -54,14 +34,7 @@ export type SessionOptions = {
   executeTool: ExecuteTool;
   env?: Record<string, string | undefined>;
   getWorkerApi?: () => Promise<WorkerApi>;
-  skipGreeting?: boolean;
-  connectStt?: (
-    apiKey: string,
-    config: STTConfig,
-  ) => Promise<SttHandle>;
-  createTtsClient?: (
-    config: Parameters<typeof createTtsClient>[0],
-  ) => TtsClient;
+  connectS2s?: (apiKey: string) => Promise<S2sHandle>;
 };
 
 export type Session = {
@@ -71,50 +44,8 @@ export type Session = {
   onAudioReady(): void;
   onCancel(): void;
   onReset(): void;
-  onHistory(messages: { role: "user" | "assistant"; text: string }[]): void;
   waitForTurn(): Promise<void>;
 };
-
-function coreMessagesToSimple(msgs: CoreMessage[]): Message[] {
-  const result: Message[] = [];
-  for (const m of msgs) {
-    if (typeof m.content === "string") {
-      result.push({ role: m.role as Message["role"], content: m.content });
-    }
-  }
-  return result;
-}
-
-function buildVercelTools(
-  customSchemas: ToolSchema[],
-  builtinNames: readonly BuiltinTool[],
-  executeTool: ExecuteTool,
-  sessionId: string,
-  env: Record<string, string | undefined>,
-  getMessages: () => CoreMessage[],
-): ToolSet {
-  // Builtin tools (Zod schemas, some with execute, some without)
-  const tools = getBuiltinVercelTools(builtinNames, env);
-
-  // Custom tools from the worker (JSON schemas, execute via RPC)
-  for (const schema of customSchemas) {
-    tools[schema.name] = vercelTool({
-      description: schema.description,
-      parameters: jsonSchema(schema.parameters),
-      execute: async (args: unknown, _options: ToolExecutionOptions) => {
-        const result = await executeTool(
-          schema.name,
-          args as Record<string, unknown>,
-          sessionId,
-          coreMessagesToSimple(getMessages()),
-        );
-        return result;
-      },
-    });
-  }
-
-  return tools;
-}
 
 export function createSession(opts: SessionOptions): Session {
   const {
@@ -151,35 +82,10 @@ export function createSession(opts: SessionOptions): Session {
     }
   }
 
-  const agentConfig = opts.skipGreeting
-    ? { ...opts.agentConfig, greeting: "" }
-    : opts.agentConfig;
+  const agentConfig = opts.agentConfig;
 
   const env: Record<string, string | undefined> = { ...opts.env };
-  const config: PlatformConfig = {
-    ...platformConfig,
-    sttConfig: {
-      ...platformConfig.sttConfig,
-      ...(agentConfig.sttPrompt ? { sttPrompt: agentConfig.sttPrompt } : {}),
-    },
-    ttsConfig: {
-      ...platformConfig.ttsConfig,
-      ...(agentConfig.voice ? { voice: agentConfig.voice } : {}),
-    },
-  };
-
-  const doConnectStt = opts.connectStt ?? connectStt;
-  const tts: TtsClient = (opts.createTtsClient ?? createTtsClient)(
-    config.ttsConfig,
-  );
-  tts.warmup();
-
-  // Create the Vercel AI model with gateway middleware
-  const model = createModel({
-    apiKey: config.apiKey,
-    model: config.model,
-    gatewayBase: config.llmGatewayBase,
-  });
+  const s2sConfig = platformConfig.s2sConfig;
 
   // Build system prompt
   const hasTools = toolSchemas.length > 0 ||
@@ -188,24 +94,28 @@ export function createSession(opts: SessionOptions): Session {
     voice: true,
   });
 
-  // Build Vercel tool set (getMessages closure provides current conversation)
-  const getMessages = () => messages;
-  const tools = buildVercelTools(
-    toolSchemas,
-    agentConfig.builtinTools ?? [],
-    executeTool,
-    id,
-    env,
-    getMessages,
+  // Build S2S tool schemas
+  const s2sTools: S2sToolSchema[] = [
+    ...getBuiltinS2sToolSchemas(agentConfig.builtinTools ?? []),
+    ...toolSchemas.map((ts) => ({
+      type: "function" as const,
+      name: ts.name,
+      description: ts.description,
+      parameters: ts.parameters as Record<string, unknown>,
+    })),
+  ];
+
+  const builtinToolNames = new Set<string>(
+    (agentConfig.builtinTools ?? []).map((n) => n),
   );
 
-  let stt: SttHandle | null = null;
+  let s2s: S2sHandle | null = null;
   const sessionAbort = new AbortController();
-  let turnAbort: AbortController | null = null;
+  let audioReady = false;
+  let toolCallCount = 0;
   let turnPromise: Promise<void> | null = null;
-  let audioFrameCount = 0;
-  let pendingGreeting: string | null = null;
-  let messages: CoreMessage[] = [];
+  let conversationMessages: Message[] = [];
+  let s2sSessionId: string | null = null;
 
   function trySend(data: string | Uint8Array): void {
     try {
@@ -217,224 +127,245 @@ export function createSession(opts: SessionOptions): Session {
     trySend(JSON.stringify(data));
   }
 
-  function cancelInflight(): void {
-    turnAbort?.abort();
-    turnAbort = null;
+  async function handleToolCall(detail: S2sToolCall): Promise<void> {
+    const { call_id, name, args: argsStr } = detail;
+    metrics.toolDuration.observe(0, { agent, tool: name });
+
+    // Resolve maxSteps
+    let maxSteps = agentConfig.maxSteps;
+    if (maxSteps === undefined && getWorkerApi) {
+      try {
+        cachedWorkerApi ??= await getWorkerApi();
+        const resolved = await cachedWorkerApi.resolveMaxSteps(
+          id,
+          5_000,
+          slotEnv,
+        );
+        if (resolved !== null) maxSteps = resolved;
+      } catch (err: unknown) {
+        console.warn("resolveMaxSteps failed, using default", { err });
+      }
+    }
+
+    toolCallCount++;
+
+    // Check maxSteps
+    if (maxSteps !== undefined && toolCallCount > maxSteps) {
+      console.info("maxSteps exceeded, refusing tool call", {
+        toolCallCount,
+        maxSteps,
+      });
+      s2s?.sendToolResult(
+        call_id,
+        "Maximum tool steps reached. Please respond to the user now.",
+      );
+      return;
+    }
+
+    // Check onBeforeStep activeTools filter
+    if (getWorkerApi) {
+      try {
+        cachedWorkerApi ??= await getWorkerApi();
+        const beforeStep = await cachedWorkerApi.resolveBeforeStep(
+          id,
+          toolCallCount - 1,
+          5_000,
+          slotEnv,
+        );
+        if (beforeStep?.activeTools && !beforeStep.activeTools.includes(name)) {
+          console.info("Tool filtered by onBeforeStep", { name });
+          s2s?.sendToolResult(
+            call_id,
+            JSON.stringify({
+              error: `Tool "${name}" is not available at this step.`,
+            }),
+          );
+          return;
+        }
+      } catch (err: unknown) {
+        console.warn("resolveBeforeStep failed", { err });
+      }
+    }
+
+    // Fire onStep hook
+    let parsedArgs: Record<string, unknown> = {};
+    try {
+      parsedArgs = JSON.parse(argsStr);
+    } catch { /* use empty */ }
+
+    invokeHook("onStep", {
+      step: {
+        stepNumber: toolCallCount - 1,
+        toolCalls: [{ toolName: name, args: parsedArgs }],
+        text: "",
+      },
+    });
+
+    console.info("tool call", { tool: name, agent });
+
+    // Execute
+    let result: string;
+    try {
+      if (builtinToolNames.has(name)) {
+        result = await executeBuiltinTool(name, parsedArgs, env);
+      } else {
+        result = await executeTool(
+          name,
+          parsedArgs,
+          id,
+          conversationMessages,
+        );
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Tool execution failed", { tool: name, error: msg });
+      result = JSON.stringify({ error: msg });
+    }
+
+    s2s?.sendToolResult(call_id, result);
   }
 
-  async function doConnectSttWithEvents(): Promise<void> {
+  const doConnectS2s = opts.connectS2s ??
+    ((apiKey: string) => connectS2s(apiKey, s2sConfig));
+
+  async function connectAndSetup(): Promise<void> {
     try {
-      const handle = await doConnectStt(config.apiKey, config.sttConfig);
+      const handle = await doConnectS2s(platformConfig.apiKey);
+
+      // If we have a previous session_id, attempt to resume
+      if (s2sSessionId) {
+        console.info("Attempting S2S session resume", {
+          session_id: s2sSessionId,
+        });
+        handle.resumeSession(s2sSessionId);
+      }
 
       handle.addEventListener(
-        "transcript",
-        ((
-          e: CustomEvent<SttTranscriptDetail>,
-        ) => {
-          const { text, isFinal, turnOrder } = e.detail;
-          console.info("transcript", { text, isFinal, turnOrder });
-          if (isFinal) {
-            trySendJson({
-              type: "final_transcript",
-              text,
-              ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
-            });
-          } else {
-            trySendJson({ type: "partial_transcript", text });
+        "ready",
+        ((e: CustomEvent<{ session_id: string }>) => {
+          s2sSessionId = e.detail.session_id;
+          console.info("S2S session ready", { session_id: s2sSessionId });
+          // Send session config
+          const sessionConfig: S2sSessionConfig = {
+            system_prompt: systemPrompt,
+            tools: s2sTools,
+            input_sample_rate: s2sConfig.inputSampleRate,
+            output_sample_rate: s2sConfig.outputSampleRate,
+          };
+          if (agentConfig.voice) {
+            sessionConfig.voice = agentConfig.voice;
           }
+          handle.updateSession(sessionConfig);
         }) as EventListener,
       );
 
       handle.addEventListener(
-        "turn",
-        ((e: CustomEvent<SttTurnDetail>) => {
-          const { text, turnOrder } = e.detail;
-          console.info("turn", { text, turnOrder });
-          const prev = turnPromise;
-          const next = (prev ?? Promise.resolve())
-            .catch(() => {})
-            .then(() => handleTurn(text, turnOrder))
-            .finally(() => {
-              if (turnPromise === next) turnPromise = null;
-            });
-          turnPromise = next;
+        "session_expired",
+        (() => {
+          console.info("S2S session expired, reconnecting fresh");
+          s2sSessionId = null;
+          handle.close();
+          // close handler will trigger reconnect with no session_id
         }) as EventListener,
       );
 
       handle.addEventListener(
-        "termination",
+        "user_transcript",
+        ((e: CustomEvent<{ item_id: string; text: string }>) => {
+          const { text } = e.detail;
+          console.info("user transcript", { text });
+          trySendJson({ type: "final_transcript", text });
+          conversationMessages.push({ role: "user", content: text });
+          invokeHook("onTurn", { text });
+        }) as EventListener,
+      );
+
+      handle.addEventListener(
+        "reply_started",
+        (() => {
+          toolCallCount = 0;
+        }) as EventListener,
+      );
+
+      handle.addEventListener(
+        "audio",
+        ((e: CustomEvent<{ reply_id: string; audio: Uint8Array }>) => {
+          trySend(e.detail.audio);
+        }) as EventListener,
+      );
+
+      handle.addEventListener(
+        "agent_transcript",
         ((
-          e: CustomEvent<{ audioDuration: number; sessionDuration: number }>,
+          e: CustomEvent<{
+            reply_id: string;
+            item_id: string;
+            text: string;
+          }>,
         ) => {
-          const { audioDuration, sessionDuration } = e.detail;
-          console.info("STT termination", { audioDuration, sessionDuration });
+          const { text } = e.detail;
+          trySendJson({ type: "chat", text });
+          conversationMessages.push({ role: "assistant", content: text });
+        }) as EventListener,
+      );
+
+      handle.addEventListener(
+        "tool_call",
+        ((e: CustomEvent<S2sToolCall>) => {
+          const p = handleToolCall(e.detail).catch((err: unknown) => {
+            console.error("Tool call handler failed", { err });
+          });
+          // Track as pending work
+          const prev = turnPromise;
+          turnPromise = (prev ?? Promise.resolve()).then(() => p).finally(
+            () => {
+              if (turnPromise === turnPromise) turnPromise = null;
+            },
+          );
+        }) as EventListener,
+      );
+
+      handle.addEventListener(
+        "reply_done",
+        ((e: CustomEvent<{ reply_id: string; status: string }>) => {
+          const { status } = e.detail;
+          if (status === "interrupted") {
+            console.info("Reply interrupted (barge-in)");
+            trySendJson({ type: "cancelled" });
+          } else {
+            trySendJson({ type: "tts_done" });
+          }
         }) as EventListener,
       );
 
       handle.addEventListener(
         "error",
-        ((
-          e: CustomEvent<{ error: Error }>,
-        ) => {
-          const err = e.detail.error;
-          console.error("STT error:", err.message);
-          trySendJson({
-            type: "error",
-            message: err.message,
-          });
+        ((e: CustomEvent<{ code: string; message: string }>) => {
+          const { code, message } = e.detail;
+          console.error("S2S error:", { code, message });
+          trySendJson({ type: "error", message });
         }) as EventListener,
       );
 
       handle.addEventListener("close", () => {
-        console.info("STT closed");
-        stt = null;
+        console.info("S2S closed");
+        s2s = null;
         if (!sessionAbort.signal.aborted) {
-          console.info("Attempting STT reconnect");
-          doConnectSttWithEvents().catch((err: unknown) => {
+          console.info("Attempting S2S reconnect");
+          connectAndSetup().catch((err: unknown) => {
             const msg = err instanceof Error ? err.message : String(err);
-            console.error("STT reconnect failed:", msg);
+            console.error("S2S reconnect failed:", msg);
             trySendJson({ type: "error", message: msg });
           });
         }
       });
 
-      stt = handle;
+      s2s = handle;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("STT connect failed:", msg);
+      console.error("S2S connect failed:", msg);
       trySendJson({ type: "error", message: msg });
     }
-  }
-
-  async function handleTurn(text: string, turnOrder?: number): Promise<void> {
-    cancelInflight();
-    metrics.turnsTotal.inc(agentLabel);
-    const turnStart = performance.now();
-
-    trySendJson({
-      type: "turn",
-      text,
-      ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
-    });
-
-    invokeHook("onTurn", { text });
-
-    const abort = new AbortController();
-    turnAbort = abort;
-    const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
-
-    try {
-      // Resolve dynamic maxSteps if the agent uses a function
-      let maxSteps = agentConfig.maxSteps;
-      if (maxSteps === undefined && getWorkerApi) {
-        try {
-          cachedWorkerApi ??= await getWorkerApi();
-          const resolved = await cachedWorkerApi.resolveMaxSteps(
-            id,
-            5_000,
-            slotEnv,
-          );
-          if (resolved !== null) maxSteps = resolved;
-        } catch (err: unknown) {
-          console.warn("resolveMaxSteps failed, using default", { err });
-        }
-      }
-
-      const result = await executeTurn(text, {
-        agent,
-        model,
-        system: systemPrompt,
-        messages,
-        tools,
-        signal,
-        maxSteps,
-        toolChoice: agentConfig.toolChoice,
-        onStep: getWorkerApi
-          ? async (step: StepResult<ToolSet>) => {
-            const stepInfo = {
-              stepNumber: step.stepType === "initial" ? 0 : -1,
-              toolCalls: (step.toolCalls ?? []).map((tc) => ({
-                toolName: tc.toolName,
-                args: tc.args as Record<string, unknown>,
-              })),
-              text: step.text ?? "",
-            };
-            await invokeHook("onStep", { step: stepInfo });
-          }
-          : undefined,
-        resolveBeforeStep: getWorkerApi
-          ? async (stepNumber: number) => {
-            try {
-              cachedWorkerApi ??= await getWorkerApi!();
-              return await cachedWorkerApi.resolveBeforeStep(
-                id,
-                stepNumber,
-                5_000,
-                slotEnv,
-              );
-            } catch (err: unknown) {
-              console.warn("resolveBeforeStep failed", { err });
-              return null;
-            }
-          }
-          : undefined,
-      });
-      if (signal.aborted) return;
-
-      if (result) {
-        trySendJson({ type: "chat", text: result });
-        await tts.synthesizeStream(
-          result,
-          (chunk) => trySend(chunk),
-          signal,
-        );
-        if (!signal.aborted) trySendJson({ type: "tts_done" });
-      } else {
-        trySendJson({ type: "tts_done" });
-      }
-    } catch (err: unknown) {
-      if (signal.aborted) return;
-      const msg = err instanceof Error ? err.message : String(err);
-      // Log full error details for API errors (includes responseBody)
-      if (err instanceof Error && "responseBody" in err) {
-        console.error("Turn failed:", msg, {
-          responseBody: (err as { responseBody?: string }).responseBody,
-          statusCode: (err as { statusCode?: number }).statusCode,
-        });
-      } else {
-        console.error("Turn failed:", msg);
-      }
-      metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
-      trySendJson({ type: "error", message: msg });
-    } finally {
-      if (turnAbort === abort) turnAbort = null;
-      metrics.turnDuration.observe(
-        (performance.now() - turnStart) / 1000,
-        agentLabel,
-      );
-    }
-  }
-
-  function speakText(text: string): void {
-    const abort = new AbortController();
-    turnAbort = abort;
-    const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
-    const p = tts
-      .synthesizeStream(text, (chunk) => trySend(chunk), signal)
-      .then(() => {
-        if (!signal.aborted) trySendJson({ type: "tts_done" });
-      })
-      .catch((err: unknown) => {
-        if (signal.aborted) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error("TTS failed:", msg);
-        trySendJson({ type: "error", message: msg });
-      })
-      .finally(() => {
-        if (turnAbort === abort) turnAbort = null;
-        if (turnPromise === p) turnPromise = null;
-      });
-    turnPromise = p;
   }
 
   return {
@@ -442,17 +373,15 @@ export function createSession(opts: SessionOptions): Session {
       metrics.sessionsTotal.inc(agentLabel);
       metrics.sessionsActive.inc(agentLabel);
 
-      if (agentConfig.greeting) pendingGreeting = agentConfig.greeting;
-
       invokeHook("onConnect");
 
-      await doConnectSttWithEvents();
+      await connectAndSetup();
       trySendJson({
         type: "ready",
         protocol_version: PROTOCOL_VERSION,
         audio_format: AUDIO_FORMAT,
-        sample_rate: config.sttConfig.sampleRate,
-        tts_sample_rate: config.ttsConfig.sampleRate,
+        input_sample_rate: s2sConfig.inputSampleRate,
+        output_sample_rate: s2sConfig.outputSampleRate,
       });
     },
 
@@ -462,62 +391,35 @@ export function createSession(opts: SessionOptions): Session {
       metrics.sessionsActive.dec(agentLabel);
       const pending = turnPromise;
       if (pending) await pending;
-      stt?.close();
-      tts.close();
+      s2s?.close();
 
       invokeHook("onDisconnect");
     },
 
     onAudio(data: Uint8Array): void {
-      audioFrameCount++;
-      if (audioFrameCount <= 3) {
-        console.debug("audio frame", {
-          frame: audioFrameCount,
-          bytes: data.length,
-        });
-      }
-      stt?.send(data);
+      s2s?.sendAudio(data);
     },
 
     onAudioReady(): void {
-      if (pendingGreeting) {
-        trySendJson({ type: "chat", text: pendingGreeting });
-        speakText(pendingGreeting);
-        pendingGreeting = null;
-      }
+      if (audioReady) return;
+      audioReady = true;
+      // S2S handles greeting via system_prompt instruction —
+      // it will auto-speak on session start. No explicit TTS needed.
     },
 
     onCancel(): void {
-      cancelInflight();
-      stt?.clear();
+      // S2S handles barge-in natively. Send cancelled to client.
       trySendJson({ type: "cancelled" });
     },
 
     onReset(): void {
-      cancelInflight();
-      stt?.clear();
-      messages = [];
+      // Close S2S and reconnect for a fresh session.
+      conversationMessages = [];
+      toolCallCount = 0;
+      s2sSessionId = null; // Don't resume — start fresh
+      s2s?.close();
+      // Reconnect will happen via the close handler.
       trySendJson({ type: "reset" });
-
-      if (agentConfig.greeting) {
-        trySendJson({ type: "chat", text: agentConfig.greeting });
-        speakText(agentConfig.greeting);
-      }
-    },
-
-    onHistory(
-      incoming: { role: "user" | "assistant"; text: string }[],
-    ): void {
-      for (const msg of incoming) {
-        const coreMsg: CoreUserMessage | CoreAssistantMessage = {
-          role: msg.role,
-          content: msg.text,
-        };
-        messages.push(coreMsg);
-      }
-      console.info("Restored conversation history", {
-        count: incoming.length,
-      });
     },
 
     waitForTurn(): Promise<void> {

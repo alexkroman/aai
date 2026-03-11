@@ -32,14 +32,12 @@ Deno.test("buildSystemPrompt", async (t) => {
 
   await t.step("includes tool reminder when tools provided", () => {
     const prompt = buildSystemPrompt(makeConfig(), true);
-    expect(prompt).toContain("final_answer");
     expect(prompt).toContain("tool calling");
     expect(prompt).toContain("Tool Preambles");
   });
 
   await t.step("omits tool reminder when no tools", () => {
     const prompt = buildSystemPrompt(makeConfig(), false);
-    expect(prompt).not.toContain("final_answer");
     expect(prompt).not.toContain("Tool Preambles");
   });
 
@@ -52,5 +50,17 @@ Deno.test("buildSystemPrompt", async (t) => {
   await t.step("omits voice rules by default", () => {
     const prompt = buildSystemPrompt(makeConfig(), false);
     expect(prompt).not.toContain("CRITICAL OUTPUT RULES");
+  });
+
+  await t.step("includes greeting instruction when greeting is set", () => {
+    const prompt = buildSystemPrompt(makeConfig({ greeting: "Hello!" }), false);
+    expect(prompt).toContain(
+      "Your very first message to the user must be exactly: Hello!",
+    );
+  });
+
+  await t.step("omits greeting instruction when no greeting", () => {
+    const prompt = buildSystemPrompt(makeConfig({ greeting: "" }), false);
+    expect(prompt).not.toContain("very first message");
   });
 });

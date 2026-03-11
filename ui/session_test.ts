@@ -21,14 +21,12 @@ Deno.test("parseServerMessage", async (t) => {
   const valid: [string, Record<string, unknown>][] = [
     ["ready", {
       type: "ready",
-      protocol_version: 1,
+      protocol_version: 2,
       audio_format: "pcm16",
-      sample_rate: 16000,
-      tts_sample_rate: 24000,
+      input_sample_rate: 16000,
+      output_sample_rate: 24000,
     }],
-    ["partial_transcript", { type: "partial_transcript", text: "hello" }],
     ["final_transcript", { type: "final_transcript", text: "done" }],
-    ["turn", { type: "turn", text: "What's the weather?" }],
     ["chat", { type: "chat", text: "It's sunny!" }],
     ["tts_done", { type: "tts_done" }],
     ["cancelled", { type: "cancelled" }],
@@ -135,8 +133,8 @@ Deno.test("VoiceSession", async (t) => {
           type: "ready",
           protocol_version: 99,
           audio_format: "pcm16",
-          sample_rate: 16000,
-          tts_sample_rate: 24000,
+          input_sample_rate: 16000,
+          output_sample_rate: 24000,
         }));
         expect(session.state.value).toBe("error");
         expect(session.error.value?.code).toBe("protocol");
@@ -151,29 +149,14 @@ Deno.test("VoiceSession", async (t) => {
         const { session, ws } = await connectSession(mock);
         ws.simulateMessage(JSON.stringify({
           type: "ready",
-          protocol_version: 1,
+          protocol_version: 2,
           audio_format: "opus",
-          sample_rate: 16000,
-          tts_sample_rate: 24000,
+          input_sample_rate: 16000,
+          output_sample_rate: 24000,
         }));
         expect(session.state.value).toBe("error");
         expect(session.error.value?.code).toBe("protocol");
         expect(session.error.value?.message).toContain("opus");
-        session.disconnect();
-      }),
-    );
-
-    await t.step(
-      "accepts ready without protocol_version (backwards compat)",
-      withSessionEnv(async (mock) => {
-        const { session, ws } = await connectSession(mock);
-        ws.simulateMessage(JSON.stringify({
-          type: "ready",
-          sample_rate: 16000,
-          tts_sample_rate: 24000,
-        }));
-        // Should not error — old servers don't send protocol_version
-        expect(session.state.value).not.toBe("error");
         session.disconnect();
       }),
     );
@@ -201,19 +184,6 @@ Deno.test("VoiceSession", async (t) => {
 
   await t.step("handleServerMessage", async (t) => {
     await t.step(
-      "handles PARTIAL_TRANSCRIPT message",
-      withSessionEnv(async (mock) => {
-        const { session, ws } = await connectSession(mock);
-
-        ws.simulateMessage(
-          JSON.stringify({ type: "partial_transcript", text: "hello" }),
-        );
-        expect(session.transcript.value).toBe("hello");
-        session.disconnect();
-      }),
-    );
-
-    await t.step(
       "handles FINAL_TRANSCRIPT message",
       withSessionEnv(async (mock) => {
         const { session, ws } = await connectSession(mock);
@@ -227,21 +197,18 @@ Deno.test("VoiceSession", async (t) => {
     );
 
     await t.step(
-      "handles TURN message and replaces transcript",
+      "handles final_transcript and transitions to thinking",
       withSessionEnv(async (mock) => {
         const { session, ws } = await connectSession(mock);
 
         ws.simulateMessage(
-          JSON.stringify({ type: "partial_transcript", text: "helo" }),
-        );
-        ws.simulateMessage(
-          JSON.stringify({ type: "turn", text: "Hello" }),
+          JSON.stringify({ type: "final_transcript", text: "Hello" }),
         );
 
         expect(session.messages.value).toHaveLength(1);
         expect(session.messages.value[0].role).toBe("user");
         expect(session.messages.value[0].text).toBe("Hello");
-        expect(session.transcript.value).toBe("");
+        expect(session.transcript.value).toBe("Hello");
         expect(session.state.value).toBe("thinking");
         session.disconnect();
       }),

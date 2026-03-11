@@ -53,7 +53,7 @@ defineAgent({
   name: string;              // Required: display name
   instructions?: string;     // System prompt (sensible voice-first default provided)
   greeting?: string;         // Spoken on connect
-  voice?: Voice;             // Rime TTS voice (default: "luna")
+  voice?: Voice;             // TTS voice (default: "luna")
   sttPrompt?: string;        // STT guidance (jargon, names)
   maxSteps?: number | ((ctx: HookContext) => number);
   toolChoice?: ToolChoice;   // "auto" | "required" | "none"
@@ -209,9 +209,9 @@ export default defineAgent({
   onBeforeStep: (stepNumber, ctx) => {
     const state = ctx.state as { phase: string };
     if (state.phase === "gather") {
-      return { activeTools: ["search", "lookup", "final_answer"] };
+      return { activeTools: ["search", "lookup"] };
     }
-    return { activeTools: ["summarize", "final_answer"] };
+    return { activeTools: ["summarize"] };
   },
 });
 ```
@@ -259,8 +259,7 @@ tools: {
 
 ## Built-in tools
 
-Enable built-in tools via the `builtinTools` array. `user_input` and
-`final_answer` are always auto-included.
+Enable built-in tools via the `builtinTools` array.
 
 - **`web_search`** — Search the web (Brave Search). Params: `query`,
   `max_results?` (default 5)
@@ -268,13 +267,8 @@ Enable built-in tools via the `builtinTools` array. `user_input` and
 - **`fetch_json`** — HTTP GET a JSON API. Params: `url`, `headers?`
 - **`run_code`** — Execute JS in a sandbox (no net/fs, 30s timeout). Params:
   `code`
-- **`user_input`** — Ask user a follow-up question (auto-included). Params:
-  `question`
-- **`final_answer`** — Deliver spoken response via TTS (auto-included). Params:
-  `answer`
 
-The framework forces `final_answer` after `maxSteps - 1` tool iterations
-(default: 4).
+The framework limits tool iterations to `maxSteps` (default: 5).
 
 ---
 
@@ -448,7 +442,7 @@ type Voice =
   | "tauro"
   | "walnut"
   | "arcana"
-  | string; // any Rime speaker ID — https://docs.rime.ai/api-reference/voices
+  | string; // any supported speaker ID
 ```
 
 ### STT transcription guidance (`sttPrompt`)

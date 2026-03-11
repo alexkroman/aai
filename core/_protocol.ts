@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 
-export const PROTOCOL_VERSION = 1;
-export const DEFAULT_STT_SAMPLE_RATE = 16_000;
-export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
+export const PROTOCOL_VERSION = 2;
+export const DEFAULT_INPUT_SAMPLE_RATE = 16_000;
+export const DEFAULT_OUTPUT_SAMPLE_RATE = 24_000;
 export const AUDIO_FORMAT = "pcm16" as const;
 
 // ── Server → Client messages ──────────────────────────────────────────
@@ -14,12 +14,10 @@ export type ServerMessage =
     type: "ready";
     protocol_version: number;
     audio_format: "pcm16";
-    sample_rate: number;
-    tts_sample_rate: number;
+    input_sample_rate: number;
+    output_sample_rate: number;
   }
-  | { type: "partial_transcript"; text: string }
-  | { type: "final_transcript"; text: string; turn_order?: number }
-  | { type: "turn"; text: string; turn_order?: number }
+  | { type: "final_transcript"; text: string }
   | { type: "chat"; text: string }
   | { type: "tts_done" }
   | { type: "cancelled" }
@@ -33,19 +31,12 @@ export const ServerMessageSchema: z.ZodType<ServerMessage> = z
       type: z.literal("ready"),
       protocol_version: z.number().int().positive(),
       audio_format: z.literal("pcm16"),
-      sample_rate: z.number().int().positive(),
-      tts_sample_rate: z.number().int().positive(),
+      input_sample_rate: z.number().int().positive(),
+      output_sample_rate: z.number().int().positive(),
     }),
-    z.object({ type: z.literal("partial_transcript"), text: z.string() }),
     z.object({
       type: z.literal("final_transcript"),
       text: z.string(),
-      turn_order: z.number().int().nonnegative().optional(),
-    }),
-    z.object({
-      type: z.literal("turn"),
-      text: z.string(),
-      turn_order: z.number().int().nonnegative().optional(),
     }),
     z.object({ type: z.literal("chat"), text: z.string() }),
     z.object({ type: z.literal("tts_done") }),
@@ -65,11 +56,7 @@ export type ClientMessage =
   | { type: "audio_ready" }
   | { type: "cancel" }
   | { type: "reset" }
-  | { type: "ping" }
-  | {
-    type: "history";
-    messages: { role: "user" | "assistant"; text: string }[];
-  };
+  | { type: "ping" };
 
 export const ClientMessageSchema: z.ZodType<ClientMessage> = z
   .discriminatedUnion("type", [
@@ -77,13 +64,6 @@ export const ClientMessageSchema: z.ZodType<ClientMessage> = z
     z.object({ type: z.literal("cancel") }),
     z.object({ type: z.literal("reset") }),
     z.object({ type: z.literal("ping") }),
-    z.object({
-      type: z.literal("history"),
-      messages: z.array(z.object({
-        role: z.enum(["user", "assistant"]),
-        text: z.string().min(1),
-      })).min(1),
-    }),
   ]);
 
 // ── Binary audio frame spec ───────────────────────────────────────────
