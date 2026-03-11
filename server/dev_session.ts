@@ -8,6 +8,7 @@ import type { ToolSchema } from "@aai/sdk/schema";
 import { getBuiltinToolSchemas } from "./builtin_tools.ts";
 import {
   type AgentSlot,
+  prepareSession,
   trackSessionClose,
   trackSessionOpen,
 } from "./worker_pool.ts";
@@ -15,7 +16,6 @@ import type { HonoEnv } from "./hono_env.ts";
 import { claimNamespace, verifyOwner } from "./auth.ts";
 import { signScopeToken, verifyScopeToken } from "./scope_token.ts";
 import { createSession } from "./session.ts";
-import { prepareSession } from "./session_setup.ts";
 import { handleSessionWebSocket } from "./ws_handler.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { ScopeKey } from "./scope_token.ts";

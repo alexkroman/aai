@@ -121,6 +121,11 @@ export type CreateModelOptions = {
   gatewayBase?: string;
 };
 
+export const _internals = {
+  gatewayBugMiddleware,
+  createGatewayFetch,
+};
+
 export function createModel(opts: CreateModelOptions): LanguageModelV1 {
   const openai = createOpenAI({
     baseURL: opts.gatewayBase ?? DEFAULT_GATEWAY,

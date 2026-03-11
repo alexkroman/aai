@@ -29,17 +29,6 @@ export type TtsClient = {
   close(): void;
 };
 
-export const _internals = {
-  connectStt: connectStt as (
-    apiKey: string,
-    config: STTConfig,
-    events: SttEvents,
-  ) => Promise<SttHandle>,
-  createTtsClient: createTtsClient as (
-    config: Parameters<typeof createTtsClient>[0],
-  ) => TtsClient,
-};
-
 export type SessionOptions = {
   id: string;
   agent: string;
@@ -51,6 +40,14 @@ export type SessionOptions = {
   env?: Record<string, string | undefined>;
   getWorkerApi?: () => Promise<WorkerApi>;
   skipGreeting?: boolean;
+  connectStt?: (
+    apiKey: string,
+    config: STTConfig,
+    events: SttEvents,
+  ) => Promise<SttHandle>;
+  createTtsClient?: (
+    config: Parameters<typeof createTtsClient>[0],
+  ) => TtsClient;
 };
 
 export type Session = {
@@ -64,16 +61,14 @@ export type Session = {
   waitForTurn(): Promise<void>;
 };
 
-// deno-lint-ignore no-explicit-any
-type VercelToolSet = Record<string, any>;
-
 function buildVercelTools(
   customSchemas: ToolSchema[],
   builtinNames: readonly string[],
   executeTool: ExecuteTool,
   sessionId: string,
   env: Record<string, string | undefined>,
-): VercelToolSet {
+  // deno-lint-ignore no-explicit-any
+): Record<string, any> {
   // Builtin tools (Zod schemas, some with execute, some without)
   const tools = getBuiltinVercelTools(builtinNames, env);
 
@@ -140,8 +135,10 @@ export function createSession(opts: SessionOptions): Session {
     },
   };
 
-  const doConnectStt = _internals.connectStt;
-  const tts: TtsClient = _internals.createTtsClient(config.ttsConfig);
+  const doConnectStt = opts.connectStt ?? connectStt;
+  const tts: TtsClient = (opts.createTtsClient ?? createTtsClient)(
+    config.ttsConfig,
+  );
   tts.warmup();
 
   // Create the Vercel AI model with gateway middleware

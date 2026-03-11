@@ -4,11 +4,11 @@ import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import {
   type AgentSlot,
+  prepareSession,
   trackSessionClose,
   trackSessionOpen,
 } from "./worker_pool.ts";
 import { createSession, type SessionTransport } from "./session.ts";
-import { prepareSession } from "./session_setup.ts";
 import type { HonoEnv } from "./hono_env.ts";
 import {
   DEFAULT_STT_SAMPLE_RATE,

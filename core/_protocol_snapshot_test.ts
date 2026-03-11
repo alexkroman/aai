@@ -3,11 +3,9 @@ import { z } from "zod";
 import {
   AudioFrameSpec,
   ClientMessageSchema,
-  ClientStateMachine,
   DevRegisteredSchema,
   DevRegisterSchema,
   ServerMessageSchema,
-  ServerStateMachine,
 } from "./_protocol.ts";
 
 Deno.test("DevRegisterSchema snapshot", async (t) => {
@@ -28,12 +26,4 @@ Deno.test("ClientMessageSchema snapshot", async (t) => {
 
 Deno.test("AudioFrameSpec snapshot", async (t) => {
   await assertSnapshot(t, AudioFrameSpec);
-});
-
-Deno.test("ServerStateMachine snapshot", async (t) => {
-  await assertSnapshot(t, ServerStateMachine);
-});
-
-Deno.test("ClientStateMachine snapshot", async (t) => {
-  await assertSnapshot(t, ClientStateMachine);
 });

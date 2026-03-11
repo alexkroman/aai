@@ -351,9 +351,6 @@ export function getBuiltinToolSchemas(names: readonly string[]): ToolSchema[] {
   });
 }
 
-// deno-lint-ignore no-explicit-any
-type VercelToolSet = Record<string, any>;
-
 /**
  * Build Vercel AI SDK tool objects for builtin tools.
  * `final_answer` and `user_input` have no `execute` — this makes
@@ -363,9 +360,11 @@ type VercelToolSet = Record<string, any>;
 export function getBuiltinVercelTools(
   names: readonly string[],
   env: Record<string, string | undefined> = {},
-): VercelToolSet {
+  // deno-lint-ignore no-explicit-any
+): Record<string, any> {
   const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
-  const tools: VercelToolSet = {};
+  // deno-lint-ignore no-explicit-any
+  const tools: Record<string, any> = {};
   for (const name of allNames) {
     const bt = BUILTIN_TOOLS[name];
     if (!bt) continue;

@@ -12,7 +12,6 @@ export type {
   HookContext,
   ToolContext,
   ToolDef,
-  ToolInput,
   Voice,
 } from "./types.ts";
 export type { Kv, KvEntry, KvListOptions } from "./kv.ts";

@@ -4,15 +4,13 @@ import * as metrics from "./metrics.ts";
 
 const DEFAULT_STOP_WHEN = 5;
 
-// deno-lint-ignore no-explicit-any
-type VercelToolSet = Record<string, any>;
-
 export type ExecuteTurnOptions = {
   agent: string;
   model: LanguageModelV1;
   system: string;
   messages: CoreMessage[];
-  tools: VercelToolSet;
+  // deno-lint-ignore no-explicit-any
+  tools: Record<string, any>;
   signal: AbortSignal;
   stopWhen?: number;
 };

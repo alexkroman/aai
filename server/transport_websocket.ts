@@ -5,12 +5,12 @@ import { handleSessionWebSocket } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
 import {
   type AgentSlot,
+  prepareSession,
   registerSlot,
   trackSessionClose,
   trackSessionOpen,
 } from "./worker_pool.ts";
 import type { HonoEnv } from "./hono_env.ts";
-import { prepareSession } from "./session_setup.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 
 export const _internals = {

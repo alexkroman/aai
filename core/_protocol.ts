@@ -15,8 +15,7 @@ import {
 export const PROTOCOL_VERSION = 1;
 export const DEFAULT_STT_SAMPLE_RATE = 16_000;
 export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
-export type AudioFormat = "pcm16";
-export const AUDIO_FORMAT: AudioFormat = "pcm16";
+export const AUDIO_FORMAT = "pcm16" as const;
 
 export type DevRegister = {
   type: "dev_register";
@@ -52,7 +51,7 @@ export type ServerMessage =
   | {
     type: "ready";
     protocol_version: number;
-    audio_format: AudioFormat;
+    audio_format: "pcm16";
     sample_rate: number;
     tts_sample_rate: number;
   }
@@ -98,8 +97,6 @@ export const ServerMessageSchema: z.ZodType<ServerMessage> = z
     z.object({ type: z.literal("pong") }),
   ]);
 
-export type AudioFrame = ArrayBuffer;
-
 /**
  * Binary audio frame specification. All audio exchanged over the WebSocket as
  * binary frames MUST conform to this spec. Any change here is a breaking
@@ -117,183 +114,6 @@ export const AudioFrameSpec = {
   /** Bytes per sample (bitsPerSample / 8 * channels). */
   bytesPerSample: 2,
 } as const;
-
-// ---------------------------------------------------------------------------
-// Protocol state machine
-// ---------------------------------------------------------------------------
-
-/** Every valid server→client message type (text JSON or binary audio). */
-export type ServerEvent = ServerMessage["type"] | "audio";
-
-/** Every valid client→server message type (text JSON or binary audio). */
-export type ClientEvent = ClientMessage["type"] | "audio";
-
-/**
- * Defines the legal message sequences for one side of the protocol.
- *
- * `"*"` means "allowed in any state". A state that maps to `null` is terminal
- * (no further transitions). States not listed are implicitly terminal.
- */
-export type StateMachine<E extends string> = {
-  initial: string;
-  transitions: Record<string, E[] | "*" | null>;
-};
-
-/**
- * Valid server→client state transitions.
- *
- * State names describe the phase the *server* is in. After sending a message
- * of a given type the server moves to the corresponding state.
- */
-export const ServerStateMachine: StateMachine<ServerEvent> = {
-  initial: "connected",
-  transitions: {
-    // Server has accepted the WebSocket, nothing sent yet.
-    connected: ["ready"],
-    // Server sent `ready`, waiting for client to set up audio.
-    ready: ["partial_transcript", "final_transcript", "error", "pong"],
-    // Streaming partial transcripts while user speaks.
-    partial_transcript: [
-      "partial_transcript",
-      "final_transcript",
-      "cancelled",
-      "error",
-      "pong",
-    ],
-    // User utterance finalized; server will either start a turn or continue.
-    final_transcript: [
-      "partial_transcript",
-      "final_transcript",
-      "turn",
-      "cancelled",
-      "error",
-      "pong",
-    ],
-    // Turn sent; server is now thinking (running LLM + tools).
-    turn: ["chat", "error", "pong"],
-    // LLM response text sent; server is now streaming TTS audio.
-    chat: ["audio", "tts_done", "cancelled", "error", "pong"],
-    // Binary audio frame (TTS playback).
-    audio: ["audio", "tts_done", "cancelled", "error", "pong"],
-    // TTS finished; back to listening.
-    tts_done: [
-      "partial_transcript",
-      "final_transcript",
-      "chat",
-      "error",
-      "pong",
-    ],
-    // Turn was interrupted; back to listening.
-    cancelled: [
-      "partial_transcript",
-      "final_transcript",
-      "error",
-      "pong",
-    ],
-    // State was reset (messages cleared); back to listening. May start greeting.
-    reset: [
-      "partial_transcript",
-      "final_transcript",
-      "chat",
-      "error",
-      "pong",
-    ],
-    // pong is a response to ping; doesn't change the underlying state.
-    pong: "*",
-    // error is terminal for fatal errors, but non-fatal errors can continue.
-    error: [
-      "partial_transcript",
-      "final_transcript",
-      "error",
-      "pong",
-    ],
-  },
-};
-
-/**
- * Valid client→server state transitions.
- */
-export const ClientStateMachine: StateMachine<ClientEvent> = {
-  initial: "connected",
-  transitions: {
-    // WebSocket opened, waiting for `ready` from server.
-    connected: ["audio_ready", "history", "ping"],
-    // Client can optionally send history before audio_ready.
-    history: ["audio_ready", "history", "ping"],
-    // Client has set up audio and signaled readiness.
-    audio_ready: ["audio", "cancel", "reset", "ping"],
-    // Client is streaming mic audio.
-    audio: ["audio", "cancel", "reset", "ping"],
-    // Client requested cancellation.
-    cancel: ["audio", "cancel", "reset", "ping"],
-    // Client requested state reset.
-    reset: ["audio_ready", "audio", "cancel", "reset", "ping"],
-    // ping doesn't change the underlying state.
-    ping: "*",
-  },
-};
-
-/**
- * Runtime protocol validator. Tracks the current state and throws on illegal
- * transitions. Use in dev/test mode to catch ordering bugs.
- */
-export class ProtocolValidator<E extends string> {
-  #machine: StateMachine<E>;
-  #state: string;
-  #prevState: string;
-
-  constructor(machine: StateMachine<E>) {
-    this.#machine = machine;
-    this.#state = machine.initial;
-    this.#prevState = machine.initial;
-  }
-
-  get state(): string {
-    return this.#state;
-  }
-
-  /**
-   * Record a message event. Throws if the transition is illegal.
-   * For events that don't change state (like `pong`/`ping` with `"*"`),
-   * the state remains unchanged.
-   */
-  send(event: E): void {
-    const allowed = this.#machine.transitions[this.#state];
-
-    if (allowed === "*") {
-      // Wildcard state (e.g. pong) — stay in current state.
-      return;
-    }
-
-    if (allowed === null || allowed === undefined) {
-      throw new Error(
-        `Protocol violation: no transitions from terminal state "${this.#state}"`,
-      );
-    }
-
-    if (!allowed.includes(event)) {
-      throw new Error(
-        `Protocol violation: "${event}" not allowed in state "${this.#state}" ` +
-          `(allowed: ${JSON.stringify(allowed)})`,
-      );
-    }
-
-    // If the event's own transition rule is "*", it means "don't change state".
-    const nextAllowed = this.#machine.transitions[event];
-    if (nextAllowed === "*") {
-      // Stateless event (like pong/ping); preserve current state.
-      return;
-    }
-
-    this.#prevState = this.#state;
-    this.#state = event;
-  }
-
-  reset(): void {
-    this.#state = this.#machine.initial;
-    this.#prevState = this.#machine.initial;
-  }
-}
 
 export type ClientMessage =
   | { type: "audio_ready" }

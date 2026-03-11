@@ -1,7 +1,6 @@
 import { expect } from "@std/expect";
-import { assertSpyCalls, spy, stub } from "@std/testing/mock";
+import { assertSpyCalls, spy } from "@std/testing/mock";
 import {
-  _internals,
   createSession,
   type SessionOptions,
   type SessionTransport,
@@ -88,6 +87,8 @@ function createMockSessionOptions() {
     toolSchemas: [],
     platformConfig: createMockPlatformConfig(),
     executeTool,
+    connectStt: () => Promise.resolve(sttHandle),
+    createTtsClient: () => ttsClient,
   };
 
   return {
@@ -99,7 +100,7 @@ function createMockSessionOptions() {
 }
 
 type SetupOptions = {
-  connectStt?: typeof _internals.connectStt;
+  connectStt?: SessionOptions["connectStt"];
   agentConfig?: Partial<AgentConfig>;
 };
 
@@ -111,17 +112,9 @@ function setup(options?: SetupOptions) {
       ...options.agentConfig,
     };
   }
-
-  const sttStub = stub(
-    _internals,
-    "connectStt",
-    options?.connectStt ?? (() => Promise.resolve(mocks.sttHandle)),
-  );
-  const ttsStub = stub(
-    _internals,
-    "createTtsClient",
-    () => mocks.ttsClient,
-  );
+  if (options?.connectStt) {
+    mocks.opts.connectStt = options.connectStt;
+  }
 
   const transport = mocks.opts.transport as ReturnType<
     typeof createMockTransport
@@ -132,10 +125,6 @@ function setup(options?: SetupOptions) {
     session,
     transport,
     ...mocks,
-    [Symbol.dispose]() {
-      sttStub.restore();
-      ttsStub.restore();
-    },
   };
 }
 
@@ -150,23 +139,14 @@ function setupWithSttEvents(options?: SetupOptions) {
 
   const events: { current: SttEvents | null } = { current: null };
 
-  const sttStub = stub(
-    _internals,
-    "connectStt",
-    (_key, _config, sttEvents) => {
-      events.current = sttEvents;
-      return Promise.resolve({
-        send: () => {},
-        clear: () => {},
-        close: () => {},
-      });
-    },
-  );
-  const ttsStub = stub(
-    _internals,
-    "createTtsClient",
-    () => mocks.ttsClient,
-  );
+  mocks.opts.connectStt = (_key, _config, sttEvents) => {
+    events.current = sttEvents;
+    return Promise.resolve({
+      send: () => {},
+      clear: () => {},
+      close: () => {},
+    });
+  };
 
   const transport = mocks.opts.transport as ReturnType<
     typeof createMockTransport
@@ -178,15 +158,11 @@ function setupWithSttEvents(options?: SetupOptions) {
     transport,
     events,
     ...mocks,
-    [Symbol.dispose]() {
-      sttStub.restore();
-      ttsStub.restore();
-    },
   };
 }
 
 Deno.test("start sends READY message with protocol metadata", async () => {
-  using ctx = setup();
+  const ctx = setup();
   await ctx.session.start();
   const messages = getSentJson(ctx.transport);
   const ready = messages.find((m) => m.type === "ready");
@@ -198,14 +174,14 @@ Deno.test("start sends READY message with protocol metadata", async () => {
 });
 
 Deno.test("start defers greeting until onAudioReady", () => {
-  using ctx = setup();
+  const ctx = setup();
   ctx.session.start();
   const messages = getSentJson(ctx.transport);
   expect(messages.filter((m) => m.type === "chat")).toHaveLength(0);
 });
 
 Deno.test("start sends error on STT connection failure", async () => {
-  using ctx = setup({
+  const ctx = setup({
     connectStt: () => {
       throw new Error("STT connection refused");
     },
@@ -216,7 +192,7 @@ Deno.test("start sends error on STT connection failure", async () => {
 });
 
 Deno.test("onAudioReady sends greeting and starts TTS", async () => {
-  using ctx = setup();
+  const ctx = setup();
   await ctx.session.start();
   ctx.session.onAudioReady();
   const chat = getSentJson(ctx.transport).find((m) => m.type === "chat");
@@ -225,7 +201,7 @@ Deno.test("onAudioReady sends greeting and starts TTS", async () => {
 });
 
 Deno.test("onAudioReady is a no-op on second call", async () => {
-  using ctx = setup();
+  const ctx = setup();
   await ctx.session.start();
   ctx.session.onAudioReady();
   const firstCount = ctx.ttsClient.synthesizeStream.calls.length;
@@ -234,14 +210,14 @@ Deno.test("onAudioReady is a no-op on second call", async () => {
 });
 
 Deno.test("onAudio relays data to STT handle", async () => {
-  using ctx = setup();
+  const ctx = setup();
   await ctx.session.start();
   ctx.session.onAudio(new Uint8Array([1, 2, 3]));
   assertSpyCalls(ctx.sttHandle.send, 1);
 });
 
 Deno.test("onAudio does not throw before STT is connected", () => {
-  using ctx = setup({
+  const ctx = setup({
     connectStt: () => new Promise(() => {}),
   });
   ctx.session.start();
@@ -249,7 +225,7 @@ Deno.test("onAudio does not throw before STT is connected", () => {
 });
 
 Deno.test("onCancel clears STT and sends CANCELLED", async () => {
-  using ctx = setup();
+  const ctx = setup();
   await ctx.session.start();
   ctx.session.onCancel();
   assertSpyCalls(ctx.sttHandle.clear, 1);
@@ -258,7 +234,7 @@ Deno.test("onCancel clears STT and sends CANCELLED", async () => {
 });
 
 Deno.test("onReset sends RESET and re-sends greeting", async () => {
-  using ctx = setup();
+  const ctx = setup();
   await ctx.session.start();
   ctx.session.onReset();
   assertSpyCalls(ctx.sttHandle.clear, 1);
@@ -268,7 +244,7 @@ Deno.test("onReset sends RESET and re-sends greeting", async () => {
 });
 
 Deno.test("relays STT partial transcript to browser", async () => {
-  using ctx = setupWithSttEvents();
+  const ctx = setupWithSttEvents();
   await ctx.session.start();
   ctx.events.current!.onTranscript("partial text", false);
   const transcript = getSentJson(ctx.transport).find((m) =>
@@ -278,7 +254,7 @@ Deno.test("relays STT partial transcript to browser", async () => {
 });
 
 Deno.test("relays STT final transcript to browser", async () => {
-  using ctx = setupWithSttEvents();
+  const ctx = setupWithSttEvents();
   await ctx.session.start();
   ctx.events.current!.onTranscript("done", true, 3);
   const transcript = getSentJson(ctx.transport).find((m) =>
@@ -289,7 +265,7 @@ Deno.test("relays STT final transcript to browser", async () => {
 });
 
 Deno.test("omits turn_order on final transcript when undefined", async () => {
-  using ctx = setupWithSttEvents();
+  const ctx = setupWithSttEvents();
   await ctx.session.start();
   ctx.events.current!.onTranscript("done", true);
   const transcript = getSentJson(ctx.transport).find((m) =>
@@ -299,7 +275,7 @@ Deno.test("omits turn_order on final transcript when undefined", async () => {
 });
 
 Deno.test("forwards turn_order in turn messages", async () => {
-  using ctx = setupWithSttEvents();
+  const ctx = setupWithSttEvents();
   await ctx.session.start();
   ctx.events.current!.onTurn("What is the weather?", 5);
   // Check the turn message was sent immediately (before LLM call)
@@ -311,7 +287,7 @@ Deno.test("forwards turn_order in turn messages", async () => {
 });
 
 Deno.test("trySendJson silently drops messages when WS is closed", () => {
-  using ctx = setup();
+  const ctx = setup();
   ctx.opts.transport = {
     sent: [] as (string | ArrayBuffer | Uint8Array)[],
     readyState: 3,
@@ -327,7 +303,7 @@ Deno.test("trySendJson silently drops messages when WS is closed", () => {
 });
 
 Deno.test("stop closes STT and TTS", async () => {
-  using ctx = setup();
+  const ctx = setup();
   await ctx.session.start();
   await ctx.session.stop();
   assertSpyCalls(ctx.sttHandle.close, 1);
@@ -335,7 +311,7 @@ Deno.test("stop closes STT and TTS", async () => {
 });
 
 Deno.test("stop is idempotent", async () => {
-  using ctx = setup();
+  const ctx = setup();
   await ctx.session.start();
   await ctx.session.stop();
   assertSpyCalls(ctx.ttsClient.close, 1);
@@ -344,7 +320,7 @@ Deno.test("stop is idempotent", async () => {
 });
 
 Deno.test("onHistory restores conversation messages", async () => {
-  using ctx = setup();
+  const ctx = setup();
   await ctx.session.start();
   ctx.session.onHistory([
     { role: "user", text: "Hello" },
@@ -357,30 +333,12 @@ Deno.test("skipGreeting suppresses greeting on start", async () => {
   const mocks = createMockSessionOptions();
   mocks.opts.skipGreeting = true;
 
-  const sttStub = stub(
-    _internals,
-    "connectStt",
-    () => Promise.resolve(mocks.sttHandle),
-  );
-  const ttsStub = stub(
-    _internals,
-    "createTtsClient",
-    () => mocks.ttsClient,
-  );
-
-  try {
-    const session = createSession(mocks.opts);
-    await session.start();
-    session.onAudioReady();
-    const transport = mocks.opts.transport as ReturnType<
-      typeof createMockTransport
-    >;
-    const chatMessages = getSentJson(transport).filter((m) =>
-      m.type === "chat"
-    );
-    expect(chatMessages).toHaveLength(0);
-  } finally {
-    sttStub.restore();
-    ttsStub.restore();
-  }
+  const session = createSession(mocks.opts);
+  await session.start();
+  session.onAudioReady();
+  const transport = mocks.opts.transport as ReturnType<
+    typeof createMockTransport
+  >;
+  const chatMessages = getSentJson(transport).filter((m) => m.type === "chat");
+  expect(chatMessages).toHaveLength(0);
 });

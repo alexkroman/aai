@@ -11,7 +11,7 @@ import type { ExecuteTool } from "@aai/core/worker-entry";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "@aai/core/rpc-schema";
 import { createDenoWorker } from "@aai/core/deno-worker";
-import { assertPublicUrl } from "./builtin_tools.ts";
+import { assertPublicUrl, getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentScope } from "./scope_token.ts";
 export type { AgentMetadata } from "@aai/core/rpc-schema";
@@ -230,5 +230,43 @@ export function createToolExecutor(
       return api.executeTool(name, args, sessionId, 30_000, slot.env);
     },
     getWorkerApi,
+  };
+}
+
+export type SessionSetup = {
+  agentConfig: AgentConfig;
+  toolSchemas: ToolSchema[];
+  platformConfig: ReturnType<typeof loadPlatformConfig>;
+  executeTool: ExecuteTool;
+  getWorkerApi?: () => Promise<WorkerApi>;
+  env?: Record<string, string | undefined>;
+};
+
+export function prepareSession(
+  slot: AgentSlot,
+  slug: string,
+  store: BundleStore,
+  kvStore: KvStore,
+): SessionSetup {
+  const config = slot.config!;
+  const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
+  const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
+  const kvCtx = slot.ownerHash
+    ? { kvStore, scope: { ownerHash: slot.ownerHash, slug } }
+    : undefined;
+  const { executeTool, getWorkerApi } = createToolExecutor(slot, store, kvCtx);
+
+  if ((slot.toolSchemas ?? []).length > 0 && !slot._dev) {
+    const getWorkerCode = (s: string) => store.getFile(s, "worker");
+    ensureAgent(slot, getWorkerCode, kvCtx).catch(() => {});
+  }
+
+  return {
+    agentConfig: config,
+    toolSchemas,
+    platformConfig: loadPlatformConfig(slot.env),
+    executeTool,
+    getWorkerApi,
+    env: slot.env,
   };
 }

@@ -3,9 +3,6 @@ import { type CoreMessage, jsonSchema, tool as vercelTool } from "ai";
 import { MockLanguageModelV1 } from "ai/test";
 import { executeTurn } from "./turn_handler.ts";
 
-// deno-lint-ignore no-explicit-any
-type VercelToolSet = Record<string, any>;
-
 function makeModel(
   responses: {
     text?: string;
@@ -34,7 +31,8 @@ function makeModel(
   });
 }
 
-function makeTools(): VercelToolSet {
+// deno-lint-ignore no-explicit-any
+function makeTools(): Record<string, any> {
   return {
     final_answer: vercelTool({
       description: "Deliver answer",

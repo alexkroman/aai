@@ -67,6 +67,7 @@ async function stripTypes(source: string): Promise<string> {
 }
 
 export const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
+
 const baseConfigPath = resolve(AAI_ROOT, "_bundler_config.json");
 
 /**
@@ -225,6 +226,15 @@ function getOutputText(
 ): string {
   return result.outputFiles?.[0]?.text ?? "";
 }
+
+export const _internals = {
+  WORKSPACE_ALIASES,
+  bundleError,
+  getOutputText,
+  jsBytes,
+  buildNpmAliases,
+  stripTypes,
+};
 
 export async function importTempModule(
   sourcePath: string,

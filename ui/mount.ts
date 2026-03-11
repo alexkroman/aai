@@ -1,4 +1,4 @@
-import { h, render } from "preact";
+import { render } from "preact";
 import type { ComponentType } from "preact";
 import { createVoiceSession, type VoiceSession } from "./session.ts";
 import {
@@ -7,6 +7,7 @@ import {
   type SessionSignals,
 } from "./signals.ts";
 import { applyTheme, defaultTheme, type Theme } from "./theme.ts";
+import { html } from "./_html.ts";
 
 function injectBodyStyle(theme: Theme): HTMLStyleElement {
   const style = document.createElement("style");
@@ -56,10 +57,7 @@ export function mount(
   const styleEl = injectBodyStyle(theme);
 
   render(
-    h(SessionProvider, {
-      value: signals,
-      children: [h(Component, null)],
-    }),
+    html`<${SessionProvider} value="${signals}"><${Component} /></${SessionProvider}>`,
     container,
   );
 

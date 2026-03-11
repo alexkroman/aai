@@ -47,26 +47,6 @@ export function tool(def: ToolDef): ToolDef {
   return def;
 }
 
-export type ToolTuple =
-  | [
-    description: string,
-    schema: z.ZodObject<z.ZodRawShape>,
-    execute: ToolDef["execute"],
-  ]
-  | [description: string, execute: ToolDef["execute"]];
-
-export type ToolInput = ToolDef | ToolTuple;
-
-export function normalizeToolDef(input: ToolInput): ToolDef {
-  if (Array.isArray(input)) {
-    if (input.length === 3) {
-      return { description: input[0], parameters: input[1], execute: input[2] };
-    }
-    return { description: input[0], execute: input[1] };
-  }
-  return input;
-}
-
 export type Voice =
   | "luna"
   | "andromeda"
@@ -99,7 +79,7 @@ export type AgentOptions<S = any> = {
   sttPrompt?: string;
   stopWhen?: number;
   builtinTools?: BuiltinTool[];
-  tools?: Record<string, ToolInput>;
+  tools?: Record<string, ToolDef>;
   state?: () => S;
   onConnect?: (ctx: HookContext<S>) => void | Promise<void>;
   onDisconnect?: (ctx: HookContext<S>) => void | Promise<void>;
