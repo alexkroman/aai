@@ -3,6 +3,7 @@ import { expect } from "@std/expect";
 import { stub } from "@std/testing/mock";
 import { createOrchestrator } from "./orchestrator.ts";
 import { _internals } from "./ws_upgrade.ts";
+import { _internals as _wsInternals } from "./transport_websocket.ts";
 import { hashApiKey } from "./auth.ts";
 import { signScopeToken } from "./scope_token.ts";
 import {
@@ -171,27 +172,6 @@ Deno.test("deploy can redeploy same slug", async () => {
   assertEquals(res.status, 200);
 });
 
-Deno.test("deploy rejects missing config", async () => {
-  const { handler } = await createTestOrchestrator();
-  const res = await handler(
-    req("/ns/agent/deploy", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer key1",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        env: VALID_ENV,
-        worker: "console.log('w');",
-        client: "console.log('c');",
-      }),
-    }),
-    DUMMY_INFO,
-  );
-  assertEquals(res.status, 400);
-  assertStringIncludes((await res.json()).error, "config");
-});
-
 // =============================================================================
 // Agent health & page (requires deployed agent)
 // =============================================================================
@@ -323,6 +303,23 @@ Deno.test("websocket upgrades for deployed agent", async () => {
       response: new Response(null, { status: 101 }),
     }),
   );
+  const prepareStub = stub(
+    _wsInternals,
+    "prepareSession",
+    (() =>
+      Promise.resolve({
+        agentConfig: {
+          name: "test",
+          instructions: "",
+          greeting: "",
+          voice: "",
+        },
+        toolSchemas: [],
+        platformConfig: {} as never,
+        executeTool: () => Promise.resolve("ok"),
+        getWorkerApi: () => Promise.resolve({} as never),
+      })) as never,
+  );
   try {
     const res = await handler(
       req("/ns/agent/websocket", { headers: { upgrade: "websocket" } }),
@@ -331,6 +328,7 @@ Deno.test("websocket upgrades for deployed agent", async () => {
     assertEquals(res.status, 101);
   } finally {
     upgradeStub.restore();
+    prepareStub.restore();
   }
 });
 

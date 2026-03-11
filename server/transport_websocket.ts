@@ -14,6 +14,8 @@ import type { HonoEnv } from "./hono_env.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { upgradeWebSocket } from "./ws_upgrade.ts";
 
+export const _internals = { prepareSession };
+
 export async function discoverSlot(
   slug: string,
   slots: Map<string, AgentSlot>,
@@ -67,7 +69,7 @@ export const handleWebSocket = upgradeWebSocket(async (c) => {
   const { slug, slots, store, kvStore, sessions } = c.var;
   const slot = await requireSlot(slug, slots, store);
 
-  const setup = await prepareSession(slot, slug, store, kvStore);
+  const setup = await _internals.prepareSession(slot, slug, store, kvStore);
   const resume = c.req.query("resume") !== undefined;
 
   return createSessionWSEvents(sessions, {
