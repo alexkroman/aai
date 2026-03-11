@@ -20,10 +20,12 @@ import {
   type CoreMessage,
   type CoreUserMessage,
   jsonSchema,
+  type StepResult,
   tool as vercelTool,
   type ToolExecutionOptions,
   type ToolSet,
 } from "ai";
+import type { Message } from "@aai/sdk/types";
 import * as metrics from "./metrics.ts";
 import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/core/protocol";
 
@@ -73,12 +75,23 @@ export type Session = {
   waitForTurn(): Promise<void>;
 };
 
+function coreMessagesToSimple(msgs: CoreMessage[]): Message[] {
+  const result: Message[] = [];
+  for (const m of msgs) {
+    if (typeof m.content === "string") {
+      result.push({ role: m.role as Message["role"], content: m.content });
+    }
+  }
+  return result;
+}
+
 function buildVercelTools(
   customSchemas: ToolSchema[],
   builtinNames: readonly BuiltinTool[],
   executeTool: ExecuteTool,
   sessionId: string,
   env: Record<string, string | undefined>,
+  getMessages: () => CoreMessage[],
 ): ToolSet {
   // Builtin tools (Zod schemas, some with execute, some without)
   const tools = getBuiltinVercelTools(builtinNames, env);
@@ -93,6 +106,7 @@ function buildVercelTools(
           schema.name,
           args as Record<string, unknown>,
           sessionId,
+          coreMessagesToSimple(getMessages()),
         );
         return result;
       },
@@ -118,7 +132,15 @@ export function createSession(opts: SessionOptions): Session {
   let cachedWorkerApi: WorkerApi | undefined;
   async function invokeHook(
     hook: string,
-    extra?: { text?: string; error?: string },
+    extra?: {
+      text?: string;
+      error?: string;
+      step?: {
+        stepNumber: number;
+        toolCalls: { toolName: string; args: Record<string, unknown> }[];
+        text: string;
+      };
+    },
   ): Promise<void> {
     if (!getWorkerApi) return;
     try {
@@ -166,13 +188,15 @@ export function createSession(opts: SessionOptions): Session {
     voice: true,
   });
 
-  // Build Vercel tool set
+  // Build Vercel tool set (getMessages closure provides current conversation)
+  const getMessages = () => messages;
   const tools = buildVercelTools(
     toolSchemas,
     agentConfig.builtinTools ?? [],
     executeTool,
     id,
     env,
+    getMessages,
   );
 
   let stt: SttHandle | null = null;
@@ -300,6 +324,22 @@ export function createSession(opts: SessionOptions): Session {
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
 
     try {
+      // Resolve dynamic stopWhen if the agent uses a function
+      let stopWhen = agentConfig.stopWhen;
+      if (stopWhen === undefined && getWorkerApi) {
+        try {
+          cachedWorkerApi ??= await getWorkerApi();
+          const resolved = await cachedWorkerApi.resolveStopWhen(
+            id,
+            5_000,
+            slotEnv,
+          );
+          if (resolved !== null) stopWhen = resolved;
+        } catch (err: unknown) {
+          console.warn("resolveStopWhen failed, using default", { err });
+        }
+      }
+
       const result = await executeTurn(text, {
         agent,
         model,
@@ -307,7 +347,37 @@ export function createSession(opts: SessionOptions): Session {
         messages,
         tools,
         signal,
-        stopWhen: agentConfig.stopWhen,
+        stopWhen,
+        toolChoice: agentConfig.toolChoice,
+        onStep: getWorkerApi
+          ? async (step: StepResult<ToolSet>) => {
+            const stepInfo = {
+              stepNumber: step.stepType === "initial" ? 0 : -1,
+              toolCalls: (step.toolCalls ?? []).map((tc) => ({
+                toolName: tc.toolName,
+                args: tc.args as Record<string, unknown>,
+              })),
+              text: step.text ?? "",
+            };
+            await invokeHook("onStep", { step: stepInfo });
+          }
+          : undefined,
+        resolveBeforeStep: getWorkerApi
+          ? async (stepNumber: number) => {
+            try {
+              cachedWorkerApi ??= await getWorkerApi!();
+              return await cachedWorkerApi.resolveBeforeStep(
+                id,
+                stepNumber,
+                5_000,
+                slotEnv,
+              );
+            } catch (err: unknown) {
+              console.warn("resolveBeforeStep failed", { err });
+              return null;
+            }
+          }
+          : undefined,
       });
       if (signal.aborted) return;
 

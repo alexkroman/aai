@@ -55,7 +55,8 @@ defineAgent({
   greeting?: string;         // Spoken on connect
   voice?: Voice;             // Rime TTS voice (default: "luna")
   sttPrompt?: string;        // STT guidance (jargon, names)
-  stopWhen?: number;         // Max tool iterations (default: 5)
+  stopWhen?: number | ((ctx: HookContext) => number);
+  toolChoice?: ToolChoice;   // "auto" | "required" | "none"
   transport?: Transport[];   // "websocket" | "twilio" (default: ["websocket"])
   env?: string[];            // Env var names to load (default: ["ASSEMBLYAI_API_KEY"])
   builtinTools?: BuiltinTool[];
@@ -65,6 +66,9 @@ defineAgent({
   onDisconnect?: (ctx: HookContext) => void | Promise<void>;
   onError?: (error: Error, ctx?: HookContext) => void;
   onTurn?: (text: string, ctx: HookContext) => void | Promise<void>;
+  onStep?: (step: StepInfo, ctx: HookContext) => void | Promise<void>;
+  onBeforeStep?: (stepNumber: number, ctx: HookContext) =>
+    { activeTools?: string[] } | void;
 });
 ```
 
@@ -151,8 +155,104 @@ ctx.env; // Record<string, string> — env vars from .env
 ctx.abortSignal; // AbortSignal — cancelled on interruption (tools only)
 ctx.state; // per-session state (see "Per-session state")
 ctx.kv; // persistent KV store (see "Persistent storage")
+ctx.messages; // readonly Message[] — conversation history
 
-// Hooks get HookContext (same minus signal)
+// Hooks get HookContext (same minus signal and messages)
+```
+
+---
+
+## Tool choice
+
+Control how the LLM selects tools. Default is `"auto"`:
+
+```ts
+export default defineAgent({
+  name: "Strict Tool Agent",
+  toolChoice: "required", // Force the LLM to always call a tool
+  // Options: "auto" (default), "none",
+  // { type: "tool", toolName: "my_tool" }
+});
+```
+
+---
+
+## Step hooks
+
+### `onStep` — after each tool step
+
+Called after each LLM step completes. Use for logging, analytics, or updating
+state based on what tools were called:
+
+```ts
+export default defineAgent({
+  name: "Logged Agent",
+  onStep: (step, ctx) => {
+    console.log(`Step ${step.stepNumber}: ${step.toolCalls.length} tool calls`);
+    for (const tc of step.toolCalls) {
+      console.log(`  - ${tc.toolName}`);
+    }
+  },
+});
+```
+
+### `onBeforeStep` — dynamic tool filtering
+
+Called before each LLM step. Return `{ activeTools: [...] }` to limit which
+tools the LLM can use on this step. Useful for workflows where tools should only
+be available at certain stages:
+
+```ts
+export default defineAgent({
+  name: "Workflow Agent",
+  state: () => ({ phase: "gather" }),
+  onBeforeStep: (stepNumber, ctx) => {
+    const state = ctx.state as { phase: string };
+    if (state.phase === "gather") {
+      return { activeTools: ["search", "lookup", "final_answer"] };
+    }
+    return { activeTools: ["summarize", "final_answer"] };
+  },
+});
+```
+
+---
+
+## Dynamic `stopWhen`
+
+`stopWhen` can be a function that returns the max steps based on session state:
+
+```ts
+export default defineAgent({
+  name: "Adaptive Agent",
+  state: () => ({ complexity: "simple" }),
+  stopWhen: (ctx) => {
+    const state = ctx.state as { complexity: string };
+    return state.complexity === "complex" ? 10 : 5;
+  },
+});
+```
+
+---
+
+## Conversation history in tools
+
+Tools receive the conversation history via `ctx.messages`. Each message has
+`role` ("user", "assistant", or "tool") and `content` (string):
+
+```ts
+tools: {
+  summarize_conversation: tool({
+    description: "Summarize the conversation so far",
+    execute: (args, ctx) => {
+      const userMessages = ctx.messages.filter(m => m.role === "user");
+      return {
+        messageCount: ctx.messages.length,
+        userTurns: userMessages.length,
+      };
+    },
+  }),
+},
 ```
 
 ---

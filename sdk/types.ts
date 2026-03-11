@@ -1,7 +1,17 @@
 import { z } from "zod";
-import type { BuiltinTool, ToolSchema, Transport } from "./_schema.ts";
+import type {
+  BuiltinTool,
+  ToolChoice,
+  ToolSchema,
+  Transport,
+} from "./_schema.ts";
 import type { Kv } from "./kv.ts";
-export type { AgentConfig, BuiltinTool } from "./_schema.ts";
+export type { AgentConfig, BuiltinTool, ToolChoice } from "./_schema.ts";
+
+export type Message = {
+  role: "user" | "assistant" | "tool";
+  content: string;
+};
 
 export type ToolContext<S = Record<string, unknown>> = {
   sessionId: string;
@@ -9,6 +19,7 @@ export type ToolContext<S = Record<string, unknown>> = {
   abortSignal?: AbortSignal;
   state: S;
   kv: Kv;
+  messages: readonly Message[];
 };
 
 export type HookContext<S = Record<string, unknown>> = {
@@ -70,6 +81,12 @@ export type Voice =
   | "arcana"
   | (string & Record<never, never>);
 
+export type StepInfo = {
+  stepNumber: number;
+  toolCalls: { toolName: string; args: Record<string, unknown> }[];
+  text: string;
+};
+
 // deno-lint-ignore no-explicit-any
 export type AgentOptions<S = any> = {
   name: string;
@@ -79,7 +96,8 @@ export type AgentOptions<S = any> = {
   greeting?: string;
   voice?: Voice;
   sttPrompt?: string;
-  stopWhen?: number;
+  stopWhen?: number | ((ctx: HookContext<S>) => number);
+  toolChoice?: ToolChoice;
   builtinTools?: BuiltinTool[];
   tools?: Record<string, ToolDef>;
   state?: () => S;
@@ -87,6 +105,14 @@ export type AgentOptions<S = any> = {
   onDisconnect?: (ctx: HookContext<S>) => void | Promise<void>;
   onError?: (error: Error, ctx?: HookContext<S>) => void;
   onTurn?: (text: string, ctx: HookContext<S>) => void | Promise<void>;
+  onStep?: (step: StepInfo, ctx: HookContext<S>) => void | Promise<void>;
+  onBeforeStep?: (
+    stepNumber: number,
+    ctx: HookContext<S>,
+  ) =>
+    | { activeTools?: string[] }
+    | void
+    | Promise<{ activeTools?: string[] } | void>;
 };
 
 export const DEFAULT_INSTRUCTIONS: string = `\
@@ -129,7 +155,8 @@ export type AgentDef = {
   readonly greeting: string;
   readonly voice: string;
   readonly sttPrompt?: string;
-  readonly stopWhen: number;
+  readonly stopWhen: number | ((ctx: HookContext) => number);
+  readonly toolChoice?: ToolChoice;
   readonly builtinTools?: readonly BuiltinTool[];
   readonly tools: Readonly<Record<string, ToolDef>>;
   readonly state?: () => unknown;
@@ -137,4 +164,6 @@ export type AgentDef = {
   readonly onDisconnect?: AgentOptions["onDisconnect"];
   readonly onError?: AgentOptions["onError"];
   readonly onTurn?: AgentOptions["onTurn"];
+  readonly onStep?: AgentOptions["onStep"];
+  readonly onBeforeStep?: AgentOptions["onBeforeStep"];
 };

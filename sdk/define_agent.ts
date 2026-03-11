@@ -16,6 +16,7 @@ export function defineAgent(options: AgentOptions): AgentDef {
     voice: options.voice ?? "luna",
     sttPrompt: options.sttPrompt,
     stopWhen: options.stopWhen ?? 5,
+    toolChoice: options.toolChoice,
     builtinTools: options.builtinTools,
     tools: options.tools ?? {},
     state: options.state,
@@ -23,5 +24,7 @@ export function defineAgent(options: AgentOptions): AgentDef {
     onDisconnect: options.onDisconnect,
     onError: options.onError,
     onTurn: options.onTurn,
+    onStep: options.onStep,
+    onBeforeStep: options.onBeforeStep,
   });
 }

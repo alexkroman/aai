@@ -227,9 +227,9 @@ export async function prepareSession(
     await ensureAgent(slot, getWorkerCode, kvCtx);
     return slot.worker!.api;
   };
-  const executeTool: ExecuteTool = async (name, args, sessionId) => {
+  const executeTool: ExecuteTool = async (name, args, sessionId, messages) => {
     const api = await getWorkerApi();
-    return api.executeTool(name, args, sessionId, 30_000, slot.env);
+    return api.executeTool(name, args, sessionId, 30_000, slot.env, messages);
   };
 
   // Boot worker and extract config from agent definition

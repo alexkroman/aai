@@ -1,7 +1,8 @@
 import { expect } from "@std/expect";
 import { _internals } from "./model.ts";
 
-const { gatewayBugMiddleware, createGatewayFetch } = _internals;
+const { gatewayBugMiddleware, createGatewayFetch, GatewayResponseSchema } =
+  _internals;
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -141,10 +142,10 @@ Deno.test("createGatewayFetch: merges multiple choices into one", async () => {
   });
   const gf = createGatewayFetch(mockFetch(body));
   const res = await gf("https://gw.example.com/v1/chat/completions", {});
-  const json = await res.json();
+  const json = GatewayResponseSchema.parse(await res.json());
   expect(json.choices).toHaveLength(1);
-  expect(json.choices[0].message.tool_calls).toHaveLength(1);
-  expect(json.choices[0].message.content).toBe("Hello");
+  expect(json.choices[0].message?.tool_calls).toHaveLength(1);
+  expect(json.choices[0].message?.content).toBe("Hello");
   expect(json.choices[0].index).toBe(0);
 });
 
@@ -154,7 +155,7 @@ Deno.test("createGatewayFetch: adds index=0 to single choice missing index", asy
   });
   const gf = createGatewayFetch(mockFetch(body));
   const res = await gf("https://gw.example.com/chat/completions", {});
-  const json = await res.json();
+  const json = GatewayResponseSchema.parse(await res.json());
   expect(json.choices[0].index).toBe(0);
 });
 
@@ -164,7 +165,7 @@ Deno.test("createGatewayFetch: preserves existing index", async () => {
   });
   const gf = createGatewayFetch(mockFetch(body));
   const res = await gf("https://gw.example.com/chat/completions", {});
-  const json = await res.json();
+  const json = GatewayResponseSchema.parse(await res.json());
   expect(json.choices[0].index).toBe(3);
 });
 
@@ -179,7 +180,7 @@ Deno.test("createGatewayFetch: handles empty choices array", async () => {
   const body = JSON.stringify({ choices: [] });
   const gf = createGatewayFetch(mockFetch(body));
   const res = await gf("https://gw.example.com/chat/completions", {});
-  const json = await res.json();
+  const json = GatewayResponseSchema.parse(await res.json());
   expect(json.choices).toEqual([]);
 });
 
@@ -192,7 +193,7 @@ Deno.test("createGatewayFetch: handles URL object input", async () => {
     new URL("https://gw.example.com/chat/completions"),
     {},
   );
-  const json = await res.json();
+  const json = GatewayResponseSchema.parse(await res.json());
   expect(json.choices[0].index).toBe(0);
 });
 
@@ -203,7 +204,7 @@ Deno.test("createGatewayFetch: handles Request object input", async () => {
   const gf = createGatewayFetch(mockFetch(body));
   const req = new Request("https://gw.example.com/chat/completions");
   const res = await gf(req, {});
-  const json = await res.json();
+  const json = GatewayResponseSchema.parse(await res.json());
   expect(json.choices[0].index).toBe(0);
 });
 
@@ -223,10 +224,10 @@ Deno.test("createGatewayFetch: tool_calls choice without content gets content fr
   });
   const gf = createGatewayFetch(mockFetch(body));
   const res = await gf("https://gw.example.com/chat/completions", {});
-  const json = await res.json();
+  const json = GatewayResponseSchema.parse(await res.json());
   expect(json.choices).toHaveLength(1);
-  expect(json.choices[0].message.content).toBe("I'll help you with that.");
-  expect(json.choices[0].message.tool_calls).toHaveLength(1);
+  expect(json.choices[0].message?.content).toBe("I'll help you with that.");
+  expect(json.choices[0].message?.tool_calls).toHaveLength(1);
 });
 
 Deno.test("createGatewayFetch: preserves response status", async () => {

@@ -2,6 +2,7 @@ import { Input, Secret } from "@cliffy/prompt";
 import { parse as parseDotenv } from "@std/dotenv/parse";
 import { exists } from "@std/fs/exists";
 import { basename, join, resolve } from "@std/path";
+import { z } from "zod";
 export function slugify(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -15,21 +16,27 @@ const CONFIG_DIR = join(
 );
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 
-type AgentLink = {
-  namespace: string;
-  slug: string;
-  apiKey: string;
-};
+const AgentLinkSchema = z.object({
+  namespace: z.string(),
+  slug: z.string(),
+  apiKey: z.string(),
+});
 
-type CliConfig = {
-  assemblyai_api_key?: string;
-  namespace?: string;
-  agents?: Record<string, AgentLink>;
-};
+type AgentLink = z.infer<typeof AgentLinkSchema>;
+
+const CliConfigSchema = z.object({
+  assemblyai_api_key: z.string().optional(),
+  namespace: z.string().optional(),
+  agents: z.record(z.string(), AgentLinkSchema).optional(),
+});
+
+type CliConfig = z.infer<typeof CliConfigSchema>;
 
 async function readConfig(): Promise<CliConfig> {
   try {
-    return JSON.parse(await Deno.readTextFile(CONFIG_FILE));
+    return CliConfigSchema.parse(
+      JSON.parse(await Deno.readTextFile(CONFIG_FILE)),
+    );
   } catch {
     return {};
   }

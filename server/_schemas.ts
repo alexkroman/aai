@@ -1,23 +1,27 @@
 // Zod validation schemas for server-side use.
+// Shared schemas (Transport, AgentConfig, etc.) live in @aai/sdk/schema.
 // Protocol schemas (ServerMessage, ClientMessage, KV, Twilio) live in
 // @aai/core/protocol as the single source of truth.
 
 import { z } from "zod";
-import type {
-  AgentConfig,
-  AgentEnv,
-  BuiltinTool,
-  DeployBody,
-  ToolSchema,
-  Transport,
+import type { Transport } from "@aai/sdk/schema";
+
+// Re-export shared schemas so existing server/ imports keep working.
+export {
+  AgentConfigSchema,
+  BuiltinToolSchema,
+  DeployBodySchema,
+  EnvSchema,
+  ToolSchemaSchema,
+  TransportSchema,
 } from "@aai/sdk/schema";
-// Re-export protocol schemas so existing server/ imports keep working.
 export {
   ClientMessageSchema,
   ServerMessageSchema,
   TwilioMessageSchema,
 } from "@aai/core/protocol";
 import type { KvRequest } from "@aai/core/protocol";
+import { TransportSchema } from "@aai/sdk/schema";
 
 export type AgentMetadata = {
   slug: string;
@@ -25,51 +29,6 @@ export type AgentMetadata = {
   transport: Transport[];
   owner_hash?: string;
 };
-
-export const TransportSchema: z.ZodType<Transport> = z.enum([
-  "websocket",
-  "twilio",
-]);
-
-export const BuiltinToolSchema: z.ZodType<BuiltinTool> = z.enum([
-  "web_search",
-  "visit_webpage",
-  "fetch_json",
-  "run_code",
-  "user_input",
-  "final_answer",
-]);
-
-export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
-  name: z.string().optional(),
-  instructions: z.string(),
-  greeting: z.string(),
-  voice: z.string(),
-  sttPrompt: z.string().optional(),
-  stopWhen: z.number().optional(),
-  builtinTools: z.array(BuiltinToolSchema).optional(),
-});
-
-export const ToolSchemaSchema: z.ZodType<ToolSchema> = z.object({
-  name: z.string(),
-  description: z.string(),
-  parameters: z.record(z.string(), z.unknown()),
-});
-
-export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
-  env: z.record(z.string(), z.string()),
-  worker: z.string().min(1).max(10_000_000),
-  client: z.string().min(1).max(10_000_000),
-  transport: z.union([
-    TransportSchema,
-    z.array(TransportSchema),
-  ]).optional(),
-});
-
-export const EnvSchema: z.ZodType<AgentEnv> = z.object({
-  ASSEMBLYAI_API_KEY: z.string().min(1),
-  LLM_MODEL: z.string().optional(),
-}).passthrough();
 
 export const AgentMetadataSchema: z.ZodType<AgentMetadata> = z.object({
   slug: z.string(),

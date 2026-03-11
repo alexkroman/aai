@@ -4,6 +4,7 @@ import {
   type LanguageModelV1Middleware,
   wrapLanguageModel,
 } from "ai";
+import { z } from "zod";
 
 const DEFAULT_GATEWAY = "https://llm-gateway.assemblyai.com/v1";
 
@@ -49,6 +50,18 @@ const gatewayBugMiddleware: LanguageModelV1Middleware = {
   },
 };
 
+const GatewayChoiceSchema = z.object({
+  index: z.number().optional(),
+  message: z.object({
+    content: z.unknown().optional(),
+    tool_calls: z.array(z.unknown()).optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+const GatewayResponseSchema = z.object({
+  choices: z.array(GatewayChoiceSchema),
+}).passthrough();
+
 /**
  * Custom fetch that normalizes the LLM gateway response for the Vercel SDK.
  * The gateway returns non-standard responses:
@@ -84,19 +97,23 @@ function createGatewayFetch(
       });
     }
 
-    if (Array.isArray(body.choices) && body.choices.length > 0) {
+    const parsed = GatewayResponseSchema.safeParse(body);
+    if (parsed.success && parsed.data.choices.length > 0) {
+      const choices = parsed.data.choices;
+
       // Merge multiple choices: find the one with tool_calls (prefer it),
       // fall back to the first with content
-      // deno-lint-ignore no-explicit-any
-      let merged = body.choices.find((c: any) => c.message?.tool_calls?.length);
-      if (!merged) merged = body.choices[0];
+      let merged = choices.find((c) => c.message?.tool_calls?.length);
+      if (!merged) merged = choices[0];
 
       // If there's a content-only choice and a tool_calls choice, merge content
-      // deno-lint-ignore no-explicit-any
-      const contentChoice = body.choices.find((c: any) =>
+      const contentChoice = choices.find((c) =>
         c.message?.content && !c.message?.tool_calls?.length
       );
-      if (contentChoice && merged !== contentChoice && merged.message) {
+      if (
+        contentChoice && merged !== contentChoice && merged.message &&
+        contentChoice.message
+      ) {
         merged.message.content = merged.message.content ||
           contentChoice.message.content;
       }
@@ -124,6 +141,7 @@ export type CreateModelOptions = {
 export const _internals = {
   gatewayBugMiddleware,
   createGatewayFetch,
+  GatewayResponseSchema,
 };
 
 export function createModel(opts: CreateModelOptions): LanguageModelV1 {

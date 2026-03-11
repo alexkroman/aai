@@ -1,4 +1,11 @@
+import { z } from "zod";
+
 export type Transport = "websocket" | "twilio";
+
+export const TransportSchema: z.ZodType<Transport> = z.enum([
+  "websocket",
+  "twilio",
+]);
 
 export function normalizeTransport(
   value: Transport | Transport[] | undefined,
@@ -16,6 +23,21 @@ export type BuiltinTool =
   | "user_input"
   | "final_answer";
 
+export const BuiltinToolSchema: z.ZodType<BuiltinTool> = z.enum([
+  "web_search",
+  "visit_webpage",
+  "fetch_json",
+  "run_code",
+  "user_input",
+  "final_answer",
+]);
+
+export type ToolChoice =
+  | "auto"
+  | "required"
+  | "none"
+  | { type: "tool"; toolName: string };
+
 export type AgentConfig = {
   name?: string;
   instructions: string;
@@ -23,14 +45,31 @@ export type AgentConfig = {
   voice: string;
   sttPrompt?: string;
   stopWhen?: number;
+  toolChoice?: ToolChoice;
   builtinTools?: BuiltinTool[];
 };
+
+export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
+  name: z.string().optional(),
+  instructions: z.string(),
+  greeting: z.string(),
+  voice: z.string(),
+  sttPrompt: z.string().optional(),
+  stopWhen: z.number().optional(),
+  builtinTools: z.array(BuiltinToolSchema).optional(),
+});
 
 export type ToolSchema = {
   name: string;
   description: string;
   parameters: Record<string, unknown>;
 };
+
+export const ToolSchemaSchema: z.ZodType<ToolSchema> = z.object({
+  name: z.string(),
+  description: z.string(),
+  parameters: z.record(z.string(), z.unknown()),
+});
 
 export type DeployBody = {
   env: Record<string, string>;
@@ -39,8 +78,23 @@ export type DeployBody = {
   transport?: Transport | Transport[];
 };
 
+export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
+  env: z.record(z.string(), z.string()),
+  worker: z.string().min(1).max(10_000_000),
+  client: z.string().min(1).max(10_000_000),
+  transport: z.union([
+    TransportSchema,
+    z.array(TransportSchema),
+  ]).optional(),
+});
+
 export type AgentEnv = {
   ASSEMBLYAI_API_KEY: string;
   LLM_MODEL?: string;
   [key: string]: unknown;
 };
+
+export const EnvSchema: z.ZodType<AgentEnv> = z.object({
+  ASSEMBLYAI_API_KEY: z.string().min(1),
+  LLM_MODEL: z.string().optional(),
+}).passthrough();

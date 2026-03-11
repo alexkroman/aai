@@ -8,6 +8,7 @@ import type { HonoEnv } from "./hono_env.ts";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
+  ServerMessageSchema,
   TwilioMessageSchema,
 } from "@aai/core/protocol";
 import { mulawToPcm16, pcm16ToMulaw, resample } from "./mulaw.ts";
@@ -38,13 +39,16 @@ export function createTwilioTransport(ws: WSContext): SessionTransport & {
 
       if (typeof data === "string") {
         try {
-          const msg = JSON.parse(data) as Record<string, unknown>;
-          if (msg.type === "chat") {
-            console.info("Agent response", {
-              text: (msg.text as string)?.slice(0, 100),
-            });
-          } else if (msg.type === "error") {
-            console.error("Session error", { message: msg.message });
+          const parsed = ServerMessageSchema.safeParse(JSON.parse(data));
+          if (parsed.success) {
+            const msg = parsed.data;
+            if (msg.type === "chat") {
+              console.info("Agent response", {
+                text: msg.text.slice(0, 100),
+              });
+            } else if (msg.type === "error") {
+              console.error("Session error", { message: msg.message });
+            }
           }
         } catch { /* ignore */ }
         return;
