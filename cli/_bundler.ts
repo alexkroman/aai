@@ -152,7 +152,6 @@ const NPM_PACKAGE_NAMES = [
   "preact/hooks",
   "@preact/signals",
   "htm",
-  "lodash-es",
   "comlink",
 ];
 
@@ -188,7 +187,7 @@ function workspaceAliasPlugin(): Plugin {
       // This avoids relying on the deno plugin's npm resolver, which fails in
       // compiled binaries where node_modules aren't fully available.
       build.onResolve(
-        { filter: /^(preact|@preact\/signals|htm|lodash-es|comlink)/ },
+        { filter: /^(preact|@preact\/signals|htm|comlink)/ },
         (args) => {
           const resolved = npmAliases![args.path];
           if (resolved) return { path: resolved, namespace: "file" };

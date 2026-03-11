@@ -506,7 +506,7 @@ export default function App() {
 ## Using npm/jsr packages
 
 ```sh
-npm install lodash-es
+npm install some-package
 ```
 
 For JSR packages, add a `.npmrc`:
@@ -520,7 +520,7 @@ Then `npm install @jsr/scope__package-name`.
 Import as bare specifiers — the bundler resolves from `node_modules`:
 
 ```ts
-import { capitalize } from "lodash-es";
+import { someFunction } from "some-package";
 ```
 
 ---

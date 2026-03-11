@@ -88,13 +88,11 @@ export type LLMResponse = {
   [key: string]: unknown;
 };
 
-export const LLMResponseSchema: z.ZodType<LLMResponse> = z
-  .object({
-    id: z.string().optional(),
-    choices: z.array(z.object({
-      index: z.number().optional(),
-      message: ChatMessageSchema,
-      finish_reason: z.string(),
-    })).nullable().transform((v) => v ?? []),
-  })
-  .passthrough();
+export const LLMResponseSchema: z.ZodType<LLMResponse> = z.object({
+  id: z.string().optional(),
+  choices: z.array(z.object({
+    index: z.number().optional(),
+    message: ChatMessageSchema,
+    finish_reason: z.string(),
+  })).nullable().transform((v) => v ?? []),
+}).passthrough();
