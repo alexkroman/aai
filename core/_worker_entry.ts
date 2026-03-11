@@ -89,6 +89,13 @@ export type WorkerApi = {
   dispose?: () => Promise<void>;
 };
 
+/** Discriminated union for KV operations sent over Comlink. */
+export type KvRequest =
+  | { op: "get"; key: string }
+  | { op: "set"; key: string; value: string; ttl?: number }
+  | { op: "del"; key: string }
+  | { op: "list"; prefix: string; limit?: number; reverse?: boolean };
+
 /** API shape the host exposes to the worker via Comlink.proxy. */
 export type HostApi = {
   fetch(req: {
@@ -102,15 +109,7 @@ export type HostApi = {
     headers: Record<string, string>;
     body: string;
   }>;
-  kv(req: {
-    op: string;
-    key?: string;
-    value?: string;
-    ttl?: number;
-    prefix?: string;
-    limit?: number;
-    reverse?: boolean;
-  }): Promise<{ result: unknown }>;
+  kv(req: KvRequest): Promise<{ result: unknown }>;
 };
 
 /** API shape exposed by the worker via Comlink. */
@@ -301,23 +300,8 @@ export function startWorker(
 const KV_TIMEOUT_MS = 10_000;
 
 function createProxyKv(hostApi: Comlink.Remote<HostApi>): Kv {
-  async function kvCall(
-    params: Record<string, unknown>,
-  ): Promise<unknown> {
-    const resp = await withTimeout(
-      hostApi.kv(
-        params as {
-          op: string;
-          key?: string;
-          value?: string;
-          ttl?: number;
-          prefix?: string;
-          limit?: number;
-          reverse?: boolean;
-        },
-      ),
-      KV_TIMEOUT_MS,
-    );
+  async function kvCall(req: KvRequest): Promise<unknown> {
+    const resp = await withTimeout(hostApi.kv(req), KV_TIMEOUT_MS);
     return (resp as { result: unknown }).result;
   }
 

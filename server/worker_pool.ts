@@ -116,22 +116,24 @@ function createHostApi(
       const { kvStore, scope } = kvCtx;
       switch (req.op) {
         case "get":
-          return { result: await kvStore.get(scope, req.key!) };
+          return { result: await kvStore.get(scope, req.key) };
         case "set":
-          await kvStore.set(scope, req.key!, req.value!, req.ttl);
+          await kvStore.set(scope, req.key, req.value, req.ttl);
           return { result: "OK" };
         case "del":
-          await kvStore.del(scope, req.key!);
+          await kvStore.del(scope, req.key);
           return { result: "OK" };
         case "list":
           return {
-            result: await kvStore.list(scope, req.prefix ?? "", {
+            result: await kvStore.list(scope, req.prefix, {
               limit: req.limit,
               reverse: req.reverse,
             }),
           };
         default:
-          throw new Error(`Unknown KV operation: ${req.op}`);
+          throw new Error(
+            `Unknown KV operation: ${(req as { op: string }).op}`,
+          );
       }
     },
   };
