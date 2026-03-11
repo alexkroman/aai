@@ -16,5 +16,11 @@
     "jose": "npm:jose@^6",
     "assemblyai": "npm:assemblyai@^4"
   },
+  "publish": {
+    "exclude": [
+      "*_test.ts",
+      "_mock_ws.ts"
+    ]
+  },
   "lint": {}
 }

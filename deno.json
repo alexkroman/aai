@@ -12,8 +12,8 @@
     "bump": "deno run --allow-read --allow-write --allow-run scripts/bump_versions.ts",
     "test:templates": "deno run --allow-all --unstable-worker-options cli/test_templates.ts",
     "install-dev": "echo '#!/bin/sh\nINIT_CWD=\"$(pwd)\" exec deno run --allow-all --unstable-worker-options '\"$(pwd)/cli/cli.ts\"' \"$@\"' > \"$HOME/.deno/bin/aai\" && chmod +x \"$HOME/.deno/bin/aai\" && echo 'Installed aai to ~/.deno/bin/aai'",
-    "publish": "cd sdk && deno publish --allow-dirty --dry-run && cd ../core && deno publish --allow-dirty --dry-run && cd ../ui && deno publish --allow-dirty --dry-run && cd ../cli && deno publish --allow-dirty --dry-run && echo 'Dry run OK. Run deno task publish:live to publish.'",
-    "publish:live": "cd sdk && deno publish --allow-dirty && cd ../core && deno publish --allow-dirty && cd ../ui && deno publish --allow-dirty && cd ../cli && deno publish --allow-dirty"
+    "publish": "cd sdk && deno publish --allow-dirty --dry-run && cd ../core && deno publish --allow-dirty --dry-run && cd ../ui && deno publish --allow-dirty --dry-run && cd ../cli && deno publish --allow-dirty --dry-run && cd ../server && deno publish --allow-dirty --dry-run && echo 'Dry run OK. Run deno task publish:live to publish.'",
+    "publish:live": "cd sdk && deno publish --allow-dirty && cd ../core && deno publish --allow-dirty && cd ../ui && deno publish --allow-dirty"
   },
   "imports": {
     "@std/testing": "jsr:@std/testing@^1.0.17",
