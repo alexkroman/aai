@@ -1,11 +1,9 @@
 import type { Context } from "hono";
 import { validator } from "hono/validator";
 import { loadPlatformConfig } from "./config.ts";
-import {
-  type DeployBody,
-  DeployBodySchema,
-  normalizeTransport,
-} from "@aai/sdk/schema";
+import type { DeployBody } from "@aai/sdk/schema";
+import { normalizeTransport } from "@aai/sdk/schema";
+import { DeployBodySchema } from "./_schemas.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { HonoEnv } from "./hono_env.ts";
 

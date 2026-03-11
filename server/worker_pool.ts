@@ -9,12 +9,12 @@ import {
 } from "@aai/core/worker-entry";
 import type { ExecuteTool } from "@aai/core/worker-entry";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import type { AgentMetadata } from "@aai/core/rpc-schema";
+import type { AgentMetadata } from "./_schemas.ts";
 import { createDenoWorker } from "@aai/core/deno-worker";
 import { assertPublicUrl, getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentScope } from "./scope_token.ts";
-export type { AgentMetadata } from "@aai/core/rpc-schema";
+export type { AgentMetadata } from "./_schemas.ts";
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 

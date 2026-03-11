@@ -5,7 +5,7 @@ import {
   type STTConfig,
   type TTSConfig,
 } from "./types.ts";
-import { EnvSchema } from "@aai/sdk/schema";
+import { EnvSchema } from "./_schemas.ts";
 
 export type PlatformConfig = {
   apiKey: string;

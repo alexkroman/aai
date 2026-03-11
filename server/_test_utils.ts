@@ -2,7 +2,7 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentMetadata } from "./worker_pool.ts";
-import { AgentMetadataSchema } from "@aai/core/rpc-schema";
+import { AgentMetadataSchema } from "./_schemas.ts";
 
 export const flush = (): Promise<void> =>
   new Promise<void>((r) => setTimeout(r, 0));

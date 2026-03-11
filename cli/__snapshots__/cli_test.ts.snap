@@ -4,7 +4,7 @@ snapshot[`cli help and version output > help 1`] = `
 stdout:
 "
    ▄▀█ ▄▀█ █   Voice agent development kit
-   █▀█ █▀█ █   v0.1.83
+   █▀█ █▀█ █   v0.1.84
 
   Usage   aai <command> [options]
 
@@ -31,7 +31,7 @@ stderr:
 
 snapshot[`cli help and version output > version 1`] = `
 stdout:
-"aai 0.1.83
+"aai 0.1.84
 "
 stderr:
 ""
@@ -40,7 +40,7 @@ stderr:
 snapshot[`cli help and version output > newHelp 1`] = `
 stdout:
 "
-  aai new  v0.1.83
+  aai new  v0.1.84
   Scaffold a new agent project
 
   Arguments
@@ -66,7 +66,7 @@ stderr:
 snapshot[`cli help and version output > deployHelp 1`] = `
 stdout:
 "
-  aai deploy  v0.1.83
+  aai deploy  v0.1.84
   Bundle and deploy to production
 
   Options

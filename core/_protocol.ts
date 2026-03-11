@@ -1,8 +1,4 @@
 // WebSocket wire-format types shared by server/ and ui/.
-// Types are defined first; Zod schemas are annotated with z.ZodType<T> to
-// satisfy JSR's no-slow-types rule for published packages.
-
-import { z } from "zod";
 
 export const PROTOCOL_VERSION = 1;
 export const DEFAULT_STT_SAMPLE_RATE = 16_000;
@@ -26,38 +22,6 @@ export type ServerMessage =
   | { type: "reset" }
   | { type: "error"; message: string; details?: string[] }
   | { type: "pong" };
-
-export const ServerMessageSchema: z.ZodType<ServerMessage> = z
-  .discriminatedUnion("type", [
-    z.object({
-      type: z.literal("ready"),
-      protocol_version: z.number(),
-      audio_format: z.literal("pcm16"),
-      sample_rate: z.number(),
-      tts_sample_rate: z.number(),
-    }),
-    z.object({ type: z.literal("partial_transcript"), text: z.string() }),
-    z.object({
-      type: z.literal("final_transcript"),
-      text: z.string(),
-      turn_order: z.number().optional(),
-    }),
-    z.object({
-      type: z.literal("turn"),
-      text: z.string(),
-      turn_order: z.number().optional(),
-    }),
-    z.object({ type: z.literal("chat"), text: z.string() }),
-    z.object({ type: z.literal("tts_done") }),
-    z.object({ type: z.literal("cancelled") }),
-    z.object({ type: z.literal("reset") }),
-    z.object({
-      type: z.literal("error"),
-      message: z.string(),
-      details: z.array(z.string()).optional(),
-    }),
-    z.object({ type: z.literal("pong") }),
-  ]);
 
 /**
  * Binary audio frame specification. All audio exchanged over the WebSocket as
@@ -86,18 +50,3 @@ export type ClientMessage =
     type: "history";
     messages: { role: "user" | "assistant"; text: string }[];
   };
-
-export const ClientMessageSchema: z.ZodType<ClientMessage> = z
-  .discriminatedUnion("type", [
-    z.object({ type: z.literal("audio_ready") }),
-    z.object({ type: z.literal("cancel") }),
-    z.object({ type: z.literal("reset") }),
-    z.object({ type: z.literal("ping") }),
-    z.object({
-      type: z.literal("history"),
-      messages: z.array(z.object({
-        role: z.enum(["user", "assistant"]),
-        text: z.string(),
-      })),
-    }),
-  ]);
