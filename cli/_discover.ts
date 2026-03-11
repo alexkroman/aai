@@ -48,6 +48,10 @@ async function writeConfig(config: CliConfig): Promise<void> {
     CONFIG_FILE,
     JSON.stringify(config, null, 2) + "\n",
   );
+  // Restrict to owner-only read/write (like ~/.fly/config.yml)
+  if (Deno.build.os !== "windows") {
+    await Deno.chmod(CONFIG_FILE, 0o600);
+  }
 }
 
 export async function getApiKey(): Promise<string> {
