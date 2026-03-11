@@ -14,9 +14,11 @@ export const validateDeployBody = jsonValidator(
   "Invalid deploy body",
 );
 
-export async function handleDeploy(c: Context<HonoEnv>) {
+export async function handleDeploy(
+  c: Context<HonoEnv, string, { out: { json: DeployBody } }>,
+) {
   const { slug, ownerHash, slots, store } = c.var;
-  const body = c.req.valid("json" as never) as DeployBody;
+  const body = c.req.valid("json");
 
   try {
     loadPlatformConfig(body.env);

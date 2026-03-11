@@ -67,11 +67,6 @@ Deno.test("getBuiltinToolSchemas returns requested + required tools", () => {
   expect(names).toContain("web_search");
 });
 
-Deno.test("getBuiltinToolSchemas ignores unknown tool names", () => {
-  const schemas = getBuiltinToolSchemas(["unknown_tool", "web_search"]);
-  expect(schemas).toHaveLength(3);
-});
-
 Deno.test("getBuiltinToolSchemas always includes required tools", () => {
   const schemas = getBuiltinToolSchemas([]);
   expect(schemas).toHaveLength(2);
@@ -95,7 +90,7 @@ Deno.test("visit_webpage fetches and converts HTML", async () => {
     mockFetch("<html><body><p>Hello World</p></body></html>"),
   );
   const tools = getBuiltinVercelTools(["visit_webpage"]);
-  const result = await tools.visit_webpage.execute(
+  const result = await tools.visit_webpage.execute!(
     { url: "https://example.com" },
     {
       toolCallId: "test",
@@ -114,7 +109,7 @@ Deno.test("visit_webpage handles non-OK response", async () => {
     mockFetch("Not Found", 404, "Not Found"),
   );
   const tools = getBuiltinVercelTools(["visit_webpage"]);
-  const result = await tools.visit_webpage.execute(
+  const result = await tools.visit_webpage.execute!(
     { url: "https://example.com/missing" },
     {
       toolCallId: "test",
@@ -128,7 +123,7 @@ Deno.test("visit_webpage handles non-OK response", async () => {
 
 Deno.test("run_code executes and returns stdout", async () => {
   const tools = getBuiltinVercelTools(["run_code"]);
-  const result = await tools.run_code.execute(
+  const result = await tools.run_code.execute!(
     { code: 'console.log("hello")' },
     {
       toolCallId: "test",
@@ -141,7 +136,7 @@ Deno.test("run_code executes and returns stdout", async () => {
 
 Deno.test("run_code returns error for syntax errors", async () => {
   const tools = getBuiltinVercelTools(["run_code"]);
-  const result = await tools.run_code.execute(
+  const result = await tools.run_code.execute!(
     { code: "this is not valid javascript %%%" },
     {
       toolCallId: "test",
@@ -155,7 +150,7 @@ Deno.test("run_code returns error for syntax errors", async () => {
 
 Deno.test("run_code returns no-output message for silent code", async () => {
   const tools = getBuiltinVercelTools(["run_code"]);
-  const result = await tools.run_code.execute(
+  const result = await tools.run_code.execute!(
     { code: "const x = 1 + 1;" },
     {
       toolCallId: "test",
@@ -173,7 +168,7 @@ Deno.test("fetch_json fetches and returns JSON", async () => {
     mockFetch(JSON.stringify({ name: "test", value: 42 })),
   );
   const tools = getBuiltinVercelTools(["fetch_json"]);
-  const result = await tools.fetch_json.execute(
+  const result = await tools.fetch_json.execute!(
     { url: "https://api.example.com/data" },
     {
       toolCallId: "test",
@@ -193,7 +188,7 @@ Deno.test("fetch_json handles non-OK response", async () => {
     mockFetch("Server Error", 500, "ISE"),
   );
   const tools = getBuiltinVercelTools(["fetch_json"]);
-  const result = await tools.fetch_json.execute(
+  const result = await tools.fetch_json.execute!(
     { url: "https://api.example.com/fail" },
     {
       toolCallId: "test",
@@ -212,7 +207,7 @@ Deno.test("fetch_json handles non-JSON response", async () => {
     mockFetch("this is not json"),
   );
   const tools = getBuiltinVercelTools(["fetch_json"]);
-  const result = await tools.fetch_json.execute(
+  const result = await tools.fetch_json.execute!(
     { url: "https://api.example.com/text" },
     {
       toolCallId: "test",

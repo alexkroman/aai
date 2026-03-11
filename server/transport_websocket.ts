@@ -6,7 +6,7 @@ import { createSession } from "./session.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
 import type { HonoEnv } from "./hono_env.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import { upgradeWebSocket } from "./ws_upgrade.ts";
+import { upgradeWebSocket } from "hono/deno";
 
 export const _internals = { prepareSession };
 

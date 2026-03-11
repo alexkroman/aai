@@ -18,11 +18,12 @@ export type HookContext<S = Record<string, unknown>> = {
   kv: Kv;
 };
 
-export type ToolDef = {
+// deno-lint-ignore no-explicit-any
+export type ToolDef<P extends z.ZodObject<z.ZodRawShape> = any> = {
   description: string;
-  parameters?: z.ZodObject<z.ZodRawShape>;
+  parameters?: P;
   execute: (
-    args: Record<string, unknown>,
+    args: z.infer<P>,
     ctx: ToolContext,
   ) => Promise<unknown> | unknown;
 };
@@ -35,11 +36,12 @@ export function tool<P extends z.ZodObject<z.ZodRawShape>>(def: {
     args: z.infer<P>,
     ctx: ToolContext,
   ) => Promise<unknown> | unknown;
-}): ToolDef;
+}): ToolDef<P>;
 export function tool(def: {
   description: string;
   execute: (
-    args: Record<string, unknown>,
+    // deno-lint-ignore no-explicit-any
+    args: any,
     ctx: ToolContext,
   ) => Promise<unknown> | unknown;
 }): ToolDef;

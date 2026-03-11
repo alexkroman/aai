@@ -1,6 +1,6 @@
 import { ClientMessageSchema } from "./_schemas.ts";
 import type { Session, SessionTransport } from "./session.ts";
-import type { WSEvents, WSSender } from "./ws_upgrade.ts";
+import type { WSContext, WSEvents } from "hono/ws";
 
 export type WsSessionOptions = {
   createSession: (sessionId: string, transport: SessionTransport) => Session;
@@ -26,7 +26,7 @@ export function createSessionWSEvents(
   const pendingMessages: string[] = [];
   let processingChain: Promise<void> = Promise.resolve();
 
-  function processControlMessage(raw: string, ws: WSSender): void {
+  function processControlMessage(raw: string, ws: WSContext): void {
     let json: unknown;
     try {
       json = JSON.parse(raw);
@@ -49,7 +49,7 @@ export function createSessionWSEvents(
     }
   }
 
-  function enqueueControl(raw: string, ws: WSSender): void {
+  function enqueueControl(raw: string, ws: WSContext): void {
     processingChain = processingChain
       .then(() => processControlMessage(raw, ws))
       .catch((err) => {

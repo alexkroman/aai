@@ -56,12 +56,12 @@ never on each other.
 #### cli/
 
 - `cli.ts` — arg parsing, subcommands: new, build, deploy, types
+- `new.ts` / `deploy.ts` — Cliffy command definitions for subcommands
+- `_new.ts` / `_deploy.ts` — internal logic for new/deploy
 - `_bundler.ts` — esbuild bundling of `agent.ts`/`client.tsx` into
   `worker.js`/`client.js`
 - `_discover.ts` — imports `agent.ts` to extract config from `defineAgent()`
 - `_validate.ts` — build-time agent config validation
-- `deploy.ts` — production deploy (persists to Tigris/S3)
-- `new.ts` — scaffolds new agent from `templates/`
 
 #### server/
 
@@ -73,9 +73,7 @@ never on each other.
   forces `final_answer` on last
 - `worker_pool.ts` — spawns agent code in sandboxed Deno Workers (all
   permissions false), idle eviction, hosts fetch proxy handler
-- `worker_entry.ts` — runs inside Worker; exposes `executeTool`/`invokeHook`
-  via RPC, monkeypatches `fetch` to proxy through host
-- `tool_executor.ts` — dispatches custom tool calls to Worker via RPC
+- `_sandbox_worker.ts` — sandboxed Deno Worker for `run_code` tool
 - `builtin_tools.ts` — web_search, visit_webpage, fetch_json, run_code,
   user_input, final_answer
 - `llm.ts` — Claude API calls (OpenAI-compatible format)

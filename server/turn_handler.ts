@@ -1,4 +1,13 @@
-import { type CoreMessage, generateText, type LanguageModelV1 } from "ai";
+import {
+  type CoreMessage,
+  type CoreUserMessage,
+  generateText,
+  type GenerateTextResult,
+  type LanguageModelV1,
+  type StepResult,
+  type ToolCallUnion,
+  type ToolSet,
+} from "ai";
 import { FINAL_ANSWER_TOOL, USER_INPUT_TOOL } from "./builtin_tools.ts";
 import * as metrics from "./metrics.ts";
 
@@ -9,8 +18,7 @@ export type ExecuteTurnOptions = {
   model: LanguageModelV1;
   system: string;
   messages: CoreMessage[];
-  // deno-lint-ignore no-explicit-any
-  tools: Record<string, any>;
+  tools: ToolSet;
   signal: AbortSignal;
   stopWhen?: number;
 };
@@ -29,13 +37,12 @@ export async function executeTurn(
   } = opts;
   const maxSteps = opts.stopWhen ?? DEFAULT_STOP_WHEN;
 
-  const result = await generateText({
+  const userMessage: CoreUserMessage = { role: "user", content: text };
+
+  const result: GenerateTextResult<ToolSet, string> = await generateText({
     model,
     system,
-    messages: [
-      ...messages,
-      { role: "user" as const, content: text },
-    ],
+    messages: [...messages, userMessage],
     tools,
     toolChoice: "auto",
     maxSteps,
@@ -50,9 +57,9 @@ export async function executeTurn(
       }
       return undefined;
     },
-    onStepFinish: ({ toolCalls }) => {
-      if (toolCalls) {
-        for (const tc of toolCalls) {
+    onStepFinish: (step: StepResult<ToolSet>) => {
+      if (step.toolCalls) {
+        for (const tc of step.toolCalls) {
           console.info("tool call", { tool: tc.toolName, agent });
           metrics.toolDuration.observe(0, { agent, tool: tc.toolName });
         }
@@ -61,7 +68,7 @@ export async function executeTurn(
   });
 
   // Append the user message + all response messages to conversation history
-  messages.push({ role: "user", content: text });
+  messages.push(userMessage);
   messages.push(...result.response.messages);
 
   // Check if the last step called final_answer or user_input
@@ -69,7 +76,7 @@ export async function executeTurn(
   const lastToolCalls = result.toolCalls;
   if (lastToolCalls?.length) {
     const answerCall = lastToolCalls.find(
-      (tc) => tc.toolName === FINAL_ANSWER_TOOL,
+      (tc: ToolCallUnion<ToolSet>) => tc.toolName === FINAL_ANSWER_TOOL,
     );
     if (answerCall) {
       const answer = (answerCall.args as { answer?: string }).answer ?? "";
@@ -80,7 +87,7 @@ export async function executeTurn(
     }
 
     const questionCall = lastToolCalls.find(
-      (tc) => tc.toolName === USER_INPUT_TOOL,
+      (tc: ToolCallUnion<ToolSet>) => tc.toolName === USER_INPUT_TOOL,
     );
     if (questionCall) {
       const question = (questionCall.args as { question?: string }).question ??

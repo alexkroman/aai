@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
 import { assertSpyCalls, spy, stub } from "@std/testing/mock";
-import { _internals, runDeploy } from "./deploy.ts";
+import { _internals, runDeploy } from "./_deploy.ts";
 import type { BundleOutput } from "./_bundler.ts";
 
 function makeBundle(): BundleOutput {

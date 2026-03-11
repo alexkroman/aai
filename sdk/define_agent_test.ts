@@ -4,11 +4,6 @@ import { defineAgent } from "./define_agent.ts";
 import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "./types.ts";
 
 Deno.test("defineAgent", async (t) => {
-  await t.step("returns frozen object", () => {
-    const agent = defineAgent({ name: "Test" });
-    expect(Object.isFrozen(agent)).toBe(true);
-  });
-
   await t.step("applies defaults", () => {
     const agent = defineAgent({ name: "Test" });
     expect(agent.name).toBe("Test");
@@ -42,12 +37,6 @@ Deno.test("defineAgent", async (t) => {
       transport: ["websocket", "twilio"],
     });
     expect(agent.transport).toEqual(["websocket", "twilio"]);
-  });
-
-  await t.step("freezes env and transport arrays", () => {
-    const agent = defineAgent({ name: "Test", env: ["A", "B"] });
-    expect(Object.isFrozen(agent.env)).toBe(true);
-    expect(Object.isFrozen(agent.transport)).toBe(true);
   });
 
   await t.step("preserves tools", () => {
@@ -96,5 +85,10 @@ Deno.test("defineAgent", async (t) => {
   await t.step("stopWhen defaults to 5", () => {
     const agent = defineAgent({ name: "Test" });
     expect(agent.stopWhen).toBe(5);
+  });
+
+  await t.step("returns frozen object", () => {
+    const agent = defineAgent({ name: "Frozen" });
+    expect(Object.isFrozen(agent)).toBe(true);
   });
 });

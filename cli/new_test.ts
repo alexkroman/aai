@@ -1,7 +1,7 @@
 import { expect } from "@std/expect";
 import { stub } from "@std/testing/mock";
 import { join } from "@std/path";
-import { _internals, listTemplates, runNew } from "./new.ts";
+import { _internals, listTemplates, runNew } from "./_new.ts";
 
 async function withTempDir(
   fn: (dir: string) => Promise<void>,

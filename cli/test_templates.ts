@@ -6,7 +6,7 @@
 
 import { bold, brightMagenta, red } from "@std/fmt/colors";
 import { runBuild } from "./build.ts";
-import { runNew } from "./new.ts";
+import { runNew } from "./_new.ts";
 import { dirname, fromFileUrl, join } from "@std/path";
 
 const TEMPLATES_DIR = new URL("../templates", import.meta.url).pathname;

@@ -40,9 +40,6 @@ import { defineAgent, fetchJSON, z } from "@aai/sdk";
 // For persistent memory helpers
 import { defineAgent, kvTools } from "@aai/sdk";
 
-// For multi-action tools
-import { defineAgent, multiTool, z } from "@aai/sdk";
-
 // Type imports (when you need explicit type annotations)
 import type { HookContext, ToolContext } from "@aai/sdk";
 ```
@@ -113,15 +110,11 @@ tools: {
       param: z.string().describe("What this param is"),
     }),
     execute: async (args, ctx) => {
-      const { param } = args as { param: string };
-      return { result: param };
+      return { result: args.param };
     },
   },
 },
 ```
-
-With this approach, `args` is `Record<string, unknown>` — use `args as { ... }`
-to destructure with type safety.
 
 ### No-parameter tools
 
@@ -146,53 +139,6 @@ parameters: z.object({
   label: z.string().describe("Optional label").optional(),
 }),
 ```
-
-### `multiTool()` — one tool, many actions
-
-Replaces manual switch-case patterns. Automatically generates a `z.enum` for the
-`action` parameter and merges all action schemas:
-
-```ts
-import { defineAgent, multiTool, z } from "@aai/sdk";
-import type { ToolContext } from "@aai/sdk";
-
-type GameState = { score: number; room: string; items: string[] };
-
-export default defineAgent({
-  name: "Adventure",
-  state: (): GameState => ({ score: 0, room: "start", items: [] }),
-  tools: {
-    game: multiTool({
-      description: "Manage game state: get, move, take.",
-      actions: {
-        get: {
-          execute: (_args: Record<string, unknown>, ctx: ToolContext) => {
-            return ctx.state as GameState;
-          },
-        },
-        move: {
-          schema: z.object({ room: z.string() }),
-          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
-            const s = ctx.state as GameState;
-            s.room = args.room as string;
-            return { room: s.room };
-          },
-        },
-        take: {
-          schema: z.object({ item: z.string() }),
-          execute: (args: Record<string, unknown>, ctx: ToolContext) => {
-            const s = ctx.state as GameState;
-            s.items.push(args.item as string);
-            return { items: s.items };
-          },
-        },
-      },
-    }),
-  },
-});
-```
-
----
 
 ## Tool context
 

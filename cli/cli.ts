@@ -1,8 +1,8 @@
 import { Command } from "@cliffy/command";
 import { error } from "./_output.ts";
 import { promptUpgradeIfAvailable } from "./_update.ts";
-import { newCommand } from "./cmd_new.ts";
-import { deployCommand } from "./cmd_deploy.ts";
+import { newCommand } from "./new.ts";
+import { deployCommand } from "./deploy.ts";
 import { rootHelp, subcommandHelp } from "./_help.ts";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });

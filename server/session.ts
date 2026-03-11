@@ -12,16 +12,24 @@ import { getBuiltinVercelTools } from "./builtin_tools.ts";
 import { executeTurn } from "./turn_handler.ts";
 import type { STTConfig } from "./types.ts";
 import type { AgentConfig } from "@aai/sdk/types";
-import type { ToolSchema } from "@aai/sdk/schema";
+import type { BuiltinTool, ToolSchema } from "@aai/sdk/schema";
 import type { WorkerApi } from "@aai/core/worker-entry";
 import { buildSystemPrompt } from "./system_prompt.ts";
-import { type CoreMessage, jsonSchema, tool as vercelTool } from "ai";
+import {
+  type CoreAssistantMessage,
+  type CoreMessage,
+  type CoreUserMessage,
+  jsonSchema,
+  tool as vercelTool,
+  type ToolExecutionOptions,
+  type ToolSet,
+} from "ai";
 import * as metrics from "./metrics.ts";
 import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/core/protocol";
 
 export type SessionTransport = {
   send(data: string | ArrayBuffer | Uint8Array): void;
-  readonly readyState: number;
+  readonly readyState: 0 | 1 | 2 | 3;
 };
 
 export type TtsClient = {
@@ -67,12 +75,11 @@ export type Session = {
 
 function buildVercelTools(
   customSchemas: ToolSchema[],
-  builtinNames: readonly string[],
+  builtinNames: readonly BuiltinTool[],
   executeTool: ExecuteTool,
   sessionId: string,
   env: Record<string, string | undefined>,
-  // deno-lint-ignore no-explicit-any
-): Record<string, any> {
+): ToolSet {
   // Builtin tools (Zod schemas, some with execute, some without)
   const tools = getBuiltinVercelTools(builtinNames, env);
 
@@ -81,7 +88,7 @@ function buildVercelTools(
     tools[schema.name] = vercelTool({
       description: schema.description,
       parameters: jsonSchema(schema.parameters),
-      execute: async (args) => {
+      execute: async (args: unknown, _options: ToolExecutionOptions) => {
         const result = await executeTool(
           schema.name,
           args as Record<string, unknown>,
@@ -432,7 +439,11 @@ export function createSession(opts: SessionOptions): Session {
       incoming: { role: "user" | "assistant"; text: string }[],
     ): void {
       for (const msg of incoming) {
-        messages.push({ role: msg.role, content: msg.text });
+        const coreMsg: CoreUserMessage | CoreAssistantMessage = {
+          role: msg.role,
+          content: msg.text,
+        };
+        messages.push(coreMsg);
       }
       console.info("Restored conversation history", {
         count: incoming.length,

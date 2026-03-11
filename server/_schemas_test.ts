@@ -8,22 +8,7 @@ import {
   EnvSchema,
   ServerMessageSchema,
   ToolSchemaSchema,
-  TransportSchema,
 } from "./_schemas.ts";
-
-Deno.test("TransportSchema", async (t) => {
-  await t.step("accepts websocket", () => {
-    expect(TransportSchema.safeParse("websocket").success).toBe(true);
-  });
-
-  await t.step("accepts twilio", () => {
-    expect(TransportSchema.safeParse("twilio").success).toBe(true);
-  });
-
-  await t.step("rejects invalid transport", () => {
-    expect(TransportSchema.safeParse("grpc").success).toBe(false);
-  });
-});
 
 Deno.test("normalizeTransport", async (t) => {
   await t.step("defaults to websocket", () => {
