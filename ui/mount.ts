@@ -1,7 +1,6 @@
 import { h, render } from "preact";
 import type { ComponentType } from "preact";
 import { createPortal } from "preact/compat";
-import { setup } from "goober";
 import { createVoiceSession, type VoiceSession } from "./session.ts";
 import {
   createSessionControls,
@@ -30,14 +29,6 @@ export type MountHandle = {
   [Symbol.dispose](): void;
 };
 
-let gooberReady = false;
-
-function ensureGoober(): void {
-  if (gooberReady) return;
-  gooberReady = true;
-  setup(h);
-}
-
 function resolveContainer(target: string | HTMLElement = "#app"): HTMLElement {
   const el = typeof target === "string"
     ? document.querySelector(target)
@@ -50,7 +41,6 @@ export function mount(
   Component: ComponentType,
   options?: MountOptions,
 ): MountHandle {
-  ensureGoober();
   const container = resolveContainer(options?.target);
   const theme = { ...defaultTheme, ...options?.theme };
   applyTheme(container, theme);
