@@ -8,23 +8,17 @@ import type { HonoEnv } from "./hono_env.ts";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
+  TwilioMessageSchema,
 } from "@aai/core/protocol";
 import { mulawToPcm16, pcm16ToMulaw, resample } from "./mulaw.ts";
-import { z } from "zod";
-import { upgradeWebSocket } from "./ws_upgrade.ts";
-import type { WSSender } from "./ws_upgrade.ts";
-
-const TwilioMessageSchema = z.object({
-  event: z.string(),
-  start: z.object({ streamSid: z.string() }).optional(),
-  media: z.object({ payload: z.string() }).optional(),
-});
+import { upgradeWebSocket } from "hono/deno";
+import type { WSContext } from "hono/ws";
 
 const MULAW_RATE = 8000;
 const TWIML_PREFIX = `<?xml version="1.0" encoding="UTF-8"?>\n<Response>`;
 const TWIML_SUFFIX = `</Response>`;
 
-export function createTwilioTransport(ws: WSSender): SessionTransport & {
+export function createTwilioTransport(ws: WSContext): SessionTransport & {
   streamSid: string | null;
 } {
   let streamSid: string | null = null;
@@ -178,7 +172,7 @@ export const handleTwilioStream = upgradeWebSocket(async (c) => {
 
       switch (msg.event) {
         case "start":
-          transport.streamSid = msg.start?.streamSid ?? null;
+          transport.streamSid = msg.start.streamSid;
           console.info("Twilio stream started", {
             slug,
             streamSid: transport.streamSid,
@@ -186,9 +180,7 @@ export const handleTwilioStream = upgradeWebSocket(async (c) => {
           session.onAudioReady();
           break;
         case "media":
-          if (msg.media?.payload) {
-            audioBuf.push(decodeTwilioFrame(msg.media.payload));
-          }
+          audioBuf.push(decodeTwilioFrame(msg.media.payload));
           break;
         case "stop":
           audioBuf.drain();

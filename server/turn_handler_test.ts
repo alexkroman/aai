@@ -1,5 +1,10 @@
 import { expect } from "@std/expect";
-import { type CoreMessage, jsonSchema, tool as vercelTool } from "ai";
+import {
+  type CoreMessage,
+  jsonSchema,
+  tool as vercelTool,
+  type ToolSet,
+} from "ai";
 import { MockLanguageModelV1 } from "ai/test";
 import { executeTurn } from "./turn_handler.ts";
 
@@ -31,8 +36,7 @@ function makeModel(
   });
 }
 
-// deno-lint-ignore no-explicit-any
-function makeTools(): Record<string, any> {
+function makeTools(): ToolSet {
   return {
     final_answer: vercelTool({
       description: "Deliver answer",

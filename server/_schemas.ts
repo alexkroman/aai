@@ -1,5 +1,6 @@
-// Zod validation schemas for server-side use only.
-// The canonical types live in sdk/_schema.ts.
+// Zod validation schemas for server-side use.
+// Protocol schemas (ServerMessage, ClientMessage, KV, Twilio) live in
+// @aai/core/protocol as the single source of truth.
 
 import { z } from "zod";
 import type {
@@ -10,7 +11,13 @@ import type {
   ToolSchema,
   Transport,
 } from "@aai/sdk/schema";
-import type { ClientMessage, ServerMessage } from "@aai/core/protocol";
+// Re-export protocol schemas so existing server/ imports keep working.
+export {
+  ClientMessageSchema,
+  ServerMessageSchema,
+  TwilioMessageSchema,
+} from "@aai/core/protocol";
+import type { KvRequest } from "@aai/core/protocol";
 
 export type AgentMetadata = {
   slug: string;
@@ -71,49 +78,26 @@ export const AgentMetadataSchema: z.ZodType<AgentMetadata> = z.object({
   owner_hash: z.string().optional(),
 });
 
-export const ServerMessageSchema: z.ZodType<ServerMessage> = z
-  .discriminatedUnion("type", [
-    z.object({
-      type: z.literal("ready"),
-      protocol_version: z.number(),
-      audio_format: z.literal("pcm16"),
-      sample_rate: z.number(),
-      tts_sample_rate: z.number(),
-    }),
-    z.object({ type: z.literal("partial_transcript"), text: z.string() }),
-    z.object({
-      type: z.literal("final_transcript"),
-      text: z.string(),
-      turn_order: z.number().optional(),
-    }),
-    z.object({
-      type: z.literal("turn"),
-      text: z.string(),
-      turn_order: z.number().optional(),
-    }),
-    z.object({ type: z.literal("chat"), text: z.string() }),
-    z.object({ type: z.literal("tts_done") }),
-    z.object({ type: z.literal("cancelled") }),
-    z.object({ type: z.literal("reset") }),
-    z.object({
-      type: z.literal("error"),
-      message: z.string(),
-      details: z.array(z.string()).optional(),
-    }),
-    z.object({ type: z.literal("pong") }),
-  ]);
+// KV HTTP endpoint: base operations + server-only `keys` operation.
+export type KvHttpRequest =
+  | KvRequest
+  | { op: "keys"; pattern?: string };
 
-export const ClientMessageSchema: z.ZodType<ClientMessage> = z
-  .discriminatedUnion("type", [
-    z.object({ type: z.literal("audio_ready") }),
-    z.object({ type: z.literal("cancel") }),
-    z.object({ type: z.literal("reset") }),
-    z.object({ type: z.literal("ping") }),
+export const KvHttpRequestSchema: z.ZodType<KvHttpRequest> = z
+  .discriminatedUnion("op", [
+    z.object({ op: z.literal("get"), key: z.string() }),
     z.object({
-      type: z.literal("history"),
-      messages: z.array(z.object({
-        role: z.enum(["user", "assistant"]),
-        text: z.string(),
-      })),
+      op: z.literal("set"),
+      key: z.string(),
+      value: z.string(),
+      ttl: z.number().optional(),
     }),
+    z.object({ op: z.literal("del"), key: z.string() }),
+    z.object({
+      op: z.literal("list"),
+      prefix: z.string(),
+      limit: z.number().optional(),
+      reverse: z.boolean().optional(),
+    }),
+    z.object({ op: z.literal("keys"), pattern: z.string().optional() }),
   ]);

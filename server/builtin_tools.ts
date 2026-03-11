@@ -1,7 +1,15 @@
 import { z } from "zod";
-import { jsonSchema, tool as vercelTool } from "ai";
+import {
+  jsonSchema,
+  tool as vercelTool,
+  type ToolExecutionOptions,
+  type ToolSet,
+} from "ai";
 import * as Comlink from "comlink";
-import type { ToolSchema } from "@aai/sdk/schema";
+import type {
+  BuiltinTool as BuiltinToolName,
+  ToolSchema,
+} from "@aai/sdk/schema";
 import TurndownService from "turndown";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "@aai/core/deno-worker";
 import { matchSubnets } from "@std/net/unstable-ip";
@@ -210,7 +218,7 @@ const runCodeParams = z.object({
   ),
 });
 
-const SANDBOX_WORKER_URL = import.meta.resolve("./sandbox_worker.ts");
+const SANDBOX_WORKER_URL = import.meta.resolve("./_sandbox_worker.ts");
 
 const runCode = defineTool({
   name: "run_code",
@@ -320,12 +328,15 @@ const finalAnswer = defineTool({
   },
 });
 
-export const FINAL_ANSWER_TOOL = "final_answer";
-export const USER_INPUT_TOOL = "user_input";
+export const FINAL_ANSWER_TOOL: BuiltinToolName = "final_answer";
+export const USER_INPUT_TOOL: BuiltinToolName = "user_input";
 
-const REQUIRED_BUILTIN_TOOLS = [FINAL_ANSWER_TOOL, USER_INPUT_TOOL];
+const REQUIRED_BUILTIN_TOOLS: BuiltinToolName[] = [
+  FINAL_ANSWER_TOOL,
+  USER_INPUT_TOOL,
+];
 
-const BUILTIN_TOOLS: Record<string, BuiltinTool> = {
+const BUILTIN_TOOLS: Record<BuiltinToolName, BuiltinTool> = {
   web_search: webSearch,
   visit_webpage: visitWebpage,
   run_code: runCode,
@@ -334,7 +345,9 @@ const BUILTIN_TOOLS: Record<string, BuiltinTool> = {
   final_answer: finalAnswer,
 };
 
-export function getBuiltinToolSchemas(names: readonly string[]): ToolSchema[] {
+export function getBuiltinToolSchemas(
+  names: readonly BuiltinToolName[],
+): ToolSchema[] {
   const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
   return allNames.flatMap((name) => {
     const tool = BUILTIN_TOOLS[name];
@@ -354,13 +367,11 @@ export function getBuiltinToolSchemas(names: readonly string[]): ToolSchema[] {
  * Other builtins have `execute` and run on the host.
  */
 export function getBuiltinVercelTools(
-  names: readonly string[],
+  names: readonly BuiltinToolName[],
   env: Record<string, string | undefined> = {},
-  // deno-lint-ignore no-explicit-any
-): Record<string, any> {
+): ToolSet {
   const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
-  // deno-lint-ignore no-explicit-any
-  const tools: Record<string, any> = {};
+  const tools: ToolSet = {};
   for (const name of allNames) {
     const bt = BUILTIN_TOOLS[name];
     if (!bt) continue;
@@ -375,11 +386,8 @@ export function getBuiltinVercelTools(
       tools[name] = vercelTool({
         description: bt.description,
         parameters: params,
-        execute: async (args) => {
-          const result = await bt.execute(
-            args as Record<string, unknown>,
-            env,
-          );
+        execute: async (args: unknown, _options: ToolExecutionOptions) => {
+          const result = await bt.execute(args as Record<string, unknown>, env);
           return result;
         },
       });

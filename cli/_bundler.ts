@@ -60,7 +60,7 @@ function ensureInit() {
 
 export const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
 
-const baseConfigPath = resolve(AAI_ROOT, "_bundler_config.json");
+const baseConfigPath = resolve(AAI_ROOT, "deno.json");
 
 /**
  * Resolves workspace package specifiers (@aai/sdk/*, @aai/core/*, @aai/ui)

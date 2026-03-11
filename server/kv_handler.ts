@@ -1,34 +1,18 @@
 import type { Context } from "hono";
-import { z } from "zod";
 import type { HonoEnv } from "./hono_env.ts";
 import { jsonValidator } from "./_validation.ts";
-
-const KvRequestSchema = z.discriminatedUnion("op", [
-  z.object({ op: z.literal("get"), key: z.string() }),
-  z.object({
-    op: z.literal("set"),
-    key: z.string(),
-    value: z.string(),
-    ttl: z.number().optional(),
-  }),
-  z.object({ op: z.literal("del"), key: z.string() }),
-  z.object({ op: z.literal("keys"), pattern: z.string().optional() }),
-  z.object({
-    op: z.literal("list"),
-    prefix: z.string(),
-    limit: z.number().optional(),
-    reverse: z.boolean().optional(),
-  }),
-]);
+import { type KvHttpRequest, KvHttpRequestSchema } from "./_schemas.ts";
 
 export const validateKvRequest = jsonValidator(
-  KvRequestSchema,
+  KvHttpRequestSchema,
   "Invalid request",
 );
 
-export async function handleKv(c: Context<HonoEnv>) {
+export async function handleKv(
+  c: Context<HonoEnv, string, { out: { json: KvHttpRequest } }>,
+) {
   const { scope, kvStore } = c.var;
-  const msg = c.req.valid("json" as never) as z.infer<typeof KvRequestSchema>;
+  const msg = c.req.valid("json");
 
   try {
     switch (msg.op) {

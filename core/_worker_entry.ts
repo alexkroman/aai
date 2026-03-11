@@ -31,7 +31,7 @@ export async function executeToolCall(
   const parsed = schema.safeParse(args);
   if (!parsed.success) {
     const issues = (parsed.error?.issues ?? [])
-      .map((i) => `${i.path.map(String).join(".")}: ${i.message}`)
+      .map((i: z.ZodIssue) => `${i.path.map(String).join(".")}: ${i.message}`)
       .join(", ");
     return `Error: Invalid arguments for tool "${name}": ${issues}`;
   }
@@ -89,12 +89,8 @@ export type WorkerApi = {
   dispose?: () => Promise<void>;
 };
 
-/** Discriminated union for KV operations sent over Comlink. */
-export type KvRequest =
-  | { op: "get"; key: string }
-  | { op: "set"; key: string; value: string; ttl?: number }
-  | { op: "del"; key: string }
-  | { op: "list"; prefix: string; limit?: number; reverse?: boolean };
+import type { KvRequest } from "./_protocol.ts";
+export type { KvRequest };
 
 /** API shape the host exposes to the worker via Comlink.proxy. */
 export type HostApi = {
