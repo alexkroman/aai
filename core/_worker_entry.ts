@@ -7,7 +7,7 @@ import type {
   ToolContext,
   ToolDef,
 } from "@aai/sdk/types";
-import type { AgentConfig, ToolSchema } from "@aai/sdk/schema";
+import type { ToolSchema, WorkerConfig } from "@aai/sdk/schema";
 import type { Kv, KvEntry } from "@aai/sdk/kv";
 import { deadline } from "@std/async/deadline";
 
@@ -68,10 +68,7 @@ export async function executeToolCall(
   }
 }
 
-export type WorkerConfig = {
-  config: AgentConfig;
-  toolSchemas: ToolSchema[];
-};
+export type { WorkerConfig } from "@aai/sdk/schema";
 
 export type StepInfoRpc = {
   stepNumber: number;

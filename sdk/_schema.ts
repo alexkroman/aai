@@ -38,24 +38,35 @@ export type ToolChoice =
   | "none"
   | { type: "tool"; toolName: string };
 
+export const ToolChoiceSchema: z.ZodType<ToolChoice> = z.union([
+  z.enum(["auto", "required", "none"]),
+  z.object({ type: z.literal("tool"), toolName: z.string().min(1) }),
+]);
+
 export type AgentConfig = {
-  name?: string;
+  name: string;
   instructions: string;
   greeting: string;
   voice: string;
   sttPrompt?: string;
   stopWhen?: number;
   toolChoice?: ToolChoice;
+  transport?: Transport | Transport[];
   builtinTools?: BuiltinTool[];
 };
 
 export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
-  name: z.string().optional(),
-  instructions: z.string(),
-  greeting: z.string(),
-  voice: z.string(),
-  sttPrompt: z.string().optional(),
-  stopWhen: z.number().optional(),
+  name: z.string().min(1),
+  instructions: z.string().min(1),
+  greeting: z.string().min(1),
+  voice: z.string().min(1),
+  sttPrompt: z.string().min(1).optional(),
+  stopWhen: z.number().int().positive().optional(),
+  toolChoice: ToolChoiceSchema.optional(),
+  transport: z.union([
+    TransportSchema,
+    z.array(TransportSchema).min(1),
+  ]).optional(),
   builtinTools: z.array(BuiltinToolSchema).optional(),
 });
 
@@ -66,8 +77,8 @@ export type ToolSchema = {
 };
 
 export const ToolSchemaSchema: z.ZodType<ToolSchema> = z.object({
-  name: z.string(),
-  description: z.string(),
+  name: z.string().min(1),
+  description: z.string().min(1),
   parameters: z.record(z.string(), z.unknown()),
 });
 
@@ -91,10 +102,21 @@ export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
 export type AgentEnv = {
   ASSEMBLYAI_API_KEY: string;
   LLM_MODEL?: string;
-  [key: string]: unknown;
+  [key: string]: string | undefined;
 };
 
 export const EnvSchema: z.ZodType<AgentEnv> = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
   LLM_MODEL: z.string().optional(),
-}).passthrough();
+}).catchall(z.string());
+
+/** Config returned by the worker via Comlink RPC. */
+export type WorkerConfig = {
+  config: AgentConfig;
+  toolSchemas: ToolSchema[];
+};
+
+export const WorkerConfigSchema: z.ZodType<WorkerConfig> = z.object({
+  config: AgentConfigSchema,
+  toolSchemas: z.array(ToolSchemaSchema),
+});

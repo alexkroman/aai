@@ -12,6 +12,7 @@ export {
   BuiltinToolSchema,
   DeployBodySchema,
   EnvSchema,
+  ToolChoiceSchema,
   ToolSchemaSchema,
   TransportSchema,
 } from "@aai/sdk/schema";
@@ -44,18 +45,18 @@ export type KvHttpRequest =
 
 export const KvHttpRequestSchema: z.ZodType<KvHttpRequest> = z
   .discriminatedUnion("op", [
-    z.object({ op: z.literal("get"), key: z.string() }),
+    z.object({ op: z.literal("get"), key: z.string().min(1) }),
     z.object({
       op: z.literal("set"),
-      key: z.string(),
+      key: z.string().min(1),
       value: z.string(),
-      ttl: z.number().optional(),
+      ttl: z.number().int().positive().optional(),
     }),
-    z.object({ op: z.literal("del"), key: z.string() }),
+    z.object({ op: z.literal("del"), key: z.string().min(1) }),
     z.object({
       op: z.literal("list"),
       prefix: z.string(),
-      limit: z.number().optional(),
+      limit: z.number().int().positive().optional(),
       reverse: z.boolean().optional(),
     }),
     z.object({ op: z.literal("keys"), pattern: z.string().optional() }),

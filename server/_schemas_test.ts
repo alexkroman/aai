@@ -30,6 +30,7 @@ Deno.test("normalizeTransport", async (t) => {
 Deno.test("AgentConfigSchema", async (t) => {
   await t.step("accepts minimal config", () => {
     const result = AgentConfigSchema.safeParse({
+      name: "Test",
       instructions: "Help",
       greeting: "Hi",
       voice: "luna",

@@ -31,21 +31,21 @@ export const ServerMessageSchema: z.ZodType<ServerMessage> = z
   .discriminatedUnion("type", [
     z.object({
       type: z.literal("ready"),
-      protocol_version: z.number(),
+      protocol_version: z.number().int().positive(),
       audio_format: z.literal("pcm16"),
-      sample_rate: z.number(),
-      tts_sample_rate: z.number(),
+      sample_rate: z.number().int().positive(),
+      tts_sample_rate: z.number().int().positive(),
     }),
     z.object({ type: z.literal("partial_transcript"), text: z.string() }),
     z.object({
       type: z.literal("final_transcript"),
       text: z.string(),
-      turn_order: z.number().optional(),
+      turn_order: z.number().int().nonnegative().optional(),
     }),
     z.object({
       type: z.literal("turn"),
       text: z.string(),
-      turn_order: z.number().optional(),
+      turn_order: z.number().int().nonnegative().optional(),
     }),
     z.object({ type: z.literal("chat"), text: z.string() }),
     z.object({ type: z.literal("tts_done") }),
@@ -81,8 +81,8 @@ export const ClientMessageSchema: z.ZodType<ClientMessage> = z
       type: z.literal("history"),
       messages: z.array(z.object({
         role: z.enum(["user", "assistant"]),
-        text: z.string(),
-      })),
+        text: z.string().min(1),
+      })).min(1),
     }),
   ]);
 
@@ -119,18 +119,18 @@ export type KvRequest =
 
 export const KvRequestBaseSchema: z.ZodType<KvRequest> = z
   .discriminatedUnion("op", [
-    z.object({ op: z.literal("get"), key: z.string() }),
+    z.object({ op: z.literal("get"), key: z.string().min(1) }),
     z.object({
       op: z.literal("set"),
-      key: z.string(),
+      key: z.string().min(1),
       value: z.string(),
-      ttl: z.number().optional(),
+      ttl: z.number().int().positive().optional(),
     }),
-    z.object({ op: z.literal("del"), key: z.string() }),
+    z.object({ op: z.literal("del"), key: z.string().min(1) }),
     z.object({
       op: z.literal("list"),
       prefix: z.string(),
-      limit: z.number().optional(),
+      limit: z.number().int().positive().optional(),
       reverse: z.boolean().optional(),
     }),
   ]);

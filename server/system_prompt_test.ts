@@ -4,7 +4,8 @@ import { type AgentConfig, DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
 
 function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
   return {
-    instructions: "",
+    name: "Test",
+    instructions: "Test",
     greeting: "Hi",
     voice: "luna",
     ...overrides,
@@ -32,9 +33,10 @@ Deno.test("buildSystemPrompt", async (t) => {
     expect(prompt).toContain("Agent-Specific Instructions");
   });
 
-  await t.step("omits agent instructions section when empty", () => {
+  await t.step("always includes agent instructions section", () => {
     const prompt = buildSystemPrompt(makeConfig(), false);
-    expect(prompt).not.toContain("Agent-Specific Instructions");
+    expect(prompt).toContain("Agent-Specific Instructions");
+    expect(prompt).toContain("Test");
   });
 
   await t.step("includes tool reminder when tools provided", () => {

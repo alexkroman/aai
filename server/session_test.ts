@@ -80,6 +80,7 @@ function createMockSessionOptions() {
     agent: "test/agent",
     transport: createMockTransport(),
     agentConfig: {
+      name: "Test Agent",
       instructions: "Test instructions",
       greeting: "Hi there!",
       voice: "luna",

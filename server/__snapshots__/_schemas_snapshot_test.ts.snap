@@ -31,25 +31,85 @@ snapshot[`AgentConfigSchema snapshot 1`] = `
       type: "array",
     },
     greeting: {
+      minLength: 1,
       type: "string",
     },
     instructions: {
+      minLength: 1,
       type: "string",
     },
     name: {
+      minLength: 1,
       type: "string",
     },
     stopWhen: {
-      type: "number",
+      exclusiveMinimum: 0,
+      maximum: 9007199254740991,
+      type: "integer",
     },
     sttPrompt: {
+      minLength: 1,
       type: "string",
     },
+    toolChoice: {
+      anyOf: [
+        {
+          enum: [
+            "auto",
+            "required",
+            "none",
+          ],
+          type: "string",
+        },
+        {
+          additionalProperties: false,
+          properties: {
+            toolName: {
+              minLength: 1,
+              type: "string",
+            },
+            type: {
+              const: "tool",
+              type: "string",
+            },
+          },
+          required: [
+            "type",
+            "toolName",
+          ],
+          type: "object",
+        },
+      ],
+    },
+    transport: {
+      anyOf: [
+        {
+          enum: [
+            "websocket",
+            "twilio",
+          ],
+          type: "string",
+        },
+        {
+          items: {
+            enum: [
+              "websocket",
+              "twilio",
+            ],
+            type: "string",
+          },
+          minItems: 1,
+          type: "array",
+        },
+      ],
+    },
     voice: {
+      minLength: 1,
       type: "string",
     },
   },
   required: [
+    "name",
     "instructions",
     "greeting",
     "voice",
@@ -64,9 +124,11 @@ snapshot[`ToolSchemaSchema snapshot 1`] = `
   additionalProperties: false,
   properties: {
     description: {
+      minLength: 1,
       type: "string",
     },
     name: {
+      minLength: 1,
       type: "string",
     },
     parameters: {
@@ -144,7 +206,9 @@ snapshot[`DeployBodySchema snapshot 1`] = `
 snapshot[`EnvSchema snapshot 1`] = `
 {
   "\$schema": "https://json-schema.org/draft/2020-12/schema",
-  additionalProperties: {},
+  additionalProperties: {
+    type: "string",
+  },
   properties: {
     ASSEMBLYAI_API_KEY: {
       minLength: 1,
@@ -173,13 +237,19 @@ snapshot[`ServerMessageSchema snapshot 1`] = `
           type: "string",
         },
         protocol_version: {
-          type: "number",
+          exclusiveMinimum: 0,
+          maximum: 9007199254740991,
+          type: "integer",
         },
         sample_rate: {
-          type: "number",
+          exclusiveMinimum: 0,
+          maximum: 9007199254740991,
+          type: "integer",
         },
         tts_sample_rate: {
-          type: "number",
+          exclusiveMinimum: 0,
+          maximum: 9007199254740991,
+          type: "integer",
         },
         type: {
           const: "ready",
@@ -219,7 +289,9 @@ snapshot[`ServerMessageSchema snapshot 1`] = `
           type: "string",
         },
         turn_order: {
-          type: "number",
+          maximum: 9007199254740991,
+          minimum: 0,
+          type: "integer",
         },
         type: {
           const: "final_transcript",
@@ -239,7 +311,9 @@ snapshot[`ServerMessageSchema snapshot 1`] = `
           type: "string",
         },
         turn_order: {
-          type: "number",
+          maximum: 9007199254740991,
+          minimum: 0,
+          type: "integer",
         },
         type: {
           const: "turn",
@@ -419,6 +493,7 @@ snapshot[`ClientMessageSchema snapshot 1`] = `
                 type: "string",
               },
               text: {
+                minLength: 1,
                 type: "string",
               },
             },
@@ -428,6 +503,7 @@ snapshot[`ClientMessageSchema snapshot 1`] = `
             ],
             type: "object",
           },
+          minItems: 1,
           type: "array",
         },
         type: {
