@@ -57,7 +57,7 @@ defineAgent({
   instructions?: string;     // System prompt (sensible voice-first default provided)
   greeting?: string;         // Spoken on connect
   voice?: Voice;             // Rime TTS voice (default: "luna")
-  prompt?: string;           // TTS voice guidance — controls pacing, tone, emotion
+  stt_prompt?: string;       // STT guidance — helps recognize domain terms
   transport?: Transport[];   // "websocket" | "twilio" (default: ["websocket"])
   env?: string[];            // Env var names to load (default: ["ASSEMBLYAI_API_KEY"])
   builtinTools?: BuiltinTool[];
@@ -403,15 +403,15 @@ type Voice =
   | string; // any Rime speaker ID — https://docs.rime.ai/api-reference/voices
 ```
 
-### TTS voice guidance (`prompt`)
+### STT transcription guidance (`stt_prompt`)
 
-Controls how the voice speaks — pacing, tone, emotion. Does not affect what the
-LLM says:
+Helps the speech-to-text engine recognize domain-specific terms, names, and
+jargon. Does not affect what the LLM says or how the voice sounds:
 
 ```ts
 export default defineAgent({
   voice: "orion",
-  prompt: "Speak in a dramatic, atmospheric tone. Use pauses for suspense.",
+  stt_prompt: "Transcribe fantasy names and spells accurately.",
 });
 ```
 

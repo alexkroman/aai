@@ -96,7 +96,7 @@ export type AgentOptions<S = any> = {
   instructions?: string;
   greeting?: string;
   voice?: Voice;
-  prompt?: string;
+  stt_prompt?: string;
   builtinTools?: BuiltinTool[];
   tools?: Record<string, ToolInput>;
   state?: () => S;
@@ -145,7 +145,7 @@ export type AgentDef = {
   readonly instructions: string;
   readonly greeting: string;
   readonly voice: string;
-  readonly prompt?: string;
+  readonly stt_prompt?: string;
   readonly builtinTools?: readonly BuiltinTool[];
   readonly tools: Readonly<Record<string, ToolDef>>;
   readonly state?: () => unknown;

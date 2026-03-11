@@ -24,7 +24,7 @@ export type BundleStore = {
       instructions: string;
       greeting: string;
       voice: string;
-      prompt?: string;
+      stt_prompt?: string;
       builtinTools?: string[];
     };
     toolSchemas?: {

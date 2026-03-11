@@ -237,9 +237,9 @@ Deno.test("handleDevWebSocket rejects different owner for claimed namespace", as
     transport: ["websocket"],
   }));
 
-  // Wait for async namespace ownership check to complete
-  await flush();
-  await flush();
+  // Multiple flushes needed for the async chain:
+  // simulateMessage → parse → hashApiKey → getNamespaceOwner → sendError
+  for (let i = 0; i < 10; i++) await flush();
 
   // Should have sent a dev_error and no slot created
   const sent = mockSocket.sentJson();

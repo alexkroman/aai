@@ -34,8 +34,8 @@ export async function connectStt(
     max_turn_silence: String(config.maxTurnSilence),
     vad_threshold: String(config.vadThreshold),
   });
-  if (config.prompt) {
-    params.set("prompt", config.prompt);
+  if (config.stt_prompt) {
+    params.set("prompt", config.stt_prompt);
   }
 
   const sttStart = performance.now();

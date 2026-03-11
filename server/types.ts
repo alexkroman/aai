@@ -16,7 +16,7 @@ export type STTConfig = {
   minEndOfTurnSilenceWhenConfident: number;
   maxTurnSilence: number;
   vadThreshold: number;
-  prompt?: string;
+  stt_prompt?: string;
 };
 
 export const DEFAULT_STT_CONFIG: STTConfig = {

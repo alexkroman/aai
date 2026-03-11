@@ -21,7 +21,7 @@ export function defineAgent(options: AgentOptions): AgentDef {
     instructions: options.instructions ?? DEFAULT_INSTRUCTIONS,
     greeting: options.greeting ?? DEFAULT_GREETING,
     voice: options.voice ?? "luna",
-    prompt: options.prompt,
+    stt_prompt: options.stt_prompt,
     builtinTools: options.builtinTools,
     tools,
     state: options.state,

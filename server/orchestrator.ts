@@ -67,9 +67,17 @@ function withCors(
       for (const [k, v] of CORS_HEADERS) res.headers.set(k, v);
       return res;
     }
-    const res = await inner(req, info);
-    for (const [k, v] of CORS_HEADERS) res.headers.set(k, v);
-    return res;
+    try {
+      const res = await inner(req, info);
+      for (const [k, v] of CORS_HEADERS) res.headers.set(k, v);
+      return res;
+    } catch (err) {
+      const path = new URL(req.url).pathname;
+      console.error("Unhandled error", { error: String(err), path });
+      const res = Response.json({ error: "Internal error" }, { status: 500 });
+      for (const [k, v] of CORS_HEADERS) res.headers.set(k, v);
+      return res;
+    }
   };
 }
 

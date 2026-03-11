@@ -549,8 +549,8 @@ export default defineAgent({
   voice: "bond",
   transport: ["websocket", "twilio"],
 
-  prompt:
-    "Speak with authority, calm, and precision. You are an experienced emergency dispatcher. Your voice is steady under pressure. Deliver critical information first. Use clear, clipped phrasing like real radio dispatch. Pause briefly between incident details for clarity.",
+  stt_prompt:
+    "Transcribe emergency dispatch terminology accurately. Listen for unit callsigns, addresses, incident types like fire, medical, collision, robbery. Recognize radio codes, priority levels, and location descriptions including street names and intersections.",
 
   greeting:
     "Dispatch Command Center online. All units standing by. I have 12 resources in the fleet, all currently available. System alert level is green. I'm ready to take incoming calls, manage active incidents, or run dispatch operations. What do we have.",

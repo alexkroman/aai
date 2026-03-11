@@ -102,7 +102,7 @@ export function createSession(opts: SessionOptions): Session {
     ...platformConfig,
     sttConfig: {
       ...platformConfig.sttConfig,
-      ...(agentConfig.prompt ? { prompt: agentConfig.prompt } : {}),
+      ...(agentConfig.stt_prompt ? { stt_prompt: agentConfig.stt_prompt } : {}),
     },
     ttsConfig: {
       ...platformConfig.ttsConfig,

@@ -117,7 +117,7 @@ export async function registerDevAgent(
     instructions: msg.config.instructions,
     greeting: msg.config.greeting,
     voice: msg.config.voice,
-    prompt: msg.config.prompt,
+    stt_prompt: msg.config.stt_prompt,
     builtinTools: msg.config.builtinTools,
   };
 
