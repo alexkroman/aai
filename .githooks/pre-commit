@@ -10,5 +10,8 @@ fi
 echo "Auto-bumping versions for changed packages..."
 deno task bump
 
+# Stage any version bumps so they're included in the commit
+git add */deno.json deno.lock 2>/dev/null
+
 echo "Running checks before commit..."
 deno task check

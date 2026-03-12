@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import type { JSONSchema7 } from "json-schema";
 import type { Kv } from "./kv.ts";
 
 /** Result of the {@linkcode AgentOptions.onBeforeStep} hook. */
@@ -116,12 +117,7 @@ export type AgentConfig = {
 export type ToolSchema = {
   name: string;
   description: string;
-  parameters: {
-    type: "object";
-    properties?: Record<string, unknown> | undefined;
-    required?: readonly string[] | undefined;
-    [key: string]: unknown;
-  };
+  parameters: JSONSchema7;
 };
 
 /**
@@ -472,7 +468,7 @@ export function agentToolsToSchemas(
     description: def.description,
     parameters: z.toJSONSchema(
       def.parameters ?? EMPTY_PARAMS,
-    ) as ToolSchema["parameters"],
+    ) as JSONSchema7,
   }));
 }
 

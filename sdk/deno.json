@@ -1,6 +1,6 @@
 {
   "name": "@aai/sdk",
-  "version": "0.1.61",
+  "version": "0.1.62",
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
@@ -9,7 +9,8 @@
     "./kv-tools": "./kv_tools.ts"
   },
   "imports": {
-    "zod": "jsr:@zod/zod@^4.3.6"
+    "zod": "jsr:@zod/zod@^4.3.6",
+    "json-schema": "npm:@types/json-schema@^7.0.15"
   },
   "publish": {
     "exclude": [

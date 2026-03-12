@@ -399,7 +399,9 @@ export function getBuiltinVercelTools(
   for (const name of allNames) {
     const bt = BUILTIN_TOOLS[name];
     if (!bt) continue;
-    const params = jsonSchema(z.toJSONSchema(bt.parameters));
+    const params = jsonSchema(
+      z.toJSONSchema(bt.parameters) as ToolSchema["parameters"],
+    );
     if (name === FINAL_ANSWER_TOOL || name === USER_INPUT_TOOL) {
       // No execute → generateText stops the loop when LLM calls these
       tools[name] = vercelTool({

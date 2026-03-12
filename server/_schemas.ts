@@ -11,7 +11,6 @@ import type {
   BuiltinTool,
   DeployBody,
   ToolChoice,
-  ToolSchema,
   Transport,
 } from "@aai/sdk/types";
 
@@ -65,7 +64,7 @@ export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
 });
 
 /** Zod schema for validating a tool's JSON schema definition. */
-export const ToolSchemaSchema: z.ZodType<ToolSchema> = z.object({
+export const ToolSchemaSchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
   parameters: z.object({
