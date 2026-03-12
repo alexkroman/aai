@@ -2,7 +2,7 @@
 import * as log from "@std/log";
 import { html, HttpError, json, type RouteContext } from "./context.ts";
 import { eTag, ifNoneMatch } from "@std/http/etag";
-import { renderAgentPage } from "./html.ts";
+import { renderAgentPage, renderNoClientPage } from "./html.ts";
 import { wireSessionSocket } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
@@ -70,6 +70,10 @@ export async function handleAgentPage(
   slug: string,
 ): Promise<Response> {
   const slot = await requireSlot(slug, ctx.state);
+  const hasClient = await ctx.state.store.getFile(slug, "client") !== null;
+  if (!hasClient) {
+    return html(renderNoClientPage(slot.name ?? slug));
+  }
   return html(renderAgentPage(slot.name ?? slug, `/${slug}`));
 }
 

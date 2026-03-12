@@ -467,30 +467,26 @@ Deno.test("VoiceSession", async (t) => {
     await t.step(
       "sends ping messages at interval",
       withSessionEnv(async (mock) => {
-        const time = new FakeTime();
-        try {
-          const session = createVoiceSession(defaultOptions);
-          session.connect();
+        using time = new FakeTime();
+        const session = createVoiceSession(defaultOptions);
+        session.connect();
 
-          await time.tickAsync(0);
-          await time.tickAsync(PING_INTERVAL_MS + 10);
+        await time.tickAsync(0);
+        await time.tickAsync(PING_INTERVAL_MS + 10);
 
-          const sentStrings = mock.lastWs!.sent.filter(
-            (d): d is string => typeof d === "string",
-          );
-          const pings = sentStrings.filter((s) => {
-            try {
-              return JSON.parse(s).type === "ping";
-            } catch {
-              return false;
-            }
-          });
-          assert(pings.length >= 1);
+        const sentStrings = mock.lastWs!.sent.filter(
+          (d): d is string => typeof d === "string",
+        );
+        const pings = sentStrings.filter((s) => {
+          try {
+            return JSON.parse(s).type === "ping";
+          } catch {
+            return false;
+          }
+        });
+        assert(pings.length >= 1);
 
-          session.disconnect();
-        } finally {
-          time.restore();
-        }
+        session.disconnect();
       }),
     );
   });

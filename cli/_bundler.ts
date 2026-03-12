@@ -105,7 +105,6 @@ const WORKSPACE_ALIASES: Record<string, string> = {
   "@aai/ui/audio": resolve(AAI_ROOT, "ui/audio.ts"),
   "@aai/ui/resample": resolve(AAI_ROOT, "ui/resample.ts"),
   "@aai/ui/html": resolve(AAI_ROOT, "ui/_html.ts"),
-  "@aai/ui/client": resolve(AAI_ROOT, "ui/client.ts"),
 };
 
 /**
@@ -338,12 +337,10 @@ export async function bundleAgent(
 
   let client = "";
   let clientBytes = 0;
-  if (!opts?.skipClient) {
-    const clientEntry = agent.clientEntry.startsWith(agent.dir)
-      ? `import { mount } from "@aai/ui";\n` +
-        `import App from "${resolve(agent.clientEntry)}";\n` +
-        `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`
-      : `import "${resolve(agent.clientEntry)}";\n`;
+  if (!opts?.skipClient && agent.clientEntry) {
+    const clientEntry = `import { mount } from "@aai/ui";\n` +
+      `import App from "${resolve(agent.clientEntry)}";\n` +
+      `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`;
 
     const clientResult = await buildWithCleanErrors({
       ...BASE,
