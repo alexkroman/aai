@@ -6,7 +6,7 @@ import {
   type SessionTransport,
 } from "./session.ts";
 import type { AgentConfig } from "@aai/sdk/types";
-import type { SttHandle, SttTranscriptDetail, SttTurnDetail } from "./stt.ts";
+import type { SttConnection } from "./stt.ts";
 import { DEFAULT_STT_CONFIG, DEFAULT_TTS_CONFIG } from "./types.ts";
 import type { PlatformConfig } from "./config.ts";
 
@@ -41,12 +41,30 @@ function createMockPlatformConfig(): PlatformConfig {
   };
 }
 
-function createMockSessionOptions() {
-  const sttHandle = Object.assign(new EventTarget(), {
+type MockSttHandle = SttConnection & {
+  connect: ReturnType<typeof spy>;
+  send: ReturnType<typeof spy>;
+  clear: ReturnType<typeof spy>;
+  close: ReturnType<typeof spy>;
+};
+
+function createMockSttHandle(): MockSttHandle {
+  return {
+    connected: true,
+    closed: false,
+    onTranscript: null,
+    onTurn: null,
+    onError: null,
+    onClose: null,
+    connect: spy(() => Promise.resolve()),
     send: spy((_audio: Uint8Array) => {}),
     clear: spy(() => {}),
     close: spy(() => {}),
-  });
+  } as unknown as MockSttHandle;
+}
+
+function createMockSessionOptions() {
+  const sttHandle = createMockSttHandle();
 
   const streamedText: string[] = [];
   const ttsClient = {
@@ -68,6 +86,11 @@ function createMockSessionOptions() {
       },
     ),
     close: spy(() => {}),
+  } as unknown as import("./tts.ts").TtsConnection & {
+    streamedText: string[];
+    warmup: ReturnType<typeof spy>;
+    synthesizeStream: ReturnType<typeof spy>;
+    close: ReturnType<typeof spy>;
   };
 
   const executeTool = spy(
@@ -88,8 +111,8 @@ function createMockSessionOptions() {
     toolSchemas: [],
     platformConfig: createMockPlatformConfig(),
     executeTool,
-    connectStt: () => Promise.resolve(sttHandle),
-    createTtsClient: () => ttsClient,
+    createStt: () => sttHandle,
+    createTts: () => ttsClient,
   };
 
   return {
@@ -101,7 +124,7 @@ function createMockSessionOptions() {
 }
 
 type SetupOptions = {
-  connectStt?: SessionOptions["connectStt"];
+  createStt?: SessionOptions["createStt"];
   agentConfig?: Partial<AgentConfig>;
 };
 
@@ -113,8 +136,8 @@ function setup(options?: SetupOptions) {
       ...options.agentConfig,
     };
   }
-  if (options?.connectStt) {
-    mocks.opts.connectStt = options.connectStt;
+  if (options?.createStt) {
+    mocks.opts.createStt = options.createStt;
   }
 
   const transport = mocks.opts.transport as ReturnType<
@@ -138,13 +161,20 @@ function setupWithSttHandle(options?: SetupOptions) {
     };
   }
 
-  const handle = Object.assign(new EventTarget(), {
+  const handle: SttConnection = {
+    connected: true,
+    closed: false,
+    onTranscript: null,
+    onTurn: null,
+    onError: null,
+    onClose: null,
+    connect: () => Promise.resolve(),
     send: () => {},
     clear: () => {},
     close: () => {},
-  }) as SttHandle;
+  };
 
-  mocks.opts.connectStt = () => Promise.resolve(handle);
+  mocks.opts.createStt = () => handle;
 
   const transport = mocks.opts.transport as ReturnType<
     typeof createMockTransport
@@ -180,9 +210,18 @@ Deno.test("start defers greeting until onAudioReady", () => {
 
 Deno.test("start sends error on STT connection failure", async () => {
   const ctx = setup({
-    connectStt: () => {
-      throw new Error("STT connection refused");
-    },
+    createStt: (): SttConnection => ({
+      connected: false,
+      closed: false,
+      onTranscript: null,
+      onTurn: null,
+      onError: null,
+      onClose: null,
+      connect: () => Promise.reject(new Error("STT connection refused")),
+      send: () => {},
+      clear: () => {},
+      close: () => {},
+    }),
   });
   await ctx.session.start();
   expect(getSentJson(ctx.transport).find((m) => m.type === "error"))
@@ -216,7 +255,18 @@ Deno.test("onAudio relays data to STT handle", async () => {
 
 Deno.test("onAudio does not throw before STT is connected", () => {
   const ctx = setup({
-    connectStt: () => new Promise(() => {}),
+    createStt: (): SttConnection => ({
+      connected: false,
+      closed: false,
+      onTranscript: null,
+      onTurn: null,
+      onError: null,
+      onClose: null,
+      connect: () => new Promise<void>(() => {}),
+      send: () => {},
+      clear: () => {},
+      close: () => {},
+    }),
   });
   ctx.session.start();
   expect(() => ctx.session.onAudio(new Uint8Array([1]))).not.toThrow();
@@ -244,11 +294,8 @@ Deno.test("onReset sends RESET and re-sends greeting", async () => {
 Deno.test("relays STT partial transcript to browser", async () => {
   const ctx = setupWithSttHandle();
   await ctx.session.start();
-  ctx.handle.dispatchEvent(
-    new CustomEvent<SttTranscriptDetail>("transcript", {
-      detail: { text: "partial text", isFinal: false },
-    }),
-  );
+  // Session wires onTranscript after connect — invoke it directly
+  ctx.handle.onTranscript!({ text: "partial text", isFinal: false });
   const transcript = getSentJson(ctx.transport).find((m) =>
     m.type === "partial_transcript"
   );
@@ -258,11 +305,7 @@ Deno.test("relays STT partial transcript to browser", async () => {
 Deno.test("relays STT final transcript to browser", async () => {
   const ctx = setupWithSttHandle();
   await ctx.session.start();
-  ctx.handle.dispatchEvent(
-    new CustomEvent<SttTranscriptDetail>("transcript", {
-      detail: { text: "done", isFinal: true, turnOrder: 3 },
-    }),
-  );
+  ctx.handle.onTranscript!({ text: "done", isFinal: true, turnOrder: 3 });
   const transcript = getSentJson(ctx.transport).find((m) =>
     m.type === "final_transcript"
   );
@@ -273,11 +316,7 @@ Deno.test("relays STT final transcript to browser", async () => {
 Deno.test("omits turn_order on final transcript when undefined", async () => {
   const ctx = setupWithSttHandle();
   await ctx.session.start();
-  ctx.handle.dispatchEvent(
-    new CustomEvent<SttTranscriptDetail>("transcript", {
-      detail: { text: "done", isFinal: true },
-    }),
-  );
+  ctx.handle.onTranscript!({ text: "done", isFinal: true });
   const transcript = getSentJson(ctx.transport).find((m) =>
     m.type === "final_transcript"
   );
@@ -287,11 +326,7 @@ Deno.test("omits turn_order on final transcript when undefined", async () => {
 Deno.test("forwards turn_order in turn messages", async () => {
   const ctx = setupWithSttHandle();
   await ctx.session.start();
-  ctx.handle.dispatchEvent(
-    new CustomEvent<SttTurnDetail>("turn", {
-      detail: { text: "What is the weather?", turnOrder: 5 },
-    }),
-  );
+  ctx.handle.onTurn!({ text: "What is the weather?", turnOrder: 5 });
   // Check the turn message was sent immediately (before LLM call)
   await new Promise((r) => setTimeout(r, 10));
   const turn = getSentJson(ctx.transport).find((m) => m.type === "turn");

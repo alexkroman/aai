@@ -1,18 +1,13 @@
 import type { PlatformConfig } from "./config.ts";
 import { createModel } from "./model.ts";
 import type { ExecuteTool } from "@aai/core/worker-entry";
-import {
-  connectStt,
-  type SttHandle,
-  type SttTranscriptDetail,
-  type SttTurnDetail,
-} from "./stt.ts";
-import { createTtsClient } from "./tts.ts";
+import { createSttConnection, type SttConnection } from "./stt.ts";
+import { createTtsConnection, type TtsConnection } from "./tts.ts";
 import { getBuiltinVercelTools } from "./builtin_tools.ts";
 import { executeTurn } from "./turn_handler.ts";
-import type { STTConfig } from "./types.ts";
+import type { STTConfig, TTSConfig } from "./types.ts";
 import type { AgentConfig } from "@aai/sdk/types";
-import type { BuiltinTool, ToolSchema } from "@aai/sdk/schema";
+import type { ToolSchema } from "@aai/sdk/schema";
 import type { WorkerApi } from "@aai/core/worker-entry";
 import { buildSystemPrompt } from "./system_prompt.ts";
 import {
@@ -34,16 +29,6 @@ export type SessionTransport = {
   readonly readyState: 0 | 1 | 2 | 3;
 };
 
-export type TtsClient = {
-  warmup(): void;
-  synthesizeStream(
-    chunks: string | AsyncIterable<string>,
-    onAudio: (chunk: Uint8Array) => void,
-    signal?: AbortSignal,
-  ): Promise<void>;
-  close(): void;
-};
-
 export type SessionOptions = {
   id: string;
   agent: string;
@@ -55,14 +40,28 @@ export type SessionOptions = {
   env?: Record<string, string | undefined>;
   getWorkerApi?: () => Promise<WorkerApi>;
   skipGreeting?: boolean;
-  connectStt?: (
-    apiKey: string,
-    config: STTConfig,
-  ) => Promise<SttHandle>;
-  createTtsClient?: (
-    config: Parameters<typeof createTtsClient>[0],
-  ) => TtsClient;
+  createStt?: (apiKey: string, config: STTConfig) => SttConnection;
+  createTts?: (config: TTSConfig) => TtsConnection;
 };
+
+// ── State enums ─────────────────────────────────────────────────────
+
+const ConnState = {
+  Idle: "Idle",
+  Starting: "Starting",
+  Ready: "Ready",
+  Stopped: "Stopped",
+} as const;
+type ConnState = (typeof ConnState)[keyof typeof ConnState];
+
+const AgentState = {
+  WaitingForAudio: "WaitingForAudio",
+  Listening: "Listening",
+  Processing: "Processing",
+} as const;
+type AgentState = (typeof AgentState)[keyof typeof AgentState];
+
+// ── Session type ────────────────────────────────────────────────────
 
 export type Session = {
   start(): Promise<void>;
@@ -71,65 +70,120 @@ export type Session = {
   onAudioReady(): void;
   onCancel(): void;
   onReset(): void;
-  onHistory(messages: { role: "user" | "assistant"; text: string }[]): void;
+  onHistory(incoming: { role: "user" | "assistant"; text: string }[]): void;
   waitForTurn(): Promise<void>;
 };
 
-function coreMessagesToSimple(msgs: CoreMessage[]): Message[] {
-  const result: Message[] = [];
-  for (const m of msgs) {
-    if (typeof m.content === "string") {
-      result.push({ role: m.role as Message["role"], content: m.content });
-    }
-  }
-  return result;
-}
-
-function buildVercelTools(
-  customSchemas: ToolSchema[],
-  builtinNames: readonly BuiltinTool[],
-  executeTool: ExecuteTool,
-  sessionId: string,
-  env: Record<string, string | undefined>,
-  getMessages: () => CoreMessage[],
-): ToolSet {
-  // Builtin tools (Zod schemas, some with execute, some without)
-  const tools = getBuiltinVercelTools(builtinNames, env);
-
-  // Custom tools from the worker (JSON schemas, execute via RPC)
-  for (const schema of customSchemas) {
-    tools[schema.name] = vercelTool({
-      description: schema.description,
-      parameters: jsonSchema(schema.parameters),
-      execute: async (args: unknown, _options: ToolExecutionOptions) => {
-        const result = await executeTool(
-          schema.name,
-          args as Record<string, unknown>,
-          sessionId,
-          coreMessagesToSimple(getMessages()),
-        );
-        return result;
-      },
-    });
-  }
-
-  return tools;
-}
+// ── Factory ─────────────────────────────────────────────────────────
 
 export function createSession(opts: SessionOptions): Session {
-  const {
-    id,
-    agent,
-    transport: ws,
-    toolSchemas,
-    platformConfig,
-    executeTool,
-    getWorkerApi,
-  } = opts;
-  const agentLabel = { agent };
+  let conn: ConnState = ConnState.Idle;
+  let agent: AgentState = AgentState.WaitingForAudio;
 
-  const slotEnv = opts.env as Record<string, string> | undefined;
+  let stt: SttConnection | null = null;
+  let turnAbort: AbortController | null = null;
+  let turnPromise: Promise<void> | null = null;
+  let audioFrameCount = 0;
+  let pendingGreeting: string | null = null;
+  let messages: CoreMessage[] = [];
   let cachedWorkerApi: WorkerApi | undefined;
+
+  const sessionAbort = new AbortController();
+
+  const id = opts.id;
+  const agentSlug = opts.agent;
+  const ws = opts.transport;
+  const agentLabel = { agent: opts.agent };
+  const env = { ...opts.env };
+  const getWorkerApi = opts.getWorkerApi;
+  const slotEnv = opts.env
+    ? Object.fromEntries(
+      Object.entries(opts.env).filter((e): e is [string, string] =>
+        e[1] !== undefined
+      ),
+    )
+    : undefined;
+
+  const agentConfig = opts.skipGreeting
+    ? { ...opts.agentConfig, greeting: "" }
+    : opts.agentConfig;
+
+  const config: PlatformConfig = {
+    ...opts.platformConfig,
+    sttConfig: {
+      ...opts.platformConfig.sttConfig,
+      ...(agentConfig.sttPrompt ? { sttPrompt: agentConfig.sttPrompt } : {}),
+    },
+    ttsConfig: {
+      ...opts.platformConfig.ttsConfig,
+      ...(agentConfig.voice ? { voice: agentConfig.voice } : {}),
+    },
+  };
+
+  const isSttOnly = agentConfig.mode === "stt-only";
+  const doCreateStt = opts.createStt ?? createSttConnection;
+
+  const tts = isSttOnly
+    ? null
+    : (opts.createTts ?? createTtsConnection)(config.ttsConfig);
+  tts?.warmup();
+
+  const model = isSttOnly ? null : createModel({
+    apiKey: config.apiKey,
+    model: config.model,
+    gatewayBase: config.llmGatewayBase,
+  });
+
+  const hasTools = opts.toolSchemas.length > 0 ||
+    (agentConfig.builtinTools?.length ?? 0) > 0;
+  const systemPrompt = isSttOnly
+    ? ""
+    : buildSystemPrompt(agentConfig, hasTools, { voice: true });
+
+  let tools: ToolSet;
+  if (isSttOnly) {
+    tools = {};
+  } else {
+    tools = getBuiltinVercelTools(agentConfig.builtinTools ?? [], env);
+    for (const schema of opts.toolSchemas) {
+      tools[schema.name] = vercelTool({
+        description: schema.description,
+        parameters: jsonSchema(schema.parameters),
+        execute: async (args: unknown, _options: ToolExecutionOptions) => {
+          const msgs: Message[] = [];
+          for (const m of messages) {
+            if (
+              typeof m.content === "string" &&
+              (m.role === "user" || m.role === "assistant")
+            ) {
+              msgs.push({ role: m.role, content: m.content });
+            }
+          }
+          return await opts.executeTool(
+            schema.name,
+            args as Record<string, unknown>,
+            id,
+            msgs,
+          );
+        },
+      });
+    }
+  }
+
+  // ── Internal: transport ─────────────────────────────────────────
+
+  function trySend(data: string | Uint8Array): void {
+    try {
+      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    } catch { /* ws closed between check and send */ }
+  }
+
+  function trySendJson(data: Record<string, unknown>): void {
+    trySend(JSON.stringify(data));
+  }
+
+  // ── Internal: hooks ─────────────────────────────────────────────
+
   async function invokeHook(
     hook: string,
     extra?: {
@@ -151,153 +205,65 @@ export function createSession(opts: SessionOptions): Session {
     }
   }
 
-  const agentConfig = opts.skipGreeting
-    ? { ...opts.agentConfig, greeting: "" }
-    : opts.agentConfig;
+  // ── Internal: STT ───────────────────────────────────────────────
 
-  const env: Record<string, string | undefined> = { ...opts.env };
-  const config: PlatformConfig = {
-    ...platformConfig,
-    sttConfig: {
-      ...platformConfig.sttConfig,
-      ...(agentConfig.sttPrompt ? { sttPrompt: agentConfig.sttPrompt } : {}),
-    },
-    ttsConfig: {
-      ...platformConfig.ttsConfig,
-      ...(agentConfig.voice ? { voice: agentConfig.voice } : {}),
-    },
-  };
-
-  const isSttOnly = agentConfig.mode === "stt-only";
-
-  const doConnectStt = opts.connectStt ?? connectStt;
-
-  // In stt-only mode, skip TTS, LLM model, tools, and system prompt
-  const tts: TtsClient | null = isSttOnly
-    ? null
-    : (opts.createTtsClient ?? createTtsClient)(config.ttsConfig);
-  tts?.warmup();
-
-  const model = isSttOnly ? null : createModel({
-    apiKey: config.apiKey,
-    model: config.model,
-    gatewayBase: config.llmGatewayBase,
-  });
-
-  const hasTools = toolSchemas.length > 0 ||
-    (agentConfig.builtinTools?.length ?? 0) > 0;
-  const systemPrompt = isSttOnly
-    ? ""
-    : buildSystemPrompt(agentConfig, hasTools, { voice: true });
-
-  const getMessages = () => messages;
-  const tools = isSttOnly ? {} : buildVercelTools(
-    toolSchemas,
-    agentConfig.builtinTools ?? [],
-    executeTool,
-    id,
-    env,
-    getMessages,
-  );
-
-  let stt: SttHandle | null = null;
-  const sessionAbort = new AbortController();
-  let turnAbort: AbortController | null = null;
-  let turnPromise: Promise<void> | null = null;
-  let audioFrameCount = 0;
-  let pendingGreeting: string | null = null;
-  let messages: CoreMessage[] = [];
-
-  function trySend(data: string | Uint8Array): void {
+  async function connectStt(): Promise<void> {
     try {
-      if (ws.readyState === WebSocket.OPEN) ws.send(data);
-    } catch { /* ws closed between check and send */ }
-  }
+      const handle = doCreateStt(config.apiKey, config.sttConfig);
+      await handle.connect();
 
-  function trySendJson(data: Record<string, unknown>): void {
-    trySend(JSON.stringify(data));
-  }
-
-  function cancelInflight(): void {
-    turnAbort?.abort();
-    turnAbort = null;
-  }
-
-  async function doConnectSttWithEvents(): Promise<void> {
-    try {
-      const handle = await doConnectStt(config.apiKey, config.sttConfig);
-
-      handle.addEventListener(
-        "transcript",
-        ((
-          e: CustomEvent<SttTranscriptDetail>,
-        ) => {
-          const { text, isFinal, turnOrder } = e.detail;
-          console.info("transcript", { text, isFinal, turnOrder });
-          if (isFinal) {
-            trySendJson({
-              type: "final_transcript",
-              text,
-              ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
-            });
-          } else {
-            trySendJson({ type: "partial_transcript", text });
-          }
-        }) as EventListener,
-      );
-
-      handle.addEventListener(
-        "turn",
-        ((e: CustomEvent<SttTurnDetail>) => {
-          const { text, turnOrder } = e.detail;
-          console.info("turn", { text, turnOrder });
-          const prev = turnPromise;
-          const next = (prev ?? Promise.resolve())
-            .catch(() => {})
-            .then(() => handleTurn(text, turnOrder))
-            .finally(() => {
-              if (turnPromise === next) turnPromise = null;
-            });
-          turnPromise = next;
-        }) as EventListener,
-      );
-
-      handle.addEventListener(
-        "termination",
-        ((
-          e: CustomEvent<{ audioDuration: number; sessionDuration: number }>,
-        ) => {
-          const { audioDuration, sessionDuration } = e.detail;
-          console.info("STT termination", { audioDuration, sessionDuration });
-        }) as EventListener,
-      );
-
-      handle.addEventListener(
-        "error",
-        ((
-          e: CustomEvent<{ error: Error }>,
-        ) => {
-          const err = e.detail.error;
-          console.error("STT error:", err.message);
+      handle.onTranscript = ({ text, isFinal, turnOrder }) => {
+        console.info("transcript", { text, isFinal, turnOrder });
+        if (isFinal) {
           trySendJson({
-            type: "error",
-            message: err.message,
+            type: "final_transcript",
+            text,
+            ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
           });
-        }) as EventListener,
-      );
+        } else {
+          trySendJson({ type: "partial_transcript", text });
+        }
+      };
 
-      handle.addEventListener("close", () => {
+      handle.onTurn = ({ text, turnOrder }) => {
+        console.info("turn", { text, turnOrder });
+        const prev = turnPromise;
+        // deno-lint-ignore prefer-const
+        let next!: Promise<void>;
+        next = (async () => {
+          try {
+            await prev;
+          } catch (e) {
+            console.warn("previous turn failed", e);
+          }
+          try {
+            await handleTurn(text, turnOrder);
+          } finally {
+            if (turnPromise === next) turnPromise = null;
+          }
+        })();
+        turnPromise = next;
+      };
+
+      handle.onError = (err) => {
+        console.error("STT error:", err.message);
+        trySendJson({ type: "error", message: err.message });
+      };
+
+      handle.onClose = async () => {
         console.info("STT closed");
         stt = null;
         if (!sessionAbort.signal.aborted) {
           console.info("Attempting STT reconnect");
-          doConnectSttWithEvents().catch((err: unknown) => {
+          try {
+            await connectStt();
+          } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error("STT reconnect failed:", msg);
             trySendJson({ type: "error", message: msg });
-          });
+          }
         }
-      });
+      };
 
       stt = handle;
     } catch (err: unknown) {
@@ -307,8 +273,17 @@ export function createSession(opts: SessionOptions): Session {
     }
   }
 
+  // ── Internal: turn handling ─────────────────────────────────────
+
+  function cancelInflight(): void {
+    turnAbort?.abort();
+    turnAbort = null;
+  }
+
   async function handleTurn(text: string, turnOrder?: number): Promise<void> {
     cancelInflight();
+    agent = AgentState.Processing;
+
     metrics.turnsTotal.inc(agentLabel);
     const turnStart = performance.now();
 
@@ -320,13 +295,13 @@ export function createSession(opts: SessionOptions): Session {
 
     invokeHook("onTurn", { text });
 
-    // In stt-only mode, skip LLM and TTS — just signal turn complete
     if (isSttOnly) {
       trySendJson({ type: "tts_done" });
       metrics.turnDuration.observe(
         (performance.now() - turnStart) / 1000,
         agentLabel,
       );
+      agent = AgentState.Listening;
       return;
     }
 
@@ -335,7 +310,6 @@ export function createSession(opts: SessionOptions): Session {
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
 
     try {
-      // Resolve dynamic maxSteps if the agent uses a function
       let maxSteps = agentConfig.maxSteps;
       if (maxSteps === undefined && getWorkerApi) {
         try {
@@ -352,7 +326,7 @@ export function createSession(opts: SessionOptions): Session {
       }
 
       const result = await executeTurn(text, {
-        agent,
+        agent: agentSlug,
         model: model!,
         system: systemPrompt,
         messages,
@@ -406,12 +380,15 @@ export function createSession(opts: SessionOptions): Session {
     } catch (err: unknown) {
       if (signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
-      // Log full error details for API errors (includes responseBody)
-      if (err instanceof Error && "responseBody" in err) {
-        console.error("Turn failed:", msg, {
-          responseBody: (err as { responseBody?: string }).responseBody,
-          statusCode: (err as { statusCode?: number }).statusCode,
-        });
+      if (
+        err instanceof Error &&
+        "responseBody" in err
+      ) {
+        const { responseBody, statusCode } = err as Error & {
+          responseBody?: unknown;
+          statusCode?: number;
+        };
+        console.error("Turn failed:", msg, { responseBody, statusCode });
       } else {
         console.error("Turn failed:", msg);
       }
@@ -423,6 +400,9 @@ export function createSession(opts: SessionOptions): Session {
         (performance.now() - turnStart) / 1000,
         agentLabel,
       );
+      if (agent === AgentState.Processing) {
+        agent = AgentState.Listening;
+      }
     }
   }
 
@@ -431,34 +411,43 @@ export function createSession(opts: SessionOptions): Session {
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
-    const p = tts
-      .synthesizeStream(text, (chunk) => trySend(chunk), signal)
-      .then(() => {
+    // deno-lint-ignore prefer-const
+    let p!: Promise<void>;
+    p = (async () => {
+      try {
+        await tts.synthesizeStream(text, (chunk) => trySend(chunk), signal);
         if (!signal.aborted) trySendJson({ type: "tts_done" });
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : String(err);
         console.error("TTS failed:", msg);
         trySendJson({ type: "error", message: msg });
-      })
-      .finally(() => {
+      } finally {
         if (turnAbort === abort) turnAbort = null;
         if (turnPromise === p) turnPromise = null;
-      });
+      }
+    })();
     turnPromise = p;
   }
 
+  // ── Public API ──────────────────────────────────────────────────
+
   return {
     async start(): Promise<void> {
+      if (conn !== ConnState.Idle) return;
+      conn = ConnState.Starting;
+
       metrics.sessionsTotal.inc(agentLabel);
       metrics.sessionsActive.inc(agentLabel);
 
-      if (agentConfig.greeting) pendingGreeting = agentConfig.greeting;
+      if (agentConfig.greeting) {
+        pendingGreeting = agentConfig.greeting;
+      }
 
       invokeHook("onConnect");
+      await connectStt();
 
-      await doConnectSttWithEvents();
+      conn = ConnState.Ready;
       trySendJson({
         type: "ready",
         protocol_version: PROTOCOL_VERSION,
@@ -470,11 +459,14 @@ export function createSession(opts: SessionOptions): Session {
     },
 
     async stop(): Promise<void> {
-      if (sessionAbort.signal.aborted) return;
+      if (conn === ConnState.Stopped) return;
+      conn = ConnState.Stopped;
       sessionAbort.abort();
       metrics.sessionsActive.dec(agentLabel);
+
       const pending = turnPromise;
       if (pending) await pending;
+
       stt?.close();
       tts?.close();
 
@@ -493,6 +485,9 @@ export function createSession(opts: SessionOptions): Session {
     },
 
     onAudioReady(): void {
+      if (agent !== AgentState.WaitingForAudio) return;
+      agent = AgentState.Listening;
+
       if (pendingGreeting) {
         trySendJson({ type: "chat", text: pendingGreeting });
         speakText(pendingGreeting);
@@ -504,12 +499,17 @@ export function createSession(opts: SessionOptions): Session {
       cancelInflight();
       stt?.clear();
       trySendJson({ type: "cancelled" });
+
+      if (agent === AgentState.Processing) {
+        agent = AgentState.Listening;
+      }
     },
 
     onReset(): void {
       cancelInflight();
       stt?.clear();
       messages = [];
+      agent = AgentState.Listening;
       trySendJson({ type: "reset" });
 
       if (agentConfig.greeting) {
