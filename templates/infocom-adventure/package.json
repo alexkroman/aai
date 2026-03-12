@@ -11,7 +11,6 @@
     "@jsr/aai__ui": "*",
     "preact": "^10",
     "@preact/signals": "^2",
-    "htm": "^3",
     "comlink": "^4"
   },
   "devDependencies": {

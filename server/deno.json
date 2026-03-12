@@ -1,6 +1,6 @@
 {
   "name": "@aai/server",
-  "version": "0.1.119",
+  "version": "0.1.125",
   "exports": {
     ".": "./main.ts",
     "./types": "./types.ts",
@@ -15,11 +15,18 @@
     "ai/test": "npm:ai@^4/test",
     "@ai-sdk/openai": "npm:@ai-sdk/openai@^1",
     "openai": "npm:openai@^4.80.0",
-    "assemblyai": "npm:assemblyai@^4"
+    "assemblyai": "npm:assemblyai@^4",
+    "preact": "npm:preact@^10.28.4",
+    "preact-render-to-string": "npm:preact-render-to-string@^6.5.13"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
   },
   "publish": {
     "exclude": [
       "*_test.ts",
+      "*_test.tsx",
       "_mock_ws.ts"
     ]
   },

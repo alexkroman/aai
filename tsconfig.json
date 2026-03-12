@@ -9,6 +9,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact"
   },
-  "include": ["agent.ts", "client.ts"],
+  "include": ["agent.ts", "client.tsx"],
   "exclude": ["node_modules"]
 }

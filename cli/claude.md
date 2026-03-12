@@ -420,40 +420,35 @@ For JSR packages, add `.npmrc` with `@jsr:registry=https://npm.jsr.io`, then
 `npm install @jsr/scope__package-name`. Import as bare specifiers — the bundler
 resolves from `node_modules`.
 
-## Custom UI (`client.ts`)
+## Custom UI (`client.tsx`)
 
-Add `client.ts` alongside `agent.ts`. Export a default Preact component — the
-framework auto-mounts it. Use `htm` tagged templates instead of JSX:
+Add `client.tsx` alongside `agent.ts`. Export a default Preact component — the
+framework auto-mounts it. Use JSX syntax:
 
-```ts
-import { html, useSession } from "@jsr/aai__ui";
+```tsx
+import { useSession } from "@jsr/aai__ui";
 
 export default function App() {
   const session = useSession();
   const msgs = session.messages.value;
   const tx = session.transcript.value;
-  return html`
+  return (
     <div>
-      ${msgs.map((m, i) =>
-        html`
-          <p key="${i}">${m.text}</p>
-        `
-      )} ${tx && html`
-        <p>${tx}</p>
-      `}
-      <button onClick="${() => session.toggle()}">Toggle</button>
-      <button onClick="${() => session.reset()}">Reset</button>
+      {msgs.map((m, i) => <p key={i}>{m.text}</p>)}
+      {tx && <p>{tx}</p>}
+      <button onClick={() => session.toggle()}>Toggle</button>
+      <button onClick={() => session.reset()}>Reset</button>
     </div>
-  `;
+  );
 }
 ```
 
 **Rules:**
 
 - Export a default function component — do not call `mount()` yourself
-- Import `html` from `@jsr/aai__ui` for tagged template rendering (no JSX)
+- Use `.tsx` file extension for JSX syntax
 - Import hooks from `preact/hooks` (`useEffect`, `useRef`, `useState`, etc.)
-- Style with `style=${{ color: "red" }}` or inject `<style>` for selectors,
+- Style with `style={{ color: "red" }}` or inject `<style>` for selectors,
   keyframes, media queries
 
 **Built-in components from `@jsr/aai__ui`:** `ErrorBanner`, `StateIndicator`,

@@ -13,7 +13,6 @@ import {
   withSignalsEnv,
 } from "./_test_utils.ts";
 import { useSession } from "./signals.ts";
-import { html } from "./_html.ts";
 
 Deno.test("createSessionControls", async (t) => {
   await t.step(
@@ -95,17 +94,13 @@ Deno.test("useSession", async (t) => {
 
     function Orphan() {
       useSession();
-      return html`
-        <div />
-      `;
+      return <div />;
     }
 
     let caught: Error | null = null;
     try {
       render(
-        html`
-          <${Orphan} />
-        `,
+        <Orphan />,
         container,
       );
     } catch (e) {

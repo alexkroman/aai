@@ -2,7 +2,7 @@
 import * as log from "@std/log";
 import { html, HttpError, json, type RouteContext } from "./context.ts";
 import { eTag, ifNoneMatch } from "@std/http/etag";
-import { renderAgentPage } from "./html.ts";
+import { renderAgentPage } from "./html.tsx";
 import { wireSessionSocket } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";

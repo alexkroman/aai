@@ -1,6 +1,6 @@
 {
   "name": "@aai/ui",
-  "version": "0.1.95",
+  "version": "0.1.101",
   "exports": "./mod.ts",
   "publish": {
     "exclude": [
@@ -12,13 +12,12 @@
   },
   "tasks": {
     "test": "deno test --allow-net --allow-read --allow-write --allow-env",
-    "check": "deno check ./**/*.ts"
+    "check": "deno check ./**/*.ts ./**/*.tsx"
   },
   "imports": {
     "preact": "npm:preact@10.28.4",
     "preact/hooks": "npm:preact@10.28.4/hooks",
     "@preact/signals": "npm:@preact/signals@2.8.1",
-    "htm": "npm:htm@3.1.1",
     "@b-fuze/deno-dom": "jsr:@b-fuze/deno-dom@^0.1.56",
     "@aai/core": "workspace:@aai/core"
   },

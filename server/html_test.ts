@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assert, assertStringIncludes } from "@std/assert";
-import { renderAgentPage } from "./html.ts";
+import { renderAgentPage } from "./html.tsx";
 
 Deno.test("renderAgentPage escapes HTML in agent name", () => {
   const html = renderAgentPage('<script>alert("xss")</script>');

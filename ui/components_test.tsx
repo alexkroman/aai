@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assert, assertStrictEquals, assertStringIncludes } from "@std/assert";
-import { h, render } from "preact";
+import { render } from "preact";
 import { signal } from "@preact/signals";
 import { createMockSignals, withDOM } from "./_test_utils.ts";
 import { SessionProvider, type SessionSignals } from "./signals.ts";
@@ -11,8 +11,7 @@ import {
   MessageBubble,
   StateIndicator,
   Transcript,
-} from "./_components.ts";
-import { html } from "./_html.ts";
+} from "./_components.tsx";
 import type { AgentState, Message } from "./types.ts";
 
 function renderWithProvider(
@@ -21,7 +20,7 @@ function renderWithProvider(
   signals: SessionSignals,
 ) {
   render(
-    h(SessionProvider, { value: signals, children: vnode }),
+    <SessionProvider value={signals}>{vnode}</SessionProvider>,
     container,
   );
 }
@@ -31,9 +30,7 @@ Deno.test("StateIndicator", async (t) => {
     "renders the state label",
     withDOM((container) => {
       render(
-        html`
-          <${StateIndicator} state="${signal<AgentState>("listening")}" />
-        `,
+        <StateIndicator state={signal<AgentState>("listening")} />,
         container,
       );
       assertStringIncludes(container.textContent!, "listening");
@@ -46,14 +43,12 @@ Deno.test("ErrorBanner", async (t) => {
     "renders error message",
     withDOM((container) => {
       render(
-        html`
-          <${ErrorBanner}
-            error="${signal({
-              code: "connection" as const,
-              message: "Connection lost",
-            })}"
-          />
-        `,
+        <ErrorBanner
+          error={signal({
+            code: "connection" as const,
+            message: "Connection lost",
+          })}
+        />,
         container,
       );
       assertStringIncludes(container.textContent!, "Connection lost");
@@ -64,9 +59,7 @@ Deno.test("ErrorBanner", async (t) => {
     "renders nothing when null",
     withDOM((container) => {
       render(
-        html`
-          <${ErrorBanner} error="${signal(null)}" />
-        `,
+        <ErrorBanner error={signal(null)} />,
         container,
       );
       assertStrictEquals(container.innerHTML, "");
@@ -80,9 +73,7 @@ Deno.test("MessageBubble", async (t) => {
     withDOM((container) => {
       const msg: Message = { role: "user", text: "Hello there" };
       render(
-        html`
-          <${MessageBubble} message="${msg}" />
-        `,
+        <MessageBubble message={msg} />,
         container,
       );
       assertStringIncludes(container.textContent!, "Hello there");
@@ -94,9 +85,7 @@ Deno.test("MessageBubble", async (t) => {
     withDOM((container) => {
       const msg: Message = { role: "assistant", text: "Simple reply" };
       render(
-        html`
-          <${MessageBubble} message="${msg}" />
-        `,
+        <MessageBubble message={msg} />,
         container,
       );
       assertStrictEquals(container.textContent, "Simple reply");
@@ -109,9 +98,7 @@ Deno.test("Transcript", async (t) => {
     "renders transcript text",
     withDOM((container) => {
       render(
-        html`
-          <${Transcript} text="${signal("hello wor")}" />
-        `,
+        <Transcript text={signal("hello wor")} />,
         container,
       );
       assertStringIncludes(container.textContent!, "hello wor");
@@ -122,9 +109,7 @@ Deno.test("Transcript", async (t) => {
     "renders nothing when empty",
     withDOM((container) => {
       render(
-        html`
-          <${Transcript} text="${signal("")}" />
-        `,
+        <Transcript text={signal("")} />,
         container,
       );
       assertStrictEquals(container.innerHTML, "");
@@ -139,9 +124,7 @@ Deno.test("App", async (t) => {
       const signals = createMockSignals({ started: false });
       renderWithProvider(
         container,
-        html`
-          <${App} />
-        `,
+        <App />,
         signals,
       );
       assertStrictEquals(
@@ -161,9 +144,7 @@ Deno.test("App", async (t) => {
       });
       renderWithProvider(
         container,
-        html`
-          <${App} />
-        `,
+        <App />,
         signals,
       );
       assertStringIncludes(container.textContent!, "listening");
@@ -177,9 +158,7 @@ Deno.test("App", async (t) => {
       const signals = createMockSignals({ started: false });
       renderWithProvider(
         container,
-        html`
-          <${App} />
-        `,
+        <App />,
         signals,
       );
       assertStrictEquals(
@@ -191,9 +170,7 @@ Deno.test("App", async (t) => {
       signals.state.value = "listening";
       renderWithProvider(
         container,
-        html`
-          <${App} />
-        `,
+        <App />,
         signals,
       );
 
@@ -218,9 +195,7 @@ Deno.test("ChatView", async (t) => {
       });
       renderWithProvider(
         container,
-        html`
-          <${ChatView} />
-        `,
+        <ChatView />,
         signals,
       );
 
@@ -242,9 +217,7 @@ Deno.test("ChatView", async (t) => {
       });
       renderWithProvider(
         container,
-        html`
-          <${ChatView} />
-        `,
+        <ChatView />,
         signals,
       );
 
@@ -263,9 +236,7 @@ Deno.test("ChatView", async (t) => {
       });
       renderWithProvider(
         container,
-        html`
-          <${ChatView} />
-        `,
+        <ChatView />,
         signals,
       );
 
@@ -281,9 +252,7 @@ Deno.test("ChatView", async (t) => {
       render(null, container);
       renderWithProvider(
         container,
-        html`
-          <${ChatView} />
-        `,
+        <ChatView />,
         signals,
       );
       assert(buttons().includes("Resume"));
@@ -305,9 +274,7 @@ Deno.test("ChatView", async (t) => {
       });
       renderWithProvider(
         container,
-        html`
-          <${ChatView} />
-        `,
+        <ChatView />,
         signals,
       );
 

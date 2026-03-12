@@ -146,7 +146,9 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   const config = await readProjectConfig(dir);
   const slug = config?.slug ?? generateSlug();
 
-  const clientEntry = await exists(join(dir, "client.ts"))
+  const clientEntry = await exists(join(dir, "client.tsx"))
+    ? join(dir, "client.tsx")
+    : await exists(join(dir, "client.ts"))
     ? join(dir, "client.ts")
     : "";
 

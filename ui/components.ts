@@ -2,7 +2,7 @@
 /**
  * Preact UI components for the voice agent interface.
  *
- * Re-exports from _components.ts with explicit type annotations so JSR can
+ * Re-exports from _components.tsx with explicit type annotations so JSR can
  * generate .d.ts without needing to analyze source files.
  */
 
@@ -18,7 +18,7 @@ import {
   StateIndicator as _StateIndicator,
   ThinkingIndicator as _ThinkingIndicator,
   Transcript as _Transcript,
-} from "./_components.ts";
+} from "./_components.tsx";
 
 /** Displays the current agent state as a colored indicator. */
 export const StateIndicator: (

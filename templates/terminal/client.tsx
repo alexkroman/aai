@@ -1,4 +1,4 @@
-import { html, useSession } from "@jsr/aai__ui";
+import { useSession } from "@jsr/aai__ui";
 import type { Message } from "@jsr/aai__ui";
 import { useEffect, useRef } from "preact/hooks";
 import { signal } from "@preact/signals";
@@ -602,7 +602,7 @@ function runCommand(text: string): void {
   writePrompt();
 }
 
-// ─── CSS ─────────────────────────────────────────────────────────────────────
+// ─── Minimal CSS for body reset and third-party xterm.js targeting ───────────
 
 const CSS = `
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -613,122 +613,9 @@ body {
   font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "Menlo", monospace;
 }
 
-.term-wrap {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.term-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 16px;
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
-  font-size: 12px;
-  color: #8b949e;
-  flex-shrink: 0;
-}
-
-.term-tabs {
-  display: flex;
-  gap: 2px;
-}
-.term-tab {
-  padding: 4px 16px;
-  background: #0d1117;
-  color: #c9d1d9;
-  border-radius: 6px 6px 0 0;
-  font-size: 12px;
-  border: 1px solid #30363d;
-  border-bottom: none;
-  font-family: inherit;
-}
-
-.term-xterm {
-  flex: 1;
-  overflow: hidden;
-}
 .term-xterm .xterm {
   height: 100%;
   padding: 8px;
-}
-
-.term-status {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 4px 16px;
-  background: #161b22;
-  border-top: 1px solid #30363d;
-  color: #8b949e;
-  font-size: 12px;
-  flex-shrink: 0;
-  font-family: inherit;
-}
-.term-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.term-btn {
-  padding: 2px 10px;
-  background: transparent;
-  color: #8b949e;
-  border: 1px solid #30363d;
-  font-family: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.term-btn:hover { background: #21262d; color: #c9d1d9; }
-
-.term-start {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  color: #c9d1d9;
-}
-.term-start-logo {
-  font-size: 28px;
-  font-weight: bold;
-  color: #58a6ff;
-  letter-spacing: 4px;
-}
-.term-start-sub { color: #8b949e; font-size: 14px; }
-.term-start-desc { color: #6e7681; font-size: 13px; text-align: center; max-width: 400px; }
-.term-start-btn {
-  padding: 10px 32px;
-  font-size: 14px;
-  border-color: #58a6ff;
-  color: #58a6ff;
-}
-
-.term-error {
-  padding: 6px 16px;
-  background: #3d1f1f;
-  color: #ff7b72;
-  font-size: 12px;
-  border-bottom: 1px solid #5a2d2d;
-  font-family: inherit;
-}
-
-.term-transcript {
-  padding: 4px 16px;
-  background: #161b22;
-  color: #6e7681;
-  font-size: 12px;
-  font-style: italic;
-  border-top: 1px solid #30363d;
-  flex-shrink: 0;
-  font-family: inherit;
-  min-height: 24px;
 }
 `;
 
@@ -867,71 +754,90 @@ export default function Terminal() {
     : stateVal;
 
   if (!started.value) {
-    return html`
-      <style>
-      ${CSS}
-      </style>
-      <div class="term-wrap">
-        <div class="term-start">
-          <div class="term-start-logo">K8</div>
-          <div class="term-start-sub">Kubernetes Training Terminal</div>
-          <div class="term-start-desc">
-            Speak terminal commands into your microphone. They will be transcribed and
-            executed in real time.
+    return (
+      <>
+        <style>{CSS}</style>
+        <div className="fixed inset-0 flex flex-col bg-[#0d1117]">
+          <div className="flex-1 flex flex-col items-center justify-center gap-6 text-[#c9d1d9]">
+            <div className="text-[28px] font-bold text-[#58a6ff] tracking-[4px]">
+              K8
+            </div>
+            <div className="text-[#8b949e] text-sm">
+              Kubernetes Training Terminal
+            </div>
+            <div className="text-[#6e7681] text-[13px] text-center max-w-[400px]">
+              Speak terminal commands into your microphone. They will be
+              transcribed and executed in real time.
+            </div>
+            <button
+              type="button"
+              className="px-8 py-2.5 text-sm bg-transparent text-[#58a6ff] border border-[#58a6ff] rounded cursor-pointer font-[inherit] hover:bg-[#21262d]"
+              onClick={start}
+            >
+              Start Session
+            </button>
           </div>
-          <button
-            type="button"
-            class="term-btn term-start-btn"
-            onClick="${start}"
-          >
-            Start Session
-          </button>
         </div>
-      </div>
-    `;
+      </>
+    );
   }
 
   const errVal = error.value;
   const tx = transcript.value;
 
-  return html`
-    <style>
-    ${CSS}
-    </style>
-    <div class="term-wrap">
-      <div class="term-header">
-        <div class="term-tabs">
-          <div class="term-tab">trainee@k8s-lab</div>
+  return (
+    <>
+      <style>{CSS}</style>
+      <div className="fixed inset-0 flex flex-col bg-[#0d1117]">
+        <div className="flex items-center justify-between px-4 py-1.5 bg-[#161b22] border-b border-[#30363d] text-xs text-[#8b949e] shrink-0 font-[inherit]">
+          <div className="flex gap-0.5">
+            <div className="px-4 py-1 bg-[#0d1117] text-[#c9d1d9] rounded-t-md text-xs border border-[#30363d] border-b-0 font-[inherit]">
+              trainee@k8s-lab
+            </div>
+          </div>
+          <div className="flex gap-2 items-center">
+            <button
+              type="button"
+              className="px-2.5 py-0.5 bg-transparent text-[#8b949e] border border-[#30363d] font-[inherit] text-[11px] cursor-pointer rounded hover:bg-[#21262d] hover:text-[#c9d1d9]"
+              onClick={toggle}
+            >
+              {running.value ? "Pause" : "Resume"}
+            </button>
+          </div>
         </div>
-        <div style="${{ display: "flex", gap: "8px", alignItems: "center" }}">
-          <button type="button" class="term-btn" onClick="${toggle}">
-            ${running.value ? "Pause" : "Resume"}
-          </button>
+
+        {errVal && (
+          <div className="px-4 py-1.5 bg-[#3d1f1f] text-[#ff7b72] text-xs border-b border-[#5a2d2d] font-[inherit]">
+            {errVal.message}
+          </div>
+        )}
+
+        <div className="term-xterm flex-1 overflow-hidden" ref={containerRef} />
+
+        {tx && (
+          <div className="px-4 py-1 bg-[#161b22] text-[#6e7681] text-xs italic border-t border-[#30363d] shrink-0 font-[inherit] min-h-[24px]">
+            {tx}
+          </div>
+        )}
+
+        <div className="flex items-center gap-4 px-4 py-1 bg-[#161b22] border-t border-[#30363d] text-[#8b949e] text-xs shrink-0 font-[inherit]">
+          <div className="flex items-center gap-1.5">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ background: statusColor }}
+            />
+            <span>{statusLabel}</span>
+          </div>
+          <span className="ml-auto">
+            k8s-lab |{" "}
+            {messages.value.filter((m: Message) => m.role === "user").length}
+            {" "}
+            commands
+          </span>
         </div>
       </div>
-
-      ${errVal && html`
-        <div class="term-error">${errVal.message}</div>
-      `}
-
-      <div class="term-xterm" ref="${containerRef}" />
-
-      ${tx && html`
-        <div class="term-transcript">${tx}</div>
-      `}
-
-      <div class="term-status">
-        <div style="${{ display: "flex", alignItems: "center", gap: "6px" }}">
-          <div class="term-status-dot" style="${{ background: statusColor }}" />
-          <span>${statusLabel}</span>
-        </div>
-        <span style="${{ marginLeft: "auto" }}">
-          k8s-lab | ${messages.value.filter((m: Message) => m.role === "user")
-            .length} commands
-        </span>
-      </div>
-    </div>
-  `;
+    </>
+  );
 }
 
 function writePromptOn(term: XTermInstance): void {

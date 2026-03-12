@@ -6,18 +6,15 @@ import {
   assertThrows,
 } from "@std/assert";
 import { withMountEnv } from "./_test_utils.ts";
-import { mount } from "./mount.ts";
+import { mount } from "./mount.tsx";
 import { defaultTheme } from "./theme.ts";
-import { html } from "./_html.ts";
 
 Deno.test("mount()", async (t) => {
   await t.step(
     "throws when target selector does not match",
     withMountEnv(() => {
       function App() {
-        return html`
-          <div>test</div>
-        `;
+        return <div>test</div>;
       }
       assertThrows(
         () =>
@@ -35,9 +32,7 @@ Deno.test("mount()", async (t) => {
     "renders a component into the default #app element",
     withMountEnv(() => {
       function App() {
-        return html`
-          <div class="hello">Hello Mount</div>
-        `;
+        return <div class="hello">Hello Mount</div>;
       }
       mount(App, { platformUrl: "http://localhost:3000" });
 
@@ -50,9 +45,7 @@ Deno.test("mount()", async (t) => {
     "returns session, signals, and dispose",
     withMountEnv(() => {
       function App() {
-        return html`
-          <div />
-        `;
+        return <div />;
       }
       const handle = mount(App, { platformUrl: "http://localhost:3000" });
 
@@ -66,9 +59,7 @@ Deno.test("mount()", async (t) => {
     "applies theme CSS variables to the container",
     withMountEnv(() => {
       function App() {
-        return html`
-          <div />
-        `;
+        return <div />;
       }
       mount(App, { platformUrl: "http://localhost:3000" });
 
@@ -85,9 +76,7 @@ Deno.test("mount()", async (t) => {
     "merges custom theme with defaults",
     withMountEnv(() => {
       function App() {
-        return html`
-          <div />
-        `;
+        return <div />;
       }
       mount(App, {
         platformUrl: "http://localhost:3000",
@@ -109,9 +98,7 @@ Deno.test("mount()", async (t) => {
     "dispose tears down render and disconnects session",
     withMountEnv(() => {
       function App() {
-        return html`
-          <div>content</div>
-        `;
+        return <div>content</div>;
       }
       const handle = mount(App, { platformUrl: "http://localhost:3000" });
 
@@ -129,10 +116,7 @@ Deno.test("mount()", async (t) => {
       const g = globalThis as unknown as Record<string, unknown>;
       g.__AAI_BASE__ = "/alex/ai-takes";
       g.location = { origin: "https://aai-agent.fly.dev", pathname: "/" };
-      const App = () =>
-        html`
-          <div />
-        `;
+      const App = () => <div />;
       try {
         const handle = mount(App);
         // Session connects on start — trigger it and flush microtasks

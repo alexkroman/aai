@@ -8,12 +8,13 @@ import {
   type SessionSignals,
 } from "./signals.ts";
 import { applyTheme, defaultTheme, type Theme } from "./theme.ts";
-import { html } from "./_html.ts";
 
 function injectBodyStyle(theme: Theme): HTMLStyleElement {
   const style = document.createElement("style");
-  style.textContent = `body { margin: 0; background: ${theme.bg}; }`;
+  style.textContent =
+    `body { margin: 0; padding: 0; background: ${theme.bg}; }`;
   document.head.appendChild(style);
+  document.body.classList.add("m-0", "p-0");
   return style;
 }
 
@@ -85,8 +86,12 @@ export function mount(
   const signals = createSessionControls(session);
   const styleEl = injectBodyStyle(theme);
 
-  // deno-fmt-ignore
-  render(html`<${SessionProvider} value="${signals}"><${Component} /></${SessionProvider}>`, container);
+  render(
+    <SessionProvider value={signals}>
+      <Component />
+    </SessionProvider>,
+    container,
+  );
 
   const handle: MountHandle = {
     session,

@@ -13,6 +13,6 @@
       "@aai/ui": ["./node_modules/@jsr/aai__ui/_dist/mod.d.ts"]
     }
   },
-  "include": ["agent.ts", "client.ts"],
+  "include": ["agent.ts", "client.tsx"],
   "exclude": ["node_modules"]
 }

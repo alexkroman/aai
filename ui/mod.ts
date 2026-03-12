@@ -6,7 +6,7 @@
  * Preact UI components, and theming.
  *
  * @example
- * ```ts
+ * ```tsx
  * import { App, mount } from "@aai/ui";
  *
  * mount(App, { target: "#app" });
@@ -14,8 +14,6 @@
  *
  * @module
  */
-
-export { html } from "./_html.ts";
 
 export { createVoiceSession } from "./session.ts";
 export type { VoiceSession } from "./session.ts";
@@ -37,8 +35,8 @@ export type { SessionSignals } from "./signals.ts";
 export { applyTheme, darkTheme, defaultTheme, lightTheme } from "./theme.ts";
 export type { Theme } from "./theme.ts";
 
-export { mount } from "./mount.ts";
-export type { MountHandle, MountOptions } from "./mount.ts";
+export { mount } from "./mount.tsx";
+export type { MountHandle, MountOptions } from "./mount.tsx";
 
 export {
   App,

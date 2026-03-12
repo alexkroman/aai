@@ -2,7 +2,7 @@
 import * as log from "@std/log";
 import { type Route, route } from "@std/http/unstable-route";
 import { type AppState, html, HttpError, json, text } from "./context.ts";
-import { FAVICON_SVG, renderLandingPage } from "./html.ts";
+import { FAVICON_SVG, renderLandingPage } from "./html.tsx";
 import { INSTALL_SCRIPT } from "./install.ts";
 import { handleDeploy } from "./deploy.ts";
 import { handleEnvDelete, handleEnvList, handleEnvSet } from "./env_handler.ts";
