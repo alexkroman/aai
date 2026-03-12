@@ -31,17 +31,22 @@ snapshot[`AgentConfigSchema snapshot 1`] = `
       type: "array",
     },
     greeting: {
-      minLength: 1,
       type: "string",
     },
     instructions: {
-      minLength: 1,
       type: "string",
     },
     maxSteps: {
       exclusiveMinimum: 0,
       maximum: 9007199254740991,
       type: "integer",
+    },
+    mode: {
+      enum: [
+        "full",
+        "stt-only",
+      ],
+      type: "string",
     },
     name: {
       minLength: 1,
@@ -104,7 +109,6 @@ snapshot[`AgentConfigSchema snapshot 1`] = `
       ],
     },
     voice: {
-      minLength: 1,
       type: "string",
     },
   },
@@ -253,6 +257,13 @@ snapshot[`ServerMessageSchema snapshot 1`] = `
       properties: {
         audio_format: {
           const: "pcm16",
+          type: "string",
+        },
+        mode: {
+          enum: [
+            "full",
+            "stt-only",
+          ],
           type: "string",
         },
         protocol_version: {

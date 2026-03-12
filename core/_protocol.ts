@@ -16,6 +16,7 @@ export type ServerMessage =
     audio_format: "pcm16";
     sample_rate: number;
     tts_sample_rate: number;
+    mode?: "full" | "stt-only";
   }
   | { type: "partial_transcript"; text: string }
   | { type: "final_transcript"; text: string; turn_order?: number }
@@ -35,6 +36,7 @@ export const ServerMessageSchema: z.ZodType<ServerMessage> = z
       audio_format: z.literal("pcm16"),
       sample_rate: z.number().int().positive(),
       tts_sample_rate: z.number().int().positive(),
+      mode: z.enum(["full", "stt-only"]).optional(),
     }),
     z.object({ type: z.literal("partial_transcript"), text: z.string() }),
     z.object({

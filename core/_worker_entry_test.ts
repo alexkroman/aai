@@ -119,6 +119,7 @@ Deno.test("startWorker via Comlink", async (t) => {
     startWorker(
       {
         name: "Test",
+        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -149,6 +150,7 @@ Deno.test("startWorker via Comlink", async (t) => {
     startWorker(
       {
         name: "Test",
+        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -175,6 +177,7 @@ Deno.test("startWorker via Comlink", async (t) => {
     startWorker(
       {
         name: "Test",
+        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -204,6 +207,7 @@ Deno.test("startWorker via Comlink", async (t) => {
     startWorker(
       {
         name: "Test",
+        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -239,6 +243,7 @@ Deno.test("startWorker via Comlink", async (t) => {
     startWorker(
       {
         name: "Test",
+        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -290,6 +295,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
       startWorker(
         {
           name: "Test",
+          mode: "full" as const,
           env: [],
           transport: ["websocket"],
           instructions: "",
@@ -348,6 +354,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
       startWorker(
         {
           name: "Test",
+          mode: "full" as const,
           env: [],
           transport: ["websocket"],
           instructions: "",
@@ -409,6 +416,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
       startWorker(
         {
           name: "Test",
+          mode: "full" as const,
           env: [],
           transport: ["websocket"],
           instructions: "",
@@ -466,6 +474,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
       startWorker(
         {
           name: "Test",
+          mode: "full" as const,
           env: [],
           transport: ["websocket"],
           instructions: "",
@@ -533,6 +542,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
       startWorker(
         {
           name: "Test",
+          mode: "full" as const,
           env: [],
           transport: ["websocket"],
           instructions: "",
@@ -583,6 +593,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
       startWorker(
         {
           name: "Test",
+          mode: "full" as const,
           env: [],
           transport: ["websocket"],
           instructions: "",

@@ -1,12 +1,18 @@
 import { z } from "zod";
 import type {
+  AgentMode,
   BuiltinTool,
   ToolChoice,
   ToolSchema,
   Transport,
 } from "./_schema.ts";
 import type { Kv } from "./kv.ts";
-export type { AgentConfig, BuiltinTool, ToolChoice } from "./_schema.ts";
+export type {
+  AgentConfig,
+  AgentMode,
+  BuiltinTool,
+  ToolChoice,
+} from "./_schema.ts";
 
 export type Message = {
   role: "user" | "assistant" | "tool";
@@ -90,6 +96,7 @@ export type StepInfo = {
 // deno-lint-ignore no-explicit-any
 export type AgentOptions<S = any> = {
   name: string;
+  mode?: AgentMode;
   env?: string[];
   transport?: Transport | Transport[];
   instructions?: string;
@@ -151,6 +158,7 @@ export function agentToolsToSchemas(
 
 export type AgentDef = {
   readonly name: string;
+  readonly mode: AgentMode;
   readonly env: readonly string[];
   readonly transport: readonly Transport[];
   readonly instructions: string;

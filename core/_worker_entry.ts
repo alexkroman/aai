@@ -290,6 +290,7 @@ export function startWorker(
       return {
         config: {
           name: agent.name,
+          mode: agent.mode,
           instructions: agent.instructions,
           greeting: agent.greeting,
           voice: agent.voice,

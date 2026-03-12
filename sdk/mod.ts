@@ -6,6 +6,7 @@ export { z } from "zod";
 export { tool } from "./types.ts";
 export type {
   AgentDef,
+  AgentMode,
   AgentOptions,
   BuiltinTool,
   HookContext,

@@ -168,29 +168,30 @@ export function createSession(opts: SessionOptions): Session {
     },
   };
 
-  const doConnectStt = opts.connectStt ?? connectStt;
-  const tts: TtsClient = (opts.createTtsClient ?? createTtsClient)(
-    config.ttsConfig,
-  );
-  tts.warmup();
+  const isSttOnly = agentConfig.mode === "stt-only";
 
-  // Create the Vercel AI model with gateway middleware
-  const model = createModel({
+  const doConnectStt = opts.connectStt ?? connectStt;
+
+  // In stt-only mode, skip TTS, LLM model, tools, and system prompt
+  const tts: TtsClient | null = isSttOnly
+    ? null
+    : (opts.createTtsClient ?? createTtsClient)(config.ttsConfig);
+  tts?.warmup();
+
+  const model = isSttOnly ? null : createModel({
     apiKey: config.apiKey,
     model: config.model,
     gatewayBase: config.llmGatewayBase,
   });
 
-  // Build system prompt
   const hasTools = toolSchemas.length > 0 ||
     (agentConfig.builtinTools?.length ?? 0) > 0;
-  const systemPrompt = buildSystemPrompt(agentConfig, hasTools, {
-    voice: true,
-  });
+  const systemPrompt = isSttOnly
+    ? ""
+    : buildSystemPrompt(agentConfig, hasTools, { voice: true });
 
-  // Build Vercel tool set (getMessages closure provides current conversation)
   const getMessages = () => messages;
-  const tools = buildVercelTools(
+  const tools = isSttOnly ? {} : buildVercelTools(
     toolSchemas,
     agentConfig.builtinTools ?? [],
     executeTool,
@@ -319,6 +320,16 @@ export function createSession(opts: SessionOptions): Session {
 
     invokeHook("onTurn", { text });
 
+    // In stt-only mode, skip LLM and TTS — just signal turn complete
+    if (isSttOnly) {
+      trySendJson({ type: "tts_done" });
+      metrics.turnDuration.observe(
+        (performance.now() - turnStart) / 1000,
+        agentLabel,
+      );
+      return;
+    }
+
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
@@ -342,7 +353,7 @@ export function createSession(opts: SessionOptions): Session {
 
       const result = await executeTurn(text, {
         agent,
-        model,
+        model: model!,
         system: systemPrompt,
         messages,
         tools,
@@ -383,7 +394,7 @@ export function createSession(opts: SessionOptions): Session {
 
       if (result) {
         trySendJson({ type: "chat", text: result });
-        await tts.synthesizeStream(
+        await tts!.synthesizeStream(
           result,
           (chunk) => trySend(chunk),
           signal,
@@ -416,6 +427,7 @@ export function createSession(opts: SessionOptions): Session {
   }
 
   function speakText(text: string): void {
+    if (!tts) return;
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
@@ -453,6 +465,7 @@ export function createSession(opts: SessionOptions): Session {
         audio_format: AUDIO_FORMAT,
         sample_rate: config.sttConfig.sampleRate,
         tts_sample_rate: config.ttsConfig.sampleRate,
+        ...(isSttOnly ? { mode: "stt-only" } : {}),
       });
     },
 
@@ -463,7 +476,7 @@ export function createSession(opts: SessionOptions): Session {
       const pending = turnPromise;
       if (pending) await pending;
       stt?.close();
-      tts.close();
+      tts?.close();
 
       invokeHook("onDisconnect");
     },

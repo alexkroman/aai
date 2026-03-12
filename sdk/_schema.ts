@@ -43,8 +43,16 @@ export const ToolChoiceSchema: z.ZodType<ToolChoice> = z.union([
   z.object({ type: z.literal("tool"), toolName: z.string().min(1) }),
 ]);
 
+export type AgentMode = "full" | "stt-only";
+
+export const AgentModeSchema: z.ZodType<AgentMode> = z.enum([
+  "full",
+  "stt-only",
+]);
+
 export type AgentConfig = {
   name: string;
+  mode?: AgentMode;
   instructions: string;
   greeting: string;
   voice: string;
@@ -57,9 +65,10 @@ export type AgentConfig = {
 
 export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
   name: z.string().min(1),
-  instructions: z.string().min(1),
-  greeting: z.string().min(1),
-  voice: z.string().min(1),
+  mode: AgentModeSchema.optional(),
+  instructions: z.string(),
+  greeting: z.string(),
+  voice: z.string(),
   sttPrompt: z.string().min(1).optional(),
   maxSteps: z.number().int().positive().optional(),
   toolChoice: ToolChoiceSchema.optional(),

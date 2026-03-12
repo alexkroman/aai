@@ -7,13 +7,19 @@ import {
 } from "./types.ts";
 
 export function defineAgent(options: AgentOptions): AgentDef {
+  const isSttOnly = options.mode === "stt-only";
   return Object.freeze({
     name: options.name,
+    mode: options.mode ?? "full",
     env: Object.freeze(options.env ?? ["ASSEMBLYAI_API_KEY"]),
     transport: Object.freeze(normalizeTransport(options.transport)),
-    instructions: options.instructions ?? DEFAULT_INSTRUCTIONS,
-    greeting: options.greeting ?? DEFAULT_GREETING,
-    voice: options.voice ?? "luna",
+    instructions: isSttOnly
+      ? (options.instructions ?? "")
+      : (options.instructions ?? DEFAULT_INSTRUCTIONS),
+    greeting: isSttOnly
+      ? (options.greeting ?? "")
+      : (options.greeting ?? DEFAULT_GREETING),
+    voice: isSttOnly ? (options.voice ?? "") : (options.voice ?? "luna"),
     sttPrompt: options.sttPrompt,
     maxSteps: options.maxSteps ?? 5,
     toolChoice: options.toolChoice,
