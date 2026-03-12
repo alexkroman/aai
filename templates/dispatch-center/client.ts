@@ -47,8 +47,8 @@ const statusColors: Record<string, string> = {
   incoming: "#818cf8",
   triaged: "#a78bfa",
   dispatched: "#f59e0b",
-  en_route: "#3b82f6",
-  on_scene: "#22c55e",
+  "en_route": "#3b82f6",
+  "on_scene": "#22c55e",
   resolved: "#6b7280",
   escalated: "#ef4444",
 };
@@ -96,7 +96,7 @@ function extractIncidents(
         ) inc.status = st;
       }
       const locMatch = line.match(/(?:at|to|location:?)\s+([^,.\n]{5,50})/i);
-      if (locMatch) inc.location = locMatch[1].trim();
+      if (locMatch) inc.location = locMatch[1]!.trim();
 
       incidents.set(id, inc);
     }
@@ -108,7 +108,7 @@ function extractAlertLevel(messages: { role: string; text: string }[]): string {
   let level = "green";
   for (const msg of messages) {
     const match = msg.text.match(/alert level[:\s]+(\w+)/i);
-    if (match) level = match[1].toLowerCase();
+    if (match) level = match[1]!.toLowerCase();
     if (
       msg.text.includes("alert level is red") || msg.text.includes("ALERT: RED")
     ) level = "red";

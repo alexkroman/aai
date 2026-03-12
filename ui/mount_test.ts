@@ -1,4 +1,10 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import {
+  assert,
+  assertStrictEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { withMountEnv } from "./_test_utils.ts";
 import { mount } from "./mount.ts";
 import { defaultTheme } from "./theme.ts";
@@ -13,12 +19,13 @@ Deno.test("mount()", async (t) => {
           <div>test</div>
         `;
       }
-      expect(() =>
-        mount(App, {
-          target: "#nonexistent",
-          platformUrl: "http://localhost:3000",
-        })
-      ).toThrow(
+      assertThrows(
+        () =>
+          mount(App, {
+            target: "#nonexistent",
+            platformUrl: "http://localhost:3000",
+          }),
+        Error,
         "Element not found: #nonexistent",
       );
     }),
@@ -35,7 +42,7 @@ Deno.test("mount()", async (t) => {
       mount(App, { platformUrl: "http://localhost:3000" });
 
       const el = globalThis.document.querySelector("#app")!;
-      expect(el.textContent).toContain("Hello Mount");
+      assertStringIncludes(el.textContent!, "Hello Mount");
     }),
   );
 
@@ -49,9 +56,9 @@ Deno.test("mount()", async (t) => {
       }
       const handle = mount(App, { platformUrl: "http://localhost:3000" });
 
-      expect(handle.session).toBeDefined();
-      expect(handle.signals).toBeDefined();
-      expect(typeof handle.dispose).toBe("function");
+      assert(handle.session !== undefined);
+      assert(handle.signals !== undefined);
+      assertStrictEquals(typeof handle.dispose, "function");
     }),
   );
 
@@ -68,10 +75,10 @@ Deno.test("mount()", async (t) => {
       const el = globalThis.document.querySelector("#app") as HTMLElement;
       // deno-lint-ignore no-explicit-any
       const bg = (el.style as any).getPropertyValue("--aai-bg");
-      expect(bg).toBe(defaultTheme.bg);
+      assertStrictEquals(bg, defaultTheme.bg);
       // deno-lint-ignore no-explicit-any
       const primary = (el.style as any).getPropertyValue("--aai-primary");
-      expect(primary).toBe(defaultTheme.primary);
+      assertStrictEquals(primary, defaultTheme.primary);
     }),
   );
 
@@ -91,13 +98,13 @@ Deno.test("mount()", async (t) => {
       const el = globalThis.document.querySelector("#app") as HTMLElement;
       // deno-lint-ignore no-explicit-any
       const bg = (el.style as any).getPropertyValue("--aai-bg");
-      expect(bg).toBe("#000000");
+      assertStrictEquals(bg, "#000000");
       // deno-lint-ignore no-explicit-any
       const primary = (el.style as any).getPropertyValue("--aai-primary");
-      expect(primary).toBe("#ff0000");
+      assertStrictEquals(primary, "#ff0000");
       // deno-lint-ignore no-explicit-any
       const surface = (el.style as any).getPropertyValue("--aai-surface");
-      expect(surface).toBe(defaultTheme.surface);
+      assertStrictEquals(surface, defaultTheme.surface);
     }),
   );
 
@@ -112,10 +119,10 @@ Deno.test("mount()", async (t) => {
       const handle = mount(App, { platformUrl: "http://localhost:3000" });
 
       const el = globalThis.document.querySelector("#app")!;
-      expect(el.textContent).toContain("content");
+      assertStringIncludes(el.textContent!, "content");
 
       handle.dispose();
-      expect(el.textContent).toBe("");
+      assertStrictEquals(el.textContent, "");
     }),
   );
 
@@ -136,7 +143,8 @@ Deno.test("mount()", async (t) => {
         handle.session.connect();
         await new Promise<void>((r) => setTimeout(r, 0));
         const ws = mock.lastWs!;
-        expect(ws.url.toString()).toBe(
+        assertStrictEquals(
+          ws.url.toString(),
           "wss://aai-agent.fly.dev/alex/ai-takes/websocket",
         );
         handle.dispose();

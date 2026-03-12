@@ -1,4 +1,10 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import {
+  assert,
+  assertEquals,
+  assertStrictEquals,
+  assertStringIncludes,
+} from "@std/assert";
 import { FakeTime } from "@std/testing/time";
 import {
   createVoiceSession,
@@ -41,8 +47,8 @@ Deno.test("parseServerMessage", async (t) => {
   for (const [label, payload] of valid) {
     await t.step(`parses ${label}`, () => {
       const msg = parseServerMessage(JSON.stringify(payload));
-      expect(msg).not.toBeNull();
-      expect(msg!.type).toBe(payload.type);
+      assert(msg !== null);
+      assertStrictEquals(msg!.type, payload.type);
     });
   }
 
@@ -57,7 +63,7 @@ Deno.test("parseServerMessage", async (t) => {
 
   for (const [label, input] of rejected) {
     await t.step(`rejects ${label}`, () => {
-      expect(parseServerMessage(input)).toBeNull();
+      assertStrictEquals(parseServerMessage(input), null);
     });
   }
 });
@@ -82,8 +88,8 @@ Deno.test("VoiceSession", async (t) => {
       "creates a WebSocket and transitions to ready on open",
       withSessionEnv(async (mock) => {
         const { session } = await connectSession(mock);
-        expect(mock.lastWs).not.toBeNull();
-        expect(session.state.value).toBe("ready");
+        assert(mock.lastWs !== null);
+        assertStrictEquals(session.state.value, "ready");
         session.disconnect();
       }),
     );
@@ -95,8 +101,8 @@ Deno.test("VoiceSession", async (t) => {
           platformUrl: "https://example.com/api",
         });
         const url = ws.url.toString();
-        expect(url).toContain("wss://");
-        expect(url).toContain("websocket");
+        assertStringIncludes(url, "wss://");
+        assertStringIncludes(url, "websocket");
         session.disconnect();
       }),
     );
@@ -105,7 +111,7 @@ Deno.test("VoiceSession", async (t) => {
       "uses ws:// for http:// platformUrl",
       withSessionEnv(async (mock) => {
         const { session, ws } = await connectSession(mock);
-        expect(ws.url.toString()).toContain("ws://");
+        assertStringIncludes(ws.url.toString(), "ws://");
         session.disconnect();
       }),
     );
@@ -118,7 +124,8 @@ Deno.test("VoiceSession", async (t) => {
         const { session, ws } = await connectSession(mock, {
           platformUrl: "https://aai-agent.fly.dev/alex/ai-takes",
         });
-        expect(ws.url.toString()).toBe(
+        assertStrictEquals(
+          ws.url.toString(),
           "wss://aai-agent.fly.dev/alex/ai-takes/websocket",
         );
         session.disconnect();
@@ -138,9 +145,9 @@ Deno.test("VoiceSession", async (t) => {
           sample_rate: 16000,
           tts_sample_rate: 24000,
         }));
-        expect(session.state.value).toBe("error");
-        expect(session.error.value?.code).toBe("protocol");
-        expect(session.error.value?.message).toContain("v99");
+        assertStrictEquals(session.state.value, "error");
+        assertStrictEquals(session.error.value?.code, "protocol");
+        assertStringIncludes(session.error.value?.message ?? "", "v99");
         session.disconnect();
       }),
     );
@@ -156,9 +163,9 @@ Deno.test("VoiceSession", async (t) => {
           sample_rate: 16000,
           tts_sample_rate: 24000,
         }));
-        expect(session.state.value).toBe("error");
-        expect(session.error.value?.code).toBe("protocol");
-        expect(session.error.value?.message).toContain("opus");
+        assertStrictEquals(session.state.value, "error");
+        assertStrictEquals(session.error.value?.code, "protocol");
+        assertStringIncludes(session.error.value?.message ?? "", "opus");
         session.disconnect();
       }),
     );
@@ -173,7 +180,7 @@ Deno.test("VoiceSession", async (t) => {
           tts_sample_rate: 24000,
         }));
         // Should not error — old servers don't send protocol_version
-        expect(session.state.value).not.toBe("error");
+        assert(session.state.value !== "error");
         session.disconnect();
       }),
     );
@@ -188,7 +195,8 @@ Deno.test("VoiceSession", async (t) => {
           const { session, ws } = await connectSession(mock, {
             platformUrl: "https://example.com/ns/agent",
           });
-          expect(ws.url.toString()).toBe(
+          assertStrictEquals(
+            ws.url.toString(),
             "wss://example.com/ns/agent/ws",
           );
           session.disconnect();
@@ -208,7 +216,7 @@ Deno.test("VoiceSession", async (t) => {
         ws.simulateMessage(
           JSON.stringify({ type: "partial_transcript", text: "hello" }),
         );
-        expect(session.transcript.value).toBe("hello");
+        assertStrictEquals(session.transcript.value, "hello");
         session.disconnect();
       }),
     );
@@ -221,7 +229,7 @@ Deno.test("VoiceSession", async (t) => {
         ws.simulateMessage(
           JSON.stringify({ type: "final_transcript", text: "hello world" }),
         );
-        expect(session.transcript.value).toBe("hello world");
+        assertStrictEquals(session.transcript.value, "hello world");
         session.disconnect();
       }),
     );
@@ -238,11 +246,11 @@ Deno.test("VoiceSession", async (t) => {
           JSON.stringify({ type: "turn", text: "Hello" }),
         );
 
-        expect(session.messages.value).toHaveLength(1);
-        expect(session.messages.value[0].role).toBe("user");
-        expect(session.messages.value[0].text).toBe("Hello");
-        expect(session.transcript.value).toBe("");
-        expect(session.state.value).toBe("thinking");
+        assertStrictEquals(session.messages.value.length, 1);
+        assertStrictEquals(session.messages.value[0]!.role, "user");
+        assertStrictEquals(session.messages.value[0]!.text, "Hello");
+        assertStrictEquals(session.transcript.value, "");
+        assertStrictEquals(session.state.value, "thinking");
         session.disconnect();
       }),
     );
@@ -256,9 +264,9 @@ Deno.test("VoiceSession", async (t) => {
           JSON.stringify({ type: "chat", text: "response" }),
         );
 
-        expect(session.messages.value).toHaveLength(1);
-        expect(session.messages.value[0].role).toBe("assistant");
-        expect(session.state.value).toBe("speaking");
+        assertStrictEquals(session.messages.value.length, 1);
+        assertStrictEquals(session.messages.value[0]!.role, "assistant");
+        assertStrictEquals(session.state.value, "speaking");
         session.disconnect();
       }),
     );
@@ -271,7 +279,7 @@ Deno.test("VoiceSession", async (t) => {
         ws.simulateMessage(JSON.stringify({ type: "chat", text: "Hi" }));
         ws.simulateMessage(JSON.stringify({ type: "tts_done" }));
 
-        expect(session.state.value).toBe("listening");
+        assertStrictEquals(session.state.value, "listening");
         session.disconnect();
       }),
     );
@@ -282,7 +290,7 @@ Deno.test("VoiceSession", async (t) => {
         const { session, ws } = await connectSession(mock);
 
         ws.simulateMessage(JSON.stringify({ type: "cancelled" }));
-        expect(session.state.value).toBe("listening");
+        assertStrictEquals(session.state.value, "listening");
         session.disconnect();
       }),
     );
@@ -293,12 +301,12 @@ Deno.test("VoiceSession", async (t) => {
         const { session, ws } = await connectSession(mock);
 
         ws.simulateMessage(JSON.stringify({ type: "chat", text: "Hi" }));
-        expect(session.messages.value).toHaveLength(1);
+        assertStrictEquals(session.messages.value.length, 1);
 
         ws.simulateMessage(JSON.stringify({ type: "reset" }));
-        expect(session.messages.value).toEqual([]);
-        expect(session.transcript.value).toBe("");
-        expect(session.error.value).toBeNull();
+        assertEquals(session.messages.value, []);
+        assertStrictEquals(session.transcript.value, "");
+        assertStrictEquals(session.error.value, null);
         session.disconnect();
       }),
     );
@@ -312,9 +320,12 @@ Deno.test("VoiceSession", async (t) => {
           JSON.stringify({ type: "error", message: "Something went wrong" }),
         );
 
-        expect(session.error.value).not.toBeNull();
-        expect(session.error.value!.code).toBe("protocol");
-        expect(session.error.value!.message).toContain("Something went wrong");
+        assert(session.error.value !== null);
+        assertStrictEquals(session.error.value!.code, "protocol");
+        assertStringIncludes(
+          session.error.value!.message,
+          "Something went wrong",
+        );
         session.disconnect();
       }),
     );
@@ -332,8 +343,8 @@ Deno.test("VoiceSession", async (t) => {
           }),
         );
 
-        expect(session.error.value).not.toBeNull();
-        expect(session.error.value!.message).toContain("detail1");
+        assert(session.error.value !== null);
+        assertStringIncludes(session.error.value!.message, "detail1");
         session.disconnect();
       }),
     );
@@ -352,7 +363,7 @@ Deno.test("VoiceSession", async (t) => {
         const cancelMsg = sentStrings.find((s) =>
           JSON.parse(s).type === "cancel"
         );
-        expect(cancelMsg).toBeDefined();
+        assert(cancelMsg !== undefined);
         session.disconnect();
       }),
     );
@@ -363,7 +374,7 @@ Deno.test("VoiceSession", async (t) => {
         const { session } = await connectSession(mock);
 
         session.cancel();
-        expect(session.state.value).toBe("listening");
+        assertStrictEquals(session.state.value, "listening");
         session.disconnect();
       }),
     );
@@ -382,7 +393,7 @@ Deno.test("VoiceSession", async (t) => {
         const resetMsg = sentStrings.find((s) =>
           JSON.parse(s).type === "reset"
         );
-        expect(resetMsg).toBeDefined();
+        assert(resetMsg !== undefined);
         session.disconnect();
       }),
     );
@@ -393,13 +404,13 @@ Deno.test("VoiceSession", async (t) => {
         const { session, ws } = await connectSession(mock);
 
         ws.simulateMessage(JSON.stringify({ type: "chat", text: "Hi" }));
-        expect(session.messages.value).toHaveLength(1);
+        assertStrictEquals(session.messages.value.length, 1);
 
         session.disconnect();
         session.reset();
         await flush();
 
-        expect(session.messages.value).toEqual([]);
+        assertEquals(session.messages.value, []);
         session.disconnect();
       }),
     );
@@ -413,8 +424,8 @@ Deno.test("VoiceSession", async (t) => {
 
         session.disconnect();
 
-        expect(session.disconnected.value).not.toBeNull();
-        expect(session.disconnected.value!.intentional).toBe(true);
+        assert(session.disconnected.value !== null);
+        assertStrictEquals(session.disconnected.value!.intentional, true);
       }),
     );
 
@@ -423,7 +434,7 @@ Deno.test("VoiceSession", async (t) => {
       withSessionEnv(async (mock) => {
         const { session, ws } = await connectSession(mock);
         session.disconnect();
-        expect(ws.readyState).toBe(WebSocket.CLOSED);
+        assertStrictEquals(ws.readyState, WebSocket.CLOSED);
       }),
     );
 
@@ -431,7 +442,7 @@ Deno.test("VoiceSession", async (t) => {
       "is safe to call when not connected",
       withSessionEnv(() => {
         const session = createVoiceSession(defaultOptions);
-        expect(() => session.disconnect()).not.toThrow();
+        session.disconnect(); // should not throw
       }),
     );
   });
@@ -445,8 +456,8 @@ Deno.test("VoiceSession", async (t) => {
         ws.close(1006);
         await flush();
 
-        expect(session.disconnected.value).not.toBeNull();
-        expect(session.disconnected.value!.intentional).toBe(false);
+        assert(session.disconnected.value !== null);
+        assertStrictEquals(session.disconnected.value!.intentional, false);
         session.disconnect();
       }),
     );
@@ -474,7 +485,7 @@ Deno.test("VoiceSession", async (t) => {
               return false;
             }
           });
-          expect(pings.length).toBeGreaterThanOrEqual(1);
+          assert(pings.length >= 1);
 
           session.disconnect();
         } finally {
@@ -491,10 +502,10 @@ Deno.test("VoiceSession", async (t) => {
         const { session, ws } = await connectSession(mock);
 
         ws.simulateMessage(JSON.stringify({ type: "cancelled" }));
-        expect(session.state.value).toBe("listening");
+        assertStrictEquals(session.state.value, "listening");
 
         ws.simulateMessage(JSON.stringify({ type: "cancelled" }));
-        expect(session.state.value).toBe("listening");
+        assertStrictEquals(session.state.value, "listening");
         session.disconnect();
       }),
     );

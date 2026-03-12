@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { encodeHex } from "@std/encoding/hex";
 import type { BundleStore, NamespaceOwner } from "./bundle_store_tigris.ts";
 
@@ -56,8 +57,8 @@ export async function verifyOrClaimNamespace(
   // Unclaimed — attempt atomic claim with new account ID
   const accountId = generateAccountId();
   const owner: NamespaceOwner = {
-    account_id: accountId,
-    credential_hashes: [keyHash],
+    "account_id": accountId,
+    "credential_hashes": [keyHash],
   };
   const claimed = await store.claimIfUnclaimed(namespace, owner);
   if (claimed) return accountId;

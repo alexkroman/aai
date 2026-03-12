@@ -29,10 +29,10 @@
     "@std/http": "jsr:@std/http@^1.0.18",
     "@std/crypto": "jsr:@std/crypto@^1.0.4",
     "@std/encoding": "jsr:@std/encoding@^1.0.7",
+    "@std/log": "jsr:@std/log@^0.224.14",
     "@std/net": "jsr:@std/net@^1.0.6",
     "@std/semver": "jsr:@std/semver@^1.0.6",
-    "@astral/astral": "jsr:@astral/astral@^0.5.5",
-"preact": "npm:preact@^10.28.4",
+    "preact": "npm:preact@^10.28.4",
     "preact/hooks": "npm:preact@^10.28.4/hooks",
     "@preact/signals": "npm:@preact/signals@^2.8.1",
     "htm": "npm:htm@^3.1.1",
@@ -45,6 +45,10 @@
   "nodeModulesDir": "auto",
   "compilerOptions": {
     "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
     "lib": [
       "deno.ns",
       "deno.unstable",
@@ -75,7 +79,15 @@
       "core/",
       "templates/"
     ],
-    "rules": {}
+    "rules": {
+      "tags": ["recommended", "jsr", "react", "workspace"],
+      "include": [
+        "camelcase",
+        "no-sync-fn-in-async-fn",
+        "single-var-declarator",
+        "no-console"
+      ]
+    }
   },
   "license": "MIT"
 }

@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertStrictEquals } from "@std/assert";
 import { join } from "@std/path";
 import { runBuild } from "./build.ts";
 
@@ -12,14 +13,14 @@ Deno.test(
 
       const result = await runBuild({ agentDir });
 
-      expect(result.bundle.worker.length).toBeGreaterThan(0);
-      expect(result.bundle.client.length).toBeGreaterThan(0);
-      expect(result.bundle.manifest.length).toBeGreaterThan(0);
+      assert(result.bundle.worker.length > 0);
+      assert(result.bundle.client.length > 0);
+      assert(result.bundle.manifest.length > 0);
 
       const manifest = JSON.parse(result.bundle.manifest);
-      expect(manifest.env).toBeDefined();
-      expect(manifest.transport).toBeDefined();
-      expect(result.agent.slug).toBe("simple");
+      assert(manifest.env !== undefined);
+      assert(manifest.transport !== undefined);
+      assertStrictEquals(result.agent.slug, "simple");
     });
   },
 );

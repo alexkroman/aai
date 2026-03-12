@@ -1,4 +1,4 @@
-import { defineAgent, tool, z } from "@aai/sdk";
+import { defineAgent, z } from "@aai/sdk";
 
 const PICKS: Record<string, Record<string, string[]>> = {
   movie: {
@@ -80,7 +80,7 @@ Use run_code for sleep calculations:
     "Transcribe movie titles, music artists, book names, and times accurately. Listen for genres like horror, comedy, sci-fi, jazz, ambient, and mood words like chill, intense, cozy, spooky.",
   builtinTools: ["run_code"],
   tools: {
-    recommend: tool({
+    recommend: {
       description:
         "Get recommendations for movies, music, or books based on mood.",
       parameters: z.object({
@@ -94,6 +94,6 @@ Use run_code for sleep calculations:
           picks: PICKS[category]?.[mood] ?? [],
         };
       },
-    }),
+    },
   },
 });

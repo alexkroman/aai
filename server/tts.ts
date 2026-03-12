@@ -1,3 +1,5 @@
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
 import { debounce } from "@std/async/debounce";
 import type { TTSConfig } from "./types.ts";
 import { createWebSocketWithHeaders } from "./_deno_ws.ts";
@@ -6,17 +8,37 @@ import * as metrics from "./metrics.ts";
 const IDLE_MS = 300;
 const NO_AUDIO_TIMEOUT_MS = 5000;
 
+/** A streaming text-to-speech connection to the Rime TTS service. */
 export type TtsConnection = {
+  /** Whether the connection has been permanently closed. */
   readonly closed: boolean;
+  /** Pre-establishes the WebSocket connection for lower first-byte latency. */
   warmup(): void | Promise<void>;
+  /**
+   * Synthesizes text into streaming audio chunks.
+   *
+   * @param chunks - Text to synthesize (a single string or an async iterable of strings).
+   * @param onAudio - Callback invoked with each PCM audio chunk as it arrives.
+   * @param signal - Optional abort signal to cancel synthesis.
+   */
   synthesizeStream(
     chunks: string | AsyncIterable<string>,
     onAudio: (chunk: Uint8Array) => void,
     signal?: AbortSignal,
   ): Promise<void>;
+  /** Permanently closes the TTS connection and releases resources. */
   close(): void;
 };
 
+/**
+ * Creates a new streaming TTS connection to the Rime service.
+ *
+ * The connection manages a persistent WebSocket, automatically reconnects
+ * on failure, and uses idle-based completion detection with a safety timeout.
+ *
+ * @param config - TTS configuration (voice, model, audio format, API key).
+ * @returns A {@linkcode TtsConnection} ready for synthesis.
+ */
 export function createTtsConnection(config: TTSConfig): TtsConnection {
   let closed = false;
   let ws: WebSocket | null = null;
@@ -38,7 +60,7 @@ export function createTtsConnection(config: TTSConfig): TtsConnection {
       safetyTimer = null;
     }
     if (completionResolve) {
-      console.info("TTS synthesis done", { chunkCount, totalBytes });
+      log.info("TTS synthesis done", { chunkCount, totalBytes });
       completionResolve();
       completionResolve = null;
     }
@@ -65,7 +87,7 @@ export function createTtsConnection(config: TTSConfig): TtsConnection {
       lastError = event.reason
         ? `TTS connection closed: ${event.reason} (code ${event.code})`
         : `TTS connection closed unexpectedly (code ${event.code})`;
-      console.error(lastError);
+      log.error(lastError);
     }
     ws = null;
     finishSynthesis();
@@ -75,7 +97,7 @@ export function createTtsConnection(config: TTSConfig): TtsConnection {
     lastError = config.apiKey
       ? "TTS WebSocket error — check RIME_API_KEY"
       : "TTS WebSocket error — RIME_API_KEY is not set";
-    console.error(lastError);
+    log.error(lastError);
     ws = null;
     finishSynthesis();
   }
@@ -111,7 +133,7 @@ export function createTtsConnection(config: TTSConfig): TtsConnection {
     return await new Promise<WebSocket>((resolve, reject) => {
       newWs.addEventListener("open", () => {
         lastError = null;
-        console.info("TTS WebSocket connected");
+        log.info("TTS WebSocket connected");
         resolve(newWs);
       }, { once: true });
       newWs.addEventListener("error", () => {
@@ -133,7 +155,7 @@ export function createTtsConnection(config: TTSConfig): TtsConnection {
 
       if (signal) {
         signal.addEventListener("abort", () => {
-          console.info("TTS aborted", { chunkCount, totalBytes });
+          log.info("TTS aborted", { chunkCount, totalBytes });
           if (ws) {
             ws.close();
             ws = null;
@@ -154,7 +176,7 @@ export function createTtsConnection(config: TTSConfig): TtsConnection {
       try {
         await connect();
       } catch (e) {
-        console.warn("TTS warmup failed, will retry on synthesize", e);
+        log.warn("TTS warmup failed, will retry on synthesize", e);
       }
     },
 
@@ -165,7 +187,7 @@ export function createTtsConnection(config: TTSConfig): TtsConnection {
     ): Promise<void> {
       if (lifecycle.signal.aborted || signal?.aborted) return;
 
-      console.info("synthesizeStream start", { voice: config.voice });
+      log.info("synthesizeStream start", { voice: config.voice });
       const ttsStart = performance.now();
 
       try {

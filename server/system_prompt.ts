@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { type AgentConfig, DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
 
 const VOICE_RULES =

@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { assertEquals } from "@std/assert";
 import { createOrchestrator } from "./orchestrator.ts";
 import {

@@ -1,3 +1,5 @@
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
 import { type Context, Hono } from "hono";
 import { compress } from "hono/compress";
 import { etag } from "hono/etag";
@@ -30,6 +32,18 @@ import {
   slugValidation,
 } from "./middleware.ts";
 
+/**
+ * Creates the main HTTP request handler for the orchestrator server.
+ *
+ * Sets up all routes including agent deploy, WebSocket/Twilio transports,
+ * health checks, KV operations, and static file serving.
+ *
+ * @param opts - Configuration for the orchestrator.
+ * @param opts.store - Bundle store for persisting and retrieving agent bundles.
+ * @param opts.kvStore - Key-value store for agent state persistence.
+ * @param opts.scopeKey - Cryptographic key for verifying scope tokens.
+ * @returns A Deno HTTP request handler suitable for `Deno.serve`.
+ */
 export function createOrchestrator(opts: {
   store: BundleStore;
   kvStore: KvStore;
@@ -52,7 +66,7 @@ export function createOrchestrator(opts: {
     if (err instanceof HTTPException) {
       return c.json({ error: err.message }, err.status);
     }
-    console.error("Unhandled error", { error: err.message, path: c.req.path });
+    log.error("Unhandled error", { error: err.message, path: c.req.path });
     return c.json({ error: "Internal server error" }, 500);
   });
 

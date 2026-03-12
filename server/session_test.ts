@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertStrictEquals } from "@std/assert";
 import { assertSpyCalls, spy } from "@std/testing/mock";
 import {
   createSession,
@@ -194,18 +195,18 @@ Deno.test("start sends READY message with protocol metadata", async () => {
   await ctx.session.start();
   const messages = getSentJson(ctx.transport);
   const ready = messages.find((m) => m.type === "ready");
-  expect(ready).toBeDefined();
-  expect(ready!.protocol_version).toBe(1);
-  expect(ready!.audio_format).toBe("pcm16");
-  expect(ready!.sample_rate).toBeDefined();
-  expect(ready!.tts_sample_rate).toBeDefined();
+  assert(ready !== undefined);
+  assertStrictEquals(ready!.protocol_version, 1);
+  assertStrictEquals(ready!.audio_format, "pcm16");
+  assert(ready!.sample_rate !== undefined);
+  assert(ready!.tts_sample_rate !== undefined);
 });
 
 Deno.test("start defers greeting until onAudioReady", () => {
   const ctx = setup();
   ctx.session.start();
   const messages = getSentJson(ctx.transport);
-  expect(messages.filter((m) => m.type === "chat")).toHaveLength(0);
+  assertStrictEquals(messages.filter((m) => m.type === "chat").length, 0);
 });
 
 Deno.test("start sends error on STT connection failure", async () => {
@@ -224,8 +225,9 @@ Deno.test("start sends error on STT connection failure", async () => {
     }),
   });
   await ctx.session.start();
-  expect(getSentJson(ctx.transport).find((m) => m.type === "error"))
-    .toBeDefined();
+  assert(
+    getSentJson(ctx.transport).find((m) => m.type === "error") !== undefined,
+  );
 });
 
 Deno.test("onAudioReady sends greeting and starts TTS", async () => {
@@ -233,8 +235,8 @@ Deno.test("onAudioReady sends greeting and starts TTS", async () => {
   await ctx.session.start();
   ctx.session.onAudioReady();
   const chat = getSentJson(ctx.transport).find((m) => m.type === "chat");
-  expect(chat!.text).toBe("Hi there!");
-  expect(ctx.ttsClient.synthesizeStream.calls.length).toBeGreaterThan(0);
+  assertStrictEquals(chat!.text, "Hi there!");
+  assert(ctx.ttsClient.synthesizeStream.calls.length > 0);
 });
 
 Deno.test("onAudioReady is a no-op on second call", async () => {
@@ -243,7 +245,7 @@ Deno.test("onAudioReady is a no-op on second call", async () => {
   ctx.session.onAudioReady();
   const firstCount = ctx.ttsClient.synthesizeStream.calls.length;
   ctx.session.onAudioReady();
-  expect(ctx.ttsClient.synthesizeStream.calls.length).toBe(firstCount);
+  assertStrictEquals(ctx.ttsClient.synthesizeStream.calls.length, firstCount);
 });
 
 Deno.test("onAudio relays data to STT handle", async () => {
@@ -269,7 +271,7 @@ Deno.test("onAudio does not throw before STT is connected", () => {
     }),
   });
   ctx.session.start();
-  expect(() => ctx.session.onAudio(new Uint8Array([1]))).not.toThrow();
+  ctx.session.onAudio(new Uint8Array([1]));
 });
 
 Deno.test("onCancel clears STT and sends CANCELLED", async () => {
@@ -277,8 +279,10 @@ Deno.test("onCancel clears STT and sends CANCELLED", async () => {
   await ctx.session.start();
   ctx.session.onCancel();
   assertSpyCalls(ctx.sttHandle.clear, 1);
-  expect(getSentJson(ctx.transport).find((m) => m.type === "cancelled"))
-    .toBeDefined();
+  assert(
+    getSentJson(ctx.transport).find((m) => m.type === "cancelled") !==
+      undefined,
+  );
 });
 
 Deno.test("onReset sends RESET and re-sends greeting", async () => {
@@ -287,8 +291,8 @@ Deno.test("onReset sends RESET and re-sends greeting", async () => {
   ctx.session.onReset();
   assertSpyCalls(ctx.sttHandle.clear, 1);
   const messages = getSentJson(ctx.transport);
-  expect(messages.find((m) => m.type === "reset")).toBeDefined();
-  expect(messages.filter((m) => m.type === "chat").length).toBeGreaterThan(0);
+  assert(messages.find((m) => m.type === "reset") !== undefined);
+  assert(messages.filter((m) => m.type === "chat").length > 0);
 });
 
 Deno.test("relays STT partial transcript to browser", async () => {
@@ -299,7 +303,7 @@ Deno.test("relays STT partial transcript to browser", async () => {
   const transcript = getSentJson(ctx.transport).find((m) =>
     m.type === "partial_transcript"
   );
-  expect(transcript!.text).toBe("partial text");
+  assertStrictEquals(transcript!.text, "partial text");
 });
 
 Deno.test("relays STT final transcript to browser", async () => {
@@ -309,8 +313,8 @@ Deno.test("relays STT final transcript to browser", async () => {
   const transcript = getSentJson(ctx.transport).find((m) =>
     m.type === "final_transcript"
   );
-  expect(transcript!.text).toBe("done");
-  expect(transcript!.turn_order).toBe(3);
+  assertStrictEquals(transcript!.text, "done");
+  assertStrictEquals(transcript!.turn_order, 3);
 });
 
 Deno.test("omits turn_order on final transcript when undefined", async () => {
@@ -320,7 +324,7 @@ Deno.test("omits turn_order on final transcript when undefined", async () => {
   const transcript = getSentJson(ctx.transport).find((m) =>
     m.type === "final_transcript"
   );
-  expect(transcript!.turn_order).toBeUndefined();
+  assertStrictEquals(transcript!.turn_order, undefined);
 });
 
 Deno.test("forwards turn_order in turn messages", async () => {
@@ -330,7 +334,7 @@ Deno.test("forwards turn_order in turn messages", async () => {
   // Check the turn message was sent immediately (before LLM call)
   await new Promise((r) => setTimeout(r, 10));
   const turn = getSentJson(ctx.transport).find((m) => m.type === "turn");
-  expect(turn!.turn_order).toBe(5);
+  assertStrictEquals(turn!.turn_order, 5);
   // Stop session to abort the in-flight LLM call
   await ctx.session.stop();
 });
@@ -346,9 +350,10 @@ Deno.test("trySendJson silently drops messages when WS is closed", () => {
   } as unknown as ReturnType<typeof createMockTransport>;
   const session = createSession(ctx.opts);
   session.start();
-  expect(
-    (ctx.opts.transport as unknown as { sent: unknown[] }).sent,
-  ).toHaveLength(0);
+  assertStrictEquals(
+    (ctx.opts.transport as unknown as { sent: unknown[] }).sent.length,
+    0,
+  );
 });
 
 Deno.test("stop closes STT and TTS", async () => {
@@ -389,5 +394,5 @@ Deno.test("skipGreeting suppresses greeting on start", async () => {
     typeof createMockTransport
   >;
   const chatMessages = getSentJson(transport).filter((m) => m.type === "chat");
-  expect(chatMessages).toHaveLength(0);
+  assertStrictEquals(chatMessages.length, 0);
 });

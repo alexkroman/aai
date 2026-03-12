@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Preact UI components for the voice agent interface.
  *

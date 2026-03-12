@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { Session } from "./session.ts";

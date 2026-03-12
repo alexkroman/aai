@@ -1,11 +1,18 @@
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
 import { ClientMessageSchema } from "./_schemas.ts";
 import type { Session, SessionTransport } from "./session.ts";
 import type { WSContext, WSEvents } from "hono/ws";
 
+/** Options for creating WebSocket session event handlers. */
 export type WsSessionOptions = {
+  /** Factory function to create a session for a given ID and transport. */
   createSession: (sessionId: string, transport: SessionTransport) => Session;
+  /** Additional key-value pairs included in log messages. */
   logContext?: Record<string, string>;
+  /** Callback invoked when the WebSocket connection opens. */
   onOpen?: () => void;
+  /** Callback invoked when the WebSocket connection closes. */
   onClose?: () => void;
 };
 
@@ -53,7 +60,7 @@ export function createSessionWSEvents(
     processingChain = processingChain
       .then(() => processControlMessage(raw, ws))
       .catch((err) => {
-        console.error("Control message processing error", {
+        log.error("Control message processing error", {
           ...ctx,
           sid,
           error: err,
@@ -64,12 +71,12 @@ export function createSessionWSEvents(
   return {
     onOpen(_evt, ws) {
       opts.onOpen?.();
-      console.info("Session connected", { ...ctx, sid });
+      log.info("Session connected", { ...ctx, sid });
 
       session = opts.createSession(sessionId, ws);
       sessions.set(sessionId, session);
 
-      console.info("Session configured", { ...ctx, sid });
+      log.info("Session configured", { ...ctx, sid });
       void session.start();
 
       for (const msg of pendingMessages) {
@@ -113,7 +120,7 @@ export function createSessionWSEvents(
     },
 
     async onClose() {
-      console.info("Session disconnected", { ...ctx, sid });
+      log.info("Session disconnected", { ...ctx, sid });
       if (session) {
         await session.stop();
         sessions.delete(sessionId);
@@ -125,7 +132,7 @@ export function createSessionWSEvents(
       const msg = event instanceof ErrorEvent
         ? event.message
         : "WebSocket error";
-      console.error("WebSocket error", { ...ctx, sid, error: msg });
+      log.error("WebSocket error", { ...ctx, sid, error: msg });
     },
   };
 }

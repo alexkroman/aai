@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { createOpenAI } from "@ai-sdk/openai";
 import {
   type LanguageModelV1,
@@ -103,8 +104,8 @@ function createGatewayFetch(
 
       // Merge multiple choices: find the one with tool_calls (prefer it),
       // fall back to the first with content
-      let merged = choices.find((c) => c.message?.tool_calls?.length);
-      if (!merged) merged = choices[0];
+      const merged = choices.find((c) => c.message?.tool_calls?.length) ??
+        choices[0]!;
 
       // If there's a content-only choice and a tool_calls choice, merge content
       const contentChoice = choices.find((c) =>

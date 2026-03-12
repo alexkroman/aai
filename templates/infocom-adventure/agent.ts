@@ -1,4 +1,4 @@
-import { defineAgent, tool, z } from "@aai/sdk";
+import { defineAgent, z } from "@aai/sdk";
 import type { ToolContext } from "@aai/sdk";
 
 type GameState = {
@@ -74,7 +74,7 @@ ATMOSPHERE:
 - Keep the wry, understated humor that made Infocom games legendary`,
 
   tools: {
-    game_state_get: tool({
+    game_state_get: {
       description:
         "Read the current game state including inventory, current room, score, moves, flags, and recent history.",
       execute: (_args: Record<string, unknown>, ctx: ToolContext) => {
@@ -88,8 +88,8 @@ ATMOSPHERE:
           recentHistory: g.history.slice(-5),
         };
       },
-    }),
-    game_state_move: tool({
+    },
+    game_state_move: {
       description:
         "Move the player to a new room and increment the move counter.",
       parameters: z.object({
@@ -101,8 +101,8 @@ ATMOSPHERE:
         g.moves++;
         return { currentRoom: g.currentRoom, moves: g.moves };
       },
-    }),
-    game_state_take: tool({
+    },
+    game_state_take: {
       description: "Add an item to the player's inventory.",
       parameters: z.object({
         value: z.string().describe("Item name to take"),
@@ -112,8 +112,8 @@ ATMOSPHERE:
         if (!g.inventory.includes(value)) g.inventory.push(value);
         return { inventory: g.inventory };
       },
-    }),
-    game_state_drop: tool({
+    },
+    game_state_drop: {
       description: "Remove an item from the player's inventory.",
       parameters: z.object({
         value: z.string().describe("Item name to drop"),
@@ -123,8 +123,8 @@ ATMOSPHERE:
         g.inventory = g.inventory.filter((i) => i !== value);
         return { inventory: g.inventory };
       },
-    }),
-    game_state_score: tool({
+    },
+    game_state_score: {
       description: "Add points to the player's score.",
       parameters: z.object({
         value: z.number().describe("Points to add"),
@@ -134,8 +134,8 @@ ATMOSPHERE:
         g.score += value;
         return { score: g.score };
       },
-    }),
-    game_state_flag: tool({
+    },
+    game_state_flag: {
       description:
         "Set a game flag to true, used for tracking puzzle and event state.",
       parameters: z.object({
@@ -146,8 +146,8 @@ ATMOSPHERE:
         g.flags[value] = true;
         return { flags: g.flags };
       },
-    }),
-    game_state_history: tool({
+    },
+    game_state_history: {
       description:
         "Log a player command to the history and increment the move counter.",
       parameters: z.object({
@@ -159,6 +159,6 @@ ATMOSPHERE:
         g.moves++;
         return { moves: g.moves, recentHistory: g.history.slice(-5) };
       },
-    }),
+    },
   },
 });

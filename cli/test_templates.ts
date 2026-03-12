@@ -1,10 +1,12 @@
 #!/usr/bin/env -S deno run --allow-all --unstable-worker-options
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Scaffolds every template into a temp directory and runs a build
  * to verify type-checking, validation, and bundling all pass.
  */
 
 import { bold, brightMagenta, red } from "@std/fmt/colors";
+import * as log from "@std/log";
 import { runBuild } from "./build.ts";
 import { runNew } from "./_new.ts";
 import { dirname, fromFileUrl, join } from "@std/path";
@@ -18,7 +20,7 @@ for await (const entry of Deno.readDir(TEMPLATES_DIR)) {
 }
 templates.sort();
 
-console.log(`Testing ${templates.length} templates...\n`);
+log.info(`Testing ${templates.length} templates...\n`);
 
 const results: { name: string; ok: boolean; error?: string }[] = [];
 
@@ -67,25 +69,25 @@ for (const template of templates) {
     // Build it
     await runBuild({ agentDir: tmpDir });
 
-    console.log(`  ${brightMagenta("✓")} ${template}`);
+    log.info(`  ${brightMagenta("✓")} ${template}`);
     results.push({ name: template, ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.log(`  ${red("✗")} ${template}`);
-    console.log(`    ${msg}`);
+    log.info(`  ${red("✗")} ${template}`);
+    log.info(`    ${msg}`);
     results.push({ name: template, ok: false, error: msg });
   } finally {
     await Deno.remove(tmpDir, { recursive: true });
   }
 }
 
-console.log();
+log.info("");
 const passed = results.filter((r) => r.ok).length;
 const failed = results.filter((r) => !r.ok).length;
 
 if (failed === 0) {
-  console.log(bold(brightMagenta(`All ${passed} templates passed.`)));
+  log.info(bold(brightMagenta(`All ${passed} templates passed.`)));
 } else {
-  console.log(bold(red(`${failed} of ${results.length} templates failed.`)));
+  log.info(bold(red(`${failed} of ${results.length} templates failed.`)));
   Deno.exit(1);
 }

@@ -1,3 +1,5 @@
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { concat } from "@std/bytes/concat";
@@ -19,6 +21,16 @@ const MULAW_RATE = 8000;
 const TWIML_PREFIX = `<?xml version="1.0" encoding="UTF-8"?>\n<Response>`;
 const TWIML_SUFFIX = `</Response>`;
 
+/**
+ * Creates a session transport that bridges between the internal PCM16 audio
+ * format and Twilio's mu-law encoded media stream protocol.
+ *
+ * Outgoing audio is resampled and converted from PCM16 to mu-law, then
+ * sent as base64-encoded Twilio media events.
+ *
+ * @param ws - The Hono WebSocket context for the Twilio media stream.
+ * @returns A {@linkcode SessionTransport} with an additional `streamSid` property.
+ */
 export function createTwilioTransport(ws: WSContext): SessionTransport & {
   streamSid: string | null;
 } {
@@ -43,11 +55,11 @@ export function createTwilioTransport(ws: WSContext): SessionTransport & {
           if (parsed.success) {
             const msg = parsed.data;
             if (msg.type === "chat") {
-              console.info("Agent response", {
+              log.info("Agent response", {
                 text: msg.text.slice(0, 100),
               });
             } else if (msg.type === "error") {
-              console.error("Session error", { message: msg.message });
+              log.error("Session error", { message: msg.message });
             }
           }
         } catch { /* ignore */ }
@@ -76,6 +88,13 @@ export function createTwilioTransport(ws: WSContext): SessionTransport & {
 
 const MIN_AUDIO_BYTES = 3200;
 
+/**
+ * Creates a buffer that accumulates small audio chunks and flushes them
+ * in larger batches to reduce per-frame overhead.
+ *
+ * @param flush - Callback invoked with accumulated audio data when the buffer is full or drained.
+ * @returns An object with `push` to add data and `drain` to flush remaining bytes.
+ */
 export function createAudioBuffer(
   flush: (chunk: Uint8Array) => void,
 ): { push(data: Uint8Array): void; drain(): void } {
@@ -97,6 +116,13 @@ export function createAudioBuffer(
   };
 }
 
+/**
+ * Decodes a base64-encoded Twilio media frame (mu-law at 8kHz) into
+ * PCM16 audio at the STT sample rate.
+ *
+ * @param payload - Base64-encoded mu-law audio from a Twilio media event.
+ * @returns PCM16 audio data as a `Uint8Array` resampled to the STT sample rate.
+ */
 export function decodeTwilioFrame(payload: string): Uint8Array {
   const pcm16 = mulawToPcm16(decodeBase64(payload));
   const resampled = resample(pcm16, MULAW_RATE, DEFAULT_STT_SAMPLE_RATE);
@@ -115,6 +141,14 @@ function getTwilioSlot(
   return slot?.transport.includes("twilio") ? slot : null;
 }
 
+/**
+ * Hono handler for Twilio voice webhook (`POST /:slug/twilio/voice`).
+ *
+ * Returns TwiML that connects the call to a media stream WebSocket.
+ *
+ * @param c - The Hono request context.
+ * @returns A TwiML XML response instructing Twilio to connect a media stream.
+ */
 export function handleTwilioVoice(c: Context<HonoEnv>) {
   const { slug, slots } = c.var;
   const slot = getTwilioSlot(slug, slots);
@@ -127,13 +161,19 @@ export function handleTwilioVoice(c: Context<HonoEnv>) {
 
   const host = c.req.header("host") ?? "localhost";
   const streamUrl = `wss://${host}/${slug}/twilio/stream`;
-  console.info("Incoming call, connecting media stream", { slug, streamUrl });
+  log.info("Incoming call, connecting media stream", { slug, streamUrl });
   return c.body(
     `${TWIML_PREFIX}<Connect><Stream url="${streamUrl}" /></Connect>${TWIML_SUFFIX}`,
     { headers: { "Content-Type": "text/xml" } },
   );
 }
 
+/**
+ * Hono handler that upgrades to a WebSocket for Twilio media streams.
+ *
+ * Creates a session with a Twilio transport adapter, handles mu-law audio
+ * conversion, and manages the Twilio stream lifecycle events (start, media, stop).
+ */
 export const handleTwilioStream = upgradeWebSocket(async (c) => {
   const { slug, slots, store, kvStore } = c.var;
   const slot = getTwilioSlot(slug, slots);
@@ -156,7 +196,7 @@ export const handleTwilioStream = upgradeWebSocket(async (c) => {
         ...setup,
       });
       audioBuf = createAudioBuffer((chunk) => session.onAudio(chunk));
-      console.info("Twilio media stream connected", { slug });
+      log.info("Twilio media stream connected", { slug });
       void session.start();
     },
 
@@ -177,7 +217,7 @@ export const handleTwilioStream = upgradeWebSocket(async (c) => {
       switch (msg.event) {
         case "start":
           transport.streamSid = msg.start.streamSid;
-          console.info("Twilio stream started", {
+          log.info("Twilio stream started", {
             slug,
             streamSid: transport.streamSid,
           });
@@ -188,19 +228,19 @@ export const handleTwilioStream = upgradeWebSocket(async (c) => {
           break;
         case "stop":
           audioBuf.drain();
-          console.info("Twilio stream stopped", { slug });
+          log.info("Twilio stream stopped", { slug });
           void session.stop();
           break;
       }
     },
 
     onClose() {
-      console.info("Twilio media stream disconnected", { slug });
+      log.info("Twilio media stream disconnected", { slug });
       if (session) void session.stop();
     },
 
     onError(event) {
-      console.error("Twilio media stream error", {
+      log.error("Twilio media stream error", {
         slug,
         error: event instanceof ErrorEvent ? event.message : "WebSocket error",
       });

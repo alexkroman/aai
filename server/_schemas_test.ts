@@ -1,5 +1,6 @@
-import { expect } from "@std/expect";
-import { normalizeTransport } from "@aai/sdk/schema";
+// Copyright 2025 the AAI authors. MIT license.
+import { assertEquals, assertStrictEquals } from "@std/assert";
+import { normalizeTransport } from "@aai/sdk/types";
 import {
   AgentConfigSchema,
   AgentMetadataSchema,
@@ -12,15 +13,15 @@ import {
 
 Deno.test("normalizeTransport", async (t) => {
   await t.step("defaults to websocket", () => {
-    expect(normalizeTransport(undefined)).toEqual(["websocket"]);
+    assertEquals(normalizeTransport(undefined), ["websocket"]);
   });
 
   await t.step("wraps string in array", () => {
-    expect(normalizeTransport("twilio")).toEqual(["twilio"]);
+    assertEquals(normalizeTransport("twilio"), ["twilio"]);
   });
 
   await t.step("passes array through", () => {
-    expect(normalizeTransport(["websocket", "twilio"])).toEqual([
+    assertEquals(normalizeTransport(["websocket", "twilio"]), [
       "websocket",
       "twilio",
     ]);
@@ -35,7 +36,7 @@ Deno.test("AgentConfigSchema", async (t) => {
       greeting: "Hi",
       voice: "luna",
     });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
   });
 
   await t.step("accepts full config", () => {
@@ -48,12 +49,13 @@ Deno.test("AgentConfigSchema", async (t) => {
       maxSteps: 8,
       builtinTools: ["web_search", "run_code"],
     });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
   });
 
   await t.step("rejects missing required fields", () => {
-    expect(AgentConfigSchema.safeParse({}).success).toBe(false);
-    expect(AgentConfigSchema.safeParse({ instructions: "x" }).success).toBe(
+    assertStrictEquals(AgentConfigSchema.safeParse({}).success, false);
+    assertStrictEquals(
+      AgentConfigSchema.safeParse({ instructions: "x" }).success,
       false,
     );
   });
@@ -66,7 +68,7 @@ Deno.test("ToolSchemaSchema", async (t) => {
       description: "Say hi",
       parameters: { type: "object" },
     });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
   });
 
   await t.step("rejects missing name", () => {
@@ -74,7 +76,7 @@ Deno.test("ToolSchemaSchema", async (t) => {
       description: "Say hi",
       parameters: { type: "object" },
     });
-    expect(result.success).toBe(false);
+    assertStrictEquals(result.success, false);
   });
 
   await t.step("rejects parameters without type: object", () => {
@@ -83,7 +85,7 @@ Deno.test("ToolSchemaSchema", async (t) => {
       description: "Say hi",
       parameters: { type: "string" },
     });
-    expect(result.success).toBe(false);
+    assertStrictEquals(result.success, false);
   });
 
   await t.step("accepts parameters with properties and required", () => {
@@ -96,7 +98,7 @@ Deno.test("ToolSchemaSchema", async (t) => {
         required: ["name"],
       },
     });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
   });
 });
 
@@ -107,7 +109,7 @@ Deno.test("DeployBodySchema", async (t) => {
       worker: "code",
       client: "code",
     });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
   });
 
   await t.step("rejects empty worker", () => {
@@ -116,7 +118,7 @@ Deno.test("DeployBodySchema", async (t) => {
       worker: "",
       client: "code",
     });
-    expect(result.success).toBe(false);
+    assertStrictEquals(result.success, false);
   });
 
   await t.step("accepts transport as string or array", () => {
@@ -132,20 +134,20 @@ Deno.test("DeployBodySchema", async (t) => {
       client: "code",
       transport: ["websocket", "twilio"],
     });
-    expect(asString.success).toBe(true);
-    expect(asArray.success).toBe(true);
+    assertStrictEquals(asString.success, true);
+    assertStrictEquals(asArray.success, true);
   });
 });
 
 Deno.test("EnvSchema", async (t) => {
   await t.step("accepts valid env", () => {
     const result = EnvSchema.safeParse({ ASSEMBLYAI_API_KEY: "key123" });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
   });
 
   await t.step("rejects empty ASSEMBLYAI_API_KEY", () => {
     const result = EnvSchema.safeParse({ ASSEMBLYAI_API_KEY: "" });
-    expect(result.success).toBe(false);
+    assertStrictEquals(result.success, false);
   });
 
   await t.step("allows extra keys via passthrough", () => {
@@ -153,7 +155,7 @@ Deno.test("EnvSchema", async (t) => {
       ASSEMBLYAI_API_KEY: "key",
       CUSTOM: "val",
     });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
   });
 });
 
@@ -185,12 +187,13 @@ Deno.test("ServerMessageSchema", async (t) => {
 
   for (const [label, msg] of validMessages) {
     await t.step(`accepts ${label}`, () => {
-      expect(ServerMessageSchema.safeParse(msg).success).toBe(true);
+      assertStrictEquals(ServerMessageSchema.safeParse(msg).success, true);
     });
   }
 
   await t.step("rejects unknown type", () => {
-    expect(ServerMessageSchema.safeParse({ type: "unknown" }).success).toBe(
+    assertStrictEquals(
+      ServerMessageSchema.safeParse({ type: "unknown" }).success,
       false,
     );
   });
@@ -199,7 +202,10 @@ Deno.test("ServerMessageSchema", async (t) => {
 Deno.test("ClientMessageSchema", async (t) => {
   for (const type of ["audio_ready", "cancel", "reset", "ping"]) {
     await t.step(`accepts ${type}`, () => {
-      expect(ClientMessageSchema.safeParse({ type }).success).toBe(true);
+      assertStrictEquals(
+        ClientMessageSchema.safeParse({ type }).success,
+        true,
+      );
     });
   }
 
@@ -211,7 +217,7 @@ Deno.test("ClientMessageSchema", async (t) => {
         { role: "assistant", text: "hi" },
       ],
     });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
   });
 
   await t.step("rejects history with invalid role", () => {
@@ -219,17 +225,17 @@ Deno.test("ClientMessageSchema", async (t) => {
       type: "history",
       messages: [{ role: "system", text: "hello" }],
     });
-    expect(result.success).toBe(false);
+    assertStrictEquals(result.success, false);
   });
 });
 
 Deno.test("AgentMetadataSchema", async (t) => {
   await t.step("accepts minimal metadata", () => {
     const result = AgentMetadataSchema.safeParse({ slug: "test" });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
     if (result.success) {
-      expect(result.data.env).toEqual({});
-      expect(result.data.transport).toEqual(["websocket"]);
+      assertEquals(result.data.env, {});
+      assertEquals(result.data.transport, ["websocket"]);
     }
   });
 
@@ -240,11 +246,11 @@ Deno.test("AgentMetadataSchema", async (t) => {
       transport: ["websocket", "twilio"],
       account_id: "abc123",
     });
-    expect(result.success).toBe(true);
+    assertStrictEquals(result.success, true);
   });
 
   await t.step("rejects missing slug", () => {
     const result = AgentMetadataSchema.safeParse({ env: {} });
-    expect(result.success).toBe(false);
+    assertStrictEquals(result.success, false);
   });
 });

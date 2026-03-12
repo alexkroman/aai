@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { assertEquals } from "@std/assert";
 import { kvTools } from "./kv_tools.ts";
 
@@ -23,9 +24,9 @@ Deno.test("kvTools", async (t) => {
     const tools = kvTools({
       descriptions: { save: "Custom save description" },
     });
-    assertEquals(tools.save_memory.description, "Custom save description");
+    assertEquals(tools.save_memory!.description, "Custom save description");
     assertEquals(
-      tools.recall_memory.description,
+      tools.recall_memory!.description,
       "Retrieve a previously saved memory by its key.",
     );
   });

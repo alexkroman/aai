@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { info, step, stepInfo, warn } from "./_output.ts";
 import type { BundleOutput } from "./_bundler.ts";
 import { incrementName } from "./_discover.ts";

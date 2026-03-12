@@ -1,18 +1,36 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { MIC_BUFFER_SECONDS } from "./types.ts";
 import { resample } from "./resample.ts";
 
+/** Configuration for creating a {@linkcode VoiceIO} instance. */
 export type VoiceIOOptions = {
+  /** Sample rate in Hz expected by the STT engine (e.g. 16000). */
   sttSampleRate: number;
+  /** Sample rate in Hz used by the TTS engine (e.g. 22050). */
   ttsSampleRate: number;
+  /** Source URL or data URI for the capture AudioWorklet processor. */
   captureWorkletSrc: string;
+  /** Source URL or data URI for the playback AudioWorklet processor. */
   playbackWorkletSrc: string;
+  /** Callback invoked with buffered PCM16 microphone data to send to the server. */
   onMicData: (pcm16: ArrayBuffer) => void;
 };
 
+/**
+ * Audio I/O interface for voice capture and playback.
+ *
+ * Manages microphone capture via an AudioWorklet, resampling to the STT
+ * sample rate, and TTS audio playback through a second AudioWorklet. Implements
+ * {@linkcode AsyncDisposable} for resource cleanup.
+ */
 export type VoiceIO = AsyncDisposable & {
+  /** Enqueue a PCM16 audio buffer for playback through the TTS pipeline. */
   enqueue(pcm16Buffer: ArrayBuffer): void;
+  /** Signal that all TTS audio for the current turn has been enqueued. */
   done(): void;
+  /** Immediately stop playback and discard any buffered TTS audio. */
   flush(): void;
+  /** Release all audio resources (microphone, AudioContext, worklets). */
   close(): Promise<void>;
 };
 
@@ -23,6 +41,17 @@ async function loadWorklet(
   await ctx.audioWorklet.addModule(source);
 }
 
+/**
+ * Create a {@linkcode VoiceIO} instance that captures microphone audio and
+ * plays back TTS audio using the Web Audio API.
+ *
+ * The AudioContext runs at the TTS sample rate for playback fidelity.
+ * Captured audio is resampled to the STT rate when the rates differ.
+ *
+ * @param opts - Voice I/O configuration options.
+ * @returns A promise that resolves to a {@linkcode VoiceIO} handle.
+ * @throws If microphone access is denied or AudioWorklet registration fails.
+ */
 export async function createVoiceIO(
   opts: VoiceIOOptions,
 ): Promise<VoiceIO> {
@@ -84,11 +113,11 @@ export async function createVoiceIO(
     if (contextRate !== sttSampleRate) {
       const int16 = new Int16Array(chunk);
       const floats = new Float32Array(int16.length);
-      for (let i = 0; i < int16.length; i++) floats[i] = int16[i] / 32768;
+      for (let i = 0; i < int16.length; i++) floats[i] = int16[i]! / 32768;
       const resampled = resample(floats, contextRate, sttSampleRate);
       const out = new Int16Array(resampled.length);
       for (let i = 0; i < resampled.length; i++) {
-        const s = resampled[i] * 32768;
+        const s = resampled[i]! * 32768;
         out[i] = s > 32767 ? 32767 : s < -32768 ? -32768 : s;
       }
       pcm16 = out.buffer as ArrayBuffer;

@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import * as Comlink from "comlink";
 
 const api = {

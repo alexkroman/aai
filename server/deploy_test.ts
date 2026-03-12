@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { assertEquals, assertMatch, assertNotEquals } from "@std/assert";
 import { hashApiKey } from "./auth.ts";
 

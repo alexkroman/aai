@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import {
   build,
   type BuildOptions,
@@ -10,10 +11,16 @@ import { denoPlugin } from "@deno/esbuild-plugin";
 import { dirname, fromFileUrl, join, resolve } from "@std/path";
 import type { AgentEntry } from "./_discover.ts";
 
-export function bundleError(message: string): Error {
-  const err = new Error(message);
-  err.name = "BundleError";
-  return err;
+/**
+ * Error thrown when esbuild bundling fails.
+ *
+ * @param message Human-readable error message (typically formatted esbuild output).
+ */
+export class BundleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BundleError";
+  }
 }
 
 async function buildWithCleanErrors(
@@ -33,7 +40,7 @@ async function buildWithCleanErrors(
         kind: "error",
         color: true,
       });
-      throw bundleError(formatted.join("\n"));
+      throw new BundleError(formatted.join("\n"));
     }
     throw err;
   }
@@ -58,6 +65,7 @@ function ensureInit() {
   return esbuildReady;
 }
 
+/** Absolute path to the AAI monorepo root directory. */
 export const AAI_ROOT = resolve(dirname(fromFileUrl(import.meta.url)), "..");
 
 function getConfigPath(): string {
@@ -82,9 +90,7 @@ function getConfigPath(): string {
 const WORKSPACE_ALIASES: Record<string, string> = {
   "@aai/sdk": resolve(AAI_ROOT, "sdk/mod.ts"),
   "@aai/sdk/types": resolve(AAI_ROOT, "sdk/types.ts"),
-  "@aai/sdk/schema": resolve(AAI_ROOT, "sdk/_schema.ts"),
   "@aai/sdk/define-agent": resolve(AAI_ROOT, "sdk/define_agent.ts"),
-  "@aai/sdk/fetch-json": resolve(AAI_ROOT, "sdk/fetch_json.ts"),
   "@aai/sdk/kv": resolve(AAI_ROOT, "sdk/kv.ts"),
   "@aai/core/worker-entry": resolve(AAI_ROOT, "core/_worker_entry.ts"),
   "@aai/core/protocol": resolve(AAI_ROOT, "core/_protocol.ts"),
@@ -198,7 +204,7 @@ function buildNpmAliases(): Record<string, string> {
     const subpath = name.startsWith("@")
       ? parts.slice(2).join("/")
       : parts.slice(1).join("/");
-    const resolved = resolveNpmPackage(pkgName, subpath || undefined);
+    const resolved = resolveNpmPackage(pkgName!, subpath || undefined);
     if (resolved) aliases[name] = resolved;
   }
   return aliases;
@@ -254,28 +260,45 @@ function jsBytes(metafile: { outputs: Record<string, { bytes: number }> }) {
 }
 
 function getOutputText(
-  result: { outputFiles?: { path: string; text: string }[] },
+  result: { outputFiles?: { path: string; text: string }[] | undefined },
 ): string {
   return result.outputFiles?.[0]?.text ?? "";
 }
 
+/** Internal helpers exposed for testing. Not part of the public API. */
 export const _internals = {
   WORKSPACE_ALIASES,
-  bundleError,
+  BundleError,
   getConfigPath,
   getOutputText,
   jsBytes,
   buildNpmAliases,
 };
 
+/** Output artifacts produced by {@linkcode bundleAgent}. */
 export type BundleOutput = {
+  /** Minified ESM JavaScript for the server-side Deno Worker. */
   worker: string;
+  /** Minified ESM JavaScript for the browser client. Empty string if skipped. */
   client: string;
+  /** JSON manifest containing env var names and transport configuration. */
   manifest: string;
+  /** Size of the worker bundle in bytes. */
   workerBytes: number;
+  /** Size of the client bundle in bytes. */
   clientBytes: number;
 };
 
+/**
+ * Bundles an agent's `agent.ts` and optional `client.ts`/`client.tsx` into
+ * minified ESM JavaScript using esbuild. Resolves workspace packages (`@aai/*`)
+ * and npm dependencies to local file paths.
+ *
+ * @param agent The discovered agent entry containing paths and configuration.
+ * @param opts Optional settings. Set `skipClient` to omit the client bundle.
+ * @returns The bundled worker code, client code, manifest, and byte sizes.
+ * @throws {BundleError} If esbuild encounters a build error.
+ */
 export async function bundleAgent(
   agent: AgentEntry,
   opts?: { skipClient?: boolean },

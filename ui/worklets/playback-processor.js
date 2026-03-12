@@ -8,9 +8,9 @@ class PlaybackProcessor extends AudioWorkletProcessor {
     this.interrupted = false;
     this.isDone = false;
     this.playing = false;
-    // Wait for ~200ms of audio (4800 samples @ 24kHz) before starting.
+    // Wait for ~400ms of audio (9600 samples @ 24kHz) before starting.
     // If 'done' arrives first (short utterance), start immediately.
-    this.jitterSamples = 4800;
+    this.jitterSamples = 9600;
     // Carry-over byte for split samples across chunks
     this.carry = null;
     // Float32 sample buffer — 60s at 24kHz (~5.5MB)

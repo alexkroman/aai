@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { validator } from "hono/validator";
 import type { z } from "zod";
 

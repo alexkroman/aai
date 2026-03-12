@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { z } from "zod";
 import {
   DEFAULT_STT_SAMPLE_RATE,
@@ -13,7 +14,7 @@ export type STTConfig = {
   minTurnSilence: number;
   maxTurnSilence: number;
   vadThreshold: number;
-  sttPrompt?: string;
+  sttPrompt?: string | undefined;
 };
 
 export const STTConfigSchema: z.ZodType<STTConfig> = z.object({
@@ -47,7 +48,7 @@ export type TTSConfig = {
   audioFormat: string;
   samplingRate: number;
   sampleRate: number;
-  speedAlpha?: number;
+  speedAlpha?: number | undefined;
 };
 
 export const TTSConfigSchema: z.ZodType<TTSConfig> = z.object({

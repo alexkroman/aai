@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { Redis } from "@upstash/redis";
 import type { AgentScope } from "./scope_token.ts";
 

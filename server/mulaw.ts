@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 const MULAW_BIAS = 0x84;
 const MULAW_CLIP = 32635;
 
@@ -13,7 +14,7 @@ for (let i = 0; i < 256; i++) {
 }
 
 export function decodeMulaw(byte: number): number {
-  return DECODE_TABLE[byte & 0xff];
+  return DECODE_TABLE[byte & 0xff]!;
 }
 
 export function encodeMulaw(sample: number): number {
@@ -35,13 +36,13 @@ export function encodeMulaw(sample: number): number {
 
 export function mulawToPcm16(mulaw: Uint8Array): Int16Array {
   const out = new Int16Array(mulaw.length);
-  for (let i = 0; i < mulaw.length; i++) out[i] = DECODE_TABLE[mulaw[i]];
+  for (let i = 0; i < mulaw.length; i++) out[i] = DECODE_TABLE[mulaw[i]!]!;
   return out;
 }
 
 export function pcm16ToMulaw(pcm: Int16Array): Uint8Array {
   const out = new Uint8Array(pcm.length);
-  for (let i = 0; i < pcm.length; i++) out[i] = encodeMulaw(pcm[i]);
+  for (let i = 0; i < pcm.length; i++) out[i] = encodeMulaw(pcm[i]!);
   return out;
 }
 
@@ -59,8 +60,8 @@ export function resample(
     const idx = Math.floor(src);
     const frac = src - idx;
     out[i] = idx + 1 < samples.length
-      ? Math.round(samples[idx] * (1 - frac) + samples[idx + 1] * frac)
-      : samples[Math.min(idx, samples.length - 1)];
+      ? Math.round(samples[idx]! * (1 - frac) + samples[idx + 1]! * frac)
+      : samples[Math.min(idx, samples.length - 1)]!;
   }
   return out;
 }

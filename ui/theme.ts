@@ -1,16 +1,27 @@
+// Copyright 2025 the AAI authors. MIT license.
 import type { AgentState } from "./types.ts";
 
 /** Color and typography theme applied to the voice agent UI. */
 export type Theme = {
+  /** Page background color. */
   bg: string;
+  /** Card/panel surface color. */
   surface: string;
+  /** Lighter surface variant for hover/active states. */
   surfaceLight: string;
+  /** Primary accent color. */
   primary: string;
+  /** Primary text color. */
   text: string;
+  /** Muted/secondary text color. */
   textMuted: string;
+  /** Error state color. */
   error: string;
+  /** CSS `font-family` value. */
   font: string;
+  /** CSS `border-radius` value. */
   radius: string;
+  /** Mapping of each {@linkcode AgentState} to its indicator color. */
   stateColors: Record<AgentState, string>;
 };
 
@@ -59,7 +70,15 @@ export const lightTheme: Theme = Object.freeze({
   }),
 });
 
-/** Apply a theme to an element by setting CSS custom properties. */
+/**
+ * Apply a theme to an element by setting CSS custom properties.
+ *
+ * Each theme key is converted to a `--aai-*` CSS custom property on the
+ * element. State colors are set as `--aai-state-{name}`.
+ *
+ * @param el - The DOM element to apply the theme to.
+ * @param theme - The theme object to apply.
+ */
 export function applyTheme(el: HTMLElement, theme: Readonly<Theme>): void {
   const s = el.style;
   for (const [key, value] of Object.entries(theme)) {

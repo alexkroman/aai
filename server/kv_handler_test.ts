@@ -1,4 +1,10 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import {
+  assert,
+  assertEquals,
+  assertStrictEquals,
+  assertStringIncludes,
+} from "@std/assert";
 import { Hono } from "hono";
 import type { HonoEnv } from "./hono_env.ts";
 import { handleKv, validateKvRequest } from "./kv_handler.ts";
@@ -69,32 +75,32 @@ async function postKv(
 Deno.test("kv: rejects invalid op", async () => {
   const { app } = createApp();
   const { status, json } = await postKv(app, { op: "invalid" });
-  expect(status).toBe(400);
-  expect(json.error).toBeDefined();
+  assertStrictEquals(status, 400);
+  assert(json.error !== undefined);
 });
 
 Deno.test("kv: rejects missing key for get", async () => {
   const { app } = createApp();
   const { status } = await postKv(app, { op: "get" });
-  expect(status).toBe(400);
+  assertStrictEquals(status, 400);
 });
 
 Deno.test("kv: rejects missing key for set", async () => {
   const { app } = createApp();
   const { status } = await postKv(app, { op: "set", value: "v" });
-  expect(status).toBe(400);
+  assertStrictEquals(status, 400);
 });
 
 Deno.test("kv: rejects missing value for set", async () => {
   const { app } = createApp();
   const { status } = await postKv(app, { op: "set", key: "k" });
-  expect(status).toBe(400);
+  assertStrictEquals(status, 400);
 });
 
 Deno.test("kv: rejects missing prefix for list", async () => {
   const { app } = createApp();
   const { status } = await postKv(app, { op: "list" });
-  expect(status).toBe(400);
+  assertStrictEquals(status, 400);
 });
 
 // --- get ---
@@ -102,16 +108,16 @@ Deno.test("kv: rejects missing prefix for list", async () => {
 Deno.test("kv get: returns null for missing key", async () => {
   const { app } = createApp();
   const { status, json } = await postKv(app, { op: "get", key: "nope" });
-  expect(status).toBe(200);
-  expect(json.result).toBeNull();
+  assertStrictEquals(status, 200);
+  assertStrictEquals(json.result, null);
 });
 
 Deno.test("kv get: returns stored value", async () => {
   const { app, kvStore } = createApp();
   kvStore.store.set("mykey", "myval");
   const { status, json } = await postKv(app, { op: "get", key: "mykey" });
-  expect(status).toBe(200);
-  expect(json.result).toBe("myval");
+  assertStrictEquals(status, 200);
+  assertStrictEquals(json.result, "myval");
 });
 
 // --- set ---
@@ -123,9 +129,9 @@ Deno.test("kv set: stores value and returns OK", async () => {
     key: "k1",
     value: "v1",
   });
-  expect(status).toBe(200);
-  expect(json.result).toBe("OK");
-  expect(kvStore.store.get("k1")).toBe("v1");
+  assertStrictEquals(status, 200);
+  assertStrictEquals(json.result, "OK");
+  assertStrictEquals(kvStore.store.get("k1"), "v1");
 });
 
 Deno.test("kv set: accepts optional ttl", async () => {
@@ -136,8 +142,8 @@ Deno.test("kv set: accepts optional ttl", async () => {
     value: "v",
     ttl: 3600,
   });
-  expect(status).toBe(200);
-  expect(json.result).toBe("OK");
+  assertStrictEquals(status, 200);
+  assertStrictEquals(json.result, "OK");
 });
 
 // --- del ---
@@ -146,16 +152,16 @@ Deno.test("kv del: removes key and returns OK", async () => {
   const { app, kvStore } = createApp();
   kvStore.store.set("k1", "v1");
   const { status, json } = await postKv(app, { op: "del", key: "k1" });
-  expect(status).toBe(200);
-  expect(json.result).toBe("OK");
-  expect(kvStore.store.has("k1")).toBe(false);
+  assertStrictEquals(status, 200);
+  assertStrictEquals(json.result, "OK");
+  assertStrictEquals(kvStore.store.has("k1"), false);
 });
 
 Deno.test("kv del: succeeds even if key does not exist", async () => {
   const { app } = createApp();
   const { status, json } = await postKv(app, { op: "del", key: "nope" });
-  expect(status).toBe(200);
-  expect(json.result).toBe("OK");
+  assertStrictEquals(status, 200);
+  assertStrictEquals(json.result, "OK");
 });
 
 // --- keys ---
@@ -165,14 +171,14 @@ Deno.test("kv keys: returns all keys", async () => {
   kvStore.store.set("a", "1");
   kvStore.store.set("b", "2");
   const { status, json } = await postKv(app, { op: "keys" });
-  expect(status).toBe(200);
-  expect(json.result).toEqual(["a", "b"]);
+  assertStrictEquals(status, 200);
+  assertEquals(json.result, ["a", "b"]);
 });
 
 Deno.test("kv keys: accepts optional pattern", async () => {
   const { app } = createApp();
   const { status } = await postKv(app, { op: "keys", pattern: "user:*" });
-  expect(status).toBe(200);
+  assertStrictEquals(status, 200);
 });
 
 // --- list ---
@@ -186,10 +192,10 @@ Deno.test("kv list: returns entries matching prefix", async () => {
     op: "list",
     prefix: "note:",
   });
-  expect(status).toBe(200);
+  assertStrictEquals(status, 200);
   const result = json.result as { key: string; value: string }[];
-  expect(result).toHaveLength(2);
-  expect(result.every((r) => r.key.startsWith("note:"))).toBe(true);
+  assertStrictEquals(result.length, 2);
+  assertStrictEquals(result.every((r) => r.key.startsWith("note:")), true);
 });
 
 Deno.test("kv list: accepts limit and reverse options", async () => {
@@ -200,7 +206,7 @@ Deno.test("kv list: accepts limit and reverse options", async () => {
     limit: 10,
     reverse: true,
   });
-  expect(status).toBe(200);
+  assertStrictEquals(status, 200);
 });
 
 // --- error handling ---
@@ -224,7 +230,7 @@ Deno.test("kv: returns 500 when store throws", async () => {
   app.post("/kv", validateKvRequest, handleKv);
 
   const { status, json } = await postKv(app, { op: "get", key: "x" });
-  expect(status).toBe(500);
-  expect(json.error as string).toContain("KV operation failed");
-  expect(json.error as string).toContain("db down");
+  assertStrictEquals(status, 500);
+  assertStringIncludes(json.error as string, "KV operation failed");
+  assertStringIncludes(json.error as string, "db down");
 });

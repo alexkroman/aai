@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertStrictEquals, assertStringIncludes } from "@std/assert";
 import { stub } from "@std/testing/mock";
 import {
   _internals,
@@ -38,7 +39,7 @@ const HTML_TO_MD_CASES: [string, string, string][] = [
 
 for (const [name, input, expected] of HTML_TO_MD_CASES) {
   Deno.test(`htmlToMarkdown: ${name}`, () => {
-    expect(_internals.htmlToMarkdown(input)).toContain(expected);
+    assertStringIncludes(_internals.htmlToMarkdown(input), expected);
   });
 }
 
@@ -60,25 +61,25 @@ Deno.test("getBuiltinToolSchemas returns requested + required tools", () => {
     "run_code",
     "fetch_json",
   ]);
-  expect(schemas).toHaveLength(6);
+  assertStrictEquals(schemas.length, 6);
   const names = schemas.map((s) => s.name);
-  expect(names).toContain("final_answer");
-  expect(names).toContain("user_input");
-  expect(names).toContain("web_search");
+  assert(names.includes("final_answer"));
+  assert(names.includes("user_input"));
+  assert(names.includes("web_search"));
 });
 
 Deno.test("getBuiltinToolSchemas always includes required tools", () => {
   const schemas = getBuiltinToolSchemas([]);
-  expect(schemas).toHaveLength(2);
+  assertStrictEquals(schemas.length, 2);
   const names = schemas.map((s) => s.name);
-  expect(names).toContain("final_answer");
-  expect(names).toContain("user_input");
+  assert(names.includes("final_answer"));
+  assert(names.includes("user_input"));
 });
 
 Deno.test("getBuiltinToolSchemas does not duplicate final_answer", () => {
   const schemas = getBuiltinToolSchemas(["final_answer", "web_search"]);
   const names = schemas.map((s) => s.name);
-  expect(names.filter((n) => n === "final_answer")).toHaveLength(1);
+  assertStrictEquals(names.filter((n) => n === "final_answer").length, 1);
 });
 
 // --- getBuiltinVercelTools ---
@@ -90,7 +91,7 @@ Deno.test("visit_webpage fetches and converts HTML", async () => {
     mockFetch("<html><body><p>Hello World</p></body></html>"),
   );
   const tools = getBuiltinVercelTools(["visit_webpage"]);
-  const result = await tools.visit_webpage.execute!(
+  const result = await tools.visit_webpage!.execute!(
     { url: "https://example.com" },
     {
       toolCallId: "test",
@@ -99,7 +100,7 @@ Deno.test("visit_webpage fetches and converts HTML", async () => {
     },
   );
   const parsed = JSON.parse(result as string);
-  expect(parsed.content).toContain("Hello World");
+  assertStringIncludes(parsed.content, "Hello World");
 });
 
 Deno.test("visit_webpage handles non-OK response", async () => {
@@ -109,7 +110,7 @@ Deno.test("visit_webpage handles non-OK response", async () => {
     mockFetch("Not Found", 404, "Not Found"),
   );
   const tools = getBuiltinVercelTools(["visit_webpage"]);
-  const result = await tools.visit_webpage.execute!(
+  const result = await tools.visit_webpage!.execute!(
     { url: "https://example.com/missing" },
     {
       toolCallId: "test",
@@ -118,12 +119,12 @@ Deno.test("visit_webpage handles non-OK response", async () => {
     },
   );
   const parsed = JSON.parse(result as string);
-  expect(parsed.error).toContain("404");
+  assertStringIncludes(parsed.error, "404");
 });
 
 Deno.test("run_code executes and returns stdout", async () => {
   const tools = getBuiltinVercelTools(["run_code"]);
-  const result = await tools.run_code.execute!(
+  const result = await tools.run_code!.execute!(
     { code: 'console.log("hello")' },
     {
       toolCallId: "test",
@@ -131,12 +132,12 @@ Deno.test("run_code executes and returns stdout", async () => {
       abortSignal: AbortSignal.timeout(5000),
     },
   );
-  expect(result).toBe("hello");
+  assertStrictEquals(result, "hello");
 });
 
 Deno.test("run_code returns error for syntax errors", async () => {
   const tools = getBuiltinVercelTools(["run_code"]);
-  const result = await tools.run_code.execute!(
+  const result = await tools.run_code!.execute!(
     { code: "this is not valid javascript %%%" },
     {
       toolCallId: "test",
@@ -145,12 +146,12 @@ Deno.test("run_code returns error for syntax errors", async () => {
     },
   );
   const parsed = JSON.parse(result as string);
-  expect(parsed.error).toBeDefined();
+  assert(parsed.error !== undefined);
 });
 
 Deno.test("run_code returns no-output message for silent code", async () => {
   const tools = getBuiltinVercelTools(["run_code"]);
-  const result = await tools.run_code.execute!(
+  const result = await tools.run_code!.execute!(
     { code: "const x = 1 + 1;" },
     {
       toolCallId: "test",
@@ -158,7 +159,7 @@ Deno.test("run_code returns no-output message for silent code", async () => {
       abortSignal: AbortSignal.timeout(5000),
     },
   );
-  expect(result).toBe("Code ran successfully (no output)");
+  assertStrictEquals(result, "Code ran successfully (no output)");
 });
 
 Deno.test("fetch_json fetches and returns JSON", async () => {
@@ -168,7 +169,7 @@ Deno.test("fetch_json fetches and returns JSON", async () => {
     mockFetch(JSON.stringify({ name: "test", value: 42 })),
   );
   const tools = getBuiltinVercelTools(["fetch_json"]);
-  const result = await tools.fetch_json.execute!(
+  const result = await tools.fetch_json!.execute!(
     { url: "https://api.example.com/data" },
     {
       toolCallId: "test",
@@ -177,8 +178,8 @@ Deno.test("fetch_json fetches and returns JSON", async () => {
     },
   );
   const parsed = JSON.parse(result as string);
-  expect(parsed.name).toBe("test");
-  expect(parsed.value).toBe(42);
+  assertStrictEquals(parsed.name, "test");
+  assertStrictEquals(parsed.value, 42);
 });
 
 Deno.test("fetch_json handles non-OK response", async () => {
@@ -188,7 +189,7 @@ Deno.test("fetch_json handles non-OK response", async () => {
     mockFetch("Server Error", 500, "ISE"),
   );
   const tools = getBuiltinVercelTools(["fetch_json"]);
-  const result = await tools.fetch_json.execute!(
+  const result = await tools.fetch_json!.execute!(
     { url: "https://api.example.com/fail" },
     {
       toolCallId: "test",
@@ -197,7 +198,7 @@ Deno.test("fetch_json handles non-OK response", async () => {
     },
   );
   const parsed = JSON.parse(result as string);
-  expect(parsed.error).toContain("500");
+  assertStringIncludes(parsed.error, "500");
 });
 
 Deno.test("fetch_json handles non-JSON response", async () => {
@@ -207,7 +208,7 @@ Deno.test("fetch_json handles non-JSON response", async () => {
     mockFetch("this is not json"),
   );
   const tools = getBuiltinVercelTools(["fetch_json"]);
-  const result = await tools.fetch_json.execute!(
+  const result = await tools.fetch_json!.execute!(
     { url: "https://api.example.com/text" },
     {
       toolCallId: "test",
@@ -216,5 +217,5 @@ Deno.test("fetch_json handles non-JSON response", async () => {
     },
   );
   const parsed = JSON.parse(result as string);
-  expect(parsed.error).toContain("not valid JSON");
+  assertStringIncludes(parsed.error, "not valid JSON");
 });

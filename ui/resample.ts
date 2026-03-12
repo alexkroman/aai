@@ -1,8 +1,15 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Linear-interpolation resampler for voice audio.
  *
  * Sufficient quality for voice going to/from an STT model. Not suitable for
- * music or high-fidelity audio — use a polyphase filter for that.
+ * music or high-fidelity audio -- use a polyphase filter for that.
+ *
+ * @param input - Source audio samples as 32-bit floats.
+ * @param fromRate - Sample rate of the input in Hz.
+ * @param toRate - Desired output sample rate in Hz.
+ * @returns A new `Float32Array` resampled to `toRate`. Returns `input`
+ *   unchanged if the rates are equal.
  */
 export function resample(
   input: Float32Array,
@@ -18,8 +25,8 @@ export function resample(
     const srcIdx = i * ratio;
     const idx = srcIdx | 0;
     const frac = srcIdx - idx;
-    const a = input[idx];
-    const b = idx + 1 < input.length ? input[idx + 1] : a;
+    const a = input[idx]!;
+    const b = idx + 1 < input.length ? input[idx + 1]! : a;
     out[i] = a + frac * (b - a);
   }
   return out;

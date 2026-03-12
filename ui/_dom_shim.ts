@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { Element as DOMElement } from "@b-fuze/deno-dom";
 
 function createStyleProxy() {

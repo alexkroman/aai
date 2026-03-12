@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import {
   DeleteObjectsCommand,
   GetObjectCommand,
@@ -12,15 +13,15 @@ import { type CredentialKey, decryptEnv, encryptEnv } from "./credentials.ts";
 export type FileKey = "worker" | "client" | "client_map";
 
 export type NamespaceOwner = {
-  account_id: string;
-  credential_hashes: string[];
+  "account_id": string;
+  "credential_hashes": string[];
 };
 
 export type BundleStore = {
   putAgent(bundle: {
     slug: string;
     env: Record<string, string>;
-    transport: ("websocket" | "twilio")[];
+    transport: readonly ("websocket" | "twilio")[];
     worker: string;
     client: string;
     client_map?: string;
@@ -51,7 +52,7 @@ type CacheEntry = {
 const FILE_NAMES: Record<FileKey, string> = {
   worker: "worker.js",
   client: "client.js",
-  client_map: "client.js.map",
+  "client_map": "client.js.map",
 };
 
 function objectKey(slug: string, file: string): string {
@@ -59,9 +60,10 @@ function objectKey(slug: string, file: string): string {
 }
 
 export function createS3Client(): S3Client {
+  const endpoint = Deno.env.get("AWS_ENDPOINT_URL_S3");
   return new S3Client({
     region: "auto",
-    endpoint: Deno.env.get("AWS_ENDPOINT_URL_S3"),
+    ...(endpoint ? { endpoint } : {}),
     credentials: {
       accessKeyId: Deno.env.get("AWS_ACCESS_KEY_ID") ?? "",
       secretAccessKey: Deno.env.get("AWS_SECRET_ACCESS_KEY") ?? "",

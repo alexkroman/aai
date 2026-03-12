@@ -1,3 +1,5 @@
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
 import type { PlatformConfig } from "./config.ts";
 import { createModel } from "./model.ts";
 import type { ExecuteTool } from "@aai/core/worker-entry";
@@ -7,7 +9,7 @@ import { getBuiltinVercelTools } from "./builtin_tools.ts";
 import { executeTurn } from "./turn_handler.ts";
 import type { STTConfig, TTSConfig } from "./types.ts";
 import type { AgentConfig } from "@aai/sdk/types";
-import type { ToolSchema } from "@aai/sdk/schema";
+import type { ToolSchema } from "@aai/sdk/types";
 import type { WorkerApi } from "@aai/core/worker-entry";
 import { buildSystemPrompt } from "./system_prompt.ts";
 import {
@@ -24,27 +26,41 @@ import type { Message } from "@aai/sdk/types";
 import * as metrics from "./metrics.ts";
 import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/core/protocol";
 
+/** Transport abstraction for sending data to a connected client. */
 export type SessionTransport = {
+  /** Sends a message (text or binary) to the client. */
   send(data: string | ArrayBuffer | Uint8Array): void;
+  /** The current WebSocket ready state. */
   readonly readyState: 0 | 1 | 2 | 3;
 };
 
+/** Configuration options for creating a new session. */
 export type SessionOptions = {
+  /** Unique session identifier. */
   id: string;
+  /** Agent slug this session belongs to. */
   agent: string;
+  /** Transport used to communicate with the client. */
   transport: SessionTransport;
+  /** The agent's configuration from `defineAgent()`. */
   agentConfig: AgentConfig;
-  toolSchemas: ToolSchema[];
+  /** JSON schemas for agent-defined tools. */
+  toolSchemas: readonly ToolSchema[];
+  /** Platform-level configuration (API keys, model, STT/TTS settings). */
   platformConfig: PlatformConfig;
+  /** Function to execute a tool call in the agent worker. */
   executeTool: ExecuteTool;
+  /** Environment variables available to the agent. */
   env?: Record<string, string | undefined>;
+  /** Factory to lazily obtain the worker API (spawns worker on first call). */
   getWorkerApi?: () => Promise<WorkerApi>;
+  /** When true, suppresses the initial greeting (used for resumed sessions). */
   skipGreeting?: boolean;
+  /** Override the default STT connection factory (used in tests). */
   createStt?: (apiKey: string, config: STTConfig) => SttConnection;
+  /** Override the default TTS connection factory (used in tests). */
   createTts?: (config: TTSConfig) => TtsConnection;
 };
-
-// ── State enums ─────────────────────────────────────────────────────
 
 const ConnState = {
   Idle: "Idle",
@@ -61,21 +77,38 @@ const AgentState = {
 } as const;
 type AgentState = (typeof AgentState)[keyof typeof AgentState];
 
-// ── Session type ────────────────────────────────────────────────────
-
+/** A voice session managing the STT -> LLM -> TTS pipeline for one connection. */
 export type Session = {
+  /** Initializes the session, connects to STT, and sends the ready message. */
   start(): Promise<void>;
+  /** Gracefully stops the session, aborting any in-flight turn and closing STT/TTS. */
   stop(): Promise<void>;
+  /** Feeds raw PCM audio data from the client into the STT stream. */
   onAudio(data: Uint8Array): void;
+  /** Signals that the client's audio pipeline is ready (triggers pending greeting). */
   onAudioReady(): void;
+  /** Cancels the current in-flight turn and clears the STT buffer. */
   onCancel(): void;
+  /** Resets the conversation history and replays the greeting if configured. */
   onReset(): void;
-  onHistory(incoming: { role: "user" | "assistant"; text: string }[]): void;
+  /** Restores prior conversation history for a resumed session. */
+  onHistory(
+    incoming: readonly { role: "user" | "assistant"; text: string }[],
+  ): void;
+  /** Returns a promise that resolves when the current turn completes. */
   waitForTurn(): Promise<void>;
 };
 
-// ── Factory ─────────────────────────────────────────────────────────
-
+/**
+ * Creates a new voice session that wires STT, LLM, and TTS together.
+ *
+ * The session manages the full lifecycle: connecting to STT, processing
+ * user speech into turns, running the agentic LLM loop, synthesizing
+ * the response via TTS, and streaming audio back to the client.
+ *
+ * @param opts - Session configuration including transport, agent config, and tool schemas.
+ * @returns A {@linkcode Session} object for controlling the session lifecycle.
+ */
 export function createSession(opts: SessionOptions): Session {
   let conn: ConnState = ConnState.Idle;
   let agent: AgentState = AgentState.WaitingForAudio;
@@ -170,8 +203,6 @@ export function createSession(opts: SessionOptions): Session {
     }
   }
 
-  // ── Internal: transport ─────────────────────────────────────────
-
   function trySend(data: string | Uint8Array): void {
     try {
       if (ws.readyState === WebSocket.OPEN) ws.send(data);
@@ -182,30 +213,18 @@ export function createSession(opts: SessionOptions): Session {
     trySend(JSON.stringify(data));
   }
 
-  // ── Internal: hooks ─────────────────────────────────────────────
-
-  async function invokeHook(
-    hook: string,
-    extra?: {
-      text?: string;
-      error?: string;
-      step?: {
-        stepNumber: number;
-        toolCalls: { toolName: string; args: Record<string, unknown> }[];
-        text: string;
-      };
-    },
+  async function callHook(
+    name: string,
+    fn: (api: WorkerApi) => Promise<void>,
   ): Promise<void> {
     if (!getWorkerApi) return;
     try {
       cachedWorkerApi ??= await getWorkerApi();
-      await cachedWorkerApi.invokeHook(hook, id, extra, 5_000, slotEnv);
+      await fn(cachedWorkerApi);
     } catch (err: unknown) {
-      console.error(`${hook} hook failed`, { err });
+      log.error(`${name} hook failed`, { err });
     }
   }
-
-  // ── Internal: STT ───────────────────────────────────────────────
 
   async function connectStt(): Promise<void> {
     try {
@@ -213,7 +232,7 @@ export function createSession(opts: SessionOptions): Session {
       await handle.connect();
 
       handle.onTranscript = ({ text, isFinal, turnOrder }) => {
-        console.info("transcript", { text, isFinal, turnOrder });
+        log.info("transcript", { text, isFinal, turnOrder });
         if (isFinal) {
           trySendJson({
             type: "final_transcript",
@@ -226,7 +245,7 @@ export function createSession(opts: SessionOptions): Session {
       };
 
       handle.onTurn = ({ text, turnOrder }) => {
-        console.info("turn", { text, turnOrder });
+        log.info("turn", { text, turnOrder });
         const prev = turnPromise;
         // deno-lint-ignore prefer-const
         let next!: Promise<void>;
@@ -234,7 +253,7 @@ export function createSession(opts: SessionOptions): Session {
           try {
             await prev;
           } catch (e) {
-            console.warn("previous turn failed", e);
+            log.warn("previous turn failed", e);
           }
           try {
             await handleTurn(text, turnOrder);
@@ -246,20 +265,20 @@ export function createSession(opts: SessionOptions): Session {
       };
 
       handle.onError = (err) => {
-        console.error("STT error:", err.message);
+        log.error("STT error:", err.message);
         trySendJson({ type: "error", message: err.message });
       };
 
       handle.onClose = async () => {
-        console.info("STT closed");
+        log.info("STT closed");
         stt = null;
         if (!sessionAbort.signal.aborted) {
-          console.info("Attempting STT reconnect");
+          log.info("Attempting STT reconnect");
           try {
             await connectStt();
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            console.error("STT reconnect failed:", msg);
+            log.error("STT reconnect failed:", msg);
             trySendJson({ type: "error", message: msg });
           }
         }
@@ -268,12 +287,10 @@ export function createSession(opts: SessionOptions): Session {
       stt = handle;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("STT connect failed:", msg);
+      log.error("STT connect failed:", msg);
       trySendJson({ type: "error", message: msg });
     }
   }
-
-  // ── Internal: turn handling ─────────────────────────────────────
 
   function cancelInflight(): void {
     turnAbort?.abort();
@@ -293,7 +310,7 @@ export function createSession(opts: SessionOptions): Session {
       ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
     });
 
-    invokeHook("onTurn", { text });
+    callHook("onTurn", (api) => api.onTurn(id, text, 5_000, slotEnv));
 
     if (isSttOnly) {
       trySendJson({ type: "tts_done" });
@@ -321,7 +338,7 @@ export function createSession(opts: SessionOptions): Session {
           );
           if (resolved !== null) maxSteps = resolved;
         } catch (err: unknown) {
-          console.warn("resolveMaxSteps failed, using default", { err });
+          log.warn("resolveMaxSteps failed, using default", { err });
         }
       }
 
@@ -344,7 +361,8 @@ export function createSession(opts: SessionOptions): Session {
               })),
               text: step.text ?? "",
             };
-            await invokeHook("onStep", { step: stepInfo });
+            await callHook("onStep", (api) =>
+              api.onStep(id, stepInfo, 5_000, slotEnv));
           }
           : undefined,
         resolveBeforeStep: getWorkerApi
@@ -358,7 +376,7 @@ export function createSession(opts: SessionOptions): Session {
                 slotEnv,
               );
             } catch (err: unknown) {
-              console.warn("resolveBeforeStep failed", { err });
+              log.warn("resolveBeforeStep failed", { err });
               return null;
             }
           }
@@ -388,9 +406,9 @@ export function createSession(opts: SessionOptions): Session {
           responseBody?: unknown;
           statusCode?: number;
         };
-        console.error("Turn failed:", msg, { responseBody, statusCode });
+        log.error("Turn failed:", msg, { responseBody, statusCode });
       } else {
-        console.error("Turn failed:", msg);
+        log.error("Turn failed:", msg);
       }
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
       trySendJson({ type: "error", message: msg });
@@ -420,7 +438,7 @@ export function createSession(opts: SessionOptions): Session {
       } catch (err: unknown) {
         if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : String(err);
-        console.error("TTS failed:", msg);
+        log.error("TTS failed:", msg);
         trySendJson({ type: "error", message: msg });
       } finally {
         if (turnAbort === abort) turnAbort = null;
@@ -429,8 +447,6 @@ export function createSession(opts: SessionOptions): Session {
     })();
     turnPromise = p;
   }
-
-  // ── Public API ──────────────────────────────────────────────────
 
   return {
     async start(): Promise<void> {
@@ -444,7 +460,7 @@ export function createSession(opts: SessionOptions): Session {
         pendingGreeting = agentConfig.greeting;
       }
 
-      invokeHook("onConnect");
+      callHook("onConnect", (api) => api.onConnect(id, 5_000, slotEnv));
       await connectStt();
 
       conn = ConnState.Ready;
@@ -470,13 +486,13 @@ export function createSession(opts: SessionOptions): Session {
       stt?.close();
       tts?.close();
 
-      invokeHook("onDisconnect");
+      callHook("onDisconnect", (api) => api.onDisconnect(id, 5_000, slotEnv));
     },
 
     onAudio(data: Uint8Array): void {
       audioFrameCount++;
       if (audioFrameCount <= 3) {
-        console.debug("audio frame", {
+        log.debug("audio frame", {
           frame: audioFrameCount,
           bytes: data.length,
         });
@@ -519,7 +535,7 @@ export function createSession(opts: SessionOptions): Session {
     },
 
     onHistory(
-      incoming: { role: "user" | "assistant"; text: string }[],
+      incoming: readonly { role: "user" | "assistant"; text: string }[],
     ): void {
       for (const msg of incoming) {
         const coreMsg: CoreUserMessage | CoreAssistantMessage = {
@@ -528,7 +544,7 @@ export function createSession(opts: SessionOptions): Session {
         };
         messages.push(coreMsg);
       }
-      console.info("Restored conversation history", {
+      log.info("Restored conversation history", {
         count: incoming.length,
       });
     },

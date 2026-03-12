@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { FakeTime } from "@std/testing/time";
 import { render } from "preact";
 import { installDomShim } from "./_dom_shim.ts";
@@ -40,8 +41,6 @@ export function installMockLocation(origin = "http://localhost:3000") {
     },
   };
 }
-
-// ── Audio mock helpers ──
 
 export class MockMediaStreamTrack {
   stopped = false;
@@ -199,8 +198,6 @@ export function findWorkletNode(
   return node;
 }
 
-// ── Test environment wrappers ──
-
 /**
  * Set up a DOM + FakeTime environment, run `fn`, then clean up.
  * Used by component tests that need a container and timer control.
@@ -285,8 +282,6 @@ export function withSignalsEnv(
     }
   };
 }
-
-// ── Mock signals ──
 
 export function createMockSignals(
   overrides?: Partial<{

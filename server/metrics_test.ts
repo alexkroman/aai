@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertStrictEquals, assertStringIncludes } from "@std/assert";
 import {
   createCounter,
   createGauge,
@@ -9,12 +10,12 @@ import {
 
 Deno.test("counter without labels", () => {
   const c = createCounter("test_total", "A test counter");
-  expect(c.serialize()).toContain("test_total 0");
+  assertStringIncludes(c.serialize(), "test_total 0");
   c.inc();
   c.inc();
-  expect(c.serialize()).toContain("test_total 2");
+  assertStringIncludes(c.serialize(), "test_total 2");
   c.inc(undefined, 5);
-  expect(c.serialize()).toContain("test_total 7");
+  assertStringIncludes(c.serialize(), "test_total 7");
 });
 
 Deno.test("counter with labels", () => {
@@ -23,10 +24,10 @@ Deno.test("counter with labels", () => {
   c.inc({ component: "stt" });
   c.inc({ component: "llm" });
   const output = c.serialize();
-  expect(output).toContain("# HELP err_total Errors");
-  expect(output).toContain("# TYPE err_total counter");
-  expect(output).toContain('err_total{component="llm"} 2');
-  expect(output).toContain('err_total{component="stt"} 1');
+  assertStringIncludes(output, "# HELP err_total Errors");
+  assertStringIncludes(output, "# TYPE err_total counter");
+  assertStringIncludes(output, 'err_total{component="llm"} 2');
+  assertStringIncludes(output, 'err_total{component="stt"} 1');
 });
 
 Deno.test("counter with multiple labels", () => {
@@ -35,18 +36,18 @@ Deno.test("counter with multiple labels", () => {
   c.inc({ agent: "ns/bot", component: "llm" });
   c.inc({ agent: "ns/bot", component: "stt" });
   const output = c.serialize();
-  expect(output).toContain('errs{agent="ns/bot",component="llm"} 2');
-  expect(output).toContain('errs{agent="ns/bot",component="stt"} 1');
+  assertStringIncludes(output, 'errs{agent="ns/bot",component="llm"} 2');
+  assertStringIncludes(output, 'errs{agent="ns/bot",component="stt"} 1');
 });
 
 Deno.test("gauge without labels", () => {
   const g = createGauge("active", "Active items");
-  expect(g.serialize()).toContain("active 0");
+  assertStringIncludes(g.serialize(), "active 0");
   g.inc();
   g.inc();
   g.dec();
-  expect(g.serialize()).toContain("active 1");
-  expect(g.serialize()).toContain("# TYPE active gauge");
+  assertStringIncludes(g.serialize(), "active 1");
+  assertStringIncludes(g.serialize(), "# TYPE active gauge");
 });
 
 Deno.test("gauge with labels", () => {
@@ -56,8 +57,8 @@ Deno.test("gauge with labels", () => {
   g.inc({ agent: "a/one" });
   g.dec({ agent: "a/one" });
   const output = g.serialize();
-  expect(output).toContain('sessions{agent="a/one"} 1');
-  expect(output).toContain('sessions{agent="a/two"} 1');
+  assertStringIncludes(output, 'sessions{agent="a/one"} 1');
+  assertStringIncludes(output, 'sessions{agent="a/two"} 1');
 });
 
 Deno.test("histogram default buckets", () => {
@@ -66,15 +67,15 @@ Deno.test("histogram default buckets", () => {
   h.observe(0.2);
   h.observe(3.0);
   const output = h.serialize();
-  expect(output).toContain("# TYPE dur histogram");
-  expect(output).toContain('le="0.05"} 1');
-  expect(output).toContain('le="0.1"} 1');
-  expect(output).toContain('le="0.25"} 2');
-  expect(output).toContain('le="0.5"} 2');
-  expect(output).toContain('le="5"} 3');
-  expect(output).toContain('le="+Inf"} 3');
-  expect(output).toContain("dur_sum 3.23");
-  expect(output).toContain("dur_count 3");
+  assertStringIncludes(output, "# TYPE dur histogram");
+  assertStringIncludes(output, 'le="0.05"} 1');
+  assertStringIncludes(output, 'le="0.1"} 1');
+  assertStringIncludes(output, 'le="0.25"} 2');
+  assertStringIncludes(output, 'le="0.5"} 2');
+  assertStringIncludes(output, 'le="5"} 3');
+  assertStringIncludes(output, 'le="+Inf"} 3');
+  assertStringIncludes(output, "dur_sum 3.23");
+  assertStringIncludes(output, "dur_count 3");
 });
 
 Deno.test("histogram custom buckets", () => {
@@ -83,12 +84,12 @@ Deno.test("histogram custom buckets", () => {
   h.observe(0.3);
   h.observe(3.0);
   const output = h.serialize();
-  expect(output).toContain('le="0.1"} 1');
-  expect(output).toContain('le="0.5"} 2');
-  expect(output).toContain('le="1"} 2');
-  expect(output).toContain('le="5"} 3');
-  expect(output).toContain('le="+Inf"} 3');
-  expect(output).toContain("stt_count 3");
+  assertStringIncludes(output, 'le="0.1"} 1');
+  assertStringIncludes(output, 'le="0.5"} 2');
+  assertStringIncludes(output, 'le="1"} 2');
+  assertStringIncludes(output, 'le="5"} 3');
+  assertStringIncludes(output, 'le="+Inf"} 3');
+  assertStringIncludes(output, "stt_count 3");
 });
 
 Deno.test("histogram with labels", () => {
@@ -99,35 +100,35 @@ Deno.test("histogram with labels", () => {
   h.observe(2.0, { agent: "ns/bot" });
   h.observe(0.1, { agent: "ns/other" });
   const output = h.serialize();
-  expect(output).toContain('le="0.5",agent="ns/bot"} 1');
-  expect(output).toContain('le="5",agent="ns/bot"} 2');
-  expect(output).toContain('le="+Inf",agent="ns/bot"} 2');
-  expect(output).toContain('turn_dur_count{agent="ns/bot"} 2');
-  expect(output).toContain('le="0.5",agent="ns/other"} 1');
-  expect(output).toContain('turn_dur_count{agent="ns/other"} 1');
+  assertStringIncludes(output, 'le="0.5",agent="ns/bot"} 1');
+  assertStringIncludes(output, 'le="5",agent="ns/bot"} 2');
+  assertStringIncludes(output, 'le="+Inf",agent="ns/bot"} 2');
+  assertStringIncludes(output, 'turn_dur_count{agent="ns/bot"} 2');
+  assertStringIncludes(output, 'le="0.5",agent="ns/other"} 1');
+  assertStringIncludes(output, 'turn_dur_count{agent="ns/other"} 1');
 });
 
 Deno.test("histogram with no observations", () => {
   const h = createHistogram("empty", "Empty", [1, 5]);
   const output = h.serialize();
-  expect(output).toContain('le="1"} 0');
-  expect(output).toContain('le="5"} 0');
-  expect(output).toContain('le="+Inf"} 0');
-  expect(output).toContain("empty_sum 0");
-  expect(output).toContain("empty_count 0");
+  assertStringIncludes(output, 'le="1"} 0');
+  assertStringIncludes(output, 'le="5"} 0');
+  assertStringIncludes(output, 'le="+Inf"} 0');
+  assertStringIncludes(output, "empty_sum 0");
+  assertStringIncludes(output, "empty_count 0");
 });
 
 Deno.test("serialize includes all registered metrics", () => {
   const output = serialize();
-  expect(output).toContain("aai_sessions_total");
-  expect(output).toContain("aai_sessions_active");
-  expect(output).toContain("aai_turns_total");
-  expect(output).toContain("aai_errors_total");
-  expect(output).toContain("aai_turn_duration_seconds");
-  expect(output).toContain("aai_tts_duration_seconds");
-  expect(output).toContain("aai_stt_connect_duration_seconds");
-  expect(output).toContain("aai_tool_duration_seconds");
-  expect(output.endsWith("\n")).toBe(true);
+  assertStringIncludes(output, "aai_sessions_total");
+  assertStringIncludes(output, "aai_sessions_active");
+  assertStringIncludes(output, "aai_turns_total");
+  assertStringIncludes(output, "aai_errors_total");
+  assertStringIncludes(output, "aai_turn_duration_seconds");
+  assertStringIncludes(output, "aai_tts_duration_seconds");
+  assertStringIncludes(output, "aai_stt_connect_duration_seconds");
+  assertStringIncludes(output, "aai_tool_duration_seconds");
+  assert(output.endsWith("\n"));
 });
 
 // --- Per-agent filtering ---
@@ -139,11 +140,11 @@ Deno.test("counter filters by agent and strips agent label", () => {
   c.inc({ agent: "ns/b", component: "stt" });
   c.inc({ agent: "ns/a", component: "turn" });
   const output = c.serialize("ns/a");
-  expect(output).toContain('errs{component="llm"} 2');
-  expect(output).toContain('errs{component="turn"} 1');
-  expect(output).not.toContain("ns/b");
-  expect(output).not.toContain("stt");
-  expect(output).not.toContain('agent="');
+  assertStringIncludes(output, 'errs{component="llm"} 2');
+  assertStringIncludes(output, 'errs{component="turn"} 1');
+  assert(!output.includes("ns/b"));
+  assert(!output.includes("stt"));
+  assert(!output.includes('agent="'));
 });
 
 Deno.test("counter with only agent label strips to bare metric", () => {
@@ -152,9 +153,9 @@ Deno.test("counter with only agent label strips to bare metric", () => {
   c.inc({ agent: "ns/a" });
   c.inc({ agent: "ns/b" });
   const output = c.serialize("ns/a");
-  expect(output).toContain("turns 2");
-  expect(output).not.toContain("ns/b");
-  expect(output).not.toContain("{");
+  assertStringIncludes(output, "turns 2");
+  assert(!output.includes("ns/b"));
+  assert(!output.includes("{"));
 });
 
 Deno.test("gauge filters by agent", () => {
@@ -164,8 +165,8 @@ Deno.test("gauge filters by agent", () => {
   g.inc({ agent: "ns/b" });
   g.dec({ agent: "ns/a" });
   const output = g.serialize("ns/a");
-  expect(output).toContain("active 1");
-  expect(output).not.toContain("ns/b");
+  assertStringIncludes(output, "active 1");
+  assert(!output.includes("ns/b"));
 });
 
 Deno.test("histogram filters by agent and strips label", () => {
@@ -174,13 +175,13 @@ Deno.test("histogram filters by agent and strips label", () => {
   h.observe(2.0, { agent: "ns/a" });
   h.observe(0.1, { agent: "ns/b" });
   const output = h.serialize("ns/a");
-  expect(output).toContain('le="0.5"} 1');
-  expect(output).toContain('le="5"} 2');
-  expect(output).toContain('le="+Inf"} 2');
-  expect(output).toContain("dur_count 2");
-  expect(output).not.toContain("ns/a");
-  expect(output).not.toContain("ns/b");
-  expect(output).not.toContain('agent="');
+  assertStringIncludes(output, 'le="0.5"} 1');
+  assertStringIncludes(output, 'le="5"} 2');
+  assertStringIncludes(output, 'le="+Inf"} 2');
+  assertStringIncludes(output, "dur_count 2");
+  assert(!output.includes("ns/a"));
+  assert(!output.includes("ns/b"));
+  assert(!output.includes('agent="'));
 });
 
 Deno.test("histogram keeps non-agent labels when filtering", () => {
@@ -189,40 +190,40 @@ Deno.test("histogram keeps non-agent labels when filtering", () => {
   h.observe(2.0, { agent: "ns/a", tool: "fetch" });
   h.observe(0.1, { agent: "ns/b", tool: "search" });
   const output = h.serialize("ns/a");
-  expect(output).toContain('le="1",tool="search"} 1');
-  expect(output).toContain('le="5",tool="fetch"} 1');
-  expect(output).toContain('tool_dur_count{tool="search"} 1');
-  expect(output).toContain('tool_dur_count{tool="fetch"} 1');
-  expect(output).not.toContain("ns/b");
-  expect(output).not.toContain('agent="');
+  assertStringIncludes(output, 'le="1",tool="search"} 1');
+  assertStringIncludes(output, 'le="5",tool="fetch"} 1');
+  assertStringIncludes(output, 'tool_dur_count{tool="search"} 1');
+  assertStringIncludes(output, 'tool_dur_count{tool="fetch"} 1');
+  assert(!output.includes("ns/b"));
+  assert(!output.includes('agent="'));
 });
 
 Deno.test("returns empty data for unknown agent", () => {
   const c = createCounter("x", "X", ["agent"]);
   c.inc({ agent: "ns/a" });
   const output = c.serialize("ns/unknown");
-  expect(output).toContain("# HELP");
-  expect(output).not.toContain("ns/a");
+  assertStringIncludes(output, "# HELP");
+  assert(!output.includes("ns/a"));
   const dataLines = output.split("\n").filter((l) =>
     !l.startsWith("#") && l.trim() !== ""
   );
-  expect(dataLines).toHaveLength(0);
+  assertStrictEquals(dataLines.length, 0);
 });
 
 Deno.test("serializeForAgent includes agent metrics, excludes global", () => {
   const output = serializeForAgent("test/nonexistent");
-  expect(output).toContain("aai_sessions_total");
-  expect(output).toContain("aai_turns_total");
-  expect(output).toContain("aai_tool_duration_seconds");
-  expect(output).not.toContain("aai_llm_duration_seconds");
-  expect(output).not.toContain("aai_tts_duration_seconds");
-  expect(output).not.toContain("aai_stt_connect_duration_seconds");
+  assertStringIncludes(output, "aai_sessions_total");
+  assertStringIncludes(output, "aai_turns_total");
+  assertStringIncludes(output, "aai_tool_duration_seconds");
+  assert(!output.includes("aai_llm_duration_seconds"));
+  assert(!output.includes("aai_tts_duration_seconds"));
+  assert(!output.includes("aai_stt_connect_duration_seconds"));
 });
 
 Deno.test("metric without agent label is unaffected by filter", () => {
   const c = createCounter("plain", "Plain counter");
   c.inc();
   c.inc();
-  expect(c.serialize("ns/a")).toContain("plain 2");
-  expect(c.serialize()).toContain("plain 2");
+  assertStringIncludes(c.serialize("ns/a"), "plain 2");
+  assertStringIncludes(c.serialize(), "plain 2");
 });

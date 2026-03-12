@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assertStrictEquals } from "@std/assert";
 import { assertSpyCalls, spy } from "@std/testing/mock";
 import { FakeTime } from "@std/testing/time";
 import { createReconnect } from "./session.ts";
@@ -7,10 +8,10 @@ Deno.test("canRetry true initially, false after max attempts", () => {
   const time = new FakeTime();
   try {
     const s = createReconnect(2);
-    expect(s.canRetry).toBe(true);
+    assertStrictEquals(s.canRetry, true);
     s.schedule(spy());
     s.schedule(spy());
-    expect(s.canRetry).toBe(false);
+    assertStrictEquals(s.canRetry, false);
   } finally {
     time.restore();
   }
@@ -20,8 +21,8 @@ Deno.test("schedule returns true until exhausted", () => {
   const time = new FakeTime();
   try {
     const s = createReconnect(1);
-    expect(s.schedule(spy())).toBe(true);
-    expect(s.schedule(spy())).toBe(false);
+    assertStrictEquals(s.schedule(spy()), true);
+    assertStrictEquals(s.schedule(spy()), false);
   } finally {
     time.restore();
   }
@@ -95,9 +96,9 @@ Deno.test("reset restores retry capacity", () => {
   try {
     const s = createReconnect(1);
     s.schedule(spy());
-    expect(s.canRetry).toBe(false);
+    assertStrictEquals(s.canRetry, false);
     s.reset();
-    expect(s.canRetry).toBe(true);
+    assertStrictEquals(s.canRetry, true);
   } finally {
     time.restore();
   }

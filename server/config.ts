@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { z } from "zod";
 import {
   DEFAULT_MODEL,

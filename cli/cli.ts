@@ -1,9 +1,11 @@
-import { Command } from "@cliffy/command";
+// Copyright 2025 the AAI authors. MIT license.
+import { parseArgs } from "@std/cli/parse-args";
+import * as log from "@std/log";
 import { error } from "./_output.ts";
 import { promptUpgradeIfAvailable } from "./_update.ts";
-import { newCommand } from "./new.ts";
-import { deployCommand } from "./deploy.ts";
-import { rootHelp, subcommandHelp } from "./_help.ts";
+import { runNewCommand } from "./new.ts";
+import { runDeployCommand } from "./deploy.ts";
+import { rootHelp } from "./_help.ts";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
 const VERSION: string = denoConfig.default.version;
@@ -14,32 +16,62 @@ if (isCompiled) {
   await promptUpgradeIfAvailable(VERSION);
 }
 
-// Apply themed help to each subcommand
-for (
-  const cmd of [
-    newCommand,
-    deployCommand,
-  ]
-) {
-  cmd.help(subcommandHelp);
-}
+async function main(args: string[]): Promise<void> {
+  const parsed = parseArgs(args, {
+    boolean: ["help", "version"],
+    alias: { h: "help", V: "version" },
+    stopEarly: true,
+  });
 
-const cli: Command = new Command()
-  .name("aai")
-  .version(VERSION)
-  .description("Voice agent development kit")
-  .help(rootHelp)
-  .default("new")
-  .command("new", newCommand)
-  .command("deploy", deployCommand) as unknown as Command;
+  if (parsed.version) {
+    log.info(VERSION);
+    return;
+  }
+
+  if (parsed.help && parsed._.length === 0) {
+    log.info(rootHelp(VERSION));
+    return;
+  }
+
+  const [subcommand, ...rest] = parsed._;
+  const subArgs = rest.map(String);
+
+  switch (subcommand) {
+    case "new":
+      await runNewCommand(subArgs, VERSION);
+      return;
+    case "deploy":
+      await runDeployCommand(subArgs, VERSION);
+      return;
+    case "help":
+      log.info(rootHelp(VERSION));
+      return;
+    case undefined:
+      // Default to "new" command
+      await runNewCommand(args, VERSION);
+      return;
+    default:
+      error(`Unknown command: ${subcommand}`);
+      log.info(rootHelp(VERSION));
+      Deno.exit(1);
+  }
+}
 
 if (import.meta.main) {
   try {
-    await cli.parse(Deno.args);
+    await main(Deno.args);
   } catch (err: unknown) {
     error(err instanceof Error ? err.message : String(err));
     Deno.exit(1);
   }
 }
 
-export { cli };
+/**
+ * Entry point for the `aai` CLI. Parses top-level arguments and dispatches
+ * to the appropriate subcommand (`new`, `deploy`, or `help`).
+ *
+ * @param args Command-line arguments (typically `Deno.args`).
+ * @returns Resolves when the subcommand completes.
+ * @throws If an unknown subcommand is provided or the subcommand fails.
+ */
+export { main };

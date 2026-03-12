@@ -1,4 +1,4 @@
-import { defineAgent, fetchJSON, tool, z } from "@aai/sdk";
+import { defineAgent, z } from "@aai/sdk";
 
 function first(field: unknown): string | undefined {
   return Array.isArray(field) ? field[0] : undefined;
@@ -8,16 +8,21 @@ async function lookupDrug(
   name: string,
 ): Promise<Record<string, unknown>> {
   const q = encodeURIComponent(name.toLowerCase());
-  const raw = await fetchJSON<Record<string, unknown>>(
-    `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${q}"+openfda.brand_name:"${q}"&limit=1`,
-    { fallback: { error: `Drug not found: ${name}` } },
-  );
+  let raw: Record<string, unknown>;
+  try {
+    const resp = await fetch(
+      `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${q}"+openfda.brand_name:"${q}"&limit=1`,
+    );
+    raw = resp.ok ? await resp.json() : { error: `Drug not found: ${name}` };
+  } catch {
+    raw = { error: `Drug not found: ${name}` };
+  }
 
   if ("error" in raw) return raw;
   const results = raw.results as Record<string, unknown>[] | undefined;
   if (!results?.length) return { error: `No FDA data found for: ${name}` };
 
-  const drug = results[0];
+  const drug = results[0]!;
   const openfda = (drug.openfda ?? {}) as Record<string, string[]>;
   return {
     name: openfda.generic_name?.[0] ?? name,
@@ -38,12 +43,17 @@ type RxCui = {
 async function resolveRxCui(
   name: string,
 ): Promise<RxCui | null> {
-  const raw = await fetchJSON<{ idGroup: { rxnormId?: string[] } } | null>(
-    `https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${
-      encodeURIComponent(name)
-    }`,
-    { fallback: null },
-  );
+  let raw: { idGroup: { rxnormId?: string[] } } | null;
+  try {
+    const resp = await fetch(
+      `https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${
+        encodeURIComponent(name)
+      }`,
+    );
+    raw = resp.ok ? await resp.json() : null;
+  } catch {
+    raw = null;
+  }
   if (!raw) return null;
   const id = raw.idGroup.rxnormId?.[0];
   return id ? { name, rxcui: id } : null;
@@ -66,10 +76,15 @@ async function checkInteractions(
   }
 
   const rxcuiList = resolved.map((r) => r.rxcui).join("+");
-  const raw = await fetchJSON<Record<string, unknown>>(
-    `https://rxnav.nlm.nih.gov/REST/interaction/list.json?rxcuis=${rxcuiList}`,
-    { fallback: { error: "Interaction lookup failed" } },
-  );
+  let raw: Record<string, unknown>;
+  try {
+    const resp = await fetch(
+      `https://rxnav.nlm.nih.gov/REST/interaction/list.json?rxcuis=${rxcuiList}`,
+    );
+    raw = resp.ok ? await resp.json() : { error: "Interaction lookup failed" };
+  } catch {
+    raw = { error: "Interaction lookup failed" };
+  }
 
   if ("error" in raw) return raw;
 
@@ -120,7 +135,7 @@ Use run_code for health calculations:
     "Hey, I'm Dr. Sage. Try asking me something like, what are the side effects of ibuprofen, can I take aspirin and warfarin together, or calculate my BMI. Just remember, I'm not a real doctor, so always check with your healthcare provider.",
   builtinTools: ["web_search", "run_code"],
   tools: {
-    medication_lookup: tool({
+    medication_lookup: {
       description:
         "Look up detailed information about a single medication, including purpose, warnings, dosage, side effects, and manufacturer. Works with both generic and brand names.",
       parameters: z.object({
@@ -129,8 +144,8 @@ Use run_code for health calculations:
         ),
       }),
       execute: ({ name }) => lookupDrug(name),
-    }),
-    check_drug_interaction: tool({
+    },
+    check_drug_interaction: {
       description:
         "Check for known interactions between two or more medications. Resolves drug names via RxNorm and returns interaction details with severity levels.",
       parameters: z.object({
@@ -139,6 +154,6 @@ Use run_code for health calculations:
         ),
       }),
       execute: ({ drugs }) => checkInteractions(drugs),
-    }),
+    },
   },
 });

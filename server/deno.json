@@ -1,6 +1,6 @@
 {
   "name": "@aai/server",
-  "version": "0.1.104",
+  "version": "0.1.106",
   "exports": {
     ".": "./main.ts",
     "./types": "./types.ts",

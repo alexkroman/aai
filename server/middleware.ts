@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { createMiddleware } from "hono/factory";
@@ -53,7 +54,7 @@ export function requireOwnerMiddleware(store: BundleStore) {
       });
     }
     const slug = c.var.slug;
-    const namespace = slug.split("/")[0];
+    const namespace = slug.split("/")[0]!;
 
     const accountId = await verifyOrClaimNamespace(apiKey, namespace, store);
     if (!accountId) {

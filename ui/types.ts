@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 /** Interval between WebSocket ping frames in milliseconds. */
 export const PING_INTERVAL_MS = 30_000;
 /** Maximum number of automatic reconnection attempts. */
@@ -20,7 +21,9 @@ export type AgentState =
 
 /** A chat message exchanged between user and assistant. */
 export type Message = {
+  /** The sender of the message. */
   role: "user" | "assistant";
+  /** The text content of the message. */
   text: string;
 };
 
@@ -29,7 +32,9 @@ export type SessionErrorCode = "connection" | "audio" | "protocol";
 
 /** Error reported by the voice session. */
 export type SessionError = {
+  /** The category of the error. */
   readonly code: SessionErrorCode;
+  /** A human-readable description of the error. */
   readonly message: string;
 };
 

@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Lightweight Prometheus metrics. No external dependencies.
  *
@@ -157,7 +158,7 @@ export function createHistogram(
       e.sum += value;
       e.count++;
       for (let i = 0; i < buckets.length; i++) {
-        if (value <= buckets[i]) e.counts[i]++;
+        if (value <= buckets[i]!) e.counts[i] = (e.counts[i] ?? 0) + 1;
       }
     },
 

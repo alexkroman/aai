@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertEquals, assertStrictEquals } from "@std/assert";
 import { spy } from "@std/testing/mock";
 import { createVoiceIO } from "./audio.ts";
 import {
@@ -27,9 +28,9 @@ Deno.test("createVoiceIO", async (t) => {
     "returns a VoiceIO with enqueue, flush, close",
     withAudioMocks(async () => {
       const io = await createVoiceIO(voiceOpts());
-      expect(typeof io.enqueue).toBe("function");
-      expect(typeof io.flush).toBe("function");
-      expect(typeof io.close).toBe("function");
+      assertStrictEquals(typeof io.enqueue, "function");
+      assertStrictEquals(typeof io.flush, "function");
+      assertStrictEquals(typeof io.close, "function");
       await io.close();
     }),
   );
@@ -38,7 +39,7 @@ Deno.test("createVoiceIO", async (t) => {
     "uses TTS sample rate for the AudioContext",
     withAudioMocks(async ({ lastContext }) => {
       const io = await createVoiceIO(voiceOpts());
-      expect(lastContext().sampleRate).toBe(24000);
+      assertStrictEquals(lastContext().sampleRate, 24000);
       await io.close();
     }),
   );
@@ -47,7 +48,7 @@ Deno.test("createVoiceIO", async (t) => {
     "loads both worklet modules in parallel",
     withAudioMocks(async ({ lastContext }) => {
       const io = await createVoiceIO(voiceOpts());
-      expect(lastContext().audioWorklet.modules).toHaveLength(2);
+      assertStrictEquals(lastContext().audioWorklet.modules.length, 2);
       await io.close();
     }),
   );
@@ -58,8 +59,8 @@ Deno.test("createVoiceIO", async (t) => {
       const io = await createVoiceIO(voiceOpts());
       const capNode = findWorkletNode(workletNodes(), "capture-processor");
       const opts = capNode.options as Record<string, unknown>;
-      expect(opts.channelCount).toBe(1);
-      expect(opts.channelCountMode).toBe("explicit");
+      assertStrictEquals(opts.channelCount, 1);
+      assertStrictEquals(opts.channelCountMode, "explicit");
       await io.close();
     }),
   );
@@ -69,7 +70,14 @@ Deno.test("createVoiceIO", async (t) => {
     withAudioMocks(async ({ workletNodes }) => {
       const io = await createVoiceIO(voiceOpts());
       const capNode = findWorkletNode(workletNodes(), "capture-processor");
-      expect(capNode.port.posted).toContainEqual({ event: "start" });
+      assert(capNode.port.posted.some((p: unknown) => {
+        try {
+          assertEquals(p, { event: "start" });
+          return true;
+        } catch {
+          return false;
+        }
+      }));
       await io.close();
     }),
   );
@@ -95,9 +103,9 @@ Deno.test("createVoiceIO", async (t) => {
         capNode.port.simulateMessage({ event: "chunk", buffer: buf });
       }
 
-      expect(onMicData.calls.length).toBeGreaterThanOrEqual(1);
-      const pcm16 = new Int16Array(onMicData.calls[0].args[0]);
-      expect(pcm16[0]).toBe(16384);
+      assert(onMicData.calls.length >= 1);
+      const pcm16 = new Int16Array(onMicData.calls[0]!.args[0]);
+      assertStrictEquals(pcm16[0], 16384);
       await io.close();
     }),
   );
@@ -113,7 +121,7 @@ Deno.test("createVoiceIO", async (t) => {
       const writes = playNode.port.posted.filter(
         (p) => (p as { event: string }).event === "write",
       );
-      expect(writes).toHaveLength(1);
+      assertStrictEquals(writes.length, 1);
       await io.close();
     }),
   );
@@ -127,7 +135,7 @@ Deno.test("createVoiceIO", async (t) => {
       const countBefore = workletNodes().length;
       io.enqueue(new Int16Array([100]).buffer);
       // No new playback node should be created after close
-      expect(workletNodes().length).toBe(countBefore);
+      assertStrictEquals(workletNodes().length, countBefore);
     }),
   );
 
@@ -140,7 +148,14 @@ Deno.test("createVoiceIO", async (t) => {
       const playNode = findWorkletNode(workletNodes(), "playback-processor");
       io.flush();
 
-      expect(playNode.port.posted).toContainEqual({ event: "interrupt" });
+      assert(playNode.port.posted.some((p: unknown) => {
+        try {
+          assertEquals(p, { event: "interrupt" });
+          return true;
+        } catch {
+          return false;
+        }
+      }));
       await io.close();
     }),
   );
@@ -150,7 +165,7 @@ Deno.test("createVoiceIO", async (t) => {
     withAudioMocks(async ({ lastContext }) => {
       const io = await createVoiceIO(voiceOpts());
       await io.close();
-      expect(lastContext().closed).toBe(true);
+      assertStrictEquals(lastContext().closed, true);
     }),
   );
 
@@ -183,8 +198,8 @@ Deno.test("createVoiceIO", async (t) => {
       } catch {
         caught = true;
       }
-      expect(caught).toBe(true);
-      expect(_lastContext!.closed).toBe(true);
+      assertStrictEquals(caught, true);
+      assertStrictEquals(_lastContext!.closed, true);
     }),
   );
 });

@@ -1,7 +1,9 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertEquals, assertStrictEquals } from "@std/assert";
 import {
   type CoreMessage,
   jsonSchema,
+  type LanguageModelV1,
   tool as vercelTool,
   type ToolSet,
 } from "ai";
@@ -13,7 +15,7 @@ function makeModel(
     text?: string;
     toolCalls?: { toolName: string; args: Record<string, unknown> }[];
   }[],
-) {
+): LanguageModelV1 {
   let callIndex = 0;
   return new MockLanguageModelV1({
     // deno-lint-ignore require-await
@@ -22,18 +24,24 @@ function makeModel(
         { text: "Sorry, I couldn't generate a response." };
       return {
         rawCall: { rawPrompt: "", rawSettings: {} },
-        finishReason: resp.toolCalls?.length ? "tool-calls" : "stop",
+        finishReason: resp.toolCalls?.length
+          ? ("tool-calls" as const)
+          : ("stop" as const),
         usage: { promptTokens: 10, completionTokens: 10 },
-        text: resp.text,
-        toolCalls: resp.toolCalls?.map((tc) => ({
-          toolCallType: "function" as const,
-          toolCallId: `call_${callIndex}_${tc.toolName}`,
-          toolName: tc.toolName,
-          args: JSON.stringify(tc.args),
-        })),
+        ...(resp.text !== undefined ? { text: resp.text } : {}),
+        ...(resp.toolCalls
+          ? {
+            toolCalls: resp.toolCalls.map((tc) => ({
+              toolCallType: "function" as const,
+              toolCallId: `call_${callIndex}_${tc.toolName}`,
+              toolName: tc.toolName,
+              args: JSON.stringify(tc.args),
+            })),
+          }
+          : {}),
       };
     },
-  });
+  }) as LanguageModelV1;
 }
 
 function makeTools(): ToolSet {
@@ -44,14 +52,14 @@ function makeTools(): ToolSet {
         type: "object",
         properties: { answer: { type: "string" } },
       }),
-    }),
+    }) as unknown as ToolSet[string],
     user_input: vercelTool({
       description: "Ask user",
       parameters: jsonSchema({
         type: "object",
         properties: { question: { type: "string" } },
       }),
-    }),
+    }) as unknown as ToolSet[string],
   };
 }
 
@@ -66,10 +74,10 @@ Deno.test("returns text response when no tools called", async () => {
     tools: {},
     signal: new AbortController().signal,
   });
-  expect(result).toBe("Hello from LLM");
+  assertStrictEquals(result, "Hello from LLM");
   // User message + response messages appended
-  expect(messages[0]).toEqual({ role: "user", content: "Hello" });
-  expect(messages.length).toBeGreaterThanOrEqual(2);
+  assertEquals(messages[0], { role: "user", content: "Hello" });
+  assert(messages.length >= 2);
 });
 
 Deno.test("extracts answer from final_answer tool call", async () => {
@@ -88,7 +96,7 @@ Deno.test("extracts answer from final_answer tool call", async () => {
     tools: makeTools(),
     signal: new AbortController().signal,
   });
-  expect(result).toBe("The sky is blue.");
+  assertStrictEquals(result, "The sky is blue.");
 });
 
 Deno.test("extracts question from user_input tool call", async () => {
@@ -107,11 +115,11 @@ Deno.test("extracts question from user_input tool call", async () => {
     tools: makeTools(),
     signal: new AbortController().signal,
   });
-  expect(result).toBe("What color?");
+  assertStrictEquals(result, "What color?");
 });
 
 Deno.test("returns fallback text when LLM content is null", async () => {
-  const model = makeModel([{ text: undefined }]);
+  const model = makeModel([{}]);
   const result = await executeTurn("Hi", {
     agent: "test/agent",
     model,
@@ -120,5 +128,5 @@ Deno.test("returns fallback text when LLM content is null", async () => {
     tools: {},
     signal: new AbortController().signal,
   });
-  expect(result).toBe("Sorry, I couldn't generate a response.");
+  assertStrictEquals(result, "Sorry, I couldn't generate a response.");
 });

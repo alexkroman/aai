@@ -1,5 +1,5 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { stub } from "@std/testing/mock";
 import { _internals as _wsInternals } from "./transport_websocket.ts";
 import { hashApiKey } from "./auth.ts";
@@ -101,8 +101,8 @@ Deno.test("deploy rejects without auth", async () => {
 Deno.test("deploy rejects different owner for claimed namespace", async () => {
   const { handler, store } = await createTestOrchestrator();
   const owner: NamespaceOwner = {
-    account_id: "acct-1",
-    credential_hashes: [await hashApiKey("key1")],
+    "account_id": "acct-1",
+    "credential_hashes": [await hashApiKey("key1")],
   };
   await store.putNamespaceOwner("ns", owner);
 
@@ -133,7 +133,7 @@ Deno.test("deploy succeeds and stores agent", async () => {
   assertEquals(res.status, 200);
   const manifest = await store.getManifest("ns/my-agent");
   // account_id is a UUID generated on first claim, just verify it exists
-  expect(manifest!.account_id).toBeTruthy();
+  assert(manifest!.account_id);
 });
 
 Deno.test("deploy can redeploy same slug", async () => {
@@ -206,7 +206,7 @@ Deno.test("agent page returns HTML for deployed agent", async () => {
   await deployAgent(handler);
   const res = await handler(req("/ns/agent"), DUMMY_INFO);
   assertEquals(res.status, 200);
-  expect(res.headers.get("Content-Type")).toContain("text/html");
+  assertStringIncludes(res.headers.get("Content-Type")!, "text/html");
   const body = await res.text();
   assertStringIncludes(body, 'src="/ns/agent/client.js"');
 });
@@ -240,7 +240,7 @@ Deno.test("client.js sets Cache-Control no-cache without server-side caching", a
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("Cache-Control"), "no-cache");
   // ETag should be present for conditional requests
-  expect(res.headers.get("ETag")).toBeTruthy();
+  assert(res.headers.get("ETag"));
 });
 
 // =============================================================================
@@ -333,8 +333,8 @@ Deno.test("per-agent metrics rejects without auth", async () => {
 Deno.test("per-agent metrics returns Prometheus format", async () => {
   const { handler, store } = await createTestOrchestrator();
   await store.putNamespaceOwner("test-ns", {
-    account_id: "acct-1",
-    credential_hashes: [await hashApiKey("key1")],
+    "account_id": "acct-1",
+    "credential_hashes": [await hashApiKey("key1")],
   });
   const res = await handler(
     req("/test-ns/test-agent/metrics", {
