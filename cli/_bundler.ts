@@ -131,9 +131,12 @@ export async function bundleAgent(
 
   // Env values are NOT embedded in the bundle — they're injected at runtime
   // by the server via applyEnv() on each RPC call, like Vercel injects env vars.
+  const shimPath = resolve(
+    new URL("../sdk/_worker_shim.ts", import.meta.url).pathname,
+  );
   const workerStdin = `import agent from "${agentAbsolute}";\n` +
-    `import { startWorker } from "@jsr/aai__sdk/worker-entry";\n` +
-    `startWorker(agent);\n`;
+    `import { initWorker } from "${shimPath}";\n` +
+    `initWorker(agent);\n`;
 
   const worker = await runEsbuild(agent.dir, COMMON_ARGS, workerStdin);
 

@@ -13,8 +13,7 @@
     "@jsr/aai__ui": "*",
     "human-id": "^4.1.3",
     "preact": "^10",
-    "@preact/signals": "^2",
-    "comlink": "^4"
+    "@preact/signals": "^2"
   },
   "devDependencies": {
     "eslint": "^9",

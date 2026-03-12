@@ -7,7 +7,7 @@ import {
   type ToolExecutionOptions,
   type ToolSet,
 } from "ai";
-import * as Comlink from "comlink";
+import { createRpcClient, isRpcMessage } from "@aai/sdk/rpc";
 import type {
   BuiltinTool as BuiltinToolName,
   ToolSchema,
@@ -248,13 +248,17 @@ const runCode = defineTool({
       LOCKED_PERMISSIONS,
     );
 
-    type SandboxApi = {
-      execute(code: string): Promise<{ output: string; error?: string }>;
-    };
-
     try {
-      const api = Comlink.wrap<SandboxApi>(worker);
-      const result = await api.execute(code);
+      const rpcClient = createRpcClient((msg) => worker.postMessage(msg));
+      worker.onmessage = (e: MessageEvent) => {
+        if (isRpcMessage(e.data) && e.data.type === "rpc-response") {
+          rpcClient.handleResponse(e.data);
+        }
+      };
+      const result = await rpcClient.call("execute", code) as {
+        output: string;
+        error?: string;
+      };
 
       if (result.error) {
         return JSON.stringify({ error: result.error });

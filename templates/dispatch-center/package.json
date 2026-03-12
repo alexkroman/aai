@@ -10,7 +10,7 @@
     "@jsr/aai__ui": "*",
     "preact": "^10",
     "@preact/signals": "^2",
-    "comlink": "^4"
+    "zod": "^3"
   },
   "devDependencies": {
     "esbuild": "^0.25",

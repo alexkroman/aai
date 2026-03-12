@@ -1,20 +1,15 @@
 // Copyright 2025 the AAI authors. MIT license.
 import {
-  assert,
   assertEquals,
   assertNotStrictEquals,
   assertStrictEquals,
   assertStringIncludes,
 } from "@std/assert";
 import { z } from "zod";
-import { createWorkerApi } from "./_worker_entry.ts";
-import {
-  executeToolCall,
-  type HostApi,
-  startWorker,
-  TOOL_HANDLER_TIMEOUT,
-} from "@aai/sdk/worker-entry";
+import { createWorkerApi, type HostApi } from "./_worker_entry.ts";
+import { executeToolCall, TOOL_HANDLER_TIMEOUT } from "@aai/sdk/worker-entry";
 import type { ToolDef } from "@aai/sdk/types";
+import { initWorker } from "@aai/sdk/worker-shim";
 
 function makeTool(
   execute: ToolDef["execute"],
@@ -41,6 +36,73 @@ function dummyHostApi(): HostApi {
 
 function hostApi(overrides?: Partial<HostApi>): HostApi {
   return { ...dummyHostApi(), ...overrides };
+}
+
+function createPairedChannel() {
+  type Handler = ((e: MessageEvent) => void) | null;
+
+  let workerHandler: Handler = null;
+  let hostHandler: Handler = null;
+
+  const workerSide = {
+    get onmessage() {
+      return workerHandler;
+    },
+    set onmessage(h: Handler) {
+      workerHandler = h;
+    },
+    postMessage(msg: unknown) {
+      // Worker posts → host receives
+      queueMicrotask(() => {
+        const event = new MessageEvent("message", { data: msg });
+        if (hostHandler) hostHandler(event);
+      });
+    },
+  };
+
+  const hostSide = {
+    get onmessage() {
+      return hostHandler;
+    },
+    set onmessage(h: Handler) {
+      hostHandler = h;
+    },
+    postMessage(msg: unknown) {
+      // Host posts → worker receives
+      queueMicrotask(() => {
+        const event = new MessageEvent("message", { data: msg });
+        if (workerHandler) workerHandler(event);
+      });
+    },
+  };
+
+  return { workerSide, hostSide };
+}
+
+function setupWorker(
+  agent: Parameters<typeof initWorker>[0],
+  hostApiVal?: HostApi,
+) {
+  const { workerSide, hostSide } = createPairedChannel();
+
+  // Monkey-patch self for initWorker
+  const origSelf = globalThis.self;
+  Object.defineProperty(globalThis, "self", {
+    value: workerSide,
+    writable: true,
+    configurable: true,
+  });
+
+  initWorker(agent);
+
+  Object.defineProperty(globalThis, "self", {
+    value: origSelf,
+    writable: true,
+    configurable: true,
+  });
+
+  const api = createWorkerApi(hostSide, hostApiVal);
+  return { api };
 }
 
 Deno.test("executeToolCall", async (t) => {
@@ -130,95 +192,73 @@ Deno.test("TOOL_HANDLER_TIMEOUT", () => {
   assertStrictEquals(TOOL_HANDLER_TIMEOUT, 30_000);
 });
 
-Deno.test("startWorker via Comlink", async (t) => {
+Deno.test("postMessage RPC worker", async (t) => {
   await t.step("handles executeTool", async () => {
-    const { port1, port2 } = new MessageChannel();
-    startWorker(
-      {
-        name: "Test",
-        mode: "full" as const,
-        env: [],
-        transport: ["websocket"],
-        instructions: "",
-        greeting: "",
-        voice: "luna",
-        maxSteps: 5,
-        tools: {
-          greet: {
-            description: "Say hi",
-            execute: () => "hello",
-          },
+    const { api } = setupWorker({
+      name: "Test",
+      mode: "full" as const,
+      env: [],
+      transport: ["websocket"],
+      instructions: "",
+      greeting: "",
+      voice: "luna",
+      maxSteps: 5,
+      tools: {
+        greet: {
+          description: "Say hi",
+          execute: () => "hello",
         },
       },
-      { env: { KEY: "val" }, endpoint: port1 },
-    );
+    });
 
-    const api = createWorkerApi(port2);
     const result = await api.executeTool("greet", {}, "s1", 5000);
     assertStrictEquals(result, "hello");
-    await api.dispose?.();
-    port1.close();
-    port2.close();
+    api.dispose?.();
   });
 
   await t.step("returns error for unknown tool", async () => {
-    const { port1, port2 } = new MessageChannel();
-    startWorker(
-      {
-        name: "Test",
-        mode: "full" as const,
-        env: [],
-        transport: ["websocket"],
-        instructions: "",
-        greeting: "",
-        voice: "luna",
-        maxSteps: 5,
-        tools: {},
-      },
-      { endpoint: port1 },
-    );
+    const { api } = setupWorker({
+      name: "Test",
+      mode: "full" as const,
+      env: [],
+      transport: ["websocket"],
+      instructions: "",
+      greeting: "",
+      voice: "luna",
+      maxSteps: 5,
+      tools: {},
+    });
 
-    const api = createWorkerApi(port2);
     const result = await api.executeTool("missing", {}, undefined, 5000);
     assertStringIncludes(result, 'Unknown tool "missing"');
-    await api.dispose?.();
-    port1.close();
-    port2.close();
+    api.dispose?.();
   });
 
   await t.step("handles onConnect hook", async () => {
-    const { port1, port2 } = new MessageChannel();
     let connected = false;
-    startWorker(
-      {
-        name: "Test",
-        mode: "full" as const,
-        env: [],
-        transport: ["websocket"],
-        instructions: "",
-        greeting: "",
-        voice: "luna",
-        maxSteps: 5,
-        tools: {},
-        onConnect: () => {
-          connected = true;
-        },
+    const { api } = setupWorker({
+      name: "Test",
+      mode: "full" as const,
+      env: [],
+      transport: ["websocket"],
+      instructions: "",
+      greeting: "",
+      voice: "luna",
+      maxSteps: 5,
+      tools: {},
+      onConnect: () => {
+        connected = true;
       },
-      { endpoint: port1 },
-    );
+    });
 
-    const api = createWorkerApi(port2);
     await api.onConnect("s1", 5000);
     assertStrictEquals(connected, true);
-    await api.dispose?.();
-    port1.close();
-    port2.close();
+    api.dispose?.();
   });
 
   await t.step("initializes per-session state", async () => {
-    const { port1, port2 } = new MessageChannel();
     let capturedState: unknown;
-    startWorker(
+    const { api } = setupWorker(
       {
         name: "Test",
         mode: "full" as const,
@@ -239,21 +279,17 @@ Deno.test("startWorker via Comlink", async (t) => {
         },
         state: () => ({ count: 0 }),
       },
-      { endpoint: port1 },
+      dummyHostApi(),
     );
 
-    const api = createWorkerApi(port2, dummyHostApi());
     await api.executeTool("check", {}, "s1", 5000);
     assertEquals(capturedState, { count: 0 });
-    await api.dispose?.();
-    port1.close();
-    port2.close();
+    api.dispose?.();
   });
 
   await t.step("cleans up session state on onDisconnect", async () => {
-    const { port1, port2 } = new MessageChannel();
     const states: unknown[] = [];
-    startWorker(
+    const { api } = setupWorker(
       {
         name: "Test",
         mode: "full" as const,
@@ -275,279 +311,230 @@ Deno.test("startWorker via Comlink", async (t) => {
         state: () => ({ count: 0 }),
         onDisconnect: () => {},
       },
-      { endpoint: port1 },
+      dummyHostApi(),
     );
 
-    const api = createWorkerApi(port2, dummyHostApi());
-
-    // Create state for session
     await api.executeTool("check", {}, "s1", 5000);
-
-    // Disconnect session
     await api.onDisconnect("s1", 5000);
-
-    // New tool call should get fresh state
     await api.executeTool("check", {}, "s1", 5000);
-
-    // Both should have count: 0 because state was re-created
     assertEquals(states, [{ count: 0 }, { count: 0 }]);
-    await api.dispose?.();
-    port1.close();
-    port2.close();
+    api.dispose?.();
+  });
+
+  await t.step("sends step object directly (no JSON stringify)", async () => {
+    let capturedStep: unknown;
+    const { api } = setupWorker(
+      {
+        name: "Test",
+        mode: "full" as const,
+        env: [],
+        transport: ["websocket"],
+        instructions: "",
+        greeting: "",
+        voice: "luna",
+        maxSteps: 5,
+        tools: {},
+        onStep: (step) => {
+          capturedStep = step;
+        },
+      },
+      dummyHostApi(),
+    );
+
+    const step = {
+      stepNumber: 1,
+      toolCalls: [{ toolName: "greet", args: {} }],
+      text: "hello",
+    };
+    await api.onStep("s1", step, 5000);
+    assertEquals(capturedStep, step);
+    api.dispose?.();
   });
 });
 
-Deno.test("fetch proxy via Comlink", async (t) => {
-  await t.step(
-    "worker fetch proxies through host via Comlink",
-    async () => {
-      const { port1, port2 } = new MessageChannel();
-
-      let capturedFetch: typeof globalThis.fetch | undefined;
-      startWorker(
-        {
-          name: "Test",
-          mode: "full" as const,
-          env: [],
-          transport: ["websocket"],
-          instructions: "",
-          greeting: "",
-          voice: "luna",
-          maxSteps: 5,
-          tools: {
-            do_fetch: {
-              description: "fetch something",
-              execute: async () => {
-                capturedFetch = globalThis.fetch;
-                const resp = await globalThis.fetch(
-                  "https://api.example.com/data",
-                );
-                return await resp.text();
-              },
+Deno.test("fetch proxy via postMessage RPC", async (t) => {
+  await t.step("worker fetch proxies through host", async () => {
+    let capturedFetch: typeof globalThis.fetch | undefined;
+    const { api } = setupWorker(
+      {
+        name: "Test",
+        mode: "full" as const,
+        env: [],
+        transport: ["websocket"],
+        instructions: "",
+        greeting: "",
+        voice: "luna",
+        maxSteps: 5,
+        tools: {
+          do_fetch: {
+            description: "fetch something",
+            execute: async () => {
+              capturedFetch = globalThis.fetch;
+              const resp = await globalThis.fetch(
+                "https://api.example.com/data",
+              );
+              return await resp.text();
             },
           },
         },
-        { endpoint: port1 },
-      );
+      },
+      hostApi({
+        fetch(req) {
+          return Promise.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: `{"proxied":"${req.url}"}`,
+          });
+        },
+      }),
+    );
 
-      const api = createWorkerApi(
-        port2,
-        hostApi({
-          fetch(req) {
-            return Promise.resolve({
-              status: 200,
-              statusText: "OK",
-              headers: { "content-type": "application/json" },
-              body: `{"proxied":"${req.url}"}`,
-            });
-          },
-        }),
-      );
+    const result = await api.executeTool("do_fetch", {}, "s1", 5000);
+    assertStrictEquals(result, '{"proxied":"https://api.example.com/data"}');
+    assertNotStrictEquals(capturedFetch, undefined);
+    api.dispose?.();
+  });
 
-      const result = await api.executeTool("do_fetch", {}, "s1", 5000);
-      assertStrictEquals(result, '{"proxied":"https://api.example.com/data"}');
-      assert(capturedFetch !== undefined);
-      assertNotStrictEquals(capturedFetch, undefined);
-      await api.dispose?.();
-      port1.close();
-      port2.close();
-    },
-  );
+  await t.step("fetch proxy returns proper Response object", async () => {
+    let capturedStatus: number | undefined;
+    let capturedHeaders: string | undefined;
 
-  await t.step(
-    "fetch proxy returns proper Response object",
-    async () => {
-      const { port1, port2 } = new MessageChannel();
-
-      let capturedStatus: number | undefined;
-      let capturedHeaders: string | undefined;
-
-      startWorker(
-        {
-          name: "Test",
-          mode: "full" as const,
-          env: [],
-          transport: ["websocket"],
-          instructions: "",
-          greeting: "",
-          voice: "luna",
-          maxSteps: 5,
-          tools: {
-            check_response: {
-              description: "check response properties",
-              execute: async () => {
-                const resp = await globalThis.fetch(
-                  "https://example.com",
-                );
-                capturedStatus = resp.status;
-                capturedHeaders = resp.headers.get("x-custom") ?? undefined;
-                return `${resp.status} ${resp.statusText}`;
-              },
+    const { api } = setupWorker(
+      {
+        name: "Test",
+        mode: "full" as const,
+        env: [],
+        transport: ["websocket"],
+        instructions: "",
+        greeting: "",
+        voice: "luna",
+        maxSteps: 5,
+        tools: {
+          check_response: {
+            description: "check response properties",
+            execute: async () => {
+              const resp = await globalThis.fetch("https://example.com");
+              capturedStatus = resp.status;
+              capturedHeaders = resp.headers.get("x-custom") ?? undefined;
+              return `${resp.status} ${resp.statusText}`;
             },
           },
         },
-        { endpoint: port1 },
-      );
+      },
+      hostApi({
+        fetch() {
+          return Promise.resolve({
+            status: 201,
+            statusText: "Created",
+            headers: { "x-custom": "test-value" },
+            body: "",
+          });
+        },
+      }),
+    );
 
-      const api = createWorkerApi(
-        port2,
-        hostApi({
-          fetch() {
-            return Promise.resolve({
-              status: 201,
-              statusText: "Created",
-              headers: { "x-custom": "test-value" },
-              body: "",
-            });
-          },
-        }),
-      );
+    const result = await api.executeTool("check_response", {}, "s1", 5000);
+    assertStrictEquals(result, "201 Created");
+    assertStrictEquals(capturedStatus, 201);
+    assertStrictEquals(capturedHeaders, "test-value");
+    api.dispose?.();
+  });
 
-      const result = await api.executeTool(
-        "check_response",
-        {},
-        "s1",
-        5000,
-      );
-      assertStrictEquals(result, "201 Created");
-      assertStrictEquals(capturedStatus, 201);
-      assertStrictEquals(capturedHeaders, "test-value");
-      await api.dispose?.();
-      port1.close();
-      port2.close();
-    },
-  );
-
-  await t.step(
-    "fetch proxy propagates host errors",
-    async () => {
-      const { port1, port2 } = new MessageChannel();
-
-      startWorker(
-        {
-          name: "Test",
-          mode: "full" as const,
-          env: [],
-          transport: ["websocket"],
-          instructions: "",
-          greeting: "",
-          voice: "luna",
-          maxSteps: 5,
-          tools: {
-            bad_fetch: {
-              description: "fetch blocked URL",
-              execute: async () => {
-                await globalThis.fetch("http://169.254.169.254/metadata");
-                return "should not reach";
-              },
+  await t.step("fetch proxy propagates host errors", async () => {
+    const { api } = setupWorker(
+      {
+        name: "Test",
+        mode: "full" as const,
+        env: [],
+        transport: ["websocket"],
+        instructions: "",
+        greeting: "",
+        voice: "luna",
+        maxSteps: 5,
+        tools: {
+          bad_fetch: {
+            description: "fetch blocked URL",
+            execute: async () => {
+              await globalThis.fetch("http://169.254.169.254/metadata");
+              return "should not reach";
             },
           },
         },
-        { endpoint: port1 },
-      );
+      },
+      hostApi({
+        fetch() {
+          return Promise.reject(
+            new Error("Blocked request to private address: 169.254.169.254"),
+          );
+        },
+      }),
+    );
 
-      const api = createWorkerApi(
-        port2,
-        hostApi({
-          fetch() {
-            return Promise.reject(
-              new Error(
-                "Blocked request to private address: 169.254.169.254",
-              ),
-            );
-          },
-        }),
-      );
+    const result = await api.executeTool("bad_fetch", {}, "s1", 5000);
+    assertStringIncludes(result, "Blocked request to private address");
+    api.dispose?.();
+  });
 
-      const result = await api.executeTool(
-        "bad_fetch",
-        {},
-        "s1",
-        5000,
-      );
-      assertStringIncludes(result, "Blocked request to private address");
-      await api.dispose?.();
-      port1.close();
-      port2.close();
-    },
-  );
+  await t.step("fetch proxy sends method and headers", async () => {
+    let capturedMethod: string | undefined;
+    let capturedHeaders: Record<string, string> | undefined;
+    let capturedBody: string | null | undefined;
 
-  await t.step(
-    "fetch proxy sends method and headers",
-    async () => {
-      const { port1, port2 } = new MessageChannel();
-      let capturedMethod: string | undefined;
-      let capturedHeaders: Record<string, string> | undefined;
-      let capturedBody: string | null | undefined;
-
-      startWorker(
-        {
-          name: "Test",
-          mode: "full" as const,
-          env: [],
-          transport: ["websocket"],
-          instructions: "",
-          greeting: "",
-          voice: "luna",
-          maxSteps: 5,
-          tools: {
-            post_data: {
-              description: "POST some data",
-              execute: async () => {
-                const resp = await globalThis.fetch("https://api.example.com", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: '{"hello":"world"}',
-                });
-                return await resp.text();
-              },
+    const { api } = setupWorker(
+      {
+        name: "Test",
+        mode: "full" as const,
+        env: [],
+        transport: ["websocket"],
+        instructions: "",
+        greeting: "",
+        voice: "luna",
+        maxSteps: 5,
+        tools: {
+          post_data: {
+            description: "POST some data",
+            execute: async () => {
+              const resp = await globalThis.fetch("https://api.example.com", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: '{"hello":"world"}',
+              });
+              return await resp.text();
             },
           },
         },
-        { endpoint: port1 },
-      );
+      },
+      hostApi({
+        fetch(req) {
+          capturedMethod = req.method;
+          capturedHeaders = req.headers;
+          capturedBody = req.body;
+          return Promise.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "posted",
+          });
+        },
+      }),
+    );
 
-      const api = createWorkerApi(
-        port2,
-        hostApi({
-          fetch(req) {
-            capturedMethod = req.method;
-            capturedHeaders = req.headers;
-            capturedBody = req.body;
-            return Promise.resolve({
-              status: 200,
-              statusText: "OK",
-              headers: {},
-              body: "posted",
-            });
-          },
-        }),
-      );
-
-      const result = await api.executeTool(
-        "post_data",
-        {},
-        "s1",
-        5000,
-      );
-      assertStrictEquals(result, "posted");
-      assertStrictEquals(capturedMethod, "POST");
-      assertStrictEquals(capturedHeaders?.["content-type"], "application/json");
-      assertStrictEquals(capturedBody, '{"hello":"world"}');
-      await api.dispose?.();
-      port1.close();
-      port2.close();
-    },
-  );
+    const result = await api.executeTool("post_data", {}, "s1", 5000);
+    assertStrictEquals(result, "posted");
+    assertStrictEquals(capturedMethod, "POST");
+    assertStrictEquals(capturedHeaders?.["content-type"], "application/json");
+    assertStrictEquals(capturedBody, '{"hello":"world"}');
+    api.dispose?.();
+  });
 });
 
 Deno.test("createWorkerApi with hostApi", async (t) => {
   await t.step(
     "creates bidirectional communication when hostApi provided",
     async () => {
-      const { port1, port2 } = new MessageChannel();
       let fetchCalled = false;
-      startWorker(
+      const { api } = setupWorker(
         {
           name: "Test",
           mode: "full" as const,
@@ -567,11 +554,6 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
             },
           },
         },
-        { endpoint: port1 },
-      );
-
-      const api = createWorkerApi(
-        port2,
         hostApi({
           fetch() {
             fetchCalled = true;
@@ -587,42 +569,63 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
 
       await api.executeTool("do_fetch", {}, "s1", 5000);
       assertStrictEquals(fetchCalled, true);
-      await api.dispose?.();
-      port1.close();
-      port2.close();
+      api.dispose?.();
     },
   );
 
   await t.step(
     "works without hostApi for tools that don't need fetch/kv",
     async () => {
-      const { port1, port2 } = new MessageChannel();
-      startWorker(
-        {
-          name: "Test",
-          mode: "full" as const,
-          env: [],
-          transport: ["websocket"],
-          instructions: "",
-          greeting: "",
-          voice: "luna",
-          maxSteps: 5,
-          tools: {
-            greet: {
-              description: "greet",
-              execute: () => "hello",
+      const { api } = setupWorker({
+        name: "Test",
+        mode: "full" as const,
+        env: [],
+        transport: ["websocket"],
+        instructions: "",
+        greeting: "",
+        voice: "luna",
+        maxSteps: 5,
+        tools: {
+          greet: {
+            description: "greet",
+            execute: () => "hello",
+          },
+        },
+      });
+
+      const result = await api.executeTool("greet", {}, "s1", 5000);
+      assertStrictEquals(result, "hello");
+      api.dispose?.();
+    },
+  );
+
+  await t.step("setEnv sends env to worker", async () => {
+    let capturedEnv: Record<string, string> | undefined;
+    const { api } = setupWorker(
+      {
+        name: "Test",
+        mode: "full" as const,
+        env: [],
+        transport: ["websocket"],
+        instructions: "",
+        greeting: "",
+        voice: "luna",
+        maxSteps: 5,
+        tools: {
+          check_env: {
+            description: "check env",
+            execute: (_args, ctx) => {
+              capturedEnv = ctx.env;
+              return "ok";
             },
           },
         },
-        { endpoint: port1 },
-      );
+      },
+      dummyHostApi(),
+    );
 
-      const api = createWorkerApi(port2);
-      const result = await api.executeTool("greet", {}, "s1", 5000);
-      assertStrictEquals(result, "hello");
-      await api.dispose?.();
-      port1.close();
-      port2.close();
-    },
-  );
+    await api.executeTool("check_env", {}, "s1", 5000, { KEY: "val" });
+    assertStrictEquals(capturedEnv?.KEY, "val");
+    api.dispose?.();
+  });
 });

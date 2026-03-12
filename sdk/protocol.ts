@@ -169,7 +169,7 @@ export const AudioFrameSpec = {
 } as const;
 
 /**
- * KV operation request sent from the worker to the host via Comlink RPC.
+ * KV operation request sent from the worker to the host via postMessage RPC.
  *
  * This is a discriminated union on the `op` field, representing the four
  * key-value store operations available to sandboxed agent workers.

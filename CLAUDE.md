@@ -98,24 +98,23 @@ never on each other.
 ### Agent Isolation
 
 Agent code runs in Deno Workers with **all permissions false** (including
-`net: false`). The worker communicates with the host via Comlink over
-`MessagePort`. Custom tool `execute` functions run inside the worker; built-in
-tools run on the host.
+`net: false`). The worker communicates with the host via postMessage RPC
+(`server/_rpc.ts`). Custom tool `execute` functions run inside the worker;
+built-in tools run on the host.
 
 **Fetch proxy**: Since workers have no network access, `globalThis.fetch` is
-monkeypatched in the worker entry (`core/_worker_entry.ts`) to proxy HTTP
-requests through Comlink to the host process. The host handler
+monkeypatched in the worker shim (`sdk/_worker_shim.ts`) to proxy HTTP
+requests through RPC to the host process. The host handler
 (`server/worker_pool.ts`) validates each URL via `assertPublicUrl()`
 (`server/builtin_tools.ts`) to block requests to private/internal addresses
 (SSRF protection) before executing the real fetch.
 
-**Comlink architecture**: All worker ↔ host communication uses Comlink
-(`npm:comlink`) over `MessagePort` (structured clone), producing a `WorkerApi`
-interface via `createWorkerApi`.
-
-The `HostApi` type (fetch + kv proxy) is exposed to workers via a dedicated
-`MessageChannel` — the host calls `Comlink.expose(hostApi, port1)` and transfers
-`port2` to the worker.
+**RPC architecture**: All worker ↔ host communication uses a typed postMessage
+RPC protocol (structured clone) over `worker.postMessage` / `self.postMessage`.
+The host side (`server/_worker_entry.ts`) uses `createWorkerApi()` to produce a
+`WorkerApi` interface; the worker side (`sdk/_worker_shim.ts`) uses
+`initWorker()` to wire up handlers. Both directions share the same
+`RpcRequest`/`RpcResponse` message types from `sdk/_rpc.ts`.
 
 ## Conventions
 

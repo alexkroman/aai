@@ -141,7 +141,7 @@ export type AgentEnv = {
   [key: string]: string | undefined;
 };
 
-/** Config returned by the worker via Comlink RPC. */
+/** Config returned by the worker via RPC. */
 export type WorkerConfig = {
   config: AgentConfig;
   toolSchemas: ToolSchema[];
@@ -171,7 +171,8 @@ export type Message = {
  *
  * @example
  * ```ts
- * import { z, type ToolDef } from "@aai/sdk";
+ * import { type ToolDef } from "@aai/sdk";
+ * import { z } from "zod";
  *
  * const myTool: ToolDef = {
  *   description: "Look up a value from the KV store",
@@ -231,7 +232,8 @@ export type HookContext<S = Record<string, unknown>> = {
  *
  * @example
  * ```ts
- * import { z, type ToolDef } from "@aai/sdk";
+ * import { type ToolDef } from "@aai/sdk";
+ * import { z } from "zod";
  *
  * const weatherTool: ToolDef<typeof params> = {
  *   description: "Get current weather for a city",
@@ -317,7 +319,8 @@ export type StepInfo = {
  *
  * @example
  * ```ts
- * import { defineAgent, z } from "@aai/sdk";
+ * import { defineAgent } from "@aai/sdk";
+ * import { z } from "zod";
  *
  * export default defineAgent({
  *   name: "research-bot",

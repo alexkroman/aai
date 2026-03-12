@@ -39,7 +39,6 @@
     "zod": "jsr:@zod/zod@^4.3.6",
     "esbuild": "npm:esbuild@^0.25.0",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0",
-    "comlink": "npm:comlink@^4.4.2",
     "turndown": "npm:turndown@^7.2.2"
   },
   "nodeModulesDir": "auto",

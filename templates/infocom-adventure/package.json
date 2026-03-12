@@ -8,9 +8,9 @@
   "dependencies": {
     "@jsr/aai__sdk": "*",
     "@jsr/aai__ui": "*",
+    "zod": "^3",
     "preact": "^10",
-    "@preact/signals": "^2",
-    "comlink": "^4"
+    "@preact/signals": "^2"
   },
   "devDependencies": {
     "esbuild": "^0.25",

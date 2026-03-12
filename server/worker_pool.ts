@@ -39,7 +39,7 @@ export type AgentSlot = {
   toolSchemas?: ToolSchema[];
   /** Credential hash of the agent owner (for KV scoping). */
   keyHash: string;
-  /** Active worker handle and Comlink API proxy. */
+  /** Active worker handle and RPC API proxy. */
   worker?: { handle: { terminate(): void }; api: WorkerApi };
   /** Promise that resolves when the worker is done initializing. */
   initializing?: Promise<void>;
