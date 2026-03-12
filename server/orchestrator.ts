@@ -131,11 +131,11 @@ export function createOrchestrator(opts: {
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
         const slug = validateSlug(c.params);
-        const { accountId, keyHash } = await requireOwner(req, {
+        const keyHash = await requireOwner(req, {
           slug,
           store: state.store,
         });
-        return handleDeploy(c, { slug, accountId, keyHash });
+        return handleDeploy(c, { slug, keyHash });
       },
     },
     // --- Env management (like `vercel env`) ---

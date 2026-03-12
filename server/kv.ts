@@ -24,11 +24,11 @@ export type KvStore = {
 };
 
 function scopedKey(scope: AgentScope, key: string): string {
-  return `kv:${scope.accountId}:${scope.slug}:${key}`;
+  return `kv:${scope.keyHash}:${scope.slug}:${key}`;
 }
 
 function scopePrefix(scope: AgentScope): string {
-  return `kv:${scope.accountId}:${scope.slug}:`;
+  return `kv:${scope.keyHash}:${scope.slug}:`;
 }
 
 async function scanAll(redis: Redis, pattern: string): Promise<string[]> {

@@ -11,6 +11,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       transport: ["websocket"],
       worker: "console.log('worker');",
       client: "console.log('client');",
+      credential_hashes: ["hash1"],
     });
 
     const manifest = await store.getManifest("hello");
@@ -18,6 +19,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       slug: "hello",
       env: VALID_ENV,
       transport: ["websocket"],
+      credential_hashes: ["hash1"],
     });
 
     const worker = await store.getFile("hello", "worker");
@@ -35,6 +37,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       transport: ["websocket"],
       worker: "w",
       client: "c",
+      credential_hashes: [],
     });
     await store.deleteAgent("gone");
 
@@ -51,6 +54,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       transport: ["websocket"],
       worker: "old",
       client: "old",
+      credential_hashes: [],
     });
     await store.putAgent({
       slug: "x",
@@ -58,6 +62,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       transport: ["websocket"],
       worker: "new",
       client: "new",
+      credential_hashes: [],
     });
 
     const manifest = await store.getManifest("x");
@@ -74,6 +79,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       transport: ["websocket"],
       worker: big,
       client: "small",
+      credential_hashes: [],
     });
 
     const result = await store.getFile("big", "worker");
@@ -96,6 +102,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       transport: ["websocket"],
       worker: "w",
       client: "c",
+      credential_hashes: [],
     });
     assertStrictEquals(await store.getFile("nomap", "client_map"), null);
   });
@@ -109,6 +116,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       worker: "w",
       client: "c",
       client_map: '{"mappings":[]}',
+      credential_hashes: [],
     });
     assertStrictEquals(
       await store.getFile("mapped", "client_map"),

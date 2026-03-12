@@ -32,6 +32,7 @@ Deno.test("discoverSlot lazy-loads from store", async () => {
     transport: ["websocket"],
     worker: "console.log('w');",
     client: "console.log('c');",
+    credential_hashes: ["hash1"],
   });
   const result = await discoverSlot("stored-agent", { slots, store });
   assertNotStrictEquals(result, null);

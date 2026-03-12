@@ -34,13 +34,11 @@ Deno.test("verifySlugOwner returns owned for matching credential", async () => {
     transport: ["websocket"],
     worker: "w",
     client: "c",
-    account_id: "acct-1",
     credential_hashes: [hash],
   });
   const result = await verifySlugOwner("key1", { slug: "my-agent", store });
   assertEquals(result.status, "owned");
-  assert("accountId" in result);
-  assertStrictEquals(result.accountId, "acct-1");
+  assert("keyHash" in result);
 });
 
 Deno.test("verifySlugOwner returns forbidden for different credential", async () => {
@@ -52,7 +50,6 @@ Deno.test("verifySlugOwner returns forbidden for different credential", async ()
     transport: ["websocket"],
     worker: "w",
     client: "c",
-    account_id: "acct-1",
     credential_hashes: [hash],
   });
   const result = await verifySlugOwner("key2", { slug: "my-agent", store });
@@ -69,7 +66,6 @@ Deno.test("verifySlugOwner allows multiple credential hashes", async () => {
     transport: ["websocket"],
     worker: "w",
     client: "c",
-    account_id: "acct-1",
     credential_hashes: [hash1, hash2],
   });
 
@@ -83,19 +79,16 @@ Deno.test("verifySlugOwner allows multiple credential hashes", async () => {
   assertEquals(r3.status, "forbidden");
 });
 
-Deno.test("verifySlugOwner allows legacy manifests without credential_hashes", async () => {
+Deno.test("verifySlugOwner rejects when credential_hashes is empty", async () => {
   const store = createTestStore();
-  // Legacy manifest: no credential_hashes field
   await store.putAgent({
     slug: "my-agent",
     env: {},
     transport: ["websocket"],
     worker: "w",
     client: "c",
-    account_id: "acct-1",
+    credential_hashes: [],
   });
   const result = await verifySlugOwner("any-key", { slug: "my-agent", store });
-  assertEquals(result.status, "owned");
-  assert("accountId" in result);
-  assertStrictEquals(result.accountId, "acct-1");
+  assertEquals(result.status, "forbidden");
 });

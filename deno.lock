@@ -11,6 +11,7 @@
     "jsr:@std/async@^1.2.0": "1.2.0",
     "jsr:@std/bytes@^1.0.6": "1.0.6",
     "jsr:@std/cli@^1.0.28": "1.0.28",
+    "jsr:@std/crypto@*": "1.0.5",
     "jsr:@std/crypto@^1.0.4": "1.0.5",
     "jsr:@std/data-structures@^1.0.10": "1.0.10",
     "jsr:@std/dotenv@*": "0.225.6",
@@ -64,7 +65,6 @@
     "npm:htm@3.1.1": "3.1.1",
     "npm:htm@^3.1.1": "3.1.1",
     "npm:human-id@^4.1.3": "4.1.3",
-    "npm:jose@6": "6.2.1",
     "npm:markdownlint-cli@*": "0.44.0",
     "npm:markdownlint-cli@0.44": "0.44.0",
     "npm:openai@^4.80.0": "4.104.0_zod@3.25.76",
@@ -121,6 +121,9 @@
         "jsr:@std/fmt@^1.0.9",
         "jsr:@std/internal"
       ]
+    },
+    "@std/crypto@1.0.4": {
+      "integrity": "cee245c453bd5366207f4d8aa25ea3e9c86cecad2be3fefcaa6cb17203d79340"
     },
     "@std/crypto@1.0.5": {
       "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
@@ -2253,9 +2256,6 @@
         "@pkgjs/parseargs"
       ]
     },
-    "jose@6.2.1": {
-      "integrity": "sha512-jUaKr1yrbfaImV7R2TN/b3IcZzsw38/chqMpo2XJ7i2F8AfM/lA4G1goC3JVEwg0H7UldTmSt3P68nt31W7/mw=="
-    },
     "js-yaml@4.1.1": {
       "integrity": "sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA==",
       "dependencies": [
@@ -2962,7 +2962,9 @@
     "http://localhost:62581/_internal/worker/math-buddy.js": "e7c9351f15676ab64d91c5261a7063a5dc9aea13f6e525e250b299dfe6f58df4",
     "http://localhost:63634/_internal/worker/math-buddy.js": "e7c9351f15676ab64d91c5261a7063a5dc9aea13f6e525e250b299dfe6f58df4",
     "http://localhost:64091/_internal/worker/math-buddy.js": "e7c9351f15676ab64d91c5261a7063a5dc9aea13f6e525e250b299dfe6f58df4",
-    "http://localhost:64532/_internal/worker/math-buddy.js": "e7c9351f15676ab64d91c5261a7063a5dc9aea13f6e525e250b299dfe6f58df4"
+    "http://localhost:64532/_internal/worker/math-buddy.js": "e7c9351f15676ab64d91c5261a7063a5dc9aea13f6e525e250b299dfe6f58df4",
+    "https://raw.githubusercontent.com/denoland/std/main/crypto/_types.ts": "22f51b1c73ca56d8243536959559c070ff6e99e76d9846a55a51ecf8787465fc",
+    "https://raw.githubusercontent.com/denoland/std/main/crypto/unstable_aes_gcm.ts": "f6940259efef8e619d15d8c2b7236d5d282356a3ebba73af8a7325ba98f59b51"
   },
   "workspace": {
     "dependencies": [
@@ -3034,7 +3036,6 @@
           "npm:@upstash/redis@^1.36.1",
           "npm:ai@4",
           "npm:assemblyai@4",
-          "npm:jose@6",
           "npm:openai@^4.80.0"
         ]
       },

@@ -54,10 +54,7 @@ export function createTestStore(): BundleStore {
         slug: bundle.slug,
         env: bundle.env,
         transport: bundle.transport,
-        ...(bundle.account_id ? { account_id: bundle.account_id } : {}),
-        ...(bundle.credential_hashes
-          ? { credential_hashes: bundle.credential_hashes }
-          : {}),
+        "credential_hashes": bundle.credential_hashes,
       };
       objects.set(
         objectKey(bundle.slug, "manifest.json"),
@@ -144,6 +141,7 @@ export function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
     slug: "test-agent",
     env: VALID_ENV,
     transport: ["websocket"],
+    keyHash: "test-key-hash",
     ...overrides,
   };
 }
@@ -178,17 +176,17 @@ export function createTestKvStore(): KvStore {
   const store = new Map<string, string>();
 
   function scopedKey(
-    scope: { accountId: string; slug: string },
+    scope: { keyHash: string; slug: string },
     key: string,
   ): string {
-    return `kv:${scope.accountId}:${scope.slug}:${key}`;
+    return `kv:${scope.keyHash}:${scope.slug}:${key}`;
   }
 
   function scopePrefix(scope: {
-    accountId: string;
+    keyHash: string;
     slug: string;
   }): string {
-    return `kv:${scope.accountId}:${scope.slug}:`;
+    return `kv:${scope.keyHash}:${scope.slug}:`;
   }
 
   return {

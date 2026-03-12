@@ -102,10 +102,8 @@ export type AgentMetadata = {
   env: Record<string, string>;
   /** Supported transport types for this agent. */
   transport: readonly Transport[];
-  /** Account ID of the agent owner (used for KV scoping). */
-  "account_id"?: string | undefined;
   /** SHA-256 hashes of API keys authorized to manage this agent. */
-  "credential_hashes"?: string[] | undefined;
+  "credential_hashes": string[];
 };
 
 /** Zod schema for validating agent metadata from the bundle store. */
@@ -113,8 +111,7 @@ export const AgentMetadataSchema: z.ZodType<AgentMetadata> = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
   transport: z.array(TransportSchema).default(["websocket"]),
-  "account_id": z.string().optional(),
-  "credential_hashes": z.array(z.string()).optional(),
+  credential_hashes: z.array(z.string()).default([]),
 });
 
 /**

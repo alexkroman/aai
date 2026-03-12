@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { HttpError } from "./context.ts";
-import { generateAccountId, verifySlugOwner } from "./auth.ts";
+import { verifySlugOwner } from "./auth.ts";
 import {
   type AgentScope,
   type ScopeKey,
@@ -57,11 +57,11 @@ export function validateSlug(params: Record<string, string>): string {
   return slug;
 }
 
-/** Verify the request has a valid owner credential for the slug. Returns { accountId, keyHash }. */
+/** Verify the request has a valid owner credential for the slug. Returns the API key hash. */
 export async function requireOwner(
   req: Request,
   opts: { slug: string; store: BundleStore },
-): Promise<{ accountId: string; keyHash: string }> {
+): Promise<string> {
   const apiKey = bearerToken(req);
   if (!apiKey) {
     throw new HttpError(
@@ -79,10 +79,7 @@ export async function requireOwner(
       `Slug "${opts.slug}" is owned by another user.`,
     );
   }
-  if (result.status === "unclaimed") {
-    return { accountId: generateAccountId(), keyHash: result.keyHash };
-  }
-  return { accountId: result.accountId, keyHash: result.keyHash };
+  return result.keyHash;
 }
 
 /** Require WebSocket upgrade header. */

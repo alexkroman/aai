@@ -106,7 +106,6 @@ Deno.test("deploy rejects different owner for claimed slug", async () => {
     transport: ["websocket"],
     worker: "w",
     client: "c",
-    account_id: "acct-1",
     credential_hashes: [await hashApiKey("key1")],
   });
 
@@ -136,8 +135,6 @@ Deno.test("deploy succeeds and stores agent", async () => {
   );
   assertEquals(res.status, 200);
   const manifest = await store.getManifest("my-agent");
-  // account_id is a UUID generated on first claim, just verify it exists
-  assert(manifest!.account_id);
   // credential_hashes should be stored
   assert(manifest!.credential_hashes);
   assert(manifest!.credential_hashes!.includes(await hashApiKey("key1")));
@@ -375,7 +372,7 @@ Deno.test("kv rejects without auth", async () => {
 Deno.test("kv set and get round-trip", async () => {
   const { handler, scopeKey } = await createTestOrchestrator();
   const token = await signScopeToken(scopeKey, {
-    accountId: "acct-1",
+    keyHash: "acct-1",
     slug: "my-agent",
   });
 
@@ -406,11 +403,11 @@ Deno.test("kv set and get round-trip", async () => {
 Deno.test("kv scope isolation", async () => {
   const { handler, scopeKey } = await createTestOrchestrator();
   const tokenA = await signScopeToken(scopeKey, {
-    accountId: "acct-1",
+    keyHash: "acct-1",
     slug: "agent-a",
   });
   const tokenB = await signScopeToken(scopeKey, {
-    accountId: "acct-1",
+    keyHash: "acct-1",
     slug: "agent-b",
   });
 
@@ -445,7 +442,7 @@ Deno.test("kv scope isolation", async () => {
 Deno.test("kv rejects invalid op", async () => {
   const { handler, scopeKey } = await createTestOrchestrator();
   const token = await signScopeToken(scopeKey, {
-    accountId: "h",
+    keyHash: "h",
     slug: "my-agent",
   });
   const res = await handler(

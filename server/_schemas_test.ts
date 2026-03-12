@@ -229,7 +229,7 @@ Deno.test("AgentMetadataSchema", async (t) => {
       slug: "my-agent",
       env: { KEY: "val" },
       transport: ["websocket", "twilio"],
-      account_id: "abc123",
+      credential_hashes: ["abc123"],
     });
     assertStrictEquals(result.success, true);
   });

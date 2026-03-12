@@ -3,26 +3,21 @@ import { encodeHex } from "@std/encoding/hex";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 
 export async function hashApiKey(apiKey: string): Promise<string> {
-  const data = new TextEncoder().encode(apiKey);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return encodeHex(new Uint8Array(hashBuffer));
-}
-
-/** Generate a stable account ID (UUID v4). */
-export function generateAccountId(): string {
-  return crypto.randomUUID();
+  return encodeHex(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(apiKey)),
+  );
 }
 
 export type OwnerResult =
   | { status: "unclaimed"; keyHash: string }
-  | { status: "owned"; accountId: string; keyHash: string }
+  | { status: "owned"; keyHash: string }
   | { status: "forbidden" };
 
 /**
  * Verify API key ownership of a slug via its manifest.
  *
  * - If no manifest exists (unclaimed slug), returns `{ status: "unclaimed", keyHash }`.
- * - If the manifest has credential_hashes and the key matches, returns `{ status: "owned", accountId, keyHash }`.
+ * - If the manifest has credential_hashes and the key matches, returns `{ status: "owned", keyHash }`.
  * - If the key doesn't match, returns `{ status: "forbidden" }`.
  */
 export async function verifySlugOwner(
@@ -37,22 +32,8 @@ export async function verifySlugOwner(
     return { status: "unclaimed", keyHash };
   }
 
-  // If manifest has credential_hashes, check them
-  if (manifest.credential_hashes?.includes(keyHash)) {
-    return {
-      status: "owned",
-      accountId: manifest.account_id ?? keyHash,
-      keyHash,
-    };
-  }
-
-  // Legacy manifests without credential_hashes: allow deploy (will add hashes)
-  if (!manifest.credential_hashes) {
-    return {
-      status: "owned",
-      accountId: manifest.account_id ?? keyHash,
-      keyHash,
-    };
+  if (manifest.credential_hashes.includes(keyHash)) {
+    return { status: "owned", keyHash };
   }
 
   return { status: "forbidden" };

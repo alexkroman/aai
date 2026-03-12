@@ -20,8 +20,7 @@ export type BundleStore = {
     worker: string;
     client: string;
     client_map?: string;
-    account_id?: string;
-    credential_hashes?: string[];
+    credential_hashes: string[];
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;
@@ -165,10 +164,7 @@ export function createBundleStore(
         slug: bundle.slug,
         env: envValue,
         transport: bundle.transport,
-        ...(bundle.account_id ? { account_id: bundle.account_id } : {}),
-        ...(bundle.credential_hashes
-          ? { credential_hashes: bundle.credential_hashes }
-          : {}),
+        "credential_hashes": bundle.credential_hashes,
         ...(credentialKey ? { envEncrypted: true } : {}),
       };
       await put(

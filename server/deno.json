@@ -1,6 +1,6 @@
 {
   "name": "@aai/server",
-  "version": "0.1.115",
+  "version": "0.1.119",
   "exports": {
     ".": "./main.ts",
     "./types": "./types.ts",
@@ -15,7 +15,6 @@
     "ai/test": "npm:ai@^4/test",
     "@ai-sdk/openai": "npm:@ai-sdk/openai@^1",
     "openai": "npm:openai@^4.80.0",
-    "jose": "npm:jose@^6",
     "assemblyai": "npm:assemblyai@^4"
   },
   "publish": {
