@@ -77,7 +77,7 @@ export default defineAgent({
 import { defineAgent } from "@aai/sdk"; // Always needed
 import { defineAgent, z } from "@aai/sdk"; // Tools with typed params
 import { defineAgent, kvTools } from "@aai/sdk"; // Persistent memory helpers
-import type { HookContext, ToolContext } from "@aai/sdk"; // Type annotations
+import type { BeforeStepResult, HookContext, ToolContext } from "@aai/sdk"; // Type annotations
 ```
 
 ## Agent configuration
@@ -113,7 +113,7 @@ defineAgent({
   onTurn?: (text: string, ctx: HookContext) => void | Promise<void>;
   onStep?: (step: StepInfo, ctx: HookContext) => void | Promise<void>;
   onBeforeStep?: (stepNumber: number, ctx: HookContext) =>
-    { activeTools?: string[] } | void;
+    BeforeStepResult | Promise<BeforeStepResult>;
 });
 ```
 

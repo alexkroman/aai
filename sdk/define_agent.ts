@@ -50,8 +50,11 @@ import {
  * });
  * ```
  */
-export function defineAgent(options: AgentOptions): AgentDef {
+export function defineAgent<S>(options: AgentOptions<S>): AgentDef {
   const isSttOnly = options.mode === "stt-only";
+  // AgentDef erases the S generic (it's a runtime artifact consumed by the
+  // server which doesn't need the compile-time state type). The cast is safe
+  // because AgentDef's hooks/tools use the same shapes with `any`/`unknown`.
   return {
     name: options.name,
     mode: options.mode ?? "full",
@@ -79,5 +82,5 @@ export function defineAgent(options: AgentOptions): AgentDef {
     ...(options.onStep !== undefined && { onStep: options.onStep }),
     ...(options.onBeforeStep !== undefined &&
       { onBeforeStep: options.onBeforeStep }),
-  };
+  } as AgentDef;
 }

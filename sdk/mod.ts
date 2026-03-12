@@ -42,6 +42,7 @@ export { kvTools } from "./kv_tools.ts";
 export { z } from "zod";
 export type {
   AgentOptions,
+  BeforeStepResult,
   HookContext,
   Message,
   ToolContext,

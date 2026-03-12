@@ -406,8 +406,9 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     }
 
     const base = options.platformUrl;
-    // deno-lint-ignore no-explicit-any
-    const wsPath = (globalThis as any).__AAI_WS__ as string ?? "websocket";
+    const wsPath =
+      (globalThis as unknown as Record<string, unknown>).__AAI_WS__ as string ??
+        "websocket";
     const wsUrl = new URL(wsPath, base.endsWith("/") ? base : base + "/");
     wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
     if (hasConnected) wsUrl.searchParams.set("resume", "1");

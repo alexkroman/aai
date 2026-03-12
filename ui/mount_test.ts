@@ -73,11 +73,10 @@ Deno.test("mount()", async (t) => {
       mount(App, { platformUrl: "http://localhost:3000" });
 
       const el = globalThis.document.querySelector("#app") as HTMLElement;
-      // deno-lint-ignore no-explicit-any
-      const bg = (el.style as any).getPropertyValue("--aai-bg");
+      const style = el.style as unknown as CSSStyleDeclaration;
+      const bg = style.getPropertyValue("--aai-bg");
       assertStrictEquals(bg, defaultTheme.bg);
-      // deno-lint-ignore no-explicit-any
-      const primary = (el.style as any).getPropertyValue("--aai-primary");
+      const primary = style.getPropertyValue("--aai-primary");
       assertStrictEquals(primary, defaultTheme.primary);
     }),
   );
@@ -96,14 +95,12 @@ Deno.test("mount()", async (t) => {
       });
 
       const el = globalThis.document.querySelector("#app") as HTMLElement;
-      // deno-lint-ignore no-explicit-any
-      const bg = (el.style as any).getPropertyValue("--aai-bg");
+      const style = el.style as unknown as CSSStyleDeclaration;
+      const bg = style.getPropertyValue("--aai-bg");
       assertStrictEquals(bg, "#000000");
-      // deno-lint-ignore no-explicit-any
-      const primary = (el.style as any).getPropertyValue("--aai-primary");
+      const primary = style.getPropertyValue("--aai-primary");
       assertStrictEquals(primary, "#ff0000");
-      // deno-lint-ignore no-explicit-any
-      const surface = (el.style as any).getPropertyValue("--aai-surface");
+      const surface = style.getPropertyValue("--aai-surface");
       assertStrictEquals(surface, defaultTheme.surface);
     }),
   );
@@ -129,8 +126,7 @@ Deno.test("mount()", async (t) => {
   await t.step(
     "reads __AAI_BASE__ for platformUrl when not explicitly provided",
     withMountEnv(async (mock) => {
-      // deno-lint-ignore no-explicit-any
-      const g = globalThis as any;
+      const g = globalThis as unknown as Record<string, unknown>;
       g.__AAI_BASE__ = "/alex/ai-takes";
       g.location = { origin: "https://aai-agent.fly.dev", pathname: "/" };
       const App = () =>

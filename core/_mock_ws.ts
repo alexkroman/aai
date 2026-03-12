@@ -126,8 +126,7 @@ export class MockWebSocket extends EventTarget {
   }
 }
 
-// deno-lint-ignore no-explicit-any
-const g = globalThis as any;
+const g: { WebSocket: unknown } = globalThis;
 
 /**
  * Replace `globalThis.WebSocket` with {@linkcode MockWebSocket} for testing.

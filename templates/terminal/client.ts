@@ -527,19 +527,35 @@ function loadCss(href: string): void {
   document.head.appendChild(link);
 }
 
-// deno-lint-ignore no-explicit-any
-type XTerm = any;
+interface XTermInstance {
+  write(data: string): void;
+  loadAddon(addon: XTermFitAddon): void;
+  open(container: HTMLElement): void;
+  onKey(handler: (e: { key: string; domEvent: KeyboardEvent }) => void): void;
+  clear(): void;
+  dispose(): void;
+  _resizeCleanup?: () => void;
+}
+
+interface XTermFitAddon {
+  fit(): void;
+  dispose(): void;
+}
 
 async function loadXterm(): Promise<{
-  Terminal: new (opts: Record<string, unknown>) => XTerm;
-  FitAddon: new () => XTerm;
+  Terminal: new (opts: Record<string, unknown>) => XTermInstance;
+  FitAddon: new () => XTermFitAddon;
 }> {
   loadCss(XTERM_CSS);
   await loadScript(XTERM_JS);
   await loadScript(XTERM_FIT_JS);
-  // deno-lint-ignore no-explicit-any
-  const g = globalThis as any;
-  return { Terminal: g.Terminal, FitAddon: g.FitAddon.FitAddon };
+  const g = globalThis as unknown as Record<string, Record<string, unknown>>;
+  return {
+    Terminal: g.Terminal as unknown as new (
+      opts: Record<string, unknown>,
+    ) => XTermInstance,
+    FitAddon: (g.FitAddon!).FitAddon as unknown as new () => XTermFitAddon,
+  };
 }
 
 // ─── Terminal theme (Dracula-inspired) ───────────────────────────────────────
@@ -571,8 +587,7 @@ const THEME = {
 // ─── State ───────────────────────────────────────────────────────────────────
 
 const lastMessageCount = signal(0);
-// deno-lint-ignore no-explicit-any
-let termInstance: any = null;
+let termInstance: XTermInstance | null = null;
 
 function writePrompt(): void {
   if (termInstance) termInstance.write(PROMPT);
@@ -739,8 +754,7 @@ export default function Terminal() {
     if (termInstance) return;
 
     let disposed = false;
-    // deno-lint-ignore no-explicit-any
-    let fitAddon: any = null;
+    let fitAddon: XTermFitAddon | null = null;
 
     loadXterm().then(({ Terminal: XTerminal, FitAddon }) => {
       if (disposed || !containerRef.current) return;
@@ -920,6 +934,6 @@ export default function Terminal() {
   `;
 }
 
-function writePromptOn(term: XTerm): void {
+function writePromptOn(term: XTermInstance): void {
   term.write(PROMPT);
 }

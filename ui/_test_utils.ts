@@ -13,8 +13,7 @@ import { installMockWebSocket } from "../core/_mock_ws.ts";
 const HTML =
   `<!DOCTYPE html><html><head></head><body><div id="app"></div></body></html>`;
 
-// deno-lint-ignore no-explicit-any
-const g = globalThis as any;
+const g = globalThis as unknown as Record<string, unknown>;
 
 export function setupDOM() {
   installDomShim();
@@ -152,7 +151,9 @@ export function withAudioMocks(
   return async () => {
     const origAudioContext = globalThis.AudioContext;
     const origAudioWorkletNode = globalThis.AudioWorkletNode;
-    const nav = g.navigator;
+    const nav = g.navigator as
+      | { mediaDevices?: { getUserMedia?: unknown } }
+      | undefined;
     const origGetUserMedia = nav?.mediaDevices?.getUserMedia;
 
     let _lastContext: MockAudioContext;
@@ -172,8 +173,8 @@ export function withAudioMocks(
       }
     };
 
-    if (!nav.mediaDevices) nav.mediaDevices = {};
-    nav.mediaDevices.getUserMedia = () =>
+    if (!nav!.mediaDevices) nav!.mediaDevices = {};
+    nav!.mediaDevices!.getUserMedia = () =>
       Promise.resolve(new MockMediaStream());
 
     try {
@@ -185,7 +186,7 @@ export function withAudioMocks(
       globalThis.AudioContext = origAudioContext;
       globalThis.AudioWorkletNode = origAudioWorkletNode;
       if (origGetUserMedia) {
-        nav.mediaDevices.getUserMedia = origGetUserMedia;
+        nav!.mediaDevices!.getUserMedia = origGetUserMedia;
       }
     }
   };

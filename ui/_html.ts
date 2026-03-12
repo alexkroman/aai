@@ -14,7 +14,10 @@ import type { VNode } from "preact";
  * const vnode = html`<div class="greeting">Hello, ${name}!</div>`;
  * ```
  */
-// deno-lint-ignore no-explicit-any
-export const html: (strings: TemplateStringsArray, ...values: any[]) => VNode =
-  // deno-lint-ignore no-explicit-any
-  (htm as any).bind(h);
+export const html: (
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => VNode =
+  (htm as unknown as { bind(h: typeof import("preact").h): typeof html }).bind(
+    h,
+  );

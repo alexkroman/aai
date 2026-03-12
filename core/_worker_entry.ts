@@ -673,7 +673,6 @@ export function startWorker(
       await agent.onTurn?.(text, makeCtx(sessionId));
     },
 
-    // deno-lint-ignore require-await
     async onError(sessionId, error, env) {
       applyEnv(env);
       agent.onError?.(new Error(error), makeCtx(sessionId));
@@ -685,7 +684,6 @@ export function startWorker(
       await agent.onStep?.(step, makeCtx(sessionId));
     },
 
-    // deno-lint-ignore require-await
     async resolveMaxSteps(sessionId, env) {
       applyEnv(env);
       if (typeof agent.maxSteps !== "function") return null;

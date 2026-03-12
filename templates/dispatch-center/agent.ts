@@ -550,7 +550,7 @@ const STATE_KEY = "dispatch:state";
 async function saveState(
   ctx: { kv: ToolContext["kv"]; state: unknown },
 ): Promise<void> {
-  await ctx.kv.set(STATE_KEY, ctx.state as DispatchState);
+  await ctx.kv.set(STATE_KEY, ctx.state);
 }
 
 async function loadState(ctx: HookContext<DispatchState>): Promise<void> {
@@ -616,7 +616,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
   state: createState,
 
   onConnect: async (ctx) => {
-    await loadState(ctx as HookContext<DispatchState>);
+    await loadState(ctx);
   },
 
   tools: {
@@ -647,7 +647,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         },
         ctx,
       ) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         state.incidentCounter++;
         const id = `INC-${String(state.incidentCounter).padStart(4, "0")}`;
 
@@ -753,7 +753,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         },
         ctx,
       ) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -827,7 +827,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         { incidentId, status, notes, casualtyUpdate },
         ctx,
       ) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -906,7 +906,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         { incidentId, reason, requestMutualAid, newSeverity },
         ctx,
       ) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -990,7 +990,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         incidentId: z.string().describe("The incident ID"),
       }),
       execute: ({ incidentId }, ctx) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -1033,7 +1033,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         ).optional(),
       }),
       execute: async ({ incidentId, note, source }, ctx) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -1070,7 +1070,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         { incidentId, callsigns, autoDispatch, priority },
         ctx,
       ) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         const inc = state.incidents[incidentId];
         if (!inc) return { error: `Incident ${incidentId} not found` };
 
@@ -1170,7 +1170,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         ]).describe("Filter by resource type, or 'all'").optional(),
       }),
       execute: ({ type }, ctx) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         let resources = state.resources;
         if (type && type !== "all") {
           resources = resources.filter((r) => r.type === type);
@@ -1210,7 +1210,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         notes: z.string().describe("Status notes").optional(),
       }),
       execute: async ({ callsign, status, notes }, ctx) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         const resource = state.resources.find((r) =>
           r.callsign.toLowerCase() === callsign.toLowerCase()
         );
@@ -1256,8 +1256,8 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
     ops_dashboard: {
       description:
         "Get the full operational dashboard: alert level, resource utilization, active incidents, and available resources.",
-      execute: (_args: Record<string, never>, ctx: ToolContext) => {
-        const state = ctx.state as unknown as DispatchState;
+      execute: (_args, ctx) => {
+        const state = ctx.state;
 
         const activeIncidents = Object.values(state.incidents)
           .filter((i) => i.status !== "resolved")
@@ -1366,7 +1366,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
         ]).describe("Scenario type to simulate"),
       }),
       execute: async ({ scenario }, ctx) => {
-        const state = ctx.state as unknown as DispatchState;
+        const state = ctx.state;
         const scenarios: Record<
           string,
           { incidents: Partial<Incident>[]; narrative: string }

@@ -72,8 +72,10 @@ export function mount(
   const theme = { ...defaultTheme, ...options?.theme };
   applyTheme(container, theme);
 
-  // deno-lint-ignore no-explicit-any
-  const injectedBase = (globalThis as any).__AAI_BASE__ as string | undefined;
+  const injectedBase = (globalThis as unknown as Record<string, unknown>)
+    .__AAI_BASE__ as
+      | string
+      | undefined;
   if (!options?.platformUrl && !injectedBase) {
     throw new Error("Missing __AAI_BASE__ global — the server must inject it");
   }

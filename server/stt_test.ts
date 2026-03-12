@@ -90,8 +90,7 @@ function installMockSDK(): {
   [Symbol.dispose]: () => void;
 } {
   const _original = StreamingTranscriber;
-  // deno-lint-ignore no-explicit-any
-  (globalThis as any).__mockStreamingTranscriber = true;
+  (globalThis as Record<string, unknown>).__mockStreamingTranscriber = true;
 
   // Monkey-patch the module's export by stubbing the constructor
   const proto = StreamingTranscriber.prototype;
@@ -104,13 +103,14 @@ function installMockSDK(): {
   const mock = new MockStreamingTranscriber({});
   lastMock = mock;
 
-  // deno-lint-ignore no-explicit-any
-  proto.connect = function (): any {
+  (proto as unknown as Record<string, unknown>).connect = function () {
     mock.connected = true;
     return Promise.resolve();
   };
-  // deno-lint-ignore no-explicit-any
-  proto.on = function (event: string, listener: any) {
+  (proto as unknown as Record<string, unknown>).on = function (
+    event: string,
+    listener: (...args: unknown[]) => void,
+  ) {
     mock.on(event, listener);
   };
   proto.sendAudio = function (audio: ArrayBufferLike) {

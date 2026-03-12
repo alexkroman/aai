@@ -1,5 +1,5 @@
 {
-  "workspace": ["server", "ui", "cli", "sdk", "core"],
+  "workspace": ["server", "ui", "cli", "sdk", "core", "scripts"],
   "tasks": {
     "setup": "git config core.hooksPath .githooks",
     "deploy": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run cli/cli.ts deploy",

@@ -2,7 +2,6 @@
 import * as log from "@std/log";
 import { json, type RouteContext } from "./context.ts";
 import { loadPlatformConfig } from "./config.ts";
-import { normalizeTransport } from "@aai/sdk/types";
 import type { DeployBody } from "@aai/sdk/types";
 import { HttpError } from "./context.ts";
 import { DeployBodySchema } from "./_schemas.ts";
@@ -50,7 +49,7 @@ export async function handleDeploy(
     delete existing.initializing;
   }
 
-  const transport = normalizeTransport(body.transport);
+  const transport = body.transport ?? ["websocket"];
 
   await state.store.putAgent({
     slug,

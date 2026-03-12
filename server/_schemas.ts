@@ -60,10 +60,7 @@ export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
   sttPrompt: z.string().min(1).optional(),
   maxSteps: z.number().int().positive().optional(),
   toolChoice: ToolChoiceSchema.optional(),
-  transport: z.union([
-    TransportSchema,
-    z.array(TransportSchema).min(1),
-  ]).optional(),
+  transport: z.array(TransportSchema).min(1).optional(),
   builtinTools: z.array(BuiltinToolSchema).optional(),
 });
 
@@ -83,10 +80,7 @@ export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
   env: z.record(z.string(), z.string()),
   worker: z.string().min(1).max(10_000_000),
   client: z.string().min(1).max(10_000_000),
-  transport: z.union([
-    TransportSchema,
-    z.array(TransportSchema),
-  ]).optional(),
+  transport: z.array(TransportSchema).min(1).optional(),
 });
 
 /** Zod schema for validating agent environment variables (requires `ASSEMBLYAI_API_KEY`). */

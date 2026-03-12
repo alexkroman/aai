@@ -247,20 +247,16 @@ export function createSession(opts: SessionOptions): Session {
       handle.onTurn = ({ text, turnOrder }) => {
         log.info("turn", { text, turnOrder });
         const prev = turnPromise;
-        // deno-lint-ignore prefer-const
-        let next!: Promise<void>;
-        next = (async () => {
+        const next: Promise<void> = (async () => {
           try {
             await prev;
           } catch (e) {
             log.warn("previous turn failed", e);
           }
-          try {
-            await handleTurn(text, turnOrder);
-          } finally {
-            if (turnPromise === next) turnPromise = null;
-          }
-        })();
+          await handleTurn(text, turnOrder);
+        })().finally(() => {
+          if (turnPromise === next) turnPromise = null;
+        });
         turnPromise = next;
       };
 
@@ -429,9 +425,7 @@ export function createSession(opts: SessionOptions): Session {
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
-    // deno-lint-ignore prefer-const
-    let p!: Promise<void>;
-    p = (async () => {
+    const p: Promise<void> = (async () => {
       try {
         await tts.synthesizeStream(text, (chunk) => trySend(chunk), signal);
         if (!signal.aborted) trySendJson({ type: "tts_done" });
@@ -442,9 +436,10 @@ export function createSession(opts: SessionOptions): Session {
         trySendJson({ type: "error", message: msg });
       } finally {
         if (turnAbort === abort) turnAbort = null;
-        if (turnPromise === p) turnPromise = null;
       }
-    })();
+    })().finally(() => {
+      if (turnPromise === p) turnPromise = null;
+    });
     turnPromise = p;
   }
 

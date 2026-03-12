@@ -53,12 +53,19 @@ const statusColors: Record<string, string> = {
   escalated: "#ef4444",
 };
 
+interface Incident {
+  id: string;
+  mentioned: number;
+  severity?: string;
+  status?: string;
+  location?: string;
+}
+
 // Parse incident data from messages for the sidebar
 function extractIncidents(
   messages: { role: string; text: string }[],
-  // deno-lint-ignore no-explicit-any
-): Map<string, Record<string, any>> {
-  const incidents = new Map();
+): Map<string, Incident> {
+  const incidents = new Map<string, Incident>();
   for (const msg of messages) {
     const incMatches = msg.text.matchAll(/INC-\d{4}/g);
     for (const m of incMatches) {
@@ -66,7 +73,7 @@ function extractIncidents(
       if (!incidents.has(id)) {
         incidents.set(id, { id, mentioned: 0 });
       }
-      incidents.get(id).mentioned++;
+      incidents.get(id)!.mentioned++;
     }
 
     const lines = msg.text.split("\n");
@@ -478,10 +485,10 @@ export default function App() {
                 html`
                   <div key="${inc.id}" style="${{
                     background: "#0f172a",
-                    border: `1px solid ${(severityColors[inc.severity] ||
+                    border: `1px solid ${(severityColors[inc.severity ?? ""] ||
                       "#334155")}40`,
                     borderLeft: `3px solid ${
-                      severityColors[inc.severity] || "#334155"
+                      severityColors[inc.severity ?? ""] || "#334155"
                     }`,
                     borderRadius: "6px",
                     padding: "10px",
@@ -506,8 +513,8 @@ export default function App() {
                           borderRadius: "3px",
                           fontWeight: 700,
                           textTransform: "uppercase",
-                          background: `${severityColors[inc.severity]}30`,
-                          color: severityColors[inc.severity],
+                          background: `${severityColors[inc.severity ?? ""]}30`,
+                          color: severityColors[inc.severity ?? ""],
                         }}">${inc.severity}</span>
                       `}
                     </div>

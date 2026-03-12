@@ -99,7 +99,7 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
         title: z.string().describe("Brief title or description"),
       }),
       execute: (args, ctx) => {
-        const state = ctx.state as ResearchState;
+        const state = ctx.state;
         state.sources.push(`${args.title}: ${args.url}`);
         return { saved: true, totalSources: state.sources.length };
       },
@@ -109,7 +109,7 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
       description:
         "Mark this research query as complex, allowing more search steps",
       execute: (_args, ctx) => {
-        const state = ctx.state as ResearchState;
+        const state = ctx.state;
         state.complexity = "deep";
         return { complexity: "deep", maxSteps: 10 };
       },
@@ -119,7 +119,7 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
       description:
         "Move to the next research phase (gather -> analyze -> respond)",
       execute: (_args, ctx) => {
-        const state = ctx.state as ResearchState;
+        const state = ctx.state;
         if (state.phase === "gather") {
           state.phase = "analyze";
         } else if (state.phase === "analyze") {
@@ -137,7 +137,7 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
         focus: z.string().describe("What aspect to focus the analysis on"),
       }),
       execute: (args, ctx) => {
-        const state = ctx.state as ResearchState;
+        const state = ctx.state;
         // Use ctx.messages to see what's been discussed
         const userMessages = ctx.messages.filter((m) => m.role === "user");
         return {

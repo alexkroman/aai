@@ -87,26 +87,15 @@ snapshot[`AgentConfigSchema snapshot 1`] = `
       ],
     },
     transport: {
-      anyOf: [
-        {
-          enum: [
-            "websocket",
-            "twilio",
-          ],
-          type: "string",
-        },
-        {
-          items: {
-            enum: [
-              "websocket",
-              "twilio",
-            ],
-            type: "string",
-          },
-          minItems: 1,
-          type: "array",
-        },
-      ],
+      items: {
+        enum: [
+          "websocket",
+          "twilio",
+        ],
+        type: "string",
+      },
+      minItems: 1,
+      type: "array",
     },
     voice: {
       type: "string",
@@ -191,25 +180,15 @@ snapshot[`DeployBodySchema snapshot 1`] = `
       type: "object",
     },
     transport: {
-      anyOf: [
-        {
-          enum: [
-            "websocket",
-            "twilio",
-          ],
-          type: "string",
-        },
-        {
-          items: {
-            enum: [
-              "websocket",
-              "twilio",
-            ],
-            type: "string",
-          },
-          type: "array",
-        },
-      ],
+      items: {
+        enum: [
+          "websocket",
+          "twilio",
+        ],
+        type: "string",
+      },
+      minItems: 1,
+      type: "array",
     },
     worker: {
       maxLength: 10000000,

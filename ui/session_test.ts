@@ -188,8 +188,7 @@ Deno.test("VoiceSession", async (t) => {
     await t.step(
       "uses __AAI_WS__ for WebSocket path when set",
       withSessionEnv(async (mock) => {
-        // deno-lint-ignore no-explicit-any
-        const g = globalThis as any;
+        const g = globalThis as unknown as Record<string, unknown>;
         g.__AAI_WS__ = "/ns/agent/ws";
         try {
           const { session, ws } = await connectSession(mock, {
