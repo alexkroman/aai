@@ -231,9 +231,7 @@ Deno.test("static file serves client.js after deploy", async () => {
 });
 
 Deno.test("client.js sets Cache-Control no-cache without server-side caching", async () => {
-  // Regression: Hono's cache() middleware called caches.open() which throws
-  // on Fly.io where CacheStorage is unavailable. Verify the response uses
-  // etag + Cache-Control: no-cache without depending on CacheStorage.
+  // Verify the response uses etag + Cache-Control: no-cache.
   const { handler } = await createTestOrchestrator();
   await deployAgent(handler);
   const res = await handler(req("/ns/agent/client.js"), DUMMY_INFO);

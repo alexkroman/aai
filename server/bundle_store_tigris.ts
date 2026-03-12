@@ -85,9 +85,9 @@ function isS3Error(err: unknown, codeOrStatus: string): boolean {
 
 export function createBundleStore(
   s3: S3Client,
-  bucket: string,
-  credentialKey?: CredentialKey,
+  opts: { bucket: string; credentialKey?: CredentialKey },
 ): BundleStore {
+  const { bucket, credentialKey } = opts;
   const cache = new Map<string, CacheEntry>();
 
   async function put(

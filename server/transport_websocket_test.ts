@@ -10,13 +10,16 @@ Deno.test("discoverSlot returns existing slot from map", async () => {
   const slot = makeSlot();
   const slots = new Map([["ns/test-agent", slot]]);
   const store = createTestStore();
-  const result = await discoverSlot("ns/test-agent", slots, store);
+  const result = await discoverSlot("ns/test-agent", { slots, store });
   assertStrictEquals(result, slot);
 });
 
 Deno.test("discoverSlot returns null when not in map and not in store", async () => {
   const store = createTestStore();
-  const result = await discoverSlot("ns/missing", new Map(), store);
+  const result = await discoverSlot("ns/missing", {
+    slots: new Map(),
+    store,
+  });
   assertStrictEquals(result, null);
 });
 
@@ -30,7 +33,7 @@ Deno.test("discoverSlot lazy-loads from store", async () => {
     worker: "console.log('w');",
     client: "console.log('c');",
   });
-  const result = await discoverSlot("ns/stored-agent", slots, store);
+  const result = await discoverSlot("ns/stored-agent", { slots, store });
   assertNotStrictEquals(result, null);
   assertStrictEquals(result!.slug, "ns/stored-agent");
   assertStrictEquals(slots.has("ns/stored-agent"), true);
@@ -41,21 +44,19 @@ Deno.test("discoverSlot lazy-loads from store", async () => {
 Deno.test("resolveSlot returns null for twilio-only slot", async () => {
   const slot = makeSlot({ transport: ["twilio"] });
   const store = createTestStore();
-  const result = await resolveSlot(
-    "ns/twilio-only",
-    new Map([["ns/twilio-only", slot]]),
+  const result = await resolveSlot("ns/twilio-only", {
+    slots: new Map([["ns/twilio-only", slot]]),
     store,
-  );
+  });
   assertStrictEquals(result, null);
 });
 
 Deno.test("resolveSlot returns slot with websocket transport", async () => {
   const slot = makeSlot({ transport: ["websocket", "twilio"] });
   const store = createTestStore();
-  const result = await resolveSlot(
-    "ns/both",
-    new Map([["ns/both", slot]]),
+  const result = await resolveSlot("ns/both", {
+    slots: new Map([["ns/both", slot]]),
     store,
-  );
+  });
   assertStrictEquals(result, slot);
 });

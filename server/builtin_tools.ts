@@ -320,7 +320,7 @@ const userInput = defineTool({
     "Ask the user a follow-up question and wait for their spoken response. Use this when you need clarification, a preference, or any additional input from the user before proceeding.",
   parameters: userInputParams,
   execute: () => {
-    throw new Error("user_input is handled by the turn handler");
+    throw new Error("Tool user_input is handled by the turn handler");
   },
 });
 

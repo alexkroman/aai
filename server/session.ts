@@ -171,7 +171,7 @@ export function createSession(opts: SessionOptions): Session {
     (agentConfig.builtinTools?.length ?? 0) > 0;
   const systemPrompt = isSttOnly
     ? ""
-    : buildSystemPrompt(agentConfig, hasTools, { voice: true });
+    : buildSystemPrompt(agentConfig, { hasTools, voice: true });
 
   let tools: ToolSet;
   if (isSttOnly) {

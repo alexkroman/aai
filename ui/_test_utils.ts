@@ -30,7 +30,9 @@ export function getContainer(): Element {
 // Ensure document exists at import time for modules that need DOM globals.
 setupDOM();
 
-export const flush = () => new Promise<void>((r) => queueMicrotask(r));
+export function flush(): Promise<void> {
+  return new Promise<void>((r) => queueMicrotask(r));
+}
 
 export function installMockLocation(origin = "http://localhost:3000") {
   const had = "location" in globalThis;
@@ -50,9 +52,9 @@ export class MockMediaStreamTrack {
 }
 
 export class MockMediaStream {
-  private tracks = [new MockMediaStreamTrack()];
+  #tracks = [new MockMediaStreamTrack()];
   getTracks() {
-    return this.tracks;
+    return this.#tracks;
   }
 }
 

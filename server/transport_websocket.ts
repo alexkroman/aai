@@ -1,14 +1,12 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
-import type { Context } from "hono";
-import { HTTPException } from "hono/http-exception";
+import { html, HttpError, json, type RouteContext } from "./context.ts";
+import { eTag, ifNoneMatch } from "@std/http/etag";
 import { renderAgentPage } from "./html.ts";
-import { createSessionWSEvents } from "./ws_handler.ts";
+import { wireSessionSocket } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
-import type { HonoEnv } from "./hono_env.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import { upgradeWebSocket } from "hono/deno";
 
 export const _internals = { prepareSession };
 
@@ -17,97 +15,86 @@ export const _internals = { prepareSession };
  *
  * If the slot is already registered in memory, returns it immediately.
  * Otherwise, checks the bundle store for a manifest and registers the slot.
- *
- * @param slug - The agent slug to look up.
- * @param slots - The in-memory map of active agent slots.
- * @param store - Bundle store to check for agent manifests.
- * @returns The agent slot, or `null` if the agent does not exist.
  */
+type SlotLookup = { slots: Map<string, AgentSlot>; store: BundleStore };
+
 export async function discoverSlot(
   slug: string,
-  slots: Map<string, AgentSlot>,
-  store: BundleStore,
+  opts: SlotLookup,
 ): Promise<AgentSlot | null> {
-  const existing = slots.get(slug);
+  const existing = opts.slots.get(slug);
   if (existing) return existing;
 
-  const manifest = await store.getManifest(slug);
+  const manifest = await opts.store.getManifest(slug);
   if (!manifest) return null;
 
-  if (registerSlot(slots, manifest)) {
+  if (registerSlot(opts.slots, manifest)) {
     log.info("Lazy-discovered agent from store", { slug });
   }
-  return slots.get(slug) ?? null;
+  return opts.slots.get(slug) ?? null;
 }
 
 /**
  * Resolves an agent slot that supports the WebSocket transport.
- *
- * @param slug - The agent slug to look up.
- * @param slots - The in-memory map of active agent slots.
- * @param store - Bundle store to check for agent manifests.
- * @returns The agent slot if it exists and supports WebSocket, otherwise `null`.
  */
 export async function resolveSlot(
   slug: string,
-  slots: Map<string, AgentSlot>,
-  store: BundleStore,
+  opts: SlotLookup,
 ): Promise<AgentSlot | null> {
-  const slot = await discoverSlot(slug, slots, store);
+  const slot = await discoverSlot(slug, opts);
   if (!slot?.transport.includes("websocket")) return null;
   return slot;
 }
 
 async function requireSlot(
   slug: string,
-  slots: Map<string, AgentSlot>,
-  store: BundleStore,
+  opts: SlotLookup,
 ): Promise<AgentSlot> {
-  const slot = await resolveSlot(slug, slots, store);
-  if (!slot) throw new HTTPException(404, { message: `Not found: ${slug}` });
+  const slot = await resolveSlot(slug, opts);
+  if (!slot) throw new HttpError(404, `Not found: ${slug}`);
   return slot;
 }
 
-/**
- * Hono handler for the agent health check endpoint (`GET /:slug/health`).
- *
- * @param c - The Hono request context.
- * @returns A JSON response with `{ status: "ok", slug, name }`.
- * @throws {HTTPException} 404 if the agent is not found or doesn't support WebSocket.
- */
-export async function handleAgentHealth(c: Context<HonoEnv>) {
-  const { slug, slots, store } = c.var;
-  const slot = await requireSlot(slug, slots, store);
-  return c.json({ status: "ok", slug, name: slot.name ?? slug });
+/** Handler for the agent health check endpoint (`GET /:slug/health`). */
+export async function handleAgentHealth(
+  ctx: RouteContext,
+  slug: string,
+): Promise<Response> {
+  const slot = await requireSlot(slug, ctx.state);
+  return json({ status: "ok", slug, name: slot.name ?? slug });
+}
+
+/** Handler for the agent landing page (`GET /:slug`). */
+export async function handleAgentPage(
+  ctx: RouteContext,
+  slug: string,
+): Promise<Response> {
+  const slot = await requireSlot(slug, ctx.state);
+  return html(renderAgentPage(slot.name ?? slug, `/${slug}`));
 }
 
 /**
- * Hono handler for the agent landing page (`GET /:slug`).
- *
- * @param c - The Hono request context.
- * @returns An HTML response with the agent's interactive page.
- * @throws {HTTPException} 404 if the agent is not found.
- */
-export async function handleAgentPage(c: Context<HonoEnv>) {
-  const { slug, slots, store } = c.var;
-  const slot = await requireSlot(slug, slots, store);
-  return c.html(renderAgentPage(slot.name ?? slug, `/${slug}`));
-}
-
-/**
- * Hono handler that upgrades an HTTP request to a WebSocket session.
+ * Handler that upgrades an HTTP request to a WebSocket session.
  *
  * Prepares the agent worker and session, then delegates to
- * {@linkcode createSessionWSEvents} for WebSocket lifecycle management.
+ * {@linkcode wireSessionSocket} for WebSocket lifecycle management.
  */
-export const handleWebSocket = upgradeWebSocket(async (c) => {
-  const { slug, slots, store, kvStore, sessions } = c.var;
-  const slot = await requireSlot(slug, slots, store);
+export async function handleWebSocket(
+  ctx: RouteContext,
+  slug: string,
+): Promise<Response> {
+  const slot = await requireSlot(slug, ctx.state);
+  const setup = await _internals.prepareSession(slot, {
+    slug,
+    store: ctx.state.store,
+    kvStore: ctx.state.kvStore,
+  });
+  const resume = new URL(ctx.req.url).searchParams.has("resume");
 
-  const setup = await _internals.prepareSession(slot, slug, store, kvStore);
-  const resume = c.req.query("resume") !== undefined;
+  const { socket, response } = Deno.upgradeWebSocket(ctx.req);
 
-  return createSessionWSEvents(sessions, {
+  wireSessionSocket(socket, {
+    sessions: ctx.state.sessions,
     createSession: (sessionId, transport) =>
       createSession({
         id: sessionId,
@@ -118,18 +105,19 @@ export const handleWebSocket = upgradeWebSocket(async (c) => {
       }),
     logContext: { slug },
   });
-});
+
+  return response;
+}
 
 /**
- * Hono handler that serves static agent files (`client.js`, `client.js.map`).
- *
- * @param c - The Hono request context.
- * @returns The file contents with appropriate Content-Type header.
- * @throws {HTTPException} 404 if the agent or file is not found.
+ * Handler that serves static agent files (`client.js`, `client.js.map`).
  */
-export async function handleStaticFile(c: Context<HonoEnv>) {
-  const { slug, slots, store } = c.var;
-  await requireSlot(slug, slots, store);
+export async function handleStaticFile(
+  ctx: RouteContext,
+  opts: { slug: string; file: string },
+): Promise<Response> {
+  const { slug, file } = opts;
+  await requireSlot(slug, ctx.state);
 
   const STATIC_FILES: Record<
     string,
@@ -139,16 +127,30 @@ export async function handleStaticFile(c: Context<HonoEnv>) {
     "client.js.map": { key: "client_map", ct: "application/json" },
   };
 
-  const file = c.req.path.split("/").pop() ?? "";
   const spec = STATIC_FILES[file];
-  if (!spec) throw new HTTPException(404, { message: "Not found" });
+  if (!spec) throw new HttpError(404, "Not found");
 
-  const content = await store.getFile(slug, spec.key);
-  if (!content) throw new HTTPException(404, { message: "Not found" });
-  return c.body(content, {
+  const content = await ctx.state.store.getFile(slug, spec.key);
+  if (!content) throw new HttpError(404, "Not found");
+
+  const data = typeof content === "string"
+    ? new TextEncoder().encode(content)
+    : new Uint8Array(content as ArrayBuffer);
+  const tag = await eTag(data);
+
+  // Conditional request support
+  if (tag && !ifNoneMatch(ctx.req.headers.get("If-None-Match"), tag)) {
+    return new Response(null, {
+      status: 304,
+      headers: { ...(tag ? { ETag: tag } : {}) },
+    });
+  }
+
+  return new Response(content, {
     headers: {
       "Content-Type": spec.ct,
       "Cache-Control": "no-cache",
+      ...(tag ? { ETag: tag } : {}),
     },
   });
 }

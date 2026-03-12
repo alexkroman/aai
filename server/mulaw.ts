@@ -48,9 +48,9 @@ export function pcm16ToMulaw(pcm: Int16Array): Uint8Array {
 
 export function resample(
   samples: Int16Array,
-  fromRate: number,
-  toRate: number,
+  opts: { fromRate: number; toRate: number },
 ): Int16Array {
+  const { fromRate, toRate } = opts;
   if (fromRate === toRate) return samples;
   const ratio = fromRate / toRate;
   const len = Math.ceil(samples.length / ratio);

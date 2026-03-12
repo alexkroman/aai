@@ -68,27 +68,27 @@ Deno.test("mulawToPcm16 / pcm16ToMulaw", async (t) => {
 Deno.test("resample", async (t) => {
   await t.step("returns same array when rates match", () => {
     const input = new Int16Array([100, 200, 300]);
-    const out = resample(input, 8000, 8000);
+    const out = resample(input, { fromRate: 8000, toRate: 8000 });
     assertStrictEquals(out, input);
   });
 
   await t.step("downsamples correctly", () => {
     const input = new Int16Array(16);
     for (let i = 0; i < 16; i++) input[i] = i * 100;
-    const out = resample(input, 16000, 8000);
+    const out = resample(input, { fromRate: 16000, toRate: 8000 });
     assertStrictEquals(out.length, 8);
   });
 
   await t.step("upsamples correctly", () => {
     const input = new Int16Array(8);
     for (let i = 0; i < 8; i++) input[i] = i * 100;
-    const out = resample(input, 8000, 16000);
+    const out = resample(input, { fromRate: 8000, toRate: 16000 });
     assertStrictEquals(out.length, 16);
   });
 
   await t.step("preserves DC signal", () => {
     const input = new Int16Array(100).fill(5000);
-    const out = resample(input, 16000, 8000);
+    const out = resample(input, { fromRate: 16000, toRate: 8000 });
     for (let i = 0; i < out.length; i++) {
       assert(Math.abs(out[i]! - 5000) < 2);
     }

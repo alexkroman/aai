@@ -9,7 +9,7 @@ import {
 } from "./metrics.ts";
 
 Deno.test("counter without labels", () => {
-  const c = createCounter("test_total", "A test counter");
+  const c = createCounter("test_total", { help: "A test counter" });
   assertStringIncludes(c.serialize(), "test_total 0");
   c.inc();
   c.inc();
@@ -19,7 +19,10 @@ Deno.test("counter without labels", () => {
 });
 
 Deno.test("counter with labels", () => {
-  const c = createCounter("err_total", "Errors", ["component"]);
+  const c = createCounter("err_total", {
+    help: "Errors",
+    labelNames: ["component"],
+  });
   c.inc({ component: "llm" });
   c.inc({ component: "stt" });
   c.inc({ component: "llm" });
@@ -31,7 +34,10 @@ Deno.test("counter with labels", () => {
 });
 
 Deno.test("counter with multiple labels", () => {
-  const c = createCounter("errs", "Errors", ["agent", "component"]);
+  const c = createCounter("errs", {
+    help: "Errors",
+    labelNames: ["agent", "component"],
+  });
   c.inc({ agent: "ns/bot", component: "llm" });
   c.inc({ agent: "ns/bot", component: "llm" });
   c.inc({ agent: "ns/bot", component: "stt" });
@@ -41,7 +47,7 @@ Deno.test("counter with multiple labels", () => {
 });
 
 Deno.test("gauge without labels", () => {
-  const g = createGauge("active", "Active items");
+  const g = createGauge("active", { help: "Active items" });
   assertStringIncludes(g.serialize(), "active 0");
   g.inc();
   g.inc();
@@ -51,7 +57,10 @@ Deno.test("gauge without labels", () => {
 });
 
 Deno.test("gauge with labels", () => {
-  const g = createGauge("sessions", "Sessions", ["agent"]);
+  const g = createGauge("sessions", {
+    help: "Sessions",
+    labelNames: ["agent"],
+  });
   g.inc({ agent: "a/one" });
   g.inc({ agent: "a/two" });
   g.inc({ agent: "a/one" });
@@ -62,7 +71,7 @@ Deno.test("gauge with labels", () => {
 });
 
 Deno.test("histogram default buckets", () => {
-  const h = createHistogram("dur", "Duration");
+  const h = createHistogram("dur", { help: "Duration" });
   h.observe(0.03);
   h.observe(0.2);
   h.observe(3.0);
@@ -79,7 +88,10 @@ Deno.test("histogram default buckets", () => {
 });
 
 Deno.test("histogram custom buckets", () => {
-  const h = createHistogram("stt", "STT connect", [0.1, 0.5, 1, 5]);
+  const h = createHistogram("stt", {
+    help: "STT connect",
+    buckets: [0.1, 0.5, 1, 5],
+  });
   h.observe(0.05);
   h.observe(0.3);
   h.observe(3.0);
@@ -93,9 +105,13 @@ Deno.test("histogram custom buckets", () => {
 });
 
 Deno.test("histogram with labels", () => {
-  const h = createHistogram("turn_dur", "Turn duration", [0.5, 1, 5], [
-    "agent",
-  ]);
+  const h = createHistogram("turn_dur", {
+    help: "Turn duration",
+    buckets: [0.5, 1, 5],
+    labelNames: [
+      "agent",
+    ],
+  });
   h.observe(0.3, { agent: "ns/bot" });
   h.observe(2.0, { agent: "ns/bot" });
   h.observe(0.1, { agent: "ns/other" });
@@ -109,7 +125,7 @@ Deno.test("histogram with labels", () => {
 });
 
 Deno.test("histogram with no observations", () => {
-  const h = createHistogram("empty", "Empty", [1, 5]);
+  const h = createHistogram("empty", { help: "Empty", buckets: [1, 5] });
   const output = h.serialize();
   assertStringIncludes(output, 'le="1"} 0');
   assertStringIncludes(output, 'le="5"} 0');
@@ -134,7 +150,10 @@ Deno.test("serialize includes all registered metrics", () => {
 // --- Per-agent filtering ---
 
 Deno.test("counter filters by agent and strips agent label", () => {
-  const c = createCounter("errs", "Errors", ["agent", "component"]);
+  const c = createCounter("errs", {
+    help: "Errors",
+    labelNames: ["agent", "component"],
+  });
   c.inc({ agent: "ns/a", component: "llm" });
   c.inc({ agent: "ns/a", component: "llm" });
   c.inc({ agent: "ns/b", component: "stt" });
@@ -148,7 +167,7 @@ Deno.test("counter filters by agent and strips agent label", () => {
 });
 
 Deno.test("counter with only agent label strips to bare metric", () => {
-  const c = createCounter("turns", "Turns", ["agent"]);
+  const c = createCounter("turns", { help: "Turns", labelNames: ["agent"] });
   c.inc({ agent: "ns/a" });
   c.inc({ agent: "ns/a" });
   c.inc({ agent: "ns/b" });
@@ -159,7 +178,7 @@ Deno.test("counter with only agent label strips to bare metric", () => {
 });
 
 Deno.test("gauge filters by agent", () => {
-  const g = createGauge("active", "Active", ["agent"]);
+  const g = createGauge("active", { help: "Active", labelNames: ["agent"] });
   g.inc({ agent: "ns/a" });
   g.inc({ agent: "ns/a" });
   g.inc({ agent: "ns/b" });
@@ -170,7 +189,11 @@ Deno.test("gauge filters by agent", () => {
 });
 
 Deno.test("histogram filters by agent and strips label", () => {
-  const h = createHistogram("dur", "Duration", [0.5, 1, 5], ["agent"]);
+  const h = createHistogram("dur", {
+    help: "Duration",
+    buckets: [0.5, 1, 5],
+    labelNames: ["agent"],
+  });
   h.observe(0.3, { agent: "ns/a" });
   h.observe(2.0, { agent: "ns/a" });
   h.observe(0.1, { agent: "ns/b" });
@@ -185,7 +208,11 @@ Deno.test("histogram filters by agent and strips label", () => {
 });
 
 Deno.test("histogram keeps non-agent labels when filtering", () => {
-  const h = createHistogram("tool_dur", "Tool", [1, 5], ["agent", "tool"]);
+  const h = createHistogram("tool_dur", {
+    help: "Tool",
+    buckets: [1, 5],
+    labelNames: ["agent", "tool"],
+  });
   h.observe(0.5, { agent: "ns/a", tool: "search" });
   h.observe(2.0, { agent: "ns/a", tool: "fetch" });
   h.observe(0.1, { agent: "ns/b", tool: "search" });
@@ -199,7 +226,7 @@ Deno.test("histogram keeps non-agent labels when filtering", () => {
 });
 
 Deno.test("returns empty data for unknown agent", () => {
-  const c = createCounter("x", "X", ["agent"]);
+  const c = createCounter("x", { help: "X", labelNames: ["agent"] });
   c.inc({ agent: "ns/a" });
   const output = c.serialize("ns/unknown");
   assertStringIncludes(output, "# HELP");
@@ -221,7 +248,7 @@ Deno.test("serializeForAgent includes agent metrics, excludes global", () => {
 });
 
 Deno.test("metric without agent label is unaffected by filter", () => {
-  const c = createCounter("plain", "Plain counter");
+  const c = createCounter("plain", { help: "Plain counter" });
   c.inc();
   c.inc();
   assertStringIncludes(c.serialize("ns/a"), "plain 2");

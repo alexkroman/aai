@@ -7,7 +7,7 @@ import { createReconnect } from "./session.ts";
 Deno.test("canRetry true initially, false after max attempts", () => {
   const time = new FakeTime();
   try {
-    const s = createReconnect(2);
+    const s = createReconnect({ maxAttempts: 2 });
     assertStrictEquals(s.canRetry, true);
     s.schedule(spy());
     s.schedule(spy());
@@ -20,7 +20,7 @@ Deno.test("canRetry true initially, false after max attempts", () => {
 Deno.test("schedule returns true until exhausted", () => {
   const time = new FakeTime();
   try {
-    const s = createReconnect(1);
+    const s = createReconnect({ maxAttempts: 1 });
     assertStrictEquals(s.schedule(spy()), true);
     assertStrictEquals(s.schedule(spy()), false);
   } finally {
@@ -31,7 +31,11 @@ Deno.test("schedule returns true until exhausted", () => {
 Deno.test("schedule fires callback after delay", () => {
   const time = new FakeTime();
   try {
-    const s = createReconnect(5, 16_000, 1_000);
+    const s = createReconnect({
+      maxAttempts: 5,
+      maxBackoff: 16_000,
+      initialBackoff: 1_000,
+    });
     const cb = spy();
     s.schedule(cb);
     assertSpyCalls(cb, 0);
@@ -45,7 +49,11 @@ Deno.test("schedule fires callback after delay", () => {
 Deno.test("exponential backoff capped at maxBackoff", () => {
   const time = new FakeTime();
   try {
-    const s = createReconnect(5, 4_000, 1_000);
+    const s = createReconnect({
+      maxAttempts: 5,
+      maxBackoff: 4_000,
+      initialBackoff: 1_000,
+    });
 
     // 1st: 1000 * 2^0 = 1000ms
     const cb1 = spy();
@@ -80,7 +88,11 @@ Deno.test("exponential backoff capped at maxBackoff", () => {
 Deno.test("cancel clears pending timer", () => {
   const time = new FakeTime();
   try {
-    const s = createReconnect(5, 16_000, 1_000);
+    const s = createReconnect({
+      maxAttempts: 5,
+      maxBackoff: 16_000,
+      initialBackoff: 1_000,
+    });
     const cb = spy();
     s.schedule(cb);
     s.cancel();
@@ -94,7 +106,7 @@ Deno.test("cancel clears pending timer", () => {
 Deno.test("reset restores retry capacity", () => {
   const time = new FakeTime();
   try {
-    const s = createReconnect(1);
+    const s = createReconnect({ maxAttempts: 1 });
     s.schedule(spy());
     assertStrictEquals(s.canRetry, false);
     s.reset();

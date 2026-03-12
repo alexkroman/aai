@@ -13,9 +13,9 @@
  */
 export function resample(
   input: Float32Array,
-  fromRate: number,
-  toRate: number,
+  opts: { fromRate: number; toRate: number },
 ): Float32Array {
+  const { fromRate, toRate } = opts;
   if (fromRate === toRate) return input;
   if (input.length === 0) return new Float32Array(0);
   const ratio = fromRate / toRate;

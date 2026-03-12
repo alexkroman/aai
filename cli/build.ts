@@ -29,7 +29,7 @@ export type BuildOpts = {
 export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
   const agent = await loadAgent(opts.agentDir);
   if (!agent) {
-    throw new Error("no agent found — run `aai new` first");
+    throw new Error("No agent found — run `aai new` first");
   }
 
   step("Bundle", agent.slug);
@@ -39,7 +39,7 @@ export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
   } catch (err) {
     if (err instanceof BundleError) {
       log.error(err.message);
-      throw new Error("bundle failed — fix the errors above");
+      throw new Error("Bundle failed — fix the errors above");
     }
     throw err;
   }

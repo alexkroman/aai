@@ -66,10 +66,15 @@ export type Reconnect = {
  * @returns A {@linkcode Reconnect} state machine.
  */
 export function createReconnect(
-  maxAttempts = MAX_RECONNECT_ATTEMPTS,
-  maxBackoff = MAX_BACKOFF_MS,
-  initialBackoff = INITIAL_BACKOFF_MS,
+  opts?: {
+    maxAttempts?: number;
+    maxBackoff?: number;
+    initialBackoff?: number;
+  },
 ): Reconnect {
+  const maxAttempts = opts?.maxAttempts ?? MAX_RECONNECT_ATTEMPTS;
+  const maxBackoff = opts?.maxBackoff ?? MAX_BACKOFF_MS;
+  const initialBackoff = opts?.initialBackoff ?? INITIAL_BACKOFF_MS;
   let attempts = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
 

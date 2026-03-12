@@ -184,9 +184,13 @@ function resetIdleTimer(slot: AgentSlot): void {
  */
 export function ensureAgent(
   slot: AgentSlot,
-  getWorkerCode?: (slug: string) => Promise<string | null>,
-  kvCtx?: { kvStore: KvStore; scope: AgentScope },
+  opts?: {
+    getWorkerCode?: (slug: string) => Promise<string | null>;
+    kvCtx?: { kvStore: KvStore; scope: AgentScope };
+  },
 ): Promise<void> {
+  const getWorkerCode = opts?.getWorkerCode;
+  const kvCtx = opts?.kvCtx;
   const t0 = performance.now();
 
   if (slot.worker) {
@@ -277,16 +281,15 @@ export type SessionSetup = {
  */
 export async function prepareSession(
   slot: AgentSlot,
-  slug: string,
-  store: BundleStore,
-  kvStore: KvStore,
+  opts: { slug: string; store: BundleStore; kvStore: KvStore },
 ): Promise<SessionSetup> {
+  const { slug, store, kvStore } = opts;
   const kvCtx = slot.accountId
     ? { kvStore, scope: { accountId: slot.accountId, slug } }
     : undefined;
   const getWorkerCode = (s: string) => store.getFile(s, "worker");
   const getWorkerApi = async () => {
-    await ensureAgent(slot, getWorkerCode, kvCtx);
+    await ensureAgent(slot, { getWorkerCode, ...(kvCtx && { kvCtx }) });
     return slot.worker!.api;
   };
   const executeTool: ExecuteTool = async (name, args, sessionId, messages) => {

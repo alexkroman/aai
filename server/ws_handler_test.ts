@@ -1,10 +1,9 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assert, assertStrictEquals } from "@std/assert";
-import { createSessionWSEvents } from "./ws_handler.ts";
+import { wireSessionSocket } from "./ws_handler.ts";
 import type { Session } from "./session.ts";
 import { MockWebSocket } from "./_mock_ws.ts";
 import { flush } from "./_test_utils.ts";
-import { WSContext } from "hono/ws";
 
 function createSpySession(): Session & { calls: string[] } {
   const calls: string[] = [];
@@ -44,30 +43,11 @@ function setup(overrides?: { onOpen?: () => void; onClose?: () => void }) {
   const sessions = new Map<string, Session>();
   const spy = createSpySession();
 
-  const events = createSessionWSEvents(sessions, {
+  wireSessionSocket(ws as unknown as WebSocket, {
+    sessions,
     createSession: () => spy,
     ...overrides,
   });
-
-  // Wire WSEvents to MockWebSocket via a WSContext wrapper
-  const wsContext = new WSContext({
-    send: (data) => ws.send(data),
-    close: (code, reason) => ws.close(code, reason),
-    raw: ws,
-    get readyState() {
-      return ws.readyState as 0 | 1 | 2 | 3;
-    },
-  });
-  ws.addEventListener("open", (e) => events.onOpen!(e, wsContext));
-  ws.addEventListener(
-    "message",
-    (e) => events.onMessage!(e as MessageEvent, wsContext),
-  );
-  ws.addEventListener(
-    "close",
-    (e) => void events.onClose!(e as CloseEvent, wsContext),
-  );
-  ws.addEventListener("error", (e) => events.onError!(e, wsContext));
 
   return { ws, sessions, spy };
 }

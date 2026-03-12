@@ -115,7 +115,7 @@ Deno.test("useSession", async (t) => {
     assert(caught !== null);
     assertStringIncludes(
       caught!.message,
-      "useSession() requires <SessionProvider>",
+      "Hook useSession() requires a SessionProvider",
     );
 
     render(null, container);

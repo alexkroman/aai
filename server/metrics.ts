@@ -76,9 +76,9 @@ type Histogram = {
 
 export function createCounter(
   name: string,
-  help: string,
-  labelNames: string[] = [],
+  opts: { help: string; labelNames?: string[] },
 ): Counter {
+  const { help, labelNames = [] } = opts;
   const values = new Map<string, number>();
   if (labelNames.length === 0) values.set("", 0);
 
@@ -102,9 +102,9 @@ export function createCounter(
 
 export function createGauge(
   name: string,
-  help: string,
-  labelNames: string[] = [],
+  opts: { help: string; labelNames?: string[] },
 ): Gauge {
+  const { help, labelNames = [] } = opts;
   const values = new Map<string, number>();
   if (labelNames.length === 0) values.set("", 0);
 
@@ -135,10 +135,9 @@ type HistogramEntry = { counts: number[]; sum: number; count: number };
 
 export function createHistogram(
   name: string,
-  help: string,
-  buckets = DEFAULT_BUCKETS,
-  labelNames: string[] = [],
+  opts: { help: string; buckets?: number[]; labelNames?: string[] },
 ): Histogram {
+  const { help, buckets = DEFAULT_BUCKETS, labelNames = [] } = opts;
   const entries = new Map<string, HistogramEntry>();
 
   function getEntry(key: string): HistogramEntry {
@@ -185,51 +184,48 @@ export function createHistogram(
 
 export const sessionsTotal = createCounter(
   "aai_sessions_total",
-  "Total voice sessions created",
-  ["agent"],
+  { help: "Total voice sessions created", labelNames: ["agent"] },
 );
 
 export const sessionsActive = createGauge(
   "aai_sessions_active",
-  "Currently active voice sessions",
-  ["agent"],
+  { help: "Currently active voice sessions", labelNames: ["agent"] },
 );
 
 export const turnsTotal = createCounter(
   "aai_turns_total",
-  "Total conversation turns processed",
-  ["agent"],
+  { help: "Total conversation turns processed", labelNames: ["agent"] },
 );
 
 export const errorsTotal = createCounter(
   "aai_errors_total",
-  "Total errors by component",
-  ["agent", "component"],
+  { help: "Total errors by component", labelNames: ["agent", "component"] },
 );
 
 export const turnDuration = createHistogram(
   "aai_turn_duration_seconds",
-  "End-to-end turn duration in seconds",
-  DEFAULT_BUCKETS,
-  ["agent"],
+  { help: "End-to-end turn duration in seconds", labelNames: ["agent"] },
 );
 
 export const ttsDuration = createHistogram(
   "aai_tts_duration_seconds",
-  "TTS synthesis duration in seconds",
+  { help: "TTS synthesis duration in seconds" },
 );
 
 export const sttConnectDuration = createHistogram(
   "aai_stt_connect_duration_seconds",
-  "STT WebSocket connection time in seconds",
-  [0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  {
+    help: "STT WebSocket connection time in seconds",
+    buckets: [0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  },
 );
 
 export const toolDuration = createHistogram(
   "aai_tool_duration_seconds",
-  "Tool execution duration in seconds",
-  DEFAULT_BUCKETS,
-  ["agent", "tool"],
+  {
+    help: "Tool execution duration in seconds",
+    labelNames: ["agent", "tool"],
+  },
 );
 
 type Metric = { serialize(agent?: string): string };

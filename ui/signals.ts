@@ -111,6 +111,6 @@ export function SessionProvider(
  */
 export function useSession(): SessionSignals {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useSession() requires <SessionProvider>");
+  if (!ctx) throw new Error("Hook useSession() requires a SessionProvider");
   return ctx;
 }

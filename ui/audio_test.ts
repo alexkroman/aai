@@ -8,7 +8,7 @@ import {
   withAudioMocks,
 } from "./_test_utils.ts";
 
-const noop = () => {};
+function noop() {}
 
 function voiceOpts(
   overrides?: Partial<Parameters<typeof createVoiceIO>[0]>,

@@ -12,8 +12,8 @@ import {
   createAudioBuffer,
   createTwilioTransport,
   decodeTwilioFrame,
+  type WsSink,
 } from "./transport_twilio.ts";
-import { WSContext } from "hono/ws";
 
 // --- mulaw codec ---
 
@@ -56,11 +56,14 @@ Deno.test("batch mulaw", () => {
 Deno.test("resample", async (t) => {
   await t.step("identity when rates match", () => {
     const s = new Int16Array([100, 200, 300]);
-    assertEquals(resample(s, 8000, 8000), s);
+    assertEquals(resample(s, { fromRate: 8000, toRate: 8000 }), s);
   });
 
   await t.step("8kHz→16kHz doubles length and interpolates", () => {
-    const r = resample(new Int16Array([0, 1000, 2000, 3000]), 8000, 16000);
+    const r = resample(new Int16Array([0, 1000, 2000, 3000]), {
+      fromRate: 8000,
+      toRate: 16000,
+    });
     assertStrictEquals(r.length, 8);
     assertStrictEquals(r[0], 0);
     assertStrictEquals(r[1], 500);
@@ -69,7 +72,10 @@ Deno.test("resample", async (t) => {
   await t.step("24kHz→8kHz reduces by 3x", () => {
     const s = new Int16Array(24);
     for (let i = 0; i < 24; i++) s[i] = i * 100;
-    assertStrictEquals(resample(s, 24000, 8000).length, 8);
+    assertStrictEquals(
+      resample(s, { fromRate: 24000, toRate: 8000 }).length,
+      8,
+    );
   });
 });
 
@@ -124,64 +130,62 @@ Deno.test("decodeTwilioFrame produces PCM16 bytes at 16kHz", () => {
 
 Deno.test("createTwilioTransport", async (t) => {
   function mockWs(): {
-    ctx: WSContext;
+    ws: WsSink;
     sent: string[];
     setReady(v: number): void;
   } {
     const sent: string[] = [];
-    let readyState: 0 | 1 | 2 | 3 = 1;
-    const ctx = new WSContext({
-      send: (data) => sent.push(data as string),
-      close: () => {},
-      get readyState() {
-        return readyState as 0 | 1 | 2 | 3;
-      },
-    });
+    let readyState = 1;
     return {
-      ctx,
+      ws: {
+        send: (data: string) => sent.push(data),
+        get readyState() {
+          return readyState;
+        },
+      },
       sent,
       setReady(v: number) {
-        readyState = v as 0 | 1 | 2 | 3;
+        readyState = v;
       },
     };
   }
 
   await t.step("drops string messages (UI-only)", () => {
-    const ws = mockWs();
-    const t = createTwilioTransport(ws.ctx);
+    const { ws, sent } = mockWs();
+    const t = createTwilioTransport(ws);
     t.send(JSON.stringify({ type: "ready" }));
-    assertStrictEquals(ws.sent.length, 0);
+    assertStrictEquals(sent.length, 0);
   });
 
   await t.step("converts PCM16 binary to mulaw media event", () => {
-    const ws = mockWs();
-    const transport = createTwilioTransport(ws.ctx);
+    const { ws, sent } = mockWs();
+    const transport = createTwilioTransport(ws);
     transport.streamSid = "stream-123";
 
     // Send 4 bytes of PCM16 (2 samples)
     const pcm = new Int16Array([1000, -1000]);
     transport.send(new Uint8Array(pcm.buffer));
 
-    assertStrictEquals(ws.sent.length, 1);
-    const msg = JSON.parse(ws.sent[0]!);
+    assertStrictEquals(sent.length, 1);
+    const msg = JSON.parse(sent[0]!);
     assertStrictEquals(msg.event, "media");
     assertStrictEquals(msg.streamSid, "stream-123");
     assertStrictEquals(typeof msg.media.payload, "string");
   });
 
   await t.step("skips binary when no streamSid", () => {
-    const ws = mockWs();
-    const transport = createTwilioTransport(ws.ctx);
+    const { ws, sent } = mockWs();
+    const transport = createTwilioTransport(ws);
     transport.send(new Uint8Array([0, 0, 0, 0]));
-    assertStrictEquals(ws.sent.length, 0);
+    assertStrictEquals(sent.length, 0);
   });
 
   await t.step("skips when socket not open", () => {
-    const ws = mockWs();
-    ws.setReady(3);
-    const transport = createTwilioTransport(ws.ctx);
+    const mock = mockWs();
+    mock.setReady(3);
+    const transport = createTwilioTransport(mock.ws);
     transport.streamSid = "stream-1";
     transport.send(new Uint8Array([0, 0, 0, 0]));
-    assertStrictEquals(ws.sent.length, 0);
+    assertStrictEquals(mock.sent.length, 0);
   });
 });

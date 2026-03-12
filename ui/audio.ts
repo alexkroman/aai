@@ -114,7 +114,10 @@ export async function createVoiceIO(
       const int16 = new Int16Array(chunk);
       const floats = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) floats[i] = int16[i]! / 32768;
-      const resampled = resample(floats, contextRate, sttSampleRate);
+      const resampled = resample(floats, {
+        fromRate: contextRate,
+        toRate: sttSampleRate,
+      });
       const out = new Int16Array(resampled.length);
       for (let i = 0; i < resampled.length; i++) {
         const s = resampled[i]! * 32768;

@@ -40,7 +40,7 @@ if (isDev) {
   const kvSecret = requireEnv("KV_SCOPE_SECRET");
   const credentialKey = await deriveCredentialKey(kvSecret);
   const s3 = createS3Client();
-  store = createBundleStore(s3, bucket, credentialKey);
+  store = createBundleStore(s3, { bucket, credentialKey });
   kvStore = createKvStore(
     requireEnv("UPSTASH_REDIS_REST_URL"),
     requireEnv("UPSTASH_REDIS_REST_TOKEN"),

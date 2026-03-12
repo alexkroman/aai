@@ -60,7 +60,7 @@ for (const template of templates) {
       });
       const npmResult = await npm.output();
       if (!npmResult.success) {
-        throw new Error("npm install failed");
+        throw new Error("Npm install failed");
       }
     } catch (e) {
       if (!(e instanceof Deno.errors.NotFound)) throw e;
