@@ -1,12 +1,21 @@
+/**
+ * Zod schemas and types for agent configuration wire format.
+ *
+ * @module
+ */
+
 import { z } from "zod";
 
+/** Transport protocol for client-server communication. */
 export type Transport = "websocket" | "twilio";
 
+/** Zod schema for {@linkcode Transport}. */
 export const TransportSchema: z.ZodType<Transport> = z.enum([
   "websocket",
   "twilio",
 ]);
 
+/** Normalize a transport value to an array. */
 export function normalizeTransport(
   value: Transport | Transport[] | undefined,
 ): Transport[] {
@@ -15,6 +24,7 @@ export function normalizeTransport(
   return value;
 }
 
+/** Identifier for a built-in server-side tool. */
 export type BuiltinTool =
   | "web_search"
   | "visit_webpage"
@@ -23,6 +33,7 @@ export type BuiltinTool =
   | "user_input"
   | "final_answer";
 
+/** Zod schema for {@linkcode BuiltinTool}. */
 export const BuiltinToolSchema: z.ZodType<BuiltinTool> = z.enum([
   "web_search",
   "visit_webpage",
@@ -32,24 +43,29 @@ export const BuiltinToolSchema: z.ZodType<BuiltinTool> = z.enum([
   "final_answer",
 ]);
 
+/** How the LLM should select tools during a turn. */
 export type ToolChoice =
   | "auto"
   | "required"
   | "none"
   | { type: "tool"; toolName: string };
 
+/** Zod schema for {@linkcode ToolChoice}. */
 export const ToolChoiceSchema: z.ZodType<ToolChoice> = z.union([
   z.enum(["auto", "required", "none"]),
   z.object({ type: z.literal("tool"), toolName: z.string().min(1) }),
 ]);
 
+/** Agent operating mode. */
 export type AgentMode = "full" | "stt-only";
 
+/** Zod schema for {@linkcode AgentMode}. */
 export const AgentModeSchema: z.ZodType<AgentMode> = z.enum([
   "full",
   "stt-only",
 ]);
 
+/** Serializable agent configuration sent over the wire. */
 export type AgentConfig = {
   name: string;
   mode?: AgentMode;
@@ -63,6 +79,7 @@ export type AgentConfig = {
   builtinTools?: BuiltinTool[];
 };
 
+/** Zod schema for {@linkcode AgentConfig}. */
 export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
   name: z.string().min(1),
   mode: AgentModeSchema.optional(),
@@ -95,6 +112,7 @@ export type ToolSchema = {
   };
 };
 
+/** Zod schema for {@linkcode ToolSchema}. */
 export const ToolSchemaSchema: z.ZodType<ToolSchema> = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
@@ -105,6 +123,7 @@ export const ToolSchemaSchema: z.ZodType<ToolSchema> = z.object({
   }).catchall(z.unknown()),
 });
 
+/** Request body for the deploy endpoint. */
 export type DeployBody = {
   env: Record<string, string>;
   worker: string;
@@ -112,6 +131,7 @@ export type DeployBody = {
   transport?: Transport | Transport[];
 };
 
+/** Zod schema for {@linkcode DeployBody}. */
 export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
   env: z.record(z.string(), z.string()),
   worker: z.string().min(1).max(10_000_000),
@@ -122,12 +142,14 @@ export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
   ]).optional(),
 });
 
+/** Environment variables required by the agent runtime. */
 export type AgentEnv = {
   ASSEMBLYAI_API_KEY: string;
   LLM_MODEL?: string;
   [key: string]: string | undefined;
 };
 
+/** Zod schema for {@linkcode AgentEnv}. */
 export const EnvSchema: z.ZodType<AgentEnv> = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
   LLM_MODEL: z.string().optional(),
@@ -139,6 +161,7 @@ export type WorkerConfig = {
   toolSchemas: ToolSchema[];
 };
 
+/** Zod schema for {@linkcode WorkerConfig}. */
 export const WorkerConfigSchema: z.ZodType<WorkerConfig> = z.object({
   config: AgentConfigSchema,
   toolSchemas: z.array(ToolSchemaSchema),

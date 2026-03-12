@@ -1,13 +1,22 @@
+/**
+ * Pre-built KV memory tools for agents.
+ *
+ * @module
+ */
+
 import { z } from "zod";
 import { tool, type ToolDef } from "./types.ts";
 
+/** Options to customize tool names and descriptions for {@linkcode kvTools}. */
 export type KvToolsOptions = {
+  /** Override default tool names. */
   names?: {
     save?: string;
     recall?: string;
     list?: string;
     forget?: string;
   };
+  /** Override default tool descriptions. */
   descriptions?: {
     save?: string;
     recall?: string;
@@ -33,6 +42,7 @@ const DEFAULTS = {
   },
 };
 
+/** Create a set of save/recall/list/forget tools backed by the session KV store. */
 export function kvTools(
   options?: KvToolsOptions,
 ): Record<string, ToolDef> {

@@ -1,4 +1,6 @@
 /**
+ * Preact UI components for the voice agent interface.
+ *
  * Re-exports from _components.ts with explicit type annotations so JSR can
  * generate .d.ts without needing to analyze source files.
  */
@@ -17,24 +19,31 @@ import {
   Transcript as _Transcript,
 } from "./_components.ts";
 
+/** Displays the current agent state as a colored indicator. */
 export const StateIndicator: (
   props: { state: Signal<AgentState> },
 ) => preact.JSX.Element = _StateIndicator;
 
+/** Displays an error message banner when an error is present. */
 export const ErrorBanner: (
   props: { error: Signal<SessionError | null> },
 ) => preact.JSX.Element | null = _ErrorBanner;
 
+/** Renders a single chat message bubble. */
 export const MessageBubble: (
   props: { message: Message },
 ) => preact.JSX.Element = _MessageBubble;
 
+/** Displays the live partial transcript from STT. */
 export const Transcript: (
   props: { text: Signal<string> },
 ) => preact.JSX.Element | null = _Transcript;
 
+/** Animated indicator shown while the agent is processing. */
 export const ThinkingIndicator: () => preact.JSX.Element = _ThinkingIndicator;
 
+/** Full chat view showing messages, transcript, and thinking state. */
 export const ChatView: () => preact.JSX.Element = _ChatView;
 
+/** Default top-level app component with start screen and chat view. */
 export const App: () => preact.JSX.Element = _App;

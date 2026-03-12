@@ -1,3 +1,10 @@
+/**
+ * Typed JSON fetch utility.
+ *
+ * @module
+ */
+
+/** Create an Error with an HTTP status code attached. */
 export function httpError(status: number, statusText: string): Error {
   const err = new Error(`${status} ${statusText}`);
   err.name = "HttpError";
@@ -5,6 +12,7 @@ export function httpError(status: number, statusText: string): Error {
   return err;
 }
 
+/** Fetch a URL and parse the response as JSON, with optional fallback. */
 export async function fetchJSON<T = unknown>(
   url: string,
   init?: RequestInit & { fetch?: typeof globalThis.fetch; fallback?: T },

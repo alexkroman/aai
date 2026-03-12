@@ -35,6 +35,7 @@ import {
 
 import type { VoiceIO } from "./audio.ts";
 
+/** Reconnection state machine with exponential backoff. */
 export type Reconnect = {
   readonly canRetry: boolean;
   schedule(cb: () => void): boolean;
@@ -42,6 +43,7 @@ export type Reconnect = {
   reset(): void;
 };
 
+/** Create a reconnection handler with exponential backoff. */
 export function createReconnect(
   maxAttempts = MAX_RECONNECT_ATTEMPTS,
   maxBackoff = MAX_BACKOFF_MS,
@@ -76,6 +78,7 @@ export function createReconnect(
   };
 }
 
+/** Parse a JSON string into a ServerMessage, returning null on failure. */
 export function parseServerMessage(data: string): ServerMessage | null {
   try {
     const msg = JSON.parse(data);
@@ -88,6 +91,7 @@ export function parseServerMessage(data: string): ServerMessage | null {
   }
 }
 
+/** A reactive voice session that manages WebSocket, audio, and state. */
 export type VoiceSession = {
   readonly state: Signal<AgentState>;
   readonly messages: Signal<Message[]>;
@@ -102,6 +106,7 @@ export type VoiceSession = {
   [Symbol.dispose](): void;
 };
 
+/** Create a voice session that connects to an AAI server via WebSocket. */
 export function createVoiceSession(options: SessionOptions): VoiceSession {
   const state = signal<AgentState>("connecting");
   const messages = signal<Message[]>([]);

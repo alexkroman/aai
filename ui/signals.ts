@@ -7,6 +7,7 @@ import type { VoiceSession } from "./session.ts";
 
 import type { AgentState, Message, SessionError } from "./types.ts";
 
+/** Reactive session controls wrapping a VoiceSession with Preact signals. */
 export type SessionSignals = {
   state: Signal<AgentState>;
   messages: Signal<Message[]>;
@@ -21,6 +22,7 @@ export type SessionSignals = {
   [Symbol.dispose](): void;
 };
 
+/** Wrap a VoiceSession in Preact signals for reactive UI binding. */
 export function createSessionControls(session: VoiceSession): SessionSignals {
   const started = signal(false);
   const running = signal(true);
@@ -60,12 +62,14 @@ export function createSessionControls(session: VoiceSession): SessionSignals {
 
 const Ctx = createContext<SessionSignals | null>(null);
 
+/** Preact context provider that makes session signals available to children. */
 export function SessionProvider(
   { value, children }: { value: SessionSignals; children: ComponentChildren },
 ): preact.JSX.Element {
   return h(Ctx.Provider, { value }, children);
 }
 
+/** Hook to access session signals from within a SessionProvider. */
 export function useSession(): SessionSignals {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useSession() requires <SessionProvider>");

@@ -1,18 +1,33 @@
+/**
+ * Key-value storage interface and in-memory implementation.
+ *
+ * @module
+ */
+
+/** A single key-value entry returned by {@linkcode Kv.list}. */
 export type KvEntry<T = unknown> = { key: string; value: T };
 
+/** Options for listing keys from the KV store. */
 export type KvListOptions = {
+  /** Maximum number of entries to return. */
   limit?: number;
+  /** Return entries in reverse key order. */
   reverse?: boolean;
 };
 
+/** Async key-value store interface used by agents. */
 export type Kv = {
+  /** Get a value by key, or `null` if not found. */
   get<T = unknown>(key: string): Promise<T | null>;
+  /** Set a value, optionally with a TTL in milliseconds. */
   set(
     key: string,
     value: unknown,
     options?: { expireIn?: number },
   ): Promise<void>;
+  /** Delete a key. */
   delete(key: string): Promise<void>;
+  /** List entries whose keys start with the given prefix. */
   list<T = unknown>(
     prefix: string,
     options?: KvListOptions,
@@ -21,6 +36,7 @@ export type Kv = {
 
 const MAX_VALUE_SIZE = 65_536;
 
+/** Create an in-memory KV store (useful for testing and local development). */
 export function createMemoryKv(): Kv {
   const store = new Map<string, { raw: string; expiresAt?: number }>();
 
