@@ -1,5 +1,6 @@
 import type { AgentState } from "./types.ts";
 
+/** Color and typography theme applied to the voice agent UI. */
 export type Theme = {
   bg: string;
   surface: string;
@@ -13,6 +14,7 @@ export type Theme = {
   stateColors: Record<AgentState, string>;
 };
 
+/** Default dark theme. */
 export const defaultTheme: Theme = Object.freeze({
   bg: "#0f0e17",
   surface: "#1a1a2e",
@@ -33,8 +35,10 @@ export const defaultTheme: Theme = Object.freeze({
   }),
 });
 
+/** Alias for the default dark theme. */
 export const darkTheme: Theme = defaultTheme;
 
+/** Light theme variant. */
 export const lightTheme: Theme = Object.freeze({
   bg: "#ffffff",
   surface: "#f5f5f5",
@@ -55,6 +59,7 @@ export const lightTheme: Theme = Object.freeze({
   }),
 });
 
+/** Apply a theme to an element by setting CSS custom properties. */
 export function applyTheme(el: HTMLElement, theme: Readonly<Theme>): void {
   const s = el.style;
   for (const [key, value] of Object.entries(theme)) {

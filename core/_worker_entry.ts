@@ -1,3 +1,9 @@
+/**
+ * Worker entry point — runs agent code in a sandboxed Deno Worker.
+ *
+ * @module
+ */
+
 import * as Comlink from "comlink";
 import { z } from "zod";
 import type {
@@ -11,8 +17,10 @@ import type { ToolSchema, WorkerConfig } from "@aai/sdk/schema";
 import type { Kv, KvEntry } from "@aai/sdk/kv";
 import { deadline } from "@std/async/deadline";
 
+/** Maximum time in ms a tool handler may run before being aborted. */
 export const TOOL_HANDLER_TIMEOUT = 30_000;
 
+/** Function signature for executing a tool by name. */
 export type ExecuteTool = (
   name: string,
   args: Record<string, unknown>,
@@ -20,6 +28,7 @@ export type ExecuteTool = (
   messages?: Message[],
 ) => Promise<string>;
 
+/** Execute a tool call with argument validation, timeout, and error handling. */
 export async function executeToolCall(
   name: string,
   args: Record<string, unknown>,
@@ -70,12 +79,14 @@ export async function executeToolCall(
 
 export type { WorkerConfig } from "@aai/sdk/schema";
 
+/** Step info payload for RPC transport. */
 export type StepInfoRpc = {
   stepNumber: number;
   toolCalls: { toolName: string; args: Record<string, unknown> }[];
   text: string;
 };
 
+/** High-level API for communicating with a sandboxed agent worker. */
 export type WorkerApi = {
   getConfig(): Promise<WorkerConfig>;
   executeTool(
@@ -241,6 +252,7 @@ export function createWorkerApi(
   };
 }
 
+/** Start the worker-side Comlink endpoint that serves agent RPC calls. */
 export function startWorker(
   agent: AgentDef,
   env: Record<string, string>,

@@ -1,3 +1,26 @@
+/**
+ * AAI SDK — build voice agents powered by STT, LLM, and TTS.
+ *
+ * @example
+ * ```ts
+ * import { defineAgent, tool, z } from "@aai/sdk";
+ *
+ * export default defineAgent({
+ *   name: "my-agent",
+ *   instructions: "You are a helpful voice assistant.",
+ *   tools: {
+ *     greet: tool({
+ *       description: "Greet the user by name",
+ *       parameters: z.object({ name: z.string() }),
+ *       execute: ({ name }) => `Hello, ${name}!`,
+ *     }),
+ *   },
+ * });
+ * ```
+ *
+ * @module
+ */
+
 export { defineAgent } from "./define_agent.ts";
 export { fetchJSON, httpError } from "./fetch_json.ts";
 export { createMemoryKv } from "./kv.ts";

@@ -16,12 +16,14 @@ function injectBodyStyle(theme: Theme): HTMLStyleElement {
   return style;
 }
 
+/** Options for mounting the UI. */
 export type MountOptions = {
   theme?: Partial<Theme>;
   target?: string | HTMLElement;
   platformUrl?: string;
 };
 
+/** Handle returned by {@linkcode mount} for cleanup. */
 export type MountHandle = {
   session: VoiceSession;
   signals: SessionSignals;
@@ -37,6 +39,7 @@ function resolveContainer(target: string | HTMLElement = "#app"): HTMLElement {
   return el as HTMLElement;
 }
 
+/** Mount a Preact component with session wiring and theming. */
 export function mount(
   Component: ComponentType,
   options?: MountOptions,

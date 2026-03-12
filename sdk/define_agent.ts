@@ -1,3 +1,9 @@
+/**
+ * Agent definition factory.
+ *
+ * @module
+ */
+
 import { normalizeTransport } from "./_schema.ts";
 import {
   type AgentDef,
@@ -6,6 +12,7 @@ import {
   DEFAULT_INSTRUCTIONS,
 } from "./types.ts";
 
+/** Create a frozen agent definition from the given options. */
 export function defineAgent(options: AgentOptions): AgentDef {
   const isSttOnly = options.mode === "stt-only";
   return Object.freeze({

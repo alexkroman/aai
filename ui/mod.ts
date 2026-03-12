@@ -1,4 +1,18 @@
-/** @module @aai/ui */
+/**
+ * Browser client library for AAI voice agents.
+ *
+ * Provides WebSocket session management, audio capture/playback,
+ * Preact UI components, and theming.
+ *
+ * @example
+ * ```ts
+ * import { App, mount } from "@aai/ui";
+ *
+ * mount(App, { target: "#app" });
+ * ```
+ *
+ * @module
+ */
 
 export { html } from "./_html.ts";
 

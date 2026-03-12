@@ -1,3 +1,9 @@
+/**
+ * Deno Worker factory with permission control.
+ *
+ * @module
+ */
+
 /** All permissions denied — used for sandboxed agent and code-execution workers. */
 export const LOCKED_PERMISSIONS = {
   net: false,
@@ -14,6 +20,7 @@ export const LOCKED_PERMISSIONS = {
  * Deno supports a `deno` option on the Worker constructor but TypeScript
  * types don't include it — this is the single place for the cast.
  */
+/** Create a Deno Worker with explicit permission options. */
 export function createDenoWorker(
   specifier: string | URL,
   name: string,

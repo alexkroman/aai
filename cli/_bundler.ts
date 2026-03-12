@@ -139,8 +139,38 @@ function resolveNpmPackage(
     const pkg = JSON.parse(Deno.readTextFileSync(pkgJson));
     return resolve(pkgDir, pkg.module || pkg.main || "index.js");
   } catch {
-    return undefined;
+    // Deno stores transitive deps in .deno/ — search there as a fallback.
+    return resolveFromDenoStore(name);
   }
+}
+
+/**
+ * Search the .deno/ store for a package that isn't hoisted to node_modules.
+ * Deno uses the layout: .deno/<scope>+<name>@<version>/node_modules/<scope>/<name>/
+ */
+function resolveFromDenoStore(name: string): string | undefined {
+  const denoDir = join(AAI_ROOT, "node_modules", ".deno");
+  // Convert @preact/signals-core → @preact+signals-core
+  const storePrefix = name.replace("/", "+");
+  try {
+    for (const entry of Deno.readDirSync(denoDir)) {
+      if (!entry.isDirectory || !entry.name.startsWith(storePrefix + "@")) {
+        continue;
+      }
+      const pkgDir = join(
+        denoDir,
+        entry.name,
+        "node_modules",
+        ...name.split("/"),
+      );
+      try {
+        const pkgJson = join(pkgDir, "package.json");
+        const pkg = JSON.parse(Deno.readTextFileSync(pkgJson));
+        return resolve(pkgDir, pkg.module || pkg.main || "index.js");
+      } catch { /* try next version */ }
+    }
+  } catch { /* .deno dir doesn't exist */ }
+  return undefined;
 }
 
 /**
@@ -153,6 +183,7 @@ const NPM_PACKAGE_NAMES = [
   "preact",
   "preact/hooks",
   "@preact/signals",
+  "@preact/signals-core",
   "htm",
   "comlink",
 ];
