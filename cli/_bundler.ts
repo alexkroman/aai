@@ -231,6 +231,7 @@ function getOutputText(
 export const _internals = {
   WORKSPACE_ALIASES,
   bundleError,
+  getConfigPath,
   getOutputText,
   jsBytes,
   buildNpmAliases,
