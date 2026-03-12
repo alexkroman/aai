@@ -12,8 +12,9 @@ export { hashApiKey } from "./auth.ts";
 /**
  * Handler for the agent deploy endpoint (`POST /:slug/deploy`).
  *
- * Validates platform config, terminates any existing worker for the slug,
- * persists the new bundle to the store, and registers the agent slot.
+ * Env vars are managed separately via the /env endpoints (like `vercel env`).
+ * If env is provided in the deploy body, it's merged with any existing
+ * stored env. If not provided, the existing stored env is preserved.
  */
 export async function handleDeploy(
   ctx: RouteContext,
@@ -28,8 +29,12 @@ export async function handleDeploy(
     throw new HttpError(400, "Invalid deploy body");
   }
 
+  // Merge env: deploy body env takes precedence, then stored env
+  const storedEnv = await state.store.getEnv(slug) ?? {};
+  const env = body.env ? { ...storedEnv, ...body.env } : storedEnv;
+
   try {
-    loadPlatformConfig(body.env);
+    loadPlatformConfig(env);
   } catch (err: unknown) {
     return json(
       {
@@ -53,7 +58,7 @@ export async function handleDeploy(
 
   await state.store.putAgent({
     slug,
-    env: body.env,
+    env,
     transport,
     worker: body.worker,
     client: body.client,
@@ -62,7 +67,7 @@ export async function handleDeploy(
 
   const slot: AgentSlot = {
     slug,
-    env: body.env,
+    env,
     transport,
     accountId,
   };

@@ -197,7 +197,6 @@ snapshot[`DeployBodySchema snapshot 1`] = `
     },
   },
   required: [
-    "env",
     "worker",
     "client",
   ],

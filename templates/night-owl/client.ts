@@ -5,8 +5,8 @@ import {
   StateIndicator,
   Transcript,
   useSession,
-} from "@aai/ui";
-import type { Message } from "@aai/ui";
+} from "@jsr/aai__ui";
+import type { Message } from "@jsr/aai__ui";
 import { useEffect, useRef } from "preact/hooks";
 
 export default function NightOwl() {

@@ -5,6 +5,7 @@ import { error } from "./_output.ts";
 import { promptUpgradeIfAvailable } from "./_update.ts";
 import { runNewCommand } from "./new.ts";
 import { runDeployCommand } from "./deploy.ts";
+import { runEnvCommand } from "./env.ts";
 import { rootHelp } from "./_help.ts";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
@@ -43,12 +44,15 @@ async function main(args: string[]): Promise<void> {
     case "deploy":
       await runDeployCommand(subArgs, VERSION);
       return;
+    case "env":
+      await runEnvCommand(subArgs, VERSION);
+      return;
     case "help":
       log.info(rootHelp(VERSION));
       return;
     case undefined:
-      // Default to "new" command
-      await runNewCommand(args, VERSION);
+      // Default: scaffold (if needed) + deploy
+      await runDeployCommand(args, VERSION);
       return;
     default:
       error(`Unknown command: ${subcommand}`);

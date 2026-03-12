@@ -1,4 +1,4 @@
-import { defineAgent, kvTools } from "@aai/sdk";
+import { defineAgent, kvTools } from "@jsr/aai__sdk";
 
 export default defineAgent({
   name: "Memory Agent",

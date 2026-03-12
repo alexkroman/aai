@@ -1,5 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { parseArgs } from "@std/cli/parse-args";
+import { exists } from "@std/fs/exists";
+import { join } from "@std/path";
 import * as log from "@std/log";
 import { step, stepInfo } from "./_output.ts";
 import { runBuild } from "./build.ts";
@@ -7,13 +9,14 @@ import { runDeploy } from "./_deploy.ts";
 import {
   DEFAULT_SERVER,
   getApiKey,
-  getNamespace,
-  resolveSlug,
-  saveAgentLink,
-  saveNamespace,
+  readProjectConfig,
+  slugFromDir,
+  slugify,
+  writeProjectConfig,
 } from "./_discover.ts";
 import type { SubcommandDef } from "./_help.ts";
 import { subcommandHelp } from "./_help.ts";
+import { runNewCommand } from "./new.ts";
 
 /** CLI definition for the `aai deploy` subcommand, including name, description, and options. */
 export const deployCommandDef: SubcommandDef = {
@@ -26,12 +29,15 @@ export const deployCommandDef: SubcommandDef = {
       flags: "--dry-run",
       description: "Validate and bundle without deploying",
     },
+    { flags: "-y, --yes", description: "Accept defaults (no prompts)" },
   ],
 };
 
 /**
- * Runs the `aai deploy` subcommand. Builds the agent bundle, resolves the
- * deploy target (namespace/slug), uploads to the server, and prints endpoint URLs.
+ * Runs the `aai deploy` subcommand. If no `agent.ts` exists in the current
+ * directory, scaffolds a new agent first. Then builds the agent bundle,
+ * resolves the deploy target (namespace/slug), uploads to the server, and
+ * prints endpoint URLs.
  *
  * @param args Command-line arguments passed to the `deploy` subcommand.
  * @param version Current CLI version string, used in help output.
@@ -43,8 +49,8 @@ export async function runDeployCommand(
 ): Promise<void> {
   const parsed = parseArgs(args, {
     string: ["server", "local"],
-    boolean: ["dry-run", "help"],
-    alias: { s: "server", h: "help" },
+    boolean: ["dry-run", "help", "yes"],
+    alias: { s: "server", h: "help", y: "yes" },
   });
 
   if (parsed.help) {
@@ -53,6 +59,12 @@ export async function runDeployCommand(
   }
 
   const cwd = Deno.env.get("INIT_CWD") || Deno.cwd();
+
+  // If no agent.ts exists, scaffold first
+  if (!await exists(join(cwd, "agent.ts"))) {
+    await runNewCommand(parsed.yes ? ["-y"] : [], version);
+  }
+
   const local = parsed.local;
   const serverUrl = local !== undefined
     ? (typeof local === "string" && local !== ""
@@ -60,32 +72,53 @@ export async function runDeployCommand(
       : "http://localhost:3100")
     : (parsed.server || DEFAULT_SERVER);
 
-  const apiKey = await getApiKey();
-  const namespace = await getNamespace();
-  const result = await runBuild({ agentDir: cwd });
+  const dryRun = parsed["dry-run"] ?? false;
+  const apiKey = dryRun ? "" : await getApiKey();
 
+  // Read project-local config (.aai/project.json)
+  const projectConfig = await readProjectConfig(cwd);
+
+  // Namespace: from project config, derive from dir name with -y, or prompt
+  let namespace = projectConfig?.namespace ?? "";
+  if (!namespace) {
+    if (parsed.yes) {
+      namespace = slugFromDir(cwd);
+    } else {
+      log.info(
+        "\nChoose a namespace for your agents.\n" +
+          "Agents deploy to https://aai-agent.fly.dev/<namespace>/\n",
+      );
+      while (!namespace) {
+        const ns = prompt("Namespace");
+        if (ns) namespace = slugify(ns);
+        if (!namespace) log.info("Must contain alphanumeric characters");
+      }
+    }
+  }
+
+  const result = await runBuild({ agentDir: cwd });
   const { agent } = result;
-  const slug = await resolveSlug(cwd, namespace, agent.slug);
+
+  // Slug: from project config, or derive from directory name
+  const slug = projectConfig?.slug ?? slugFromDir(cwd);
   const fullPath = `${namespace}/${slug}`;
 
   step("Deploy", fullPath);
   const deployed = await runDeploy({
     url: serverUrl,
     bundle: result.bundle,
+    env: {},
     namespace,
     slug,
-    dryRun: parsed["dry-run"] ?? false,
+    dryRun,
     apiKey,
   });
 
-  if (deployed.namespace !== namespace) {
-    await saveNamespace(deployed.namespace);
-  }
-
-  await saveAgentLink(cwd, {
+  // Save to .aai/project.json (like .vercel/project.json)
+  await writeProjectConfig(cwd, {
     namespace: deployed.namespace,
     slug: deployed.slug,
-    apiKey,
+    serverUrl,
   });
 
   const deployedPath = `${deployed.namespace}/${deployed.slug}`;

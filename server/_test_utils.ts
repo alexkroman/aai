@@ -94,6 +94,27 @@ export function createTestStore(): BundleStore {
       return Promise.resolve();
     },
 
+    getEnv(slug) {
+      const data = objects.get(objectKey(slug, "manifest.json"));
+      if (data === undefined) return Promise.resolve(null);
+      const manifest = JSON.parse(data);
+      return Promise.resolve(manifest.env ?? null);
+    },
+
+    putEnv(slug, env) {
+      const data = objects.get(objectKey(slug, "manifest.json"));
+      if (data === undefined) {
+        return Promise.reject(new Error(`Agent ${slug} not found`));
+      }
+      const manifest = JSON.parse(data);
+      manifest.env = env;
+      objects.set(
+        objectKey(slug, "manifest.json"),
+        JSON.stringify(manifest),
+      );
+      return Promise.resolve();
+    },
+
     getNamespaceOwner(namespace) {
       const data = objects.get(`namespaces/${namespace}/owner.json`);
       if (!data) return Promise.resolve(null);

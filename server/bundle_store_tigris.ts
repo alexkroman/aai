@@ -30,6 +30,10 @@ export type BundleStore = {
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;
   deleteAgent(slug: string): Promise<void>;
+  /** Read env vars for a slug from the stored manifest. */
+  getEnv(slug: string): Promise<Record<string, string> | null>;
+  /** Update env vars for a slug without redeploying the worker. */
+  putEnv(slug: string, env: Record<string, string>): Promise<void>;
   getNamespaceOwner(namespace: string): Promise<NamespaceOwner | null>;
   putNamespaceOwner(
     namespace: string,
@@ -227,6 +231,32 @@ export function createBundleStore(
     },
 
     deleteAgent,
+
+    async getEnv(slug) {
+      const data = await get(objectKey(slug, "manifest.json"));
+      if (data === null) return null;
+      const raw = JSON.parse(data);
+      if (raw.envEncrypted && credentialKey && typeof raw.env === "string") {
+        return await decryptEnv(credentialKey, raw.env);
+      }
+      return raw.env ?? null;
+    },
+
+    async putEnv(slug, env) {
+      // Read existing manifest, update env, write back
+      const data = await get(objectKey(slug, "manifest.json"));
+      if (data === null) throw new Error(`Agent ${slug} not found`);
+      const manifest = JSON.parse(data);
+
+      manifest.env = credentialKey ? await encryptEnv(credentialKey, env) : env;
+      if (credentialKey) manifest.envEncrypted = true;
+
+      await put(
+        objectKey(slug, "manifest.json"),
+        JSON.stringify(manifest),
+        "application/json",
+      );
+    },
 
     async getNamespaceOwner(namespace: string): Promise<NamespaceOwner | null> {
       const data = await get(`namespaces/${namespace}/owner.json`);

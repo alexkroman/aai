@@ -33,6 +33,7 @@ Deno.test("runDeploy", async (t) => {
       const result = await runDeploy({
         url: "http://localhost:3000",
         bundle: makeBundle(),
+        env: {},
         namespace: "my-ns",
         slug: "agent-a",
         dryRun: false,
@@ -82,6 +83,7 @@ Deno.test("runDeploy", async (t) => {
       const result = await runDeploy({
         url: "http://localhost:3000",
         bundle: makeBundle(),
+        env: {},
         namespace: "my-ns",
         slug: "agent-a",
         dryRun: false,
@@ -110,6 +112,7 @@ Deno.test("runDeploy", async (t) => {
       const result = await runDeploy({
         url: "http://localhost:3000",
         bundle: makeBundle(),
+        env: {},
         namespace: "my-ns",
         slug: "agent-a",
         dryRun: true,

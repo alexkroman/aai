@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "aai",
+    "build": "aai deploy --dry-run",
+    "deploy": "aai deploy"
+  },
+  "dependencies": {
+    "@jsr/aai__sdk": "*",
+    "@jsr/aai__core": "*",
+    "@jsr/aai__ui": "*",
+    "preact": "^10",
+    "@preact/signals": "^2",
+    "htm": "^3",
+    "comlink": "^4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25",
+    "typescript": "^5"
+  }
+}

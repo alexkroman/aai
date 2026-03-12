@@ -51,7 +51,7 @@ export async function runNew(opts: NewOptions): Promise<string> {
   await Deno.mkdir(targetDir, { recursive: true });
 
   for await (const entry of Deno.readDir(src)) {
-    if (entry.name === "node_modules" || entry.name === "_deno.json") continue;
+    if (entry.name === "node_modules") continue;
     const srcPath = join(src, entry.name);
     const destPath = join(targetDir, entry.name);
     if (entry.isDirectory) {
@@ -78,6 +78,39 @@ export async function runNew(opts: NewOptions): Promise<string> {
       join(targetDir, ".env"),
     );
   } catch { /* no .env.example in template */ }
+
+  // Generate README.md with getting-started instructions
+  const agentName = name ?? "My Agent";
+  const readme = `# ${agentName}
+
+A voice agent built with [aai](https://github.com/anthropics/aai).
+
+## Getting started
+
+\`\`\`sh
+npm install        # Install dependencies
+npm run dev        # Run locally (opens browser)
+npm run deploy     # Deploy to production
+\`\`\`
+
+## Environment variables
+
+Secrets are managed on the server, not in local files:
+
+\`\`\`sh
+aai env add MY_KEY # Set a secret (prompts for value)
+aai env ls         # List secret names
+aai env pull       # Pull names into .env for reference
+aai env rm MY_KEY  # Remove a secret
+\`\`\`
+
+Access secrets in your agent via \`ctx.env.MY_KEY\`.
+
+## Learn more
+
+See \`CLAUDE.md\` for the full agent API reference.
+`;
+  await Deno.writeTextFile(join(targetDir, "README.md"), readme);
 
   _internals.step("Done", targetDir);
   return targetDir;

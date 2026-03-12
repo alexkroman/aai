@@ -1,6 +1,6 @@
 {
   "name": "@aai/ui",
-  "version": "0.1.90",
+  "version": "0.1.94",
   "exports": "./mod.ts",
   "publish": {
     "exclude": [
@@ -29,12 +29,5 @@
       "dom.iterable",
       "esnext"
     ]
-  },
-  "lint": {
-    "rules": {
-      "exclude": [
-        "no-console"
-      ]
-    }
   }
 }

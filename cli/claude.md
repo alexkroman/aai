@@ -18,13 +18,18 @@ or update files based on the user's description in `$ARGUMENTS`.
 
 ### Use the `aai` CLI
 
-Always use the `aai` CLI to scaffold and deploy agents:
+Always use the `aai` CLI to scaffold, deploy, and manage agents:
 
 ```sh
+aai                      # Scaffold (if needed) + deploy
 aai new                  # Scaffold a new agent (interactive)
 aai new -t <template>    # Scaffold from a specific template
 aai deploy               # Bundle and deploy to production
 aai deploy --dry-run     # Validate and bundle without deploying
+aai env add <NAME>       # Set an environment variable on the server
+aai env rm <NAME>        # Remove an environment variable
+aai env ls               # List environment variable names
+aai env pull             # Pull env var names into .env for local dev
 ```
 
 Install: `curl -fsSL https://aai-agent.fly.dev/install | sh`
@@ -61,7 +66,7 @@ Templates are in `../templates/` relative to the `aai` binary:
 Every agent lives in `agent.ts` and exports a default `defineAgent()` call:
 
 ```ts
-import { defineAgent } from "@aai/sdk";
+import { defineAgent } from "@jsr/aai__sdk";
 
 export default defineAgent({
   name: "My Agent",
@@ -74,10 +79,10 @@ export default defineAgent({
 ### Imports
 
 ```ts
-import { defineAgent } from "@aai/sdk"; // Always needed
-import { defineAgent, z } from "@aai/sdk"; // Tools with typed params
-import { defineAgent, kvTools } from "@aai/sdk"; // Persistent memory helpers
-import type { BeforeStepResult, HookContext, ToolContext } from "@aai/sdk"; // Type annotations
+import { defineAgent } from "@jsr/aai__sdk"; // Always needed
+import { defineAgent, z } from "@jsr/aai__sdk"; // Tools with typed params
+import { defineAgent, kvTools } from "@jsr/aai__sdk"; // Persistent memory helpers
+import type { BeforeStepResult, HookContext, ToolContext } from "@jsr/aai__sdk"; // Type annotations
 ```
 
 ## Agent configuration
@@ -100,7 +105,6 @@ defineAgent({
   maxSteps?: number | ((ctx: HookContext) => number);
 
   // Environment
-  env?: string[];            // Env var names from .env (default: ["ASSEMBLYAI_API_KEY"])
   transport?: Transport[];   // "websocket" | "twilio" (default: ["websocket"])
 
   // State
@@ -148,13 +152,32 @@ Optimize for spoken conversation:
 
 ### Environment variables
 
-Variables in `env` are loaded from `.env` and passed as `ctx.env`. They are
-**not** available via `Deno.env` inside agent code. `ASSEMBLYAI_API_KEY` is in
-the global aai config — no need to add it to `.env`.
+Secrets are managed on the server via the CLI, like `vercel env`. They are
+injected into agent workers at runtime and available as `ctx.env`. Secrets are
+**never** embedded in the bundled code.
+
+```sh
+# Set secrets on the server (prompts for value)
+aai env add ASSEMBLYAI_API_KEY
+aai env add MY_API_KEY
+
+# List what's set
+aai env ls
+
+# Pull env var names into .env for local dev reference
+aai env pull
+
+# Remove a secret
+aai env rm MY_API_KEY
+```
+
+Access secrets in tool code via `ctx.env`:
 
 ```ts
+import { defineAgent, z } from "@jsr/aai__sdk";
+
 export default defineAgent({
-  env: ["ASSEMBLYAI_API_KEY", "MY_API_KEY"],
+  name: "API Agent",
   tools: {
     call_api: {
       description: "Call an external API",
@@ -178,7 +201,7 @@ Define tools as plain objects in the `tools` record. The `parameters` field
 takes a Zod schema for type-safe argument inference:
 
 ```ts
-import { defineAgent, z } from "@aai/sdk";
+import { defineAgent, z } from "@jsr/aai__sdk";
 
 export default defineAgent({
   name: "Weather Agent",
@@ -238,7 +261,7 @@ Every `execute` function and lifecycle hook receives a context object:
 
 ```ts
 ctx.sessionId; // string — unique per connection
-ctx.env; // Record<string, string> — env vars from .env
+ctx.env; // Record<string, string> — secrets from `aai env add`
 ctx.abortSignal; // AbortSignal — cancelled on interruption (tools only)
 ctx.state; // per-session state
 ctx.kv; // persistent KV store
@@ -306,7 +329,7 @@ Spreads four tools: `save_memory`, `recall_memory`, `list_memories`,
 `forget_memory`:
 
 ```ts
-import { defineAgent, kvTools } from "@aai/sdk";
+import { defineAgent, kvTools } from "@jsr/aai__sdk";
 
 export default defineAgent({
   name: "Memory Agent",
@@ -403,7 +426,7 @@ Add `client.ts` alongside `agent.ts`. Export a default Preact component — the
 framework auto-mounts it. Use `htm` tagged templates instead of JSX:
 
 ```ts
-import { html, useSession } from "@aai/ui";
+import { html, useSession } from "@jsr/aai__ui";
 
 export default function App() {
   const session = useSession();
@@ -428,12 +451,12 @@ export default function App() {
 **Rules:**
 
 - Export a default function component — do not call `mount()` yourself
-- Import `html` from `@aai/ui` for tagged template rendering (no JSX)
+- Import `html` from `@jsr/aai__ui` for tagged template rendering (no JSX)
 - Import hooks from `preact/hooks` (`useEffect`, `useRef`, `useState`, etc.)
 - Style with `style=${{ color: "red" }}` or inject `<style>` for selectors,
   keyframes, media queries
 
-**Built-in components from `@aai/ui`:** `ErrorBanner`, `StateIndicator`,
+**Built-in components from `@jsr/aai__ui`:** `ErrorBanner`, `StateIndicator`,
 `Transcript`, `ChatView`, `MessageBubble`, `ThinkingIndicator`
 
 **Session signals (`useSession()`):**
@@ -449,6 +472,27 @@ export default function App() {
 
 **Methods:** `session.start()`, `session.toggle()`, `session.reset()`,
 `session.dispose()`
+
+## Project structure
+
+After scaffolding, your project directory looks like:
+
+```text
+my-agent/
+  agent.ts          # Agent definition
+  client.ts         # Optional custom UI
+  package.json      # Dependencies + scripts (dev, build, deploy)
+  tsconfig.json     # TypeScript config (strict, path aliases)
+  .npmrc            # JSR registry config
+  .env.example      # Reference for env var names
+  .env              # Local dev secrets (gitignored)
+  .gitignore        # Ignores node_modules/, .aai/, .env, .DS_Store, etc.
+  README.md         # Getting started guide
+  CLAUDE.md         # Agent API reference (auto-generated)
+  .aai/             # CLI output (gitignored, like .vercel/ or .next/)
+    project.json    # Deploy target (namespace, slug, server URL)
+    build/          # Bundle output (worker.js, client.js, manifest.json)
+```
 
 ## Common pitfalls
 
@@ -466,8 +510,9 @@ export default function App() {
   calls are cancelled via `ctx.abortSignal`. Long-running tools (polling,
   multi-step fetches) should check `ctx.abortSignal.aborted` or pass the signal
   to `fetch`.
-- **Hardcoding secrets** — Never put API keys in `agent.ts`. Add them to `.env`,
-  list the key name in `env: [...]`, and access via `ctx.env.MY_KEY`.
+- **Hardcoding secrets** — Never put API keys in `agent.ts`. Use
+  `aai env add MY_KEY` to store them on the server, then access via
+  `ctx.env.MY_KEY`.
 - **Telling the agent to be verbose** — Voice responses should be 1-3 sentences.
   If your `instructions` say "provide detailed explanations", the agent will
   monologue. Instruct it to be brief and let the user ask follow-ups.
@@ -476,3 +521,5 @@ export default function App() {
 
 - **"no agent found"** — Ensure `agent.ts` exists in the current directory
 - **"bundle failed"** — TypeScript syntax error — check imports, brackets
+- **"No .aai/project.json found"** — Run `aai deploy` first before using
+  `aai env`

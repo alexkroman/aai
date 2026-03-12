@@ -10,6 +10,8 @@ export const _internals = {
 export type DeployOpts = {
   url: string;
   bundle: BundleOutput;
+  /** Env var values from .env to send to the server. */
+  env: Record<string, string>;
   namespace: string;
   slug: string;
   dryRun: boolean;
@@ -26,7 +28,8 @@ async function attemptDeploy(
   namespace: string,
   slug: string,
   apiKey: string,
-  manifest: Record<string, unknown>,
+  env: Record<string, string>,
+  transport: string[],
   worker: string,
   client: string,
 ): Promise<Response> {
@@ -38,10 +41,10 @@ async function attemptDeploy(
       "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      env: manifest.env,
+      env,
       worker,
       client,
-      transport: manifest.transport,
+      transport,
     }),
   });
 }
@@ -54,6 +57,7 @@ export async function runDeploy(
   const manifest = JSON.parse(opts.bundle.manifest);
   const worker = opts.bundle.worker;
   const client = opts.bundle.client;
+  const transport = manifest.transport ?? ["websocket"];
 
   let namespace = opts.namespace;
   const slug = opts.slug;
@@ -72,14 +76,14 @@ export async function runDeploy(
       namespace,
       slug,
       opts.apiKey,
-      manifest,
+      opts.env,
+      transport,
       worker,
       client,
     );
 
     if (resp.ok) {
       const fullPath = `${namespace}/${slug}`;
-      const transport = manifest.transport ?? ["websocket"];
       const urls: string[] = [];
       if (transport.includes("websocket")) {
         urls.push(`${opts.url}/${fullPath}`);

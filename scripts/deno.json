@@ -1,9 +1,1 @@
-{
-  "lint": {
-    "rules": {
-      "exclude": [
-        "no-console"
-      ]
-    }
-  }
-}
+{}

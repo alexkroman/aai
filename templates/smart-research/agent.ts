@@ -1,6 +1,5 @@
-import { defineAgent, z } from "@aai/sdk";
-import type { HookContext, StepInfo } from "@aai/sdk/types";
-import * as log from "@std/log";
+import { defineAgent, z } from "@jsr/aai__sdk";
+import type { HookContext, StepInfo } from "@jsr/aai__sdk/types";
 
 /**
  * Smart Research Agent — demonstrates all 5 advanced features:
@@ -54,7 +53,7 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
     const state = ctx.state;
     state.stepCount++;
     for (const tc of step.toolCalls) {
-      log.info(
+      console.log(
         `[step ${step.stepNumber}] ${tc.toolName} (phase: ${state.phase})`,
       );
     }

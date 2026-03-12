@@ -1,4 +1,4 @@
-import { defineAgent, z } from "@aai/sdk";
+import { defineAgent, z } from "@jsr/aai__sdk";
 
 const PICKS: Record<string, Record<string, string[]>> = {
   movie: {

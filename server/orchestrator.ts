@@ -5,6 +5,7 @@ import { type AppState, html, HttpError, json, text } from "./context.ts";
 import { FAVICON_SVG, renderLandingPage } from "./html.ts";
 import { INSTALL_SCRIPT } from "./install.ts";
 import { handleDeploy } from "./deploy.ts";
+import { handleEnvDelete, handleEnvList, handleEnvSet } from "./env_handler.ts";
 import {
   handleAgentHealth,
   handleAgentPage,
@@ -132,6 +133,38 @@ export function createOrchestrator(opts: {
         const slug = validateSlug(c.params);
         const accountId = await requireOwner(req, { slug, store: state.store });
         return handleDeploy(c, { slug, accountId });
+      },
+    },
+    // --- Env management (like `vercel env`) ---
+    {
+      pattern: p("/:namespace/:slug/env"),
+      method: "GET",
+      handler: async (req, match, info) => {
+        const c = ctx(req, match, info, state);
+        const slug = validateSlug(c.params);
+        await requireOwner(req, { slug, store: state.store });
+        return handleEnvList(c, slug);
+      },
+    },
+    {
+      pattern: p("/:namespace/:slug/env"),
+      method: "PUT",
+      handler: async (req, match, info) => {
+        const c = ctx(req, match, info, state);
+        const slug = validateSlug(c.params);
+        await requireOwner(req, { slug, store: state.store });
+        return handleEnvSet(c, slug);
+      },
+    },
+    {
+      pattern: p("/:namespace/:slug/env/:key"),
+      method: "DELETE",
+      handler: async (req, match, info) => {
+        const c = ctx(req, match, info, state);
+        const slug = validateSlug(c.params);
+        await requireOwner(req, { slug, store: state.store });
+        const key = c.params.key!;
+        return handleEnvDelete(c, { slug, key });
       },
     },
     {

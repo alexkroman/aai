@@ -1,4 +1,4 @@
-import { defineAgent, z } from "@aai/sdk";
+import { defineAgent, z } from "@jsr/aai__sdk";
 
 function first(field: unknown): string | undefined {
   return Array.isArray(field) ? field[0] : undefined;

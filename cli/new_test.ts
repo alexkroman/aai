@@ -94,7 +94,7 @@ Deno.test("runNew copies template files to target", async () => {
   }
 });
 
-Deno.test("runNew skips node_modules and _deno.json", async () => {
+Deno.test("runNew skips node_modules", async () => {
   const s = silenceSteps();
   try {
     await withTempDir(async (dir) => {
@@ -113,13 +113,6 @@ Deno.test("runNew skips node_modules and _deno.json", async () => {
         hasNodeModules = true;
       } catch { /* expected */ }
       assertStrictEquals(hasNodeModules, false);
-
-      let hasDenoJson = false;
-      try {
-        await Deno.stat(join(target, "_deno.json"));
-        hasDenoJson = true;
-      } catch { /* expected */ }
-      assertStrictEquals(hasDenoJson, false);
     });
   } finally {
     s.restore();

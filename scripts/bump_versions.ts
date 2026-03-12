@@ -32,7 +32,11 @@ const DEPENDENTS: Record<string, string[]> = {
 };
 
 function bumpPatch(version: string): string {
-  const [major, minor, patch] = version.split(".").map(Number);
+  const [major, minor, patch] = version.split(".").map(Number) as [
+    number,
+    number,
+    number,
+  ];
   return `${major}.${minor}.${patch + 1}`;
 }
 

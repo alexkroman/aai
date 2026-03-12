@@ -6,11 +6,11 @@
     "new": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run cli/cli.ts new",
     "serve": "deno run --allow-net --allow-env --allow-read --allow-write --unstable-worker-options server/main.ts",
     "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options",
-    "check": "deno check server/**/*.ts ui/**/*.ts cli/**/*.ts sdk/**/*.ts core/**/*.ts $(find templates -name '*.ts' ! -path 'templates/memory-agent/*') && deno lint && deno fmt --check && deno run -A npm:markdownlint-cli CLAUDE.md README.md cli/claude.md && deno task check:boundaries && deno task check:exports && deno task publish && deno test --quiet --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options && deno task test:templates",
+    "check": "deno check server/**/*.ts ui/**/*.ts cli/**/*.ts sdk/**/*.ts core/**/*.ts scripts/**/*.ts && deno lint && deno fmt --check && deno run -A npm:markdownlint-cli CLAUDE.md README.md cli/claude.md && deno task check:boundaries && deno task check:exports && deno task publish && deno test --quiet --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options && deno task test:templates",
     "check:boundaries": "deno run --allow-read scripts/check_boundaries.ts",
     "check:exports": "deno run --allow-read scripts/check_export_names.ts",
     "bump": "deno run --allow-read --allow-write --allow-run scripts/bump_versions.ts",
-    "test:templates": "deno run --allow-all --unstable-worker-options cli/test_templates.ts",
+    "test:templates": "deno run --allow-all scripts/test_templates.ts",
     "install-dev": "echo '#!/bin/sh\nINIT_CWD=\"$(pwd)\" exec deno run --allow-all --unstable-worker-options '\"$(pwd)/cli/cli.ts\"' \"$@\"' > \"$HOME/.deno/bin/aai\" && chmod +x \"$HOME/.deno/bin/aai\" && echo 'Installed aai to ~/.deno/bin/aai'",
     "publish": "cd sdk && deno publish --allow-dirty --dry-run && cd ../core && deno publish --allow-dirty --dry-run && cd ../ui && deno publish --allow-dirty --dry-run && cd ../cli && deno publish --allow-dirty --dry-run && cd ../server && deno publish --allow-dirty --dry-run && echo 'Dry run OK. Run deno task publish:live to publish.'",
     "publish:live": "cd sdk && deno publish --allow-dirty && cd ../core && deno publish --allow-dirty && cd ../ui && deno publish --allow-dirty"
@@ -85,8 +85,7 @@
       "include": [
         "camelcase",
         "no-sync-fn-in-async-fn",
-        "single-var-declarator",
-        "no-console"
+        "single-var-declarator"
       ]
     },
     "plugins": ["./scripts/lint_plugin.ts"]

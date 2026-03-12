@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "paths": {
+      "@aai/sdk": ["./node_modules/@jsr/aai__sdk/_dist/mod.d.ts"],
+      "@aai/ui": ["./node_modules/@jsr/aai__ui/_dist/mod.d.ts"]
+    }
+  },
+  "include": ["agent.ts", "client.ts"],
+  "exclude": ["node_modules"]
+}

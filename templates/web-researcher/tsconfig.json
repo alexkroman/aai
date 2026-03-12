@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@aai/sdk": ["./node_modules/@jsr/aai__sdk/_dist/mod.d.ts"]
+    }
+  },
+  "include": ["agent.ts"],
+  "exclude": ["node_modules"]
+}

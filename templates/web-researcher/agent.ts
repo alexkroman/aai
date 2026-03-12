@@ -1,4 +1,4 @@
-import { defineAgent } from "@aai/sdk";
+import { defineAgent } from "@jsr/aai__sdk";
 
 export default defineAgent({
   name: "Scout",

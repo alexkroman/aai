@@ -61,7 +61,7 @@ for (const rule of RULES) {
       const lines = content.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        const line = lines[i]!;
         if (rule.forbidden.test(line)) {
           log.error(`${entry.path}:${i + 1}: ${line.trim()}`);
           violations++;

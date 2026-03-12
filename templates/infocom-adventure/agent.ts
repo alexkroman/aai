@@ -1,5 +1,5 @@
-import { defineAgent, z } from "@aai/sdk";
-import type { ToolContext } from "@aai/sdk";
+import { defineAgent, z } from "@jsr/aai__sdk";
+import type { ToolContext } from "@jsr/aai__sdk";
 
 type GameState = {
   inventory: string[];

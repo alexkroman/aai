@@ -130,7 +130,8 @@ export type ToolSchema = {
  * Sent by the CLI to the server when deploying a bundled agent.
  */
 export type DeployBody = {
-  env: Readonly<Record<string, string>>;
+  /** Env vars are optional at deploy time — set separately via `aai env add`. */
+  env?: Readonly<Record<string, string>> | undefined;
   worker: string;
   client: string;
   transport?: readonly Transport[] | undefined;
