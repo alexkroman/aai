@@ -14,14 +14,15 @@
     "jsr:@std/data-structures@^1.0.10": "1.0.10",
     "jsr:@std/dotenv@*": "0.225.6",
     "jsr:@std/dotenv@0.225.6": "0.225.6",
+    "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/encoding@^1.0.7": "1.0.10",
-    "jsr:@std/expect@^1.0.18": "1.0.18",
     "jsr:@std/fmt@^1.0.5": "1.0.9",
     "jsr:@std/fmt@^1.0.9": "1.0.9",
     "jsr:@std/fs@^1.0.11": "1.0.23",
     "jsr:@std/fs@^1.0.17": "1.0.23",
     "jsr:@std/fs@^1.0.22": "1.0.23",
     "jsr:@std/html@^1.0.5": "1.0.5",
+    "jsr:@std/http@^1.0.18": "1.0.25",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/io@~0.225.2": "0.225.3",
     "jsr:@std/log@~0.224.14": "0.224.14",
@@ -30,6 +31,7 @@
     "jsr:@std/path@^1.1.4": "1.1.4",
     "jsr:@std/semver@^1.0.6": "1.0.8",
     "jsr:@std/testing@^1.0.17": "1.0.17",
+    "jsr:@std/text@^1.0.17": "1.0.17",
     "jsr:@zod/zod@^4.3.6": "4.3.6",
     "npm:@ai-sdk/openai@1": "1.3.24_zod@3.25.76",
     "npm:@aws-sdk/client-s3@^3.1001.0": "3.1001.0",
@@ -41,7 +43,6 @@
     "npm:comlink@^4.4.2": "4.4.2",
     "npm:esbuild-wasm@~0.27.3": "0.27.3",
     "npm:esbuild@~0.25.5": "0.25.12",
-    "npm:hono@4": "4.12.7",
     "npm:htm@3.1.1": "3.1.1",
     "npm:htm@^3.1.1": "3.1.1",
     "npm:jose@6": "6.2.1",
@@ -50,7 +51,8 @@
     "npm:openai@^4.80.0": "4.104.0_zod@3.25.76",
     "npm:preact@10.28.4": "10.28.4",
     "npm:preact@^10.28.4": "10.28.4",
-    "npm:turndown@^7.2.2": "7.2.2"
+    "npm:turndown@^7.2.2": "7.2.2",
+    "npm:typescript@5.8.3": "5.8.3"
   },
   "jsr": {
     "@b-fuze/deno-dom@0.1.56": {
@@ -97,14 +99,6 @@
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     },
-    "@std/expect@1.0.18": {
-      "integrity": "8566eab35200466f8609eb7e7aed062ed0db314e9a258d5d201b1b8997ce801a",
-      "dependencies": [
-        "jsr:@std/assert@^1.0.19",
-        "jsr:@std/internal",
-        "jsr:@std/path@^1.1.4"
-      ]
-    },
     "@std/fmt@1.0.9": {
       "integrity": "2487343e8899fb2be5d0e3d35013e54477ada198854e52dd05ed0422eddcabe0"
     },
@@ -116,6 +110,12 @@
     },
     "@std/html@1.0.5": {
       "integrity": "4e2d693f474cae8c16a920fa5e15a3b72267b94b84667f11a50c6dd1cb18d35e"
+    },
+    "@std/http@1.0.25": {
+      "integrity": "577b4252290af1097132812b339fffdd55fb0f4aeb98ff11bdbf67998aa17193",
+      "dependencies": [
+        "jsr:@std/encoding@^1.0.10"
+      ]
     },
     "@std/internal@1.0.12": {
       "integrity": "972a634fd5bc34b242024402972cd5143eac68d8dffaca5eaa4dba30ce17b027"
@@ -153,6 +153,9 @@
         "jsr:@std/internal",
         "jsr:@std/path@^1.1.4"
       ]
+    },
+    "@std/text@1.0.17": {
+      "integrity": "4b2c4ef67ae5b6c1dfd447c81c83a43718f52e3c7e748d8b33f694aba9895f95"
     },
     "@zod/zod@4.3.6": {
       "integrity": "7144e5e11f8ffc3cf6e2fca624f6597a8762898aac9868cc8938e9398b96ffe4"
@@ -1676,9 +1679,6 @@
         "function-bind"
       ]
     },
-    "hono@4.12.7": {
-      "integrity": "sha512-jq9l1DM0zVIvsm3lv9Nw9nlJnMNPOcAtsbsgiUhWcFzPE99Gvo6yRTlszSLLYacMeQ6quHD6hMfId8crVHvexw=="
-    },
     "htm@3.1.1": {
       "integrity": "sha512-983Vyg8NwUE7JkZ6NmOqpCZ+sh1bKv2iYTlUkzlWmA5JD2acKoxd4KVxbMmxX/85mtfdnDmTFoNKcg5DGAvxNQ=="
     },
@@ -2207,6 +2207,10 @@
         "@mixmark-io/domino"
       ]
     },
+    "typescript@5.8.3": {
+      "integrity": "sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==",
+      "bin": true
+    },
     "uc.micro@2.1.0": {
       "integrity": "sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A=="
     },
@@ -2299,7 +2303,6 @@
       "jsr:@std/crypto@^1.0.4",
       "jsr:@std/dotenv@0.225.6",
       "jsr:@std/encoding@^1.0.7",
-      "jsr:@std/expect@^1.0.18",
       "jsr:@std/fmt@^1.0.9",
       "jsr:@std/fs@^1.0.17",
       "jsr:@std/html@^1.0.5",
@@ -2309,6 +2312,7 @@
       "jsr:@std/path@^1.1.4",
       "jsr:@std/semver@^1.0.6",
       "jsr:@std/testing@^1.0.17",
+      "jsr:@std/text@^1.0.17",
       "jsr:@zod/zod@^4.3.6",
       "npm:@preact/signals@^2.8.1",
       "npm:comlink@^4.4.2",
@@ -2343,7 +2347,6 @@
           "npm:@upstash/redis@^1.36.1",
           "npm:ai@4",
           "npm:assemblyai@4",
-          "npm:hono@4",
           "npm:jose@6",
           "npm:openai@^4.80.0"
         ]
