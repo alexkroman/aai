@@ -2,53 +2,18 @@
 
 Commands to speak into the microphone to show off the STT-driven terminal.
 
-## Cluster overview
+## Start: check the notes
 
-- `kubectl get nodes`
-- `kubectl get namespaces`
+- `cat notes.txt`
 
-## Explore pods
+## TODO 1: Fix the CrashLoopBackOff on api-server pod
 
 - `kubectl get pods`
-- `kubectl get pods -n kube-system`
-- `kubectl get pods -n app`
-- `kubectl get pods -n monitoring`
-
-## Investigate issues
-
-- `kubectl describe pod api-server -n default`
-- `kubectl logs api-server -n default`
-- `kubectl describe pod worker -n app`
-
-## Services and deployments
-
-- `kubectl get services`
-- `kubectl get deployments`
-- `kubectl get deployments -n app`
-
-## Resource usage
-
-- `kubectl top pods`
-- `kubectl top pods -n app`
-
-## Cluster context
-
-- `kubectl config current-context`
-- `kubectl config get-contexts`
-
-## Remediation
-
+- `kubectl describe pod api-server`
+- `kubectl logs api-server`
 - `kubectl rollout restart deployment api-server`
-- `kubectl delete pod api-server -n default`
-- `kubectl apply -f manifests`
 
-## Shell commands
+## TODO 2: Investigate ImagePullBackOff on worker pod in app namespace
 
-- `clear`
-- `whoami`
-- `hostname`
-- `pwd`
-- `ls`
-- `cat notes.txt`
-- `date`
-- `help`
+- `kubectl get pods -n app`
+- `kubectl describe pod worker -n app`
