@@ -1,4 +1,9 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import {
+  assertEquals,
+  assertNotStrictEquals,
+  assertStrictEquals,
+} from "@std/assert";
 import {
   importScopeKey,
   signScopeToken,
@@ -10,7 +15,7 @@ Deno.test("scope tokens", async (t) => {
     const key = await importScopeKey("test-secret");
     const scope = { accountId: "owner123", slug: "my-agent" };
     const token = await signScopeToken(key, scope);
-    expect(await verifyScopeToken(key, token)).toEqual(scope);
+    assertEquals(await verifyScopeToken(key, token), scope);
   });
 
   await t.step("verify returns null for tampered token", async () => {
@@ -18,24 +23,25 @@ Deno.test("scope tokens", async (t) => {
     const scope = { accountId: "owner123", slug: "my-agent" };
     const token = await signScopeToken(key, scope);
     const tampered = token.slice(0, -2) + "XX";
-    expect(await verifyScopeToken(key, tampered)).toBeNull();
+    assertStrictEquals(await verifyScopeToken(key, tampered), null);
   });
 
   await t.step("verify returns null for garbage input", async () => {
     const key = await importScopeKey("test-secret");
-    expect(await verifyScopeToken(key, "not-base64!!!")).toBeNull();
+    assertStrictEquals(await verifyScopeToken(key, "not-base64!!!"), null);
   });
 
   await t.step("verify returns null for empty string", async () => {
     const key = await importScopeKey("test-secret");
-    expect(await verifyScopeToken(key, "")).toBeNull();
+    assertStrictEquals(await verifyScopeToken(key, ""), null);
   });
 
   await t.step("different secrets produce different tokens", async () => {
     const key1 = await importScopeKey("secret-a");
     const key2 = await importScopeKey("secret-b");
     const scope = { accountId: "owner", slug: "agent" };
-    expect(await signScopeToken(key1, scope)).not.toBe(
+    assertNotStrictEquals(
+      await signScopeToken(key1, scope),
       await signScopeToken(key2, scope),
     );
   });
@@ -44,6 +50,6 @@ Deno.test("scope tokens", async (t) => {
     const key1 = await importScopeKey("secret-a");
     const key2 = await importScopeKey("secret-b");
     const token = await signScopeToken(key1, { accountId: "o", slug: "s" });
-    expect(await verifyScopeToken(key2, token)).toBeNull();
+    assertStrictEquals(await verifyScopeToken(key2, token), null);
   });
 });

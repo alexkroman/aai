@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Typed wrapper for creating WebSockets with custom headers.
  *

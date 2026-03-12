@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { assertEquals, assertNotEquals } from "@std/assert";
 import type { AgentScope } from "./scope_token.ts";
 import {

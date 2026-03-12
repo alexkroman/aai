@@ -1,4 +1,11 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import {
+  assert,
+  assertEquals,
+  assertNotStrictEquals,
+  assertStrictEquals,
+  assertStringIncludes,
+} from "@std/assert";
 import { z } from "zod";
 import {
   createWorkerApi,
@@ -40,19 +47,19 @@ Deno.test("executeToolCall", async (t) => {
   await t.step("calls execute and returns string result", async () => {
     const tool = makeTool(() => "hello");
     const result = await executeToolCall("greet", {}, tool, {});
-    expect(result).toBe("hello");
+    assertStrictEquals(result, "hello");
   });
 
   await t.step("returns JSON for non-string result", async () => {
     const tool = makeTool(() => ({ key: "value" }));
     const result = await executeToolCall("data", {}, tool, {});
-    expect(result).toBe('{"key":"value"}');
+    assertStrictEquals(result, '{"key":"value"}');
   });
 
   await t.step("returns 'null' for null result", async () => {
     const tool = makeTool(() => null);
     const result = await executeToolCall("noop", {}, tool, {});
-    expect(result).toBe("null");
+    assertStrictEquals(result, "null");
   });
 
   await t.step("validates args against schema", async () => {
@@ -61,8 +68,8 @@ Deno.test("executeToolCall", async (t) => {
       z.object({ name: z.string() }),
     );
     const result = await executeToolCall("greet", { name: 42 }, tool, {});
-    expect(result).toContain("Error: Invalid arguments");
-    expect(result).toContain("greet");
+    assertStringIncludes(result, "Error: Invalid arguments");
+    assertStringIncludes(result, "greet");
   });
 
   await t.step("passes valid args through schema", async () => {
@@ -71,7 +78,7 @@ Deno.test("executeToolCall", async (t) => {
       z.object({ name: z.string() }),
     );
     const result = await executeToolCall("greet", { name: "world" }, tool, {});
-    expect(result).toBe("Hello world");
+    assertStrictEquals(result, "Hello world");
   });
 
   await t.step("catches execution errors", async () => {
@@ -79,7 +86,7 @@ Deno.test("executeToolCall", async (t) => {
       throw new Error("boom");
     });
     const result = await executeToolCall("fail", {}, tool, {});
-    expect(result).toBe("Error: boom");
+    assertStrictEquals(result, "Error: boom");
   });
 
   await t.step("passes env and sessionId in context", async () => {
@@ -93,8 +100,8 @@ Deno.test("executeToolCall", async (t) => {
       env: Record<string, string>;
       sessionId: string;
     };
-    expect(ctx.env).toEqual({ KEY: "val" });
-    expect(ctx.sessionId).toBe("sess-1");
+    assertEquals(ctx.env, { KEY: "val" });
+    assertStrictEquals(ctx.sessionId, "sess-1");
   });
 
   await t.step("passes state in context", async () => {
@@ -105,12 +112,12 @@ Deno.test("executeToolCall", async (t) => {
     });
     const state = { count: 5 };
     await executeToolCall("t", {}, tool, {}, undefined, state);
-    expect(capturedState).toEqual({ count: 5 });
+    assertEquals(capturedState, { count: 5 });
   });
 });
 
 Deno.test("TOOL_HANDLER_TIMEOUT", () => {
-  expect(TOOL_HANDLER_TIMEOUT).toBe(30_000);
+  assertStrictEquals(TOOL_HANDLER_TIMEOUT, 30_000);
 });
 
 Deno.test("startWorker via Comlink", async (t) => {
@@ -139,7 +146,7 @@ Deno.test("startWorker via Comlink", async (t) => {
 
     const api = createWorkerApi(port2);
     const result = await api.executeTool("greet", {}, "s1", 5000);
-    expect(result).toBe("hello");
+    assertStrictEquals(result, "hello");
     await api.dispose?.();
     port1.close();
     port2.close();
@@ -165,13 +172,13 @@ Deno.test("startWorker via Comlink", async (t) => {
 
     const api = createWorkerApi(port2);
     const result = await api.executeTool("missing", {}, undefined, 5000);
-    expect(result).toContain('Unknown tool "missing"');
+    assertStringIncludes(result, 'Unknown tool "missing"');
     await api.dispose?.();
     port1.close();
     port2.close();
   });
 
-  await t.step("handles invokeHook for onConnect", async () => {
+  await t.step("handles onConnect hook", async () => {
     const { port1, port2 } = new MessageChannel();
     let connected = false;
     startWorker(
@@ -194,8 +201,8 @@ Deno.test("startWorker via Comlink", async (t) => {
     );
 
     const api = createWorkerApi(port2);
-    await api.invokeHook("onConnect", "s1", undefined, 5000);
-    expect(connected).toBe(true);
+    await api.onConnect("s1", 5000);
+    assertStrictEquals(connected, true);
     await api.dispose?.();
     port1.close();
     port2.close();
@@ -231,7 +238,7 @@ Deno.test("startWorker via Comlink", async (t) => {
 
     const api = createWorkerApi(port2, dummyHostApi());
     await api.executeTool("check", {}, "s1", 5000);
-    expect(capturedState).toEqual({ count: 0 });
+    assertEquals(capturedState, { count: 0 });
     await api.dispose?.();
     port1.close();
     port2.close();
@@ -272,13 +279,13 @@ Deno.test("startWorker via Comlink", async (t) => {
     await api.executeTool("check", {}, "s1", 5000);
 
     // Disconnect session
-    await api.invokeHook("onDisconnect", "s1", undefined, 5000);
+    await api.onDisconnect("s1", 5000);
 
     // New tool call should get fresh state
     await api.executeTool("check", {}, "s1", 5000);
 
     // Both should have count: 0 because state was re-created
-    expect(states).toEqual([{ count: 0 }, { count: 0 }]);
+    assertEquals(states, [{ count: 0 }, { count: 0 }]);
     await api.dispose?.();
     port1.close();
     port2.close();
@@ -334,9 +341,9 @@ Deno.test("fetch proxy via Comlink", async (t) => {
       );
 
       const result = await api.executeTool("do_fetch", {}, "s1", 5000);
-      expect(result).toBe('{"proxied":"https://api.example.com/data"}');
-      expect(capturedFetch).toBeDefined();
-      expect(capturedFetch).not.toBe(undefined);
+      assertStrictEquals(result, '{"proxied":"https://api.example.com/data"}');
+      assert(capturedFetch !== undefined);
+      assertNotStrictEquals(capturedFetch, undefined);
       await api.dispose?.();
       port1.close();
       port2.close();
@@ -399,9 +406,9 @@ Deno.test("fetch proxy via Comlink", async (t) => {
         "s1",
         5000,
       );
-      expect(result).toBe("201 Created");
-      expect(capturedStatus).toBe(201);
-      expect(capturedHeaders).toBe("test-value");
+      assertStrictEquals(result, "201 Created");
+      assertStrictEquals(capturedStatus, 201);
+      assertStrictEquals(capturedHeaders, "test-value");
       await api.dispose?.();
       port1.close();
       port2.close();
@@ -456,7 +463,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
         "s1",
         5000,
       );
-      expect(result).toContain("Blocked request to private address");
+      assertStringIncludes(result, "Blocked request to private address");
       await api.dispose?.();
       port1.close();
       port2.close();
@@ -522,10 +529,10 @@ Deno.test("fetch proxy via Comlink", async (t) => {
         "s1",
         5000,
       );
-      expect(result).toBe("posted");
-      expect(capturedMethod).toBe("POST");
-      expect(capturedHeaders?.["content-type"]).toBe("application/json");
-      expect(capturedBody).toBe('{"hello":"world"}');
+      assertStrictEquals(result, "posted");
+      assertStrictEquals(capturedMethod, "POST");
+      assertStrictEquals(capturedHeaders?.["content-type"], "application/json");
+      assertStrictEquals(capturedBody, '{"hello":"world"}');
       await api.dispose?.();
       port1.close();
       port2.close();
@@ -579,7 +586,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
       );
 
       await api.executeTool("do_fetch", {}, "s1", 5000);
-      expect(fetchCalled).toBe(true);
+      assertStrictEquals(fetchCalled, true);
       await api.dispose?.();
       port1.close();
       port2.close();
@@ -613,7 +620,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
 
       const api = createWorkerApi(port2);
       const result = await api.executeTool("greet", {}, "s1", 5000);
-      expect(result).toBe("hello");
+      assertStrictEquals(result, "hello");
       await api.dispose?.();
       port1.close();
       port2.close();

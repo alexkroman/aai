@@ -1,3 +1,5 @@
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
 import {
   type CoreMessage,
   type CoreUserMessage,
@@ -8,27 +10,54 @@ import {
   type ToolCallUnion,
   type ToolSet,
 } from "ai";
-import type { ToolChoice } from "@aai/sdk/schema";
+import type { ToolChoice } from "@aai/sdk/types";
 import { FINAL_ANSWER_TOOL, USER_INPUT_TOOL } from "./builtin_tools.ts";
 import * as metrics from "./metrics.ts";
 
 const DEFAULT_STOP_WHEN = 5;
 
+/** Options for executing a single conversational turn through the agentic loop. */
 export type ExecuteTurnOptions = {
+  /** Agent slug (used for logging and metrics). */
   agent: string;
+  /** The language model to use for generation. */
   model: LanguageModelV1;
+  /** System prompt for the LLM. */
   system: string;
+  /** Conversation history (mutated in place with new messages). */
   messages: CoreMessage[];
+  /** Available tools (both builtin and agent-defined). */
   tools: ToolSet;
+  /** Abort signal to cancel the turn. */
   signal: AbortSignal;
-  maxSteps?: number;
-  toolChoice?: ToolChoice;
-  onStep?: (step: StepResult<ToolSet>) => void | Promise<void>;
-  resolveBeforeStep?: (
-    stepNumber: number,
-  ) => Promise<{ activeTools?: string[] } | null>;
+  /** Maximum number of LLM steps before forcing `final_answer` (default: 5). */
+  maxSteps?: number | undefined;
+  /** Tool choice strategy passed to the LLM (default: "auto"). */
+  toolChoice?: ToolChoice | undefined;
+  /** Callback invoked after each LLM step completes. */
+  onStep?:
+    | ((step: StepResult<ToolSet>) => void | Promise<void>)
+    | undefined;
+  /** Hook called before each step to optionally filter active tools. */
+  resolveBeforeStep?:
+    | ((
+      stepNumber: number,
+    ) => Promise<{ activeTools?: string[] } | null>)
+    | undefined;
 };
 
+/**
+ * Executes a single conversational turn through the agentic LLM loop.
+ *
+ * Sends the user's text to the LLM along with conversation history and
+ * available tools. The LLM may call tools across multiple steps until it
+ * produces a `final_answer` or `user_input` call, or until `maxSteps` is
+ * reached (at which point `final_answer` is forced).
+ *
+ * @param text - The user's transcribed speech for this turn.
+ * @param opts - Turn execution options including model, tools, and signal.
+ * @returns The agent's text response to be spoken via TTS.
+ */
 export async function executeTurn(
   text: string,
   opts: ExecuteTurnOptions,
@@ -76,7 +105,7 @@ export async function executeTurn(
     onStepFinish: async (step: StepResult<ToolSet>) => {
       if (step.toolCalls) {
         for (const tc of step.toolCalls) {
-          console.info("tool call", { tool: tc.toolName, agent });
+          log.info("tool call", { tool: tc.toolName, agent });
           metrics.toolDuration.observe(0, { agent, tool: tc.toolName });
         }
       }
@@ -99,7 +128,7 @@ export async function executeTurn(
     );
     if (answerCall) {
       const answer = (answerCall.args as { answer?: string }).answer ?? "";
-      console.info("turn complete (final_answer)", {
+      log.info("turn complete (final_answer)", {
         responseLength: answer.length,
       });
       return answer;
@@ -111,7 +140,7 @@ export async function executeTurn(
     if (questionCall) {
       const question = (questionCall.args as { question?: string }).question ??
         "";
-      console.info("turn complete (user_input)", {
+      log.info("turn complete (user_input)", {
         questionLength: question.length,
       });
       return question;
@@ -121,6 +150,6 @@ export async function executeTurn(
   // Fallback: use the text response
   const responseText = result.text ||
     "Sorry, I couldn't generate a response.";
-  console.info("turn complete", { responseLength: responseText.length });
+  log.info("turn complete", { responseLength: responseText.length });
   return responseText;
 }

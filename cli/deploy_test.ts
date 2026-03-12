@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assertStrictEquals, assertStringIncludes } from "@std/assert";
 import { assertSpyCalls, spy, stub } from "@std/testing/mock";
 import { _internals, runDeploy } from "./_deploy.ts";
 import { makeBundle } from "./_test_utils.ts";
@@ -39,15 +40,17 @@ Deno.test("runDeploy", async (t) => {
       });
       // deploy call + health check = 2
       assertSpyCalls(fetchSpy, 2);
-      const deployCall = fetchSpy.calls[0];
-      expect(String(deployCall.args[0])).toBe(
+      const deployCall = fetchSpy.calls[0]!;
+      assertStrictEquals(
+        String(deployCall.args[0]),
         "http://localhost:3000/my-ns/agent-a/deploy",
       );
-      expect(
+      assertStrictEquals(
         (deployCall.args[1]?.headers as Record<string, string>)?.Authorization,
-      ).toBe("Bearer test-key");
-      expect(result.namespace).toBe("my-ns");
-      expect(result.slug).toBe("agent-a");
+        "Bearer test-key",
+      );
+      assertStrictEquals(result.namespace, "my-ns");
+      assertStrictEquals(result.slug, "agent-a");
     } finally {
       fetchSpy.restore();
     }
@@ -87,11 +90,11 @@ Deno.test("runDeploy", async (t) => {
 
       // 2 failed deploy attempts + 1 success + 1 health = 4
       assertSpyCalls(fetchStub, 4);
-      expect(String(fetchStub.calls[0].args[0])).toContain("/my-ns/");
-      expect(String(fetchStub.calls[1].args[0])).toContain("/my-ns-1/");
-      expect(String(fetchStub.calls[2].args[0])).toContain("/my-ns-2/");
-      expect(result.namespace).toBe("my-ns-2");
-      expect(result.slug).toBe("agent-a");
+      assertStringIncludes(String(fetchStub.calls[0]!.args[0]), "/my-ns/");
+      assertStringIncludes(String(fetchStub.calls[1]!.args[0]), "/my-ns-1/");
+      assertStringIncludes(String(fetchStub.calls[2]!.args[0]), "/my-ns-2/");
+      assertStrictEquals(result.namespace, "my-ns-2");
+      assertStrictEquals(result.slug, "agent-a");
     } finally {
       fetchStub.restore();
     }
@@ -113,7 +116,7 @@ Deno.test("runDeploy", async (t) => {
         apiKey: "test-key",
       });
       assertSpyCalls(fetchStub, 0);
-      expect(result.namespace).toBe("my-ns");
+      assertStrictEquals(result.namespace, "my-ns");
     } finally {
       fetchStub.restore();
     }

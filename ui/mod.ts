@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Browser client library for AAI voice agents.
  *

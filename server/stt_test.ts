@@ -1,4 +1,10 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStrictEquals,
+} from "@std/assert";
 import { spy } from "@std/testing/mock";
 import {
   createSttConnection,
@@ -54,11 +60,11 @@ class MockStreamingTranscriber {
   emitTurn(turn: Partial<TurnEvent>) {
     const full: TurnEvent = {
       type: "Turn",
-      turn_order: 0,
-      turn_is_formatted: true,
-      end_of_turn: false,
+      "turn_order": 0,
+      "turn_is_formatted": true,
+      "end_of_turn": false,
       transcript: "",
-      end_of_turn_confidence: 0,
+      "end_of_turn_confidence": 0,
       words: [],
       ...turn,
     };
@@ -144,14 +150,14 @@ Deno.test("SttConnection", async (t) => {
     using _sdk = installMockSDK();
     const conn = await createConnected();
     conn.send(new Uint8Array([1, 2, 3]));
-    expect(lastMock!.sentAudio).toHaveLength(1);
+    assertStrictEquals(lastMock!.sentAudio.length, 1);
   });
 
   await t.step("clear sends ForceEndpoint", async () => {
     using _sdk = installMockSDK();
     const conn = await createConnected();
     conn.clear();
-    expect(lastMock!.sentMessages).toEqual([{ type: "ForceEndpoint" }]);
+    assertEquals(lastMock!.sentMessages, [{ type: "ForceEndpoint" }]);
   });
 
   await t.step("close invokes onClose callback", async () => {
@@ -160,7 +166,7 @@ Deno.test("SttConnection", async (t) => {
     const conn = await createConnected();
     conn.onClose = onClose;
     conn.close();
-    expect(onClose.calls.length).toBe(1);
+    assertStrictEquals(onClose.calls.length, 1);
   });
 
   await t.step("dispatches completed Turn via onTurn", async () => {
@@ -174,8 +180,8 @@ Deno.test("SttConnection", async (t) => {
       end_of_turn: true,
     });
 
-    expect(onTurn.calls.length).toBe(1);
-    expect(onTurn.calls[0].args[0]).toEqual({
+    assertStrictEquals(onTurn.calls.length, 1);
+    assertEquals(onTurn.calls[0]!.args[0], {
       text: "What is the weather?",
       turnOrder: 0,
     });
@@ -194,9 +200,9 @@ Deno.test("SttConnection", async (t) => {
       end_of_turn: false,
     });
 
-    expect(onTurn.calls.length).toBe(0);
-    expect(onTranscript.calls.length).toBe(1);
-    expect(onTranscript.calls[0].args[0].text).toBe("partial text");
+    assertStrictEquals(onTurn.calls.length, 0);
+    assertStrictEquals(onTranscript.calls.length, 1);
+    assertStrictEquals(onTranscript.calls[0]!.args[0].text, "partial text");
   });
 
   await t.step("skips Turn with empty transcript", async () => {
@@ -212,8 +218,8 @@ Deno.test("SttConnection", async (t) => {
       end_of_turn: true,
     });
 
-    expect(onTurn.calls.length).toBe(0);
-    expect(onTranscript.calls.length).toBe(0);
+    assertStrictEquals(onTurn.calls.length, 0);
+    assertStrictEquals(onTranscript.calls.length, 0);
   });
 
   await t.step("fires onError on SDK error", async () => {
@@ -222,7 +228,7 @@ Deno.test("SttConnection", async (t) => {
     const conn = await createConnected();
     conn.onError = onError;
     lastMock!.emitError(new Error("something went wrong"));
-    expect(onError.calls.length).toBe(1);
+    assertStrictEquals(onError.calls.length, 1);
   });
 
   await t.step(
@@ -235,8 +241,8 @@ Deno.test("SttConnection", async (t) => {
       conn.onClose = onClose;
       conn.onError = onError;
       lastMock!.emitClose(1006, "");
-      expect(onClose.calls.length).toBe(1);
-      expect(onError.calls.length).toBe(1);
+      assertStrictEquals(onClose.calls.length, 1);
+      assertStrictEquals(onError.calls.length, 1);
     },
   );
 
@@ -252,8 +258,8 @@ Deno.test("SttConnection", async (t) => {
       turn_order: 3,
     });
 
-    expect(onTurn.calls.length).toBe(1);
-    expect(onTurn.calls[0].args[0]).toEqual({ text: "Hello", turnOrder: 3 });
+    assertStrictEquals(onTurn.calls.length, 1);
+    assertEquals(onTurn.calls[0]!.args[0], { text: "Hello", turnOrder: 3 });
   });
 
   await t.step(
@@ -270,8 +276,8 @@ Deno.test("SttConnection", async (t) => {
         turn_order: 2,
       });
 
-      expect(onTranscript.calls.length).toBe(1);
-      expect(onTranscript.calls[0].args[0]).toEqual({
+      assertStrictEquals(onTranscript.calls.length, 1);
+      assertEquals(onTranscript.calls[0]!.args[0], {
         text: "partial",
         isFinal: false,
         turnOrder: 2,
@@ -285,26 +291,26 @@ Deno.test("SttConnection", async (t) => {
       ...DEFAULT_STT_CONFIG,
       sttPrompt: "Transcribe medical terms",
     });
-    expect(lastMock!.params).toBeDefined();
+    assert(lastMock!.params !== undefined);
   });
 
   await t.step("connected and closed reflect state", async () => {
     using _sdk = installMockSDK();
     const conn = createSttConnection("test-key", DEFAULT_STT_CONFIG);
-    expect(conn.connected).toBe(false);
-    expect(conn.closed).toBe(false);
+    assertStrictEquals(conn.connected, false);
+    assertStrictEquals(conn.closed, false);
     await conn.connect();
-    expect(conn.connected).toBe(true);
-    expect(conn.closed).toBe(false);
+    assertStrictEquals(conn.connected, true);
+    assertStrictEquals(conn.closed, false);
     conn.close();
-    expect(conn.connected).toBe(false);
-    expect(conn.closed).toBe(true);
+    assertStrictEquals(conn.connected, false);
+    assertStrictEquals(conn.closed, true);
   });
 
   await t.step("connect rejects if not in Idle state", async () => {
     using _sdk = installMockSDK();
     const conn = await createConnected();
-    await expect(conn.connect()).rejects.toThrow("Cannot connect");
+    await assertRejects(() => conn.connect(), Error, "Cannot connect");
   });
 
   await t.step("send is no-op when closed", async () => {
@@ -312,7 +318,7 @@ Deno.test("SttConnection", async (t) => {
     const conn = await createConnected();
     conn.close();
     conn.send(new Uint8Array([1, 2, 3]));
-    expect(lastMock!.sentAudio).toHaveLength(0);
+    assertStrictEquals(lastMock!.sentAudio.length, 0);
   });
 
   await t.step("close is idempotent", async () => {
@@ -320,6 +326,6 @@ Deno.test("SttConnection", async (t) => {
     const conn = await createConnected();
     conn.close();
     conn.close();
-    expect(conn.closed).toBe(true);
+    assertStrictEquals(conn.closed, true);
   });
 });

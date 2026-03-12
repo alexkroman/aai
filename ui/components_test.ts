@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertStrictEquals, assertStringIncludes } from "@std/assert";
 import { h, render } from "preact";
 import { signal } from "@preact/signals";
 import { createMockSignals, withDOM } from "./_test_utils.ts";
@@ -35,7 +36,7 @@ Deno.test("StateIndicator", async (t) => {
         `,
         container,
       );
-      expect(container.textContent).toContain("listening");
+      assertStringIncludes(container.textContent!, "listening");
     }),
   );
 });
@@ -55,7 +56,7 @@ Deno.test("ErrorBanner", async (t) => {
         `,
         container,
       );
-      expect(container.textContent).toContain("Connection lost");
+      assertStringIncludes(container.textContent!, "Connection lost");
     }),
   );
 
@@ -68,7 +69,7 @@ Deno.test("ErrorBanner", async (t) => {
         `,
         container,
       );
-      expect(container.innerHTML).toBe("");
+      assertStrictEquals(container.innerHTML, "");
     }),
   );
 });
@@ -84,7 +85,7 @@ Deno.test("MessageBubble", async (t) => {
         `,
         container,
       );
-      expect(container.textContent).toContain("Hello there");
+      assertStringIncludes(container.textContent!, "Hello there");
     }),
   );
 
@@ -98,7 +99,7 @@ Deno.test("MessageBubble", async (t) => {
         `,
         container,
       );
-      expect(container.textContent).toBe("Simple reply");
+      assertStrictEquals(container.textContent, "Simple reply");
     }),
   );
 });
@@ -113,7 +114,7 @@ Deno.test("Transcript", async (t) => {
         `,
         container,
       );
-      expect(container.textContent).toContain("hello wor");
+      assertStringIncludes(container.textContent!, "hello wor");
     }),
   );
 
@@ -126,7 +127,7 @@ Deno.test("Transcript", async (t) => {
         `,
         container,
       );
-      expect(container.innerHTML).toBe("");
+      assertStrictEquals(container.innerHTML, "");
     }),
   );
 });
@@ -143,7 +144,8 @@ Deno.test("App", async (t) => {
         `,
         signals,
       );
-      expect(container.querySelector("button")!.textContent).toBe(
+      assertStrictEquals(
+        container.querySelector("button")!.textContent,
         "Start Conversation",
       );
     }),
@@ -164,8 +166,8 @@ Deno.test("App", async (t) => {
         `,
         signals,
       );
-      expect(container.textContent).toContain("listening");
-      expect(container.textContent).toContain("Stop");
+      assertStringIncludes(container.textContent!, "listening");
+      assertStringIncludes(container.textContent!, "Stop");
     }),
   );
 
@@ -180,7 +182,8 @@ Deno.test("App", async (t) => {
         `,
         signals,
       );
-      expect(container.querySelector("button")!.textContent).toBe(
+      assertStrictEquals(
+        container.querySelector("button")!.textContent,
         "Start Conversation",
       );
 
@@ -194,8 +197,8 @@ Deno.test("App", async (t) => {
         signals,
       );
 
-      expect(container.textContent).toContain("listening");
-      expect(container.textContent).not.toContain("Start Conversation");
+      assertStringIncludes(container.textContent!, "listening");
+      assert(!container.textContent!.includes("Start Conversation"));
     }),
   );
 });
@@ -221,9 +224,9 @@ Deno.test("ChatView", async (t) => {
         signals,
       );
 
-      expect(container.textContent).toContain("thinking");
-      expect(container.textContent).toContain("What is AI?");
-      expect(container.textContent).toContain("AI stands for...");
+      assertStringIncludes(container.textContent!, "thinking");
+      assertStringIncludes(container.textContent!, "What is AI?");
+      assertStringIncludes(container.textContent!, "AI stands for...");
     }),
   );
 
@@ -245,8 +248,8 @@ Deno.test("ChatView", async (t) => {
         signals,
       );
 
-      expect(container.textContent).toContain("hello wor");
-      expect(container.textContent).toContain("Connection failed");
+      assertStringIncludes(container.textContent!, "hello wor");
+      assertStringIncludes(container.textContent!, "Connection failed");
     }),
   );
 
@@ -271,8 +274,8 @@ Deno.test("ChatView", async (t) => {
           b.textContent
         );
 
-      expect(buttons()).toContain("Stop");
-      expect(buttons()).toContain("New Conversation");
+      assert(buttons().includes("Stop"));
+      assert(buttons().includes("New Conversation"));
 
       signals.running.value = false;
       render(null, container);
@@ -283,7 +286,7 @@ Deno.test("ChatView", async (t) => {
         `,
         signals,
       );
-      expect(buttons()).toContain("Resume");
+      assert(buttons().includes("Resume"));
     }),
   );
 
@@ -309,8 +312,8 @@ Deno.test("ChatView", async (t) => {
       );
 
       const text = container.textContent!;
-      expect(text.indexOf("First")).toBeLessThan(text.indexOf("Second"));
-      expect(text.indexOf("Second")).toBeLessThan(text.indexOf("Third"));
+      assert(text.indexOf("First") < text.indexOf("Second"));
+      assert(text.indexOf("Second") < text.indexOf("Third"));
     }),
   );
 });

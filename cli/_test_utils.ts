@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { stub } from "@std/testing/mock";
 import { _internals } from "./_new.ts";
 import type { BundleOutput } from "./_bundler.ts";

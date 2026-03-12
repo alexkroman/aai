@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 export const INSTALL_SCRIPT = `#!/bin/sh
 set -e
 

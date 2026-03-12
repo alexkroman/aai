@@ -1,4 +1,4 @@
-import { defineAgent, tool, z } from "@aai/sdk";
+import { defineAgent, z } from "@aai/sdk";
 import knowledge from "./knowledge.json" with { type: "json" };
 
 type FaqEntry = { question: string; answer: string };
@@ -23,7 +23,7 @@ Rules:
     "Hi! I'm your FAQ assistant. Ask me anything about the AAI agent framework and I'll look it up in my knowledge base.",
   voice: "luna",
   tools: {
-    search_knowledge: tool({
+    search_knowledge: {
       description:
         "Search the embedded FAQ knowledge base for an answer matching the user's question.",
       parameters: z.object({
@@ -38,11 +38,11 @@ Rules:
         );
         return match ?? { result: "No matching FAQ found." };
       },
-    }),
-    list_topics: tool({
+    },
+    list_topics: {
       description:
         "List all available topics in the embedded FAQ knowledge base.",
       execute: () => faqs.map((f) => f.question),
-    }),
+    },
   },
 });

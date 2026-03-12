@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { assertEquals, assertThrows } from "@std/assert";
 import { createMemoryKv } from "./kv.ts";
 import { FakeTime } from "@std/testing/time";
@@ -110,7 +111,7 @@ Deno.test("createMemoryKv", async (t) => {
     time.tick(6_000);
     const entries = await kv.list("");
     assertEquals(entries.length, 1);
-    assertEquals(entries[0].key, "alive");
+    assertEquals(entries[0]!.key, "alive");
   });
 
   await t.step("overwrite replaces value", async () => {
@@ -143,7 +144,7 @@ Deno.test("createMemoryKv", async (t) => {
     await kv.set("item:1", { title: "first" });
     await kv.set("item:2", { title: "second" });
     const entries = await kv.list<{ title: string }>("item:");
-    assertEquals(entries[0].value.title, "first");
-    assertEquals(entries[1].value.title, "second");
+    assertEquals(entries[0]!.value.title, "first");
+    assertEquals(entries[1]!.value.title, "second");
   });
 });

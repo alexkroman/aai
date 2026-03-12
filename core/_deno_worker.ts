@@ -1,10 +1,18 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Deno Worker factory with permission control.
  *
  * @module
  */
 
-/** All permissions denied — used for sandboxed agent and code-execution workers. */
+/**
+ * Permission set with all permissions denied.
+ *
+ * Used for sandboxed agent workers and code-execution workers to ensure
+ * agent code cannot access the network, filesystem, environment variables,
+ * or any other system resources directly. Workers must use the
+ * {@linkcode HostApi} proxy for any I/O.
+ */
 export const LOCKED_PERMISSIONS = {
   net: false,
   read: false,
@@ -16,11 +24,27 @@ export const LOCKED_PERMISSIONS = {
 } as const;
 
 /**
- * Typed wrapper for creating Deno Workers with permission options.
- * Deno supports a `deno` option on the Worker constructor but TypeScript
- * types don't include it — this is the single place for the cast.
+ * Create a Deno Worker with explicit permission options.
+ *
+ * Deno supports a `deno.permissions` option on the `Worker` constructor,
+ * but TypeScript's built-in types don't include it. This function is the
+ * single place where that cast happens, keeping the rest of the codebase
+ * type-safe.
+ *
+ * @param specifier - The module URL or path for the worker script.
+ * @param name - A human-readable name for the worker (shown in logs/debugger).
+ * @param permissions - Deno permission flags for the worker sandbox.
+ * @returns A new `Worker` instance with the specified permissions.
+ *
+ * @example
+ * ```ts
+ * const worker = createDenoWorker(
+ *   new URL("./worker.ts", import.meta.url),
+ *   "agent-worker",
+ *   LOCKED_PERMISSIONS,
+ * );
+ * ```
  */
-/** Create a Deno Worker with explicit permission options. */
 export function createDenoWorker(
   specifier: string | URL,
   name: string,

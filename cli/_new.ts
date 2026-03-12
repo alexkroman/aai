@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { join } from "@std/path";
 import { step } from "./_output.ts";
 

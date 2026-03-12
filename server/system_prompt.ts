@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { type AgentConfig, DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
 
 const VOICE_RULES =
@@ -14,9 +15,9 @@ const VOICE_RULES =
 
 export function buildSystemPrompt(
   config: AgentConfig,
-  hasTools: boolean,
-  opts?: { voice?: boolean },
+  opts: { hasTools: boolean; voice?: boolean },
 ): string {
+  const { hasTools } = opts;
   const agentInstructions = config.instructions
     ? `\n\nAgent-Specific Instructions:\n${config.instructions}`
     : "";

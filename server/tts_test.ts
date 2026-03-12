@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertEquals, assertStrictEquals } from "@std/assert";
 import { createTtsConnection } from "./tts.ts";
 import { DEFAULT_TTS_CONFIG } from "./types.ts";
 import { installMockWebSocket } from "./_mock_ws.ts";
@@ -14,7 +15,7 @@ Deno.test("TtsConnection", async (t) => {
   await t.step("does not create a WebSocket on construction", () => {
     using mockWs = installMockWebSocket();
     const _conn = createTtsConnection(config);
-    expect(mockWs.created.length).toBe(0);
+    assertStrictEquals(mockWs.created.length, 0);
   });
 
   await t.step(
@@ -30,7 +31,7 @@ Deno.test("TtsConnection", async (t) => {
       );
 
       await flush();
-      const ws = mockWs.created[0];
+      const ws = mockWs.created[0]!;
 
       // Server sends audio
       ws.dispatchEvent(
@@ -43,12 +44,12 @@ Deno.test("TtsConnection", async (t) => {
       ws.close();
       await promise;
 
-      expect(ws.sent).toContain("Hello ");
-      expect(ws.sent).toContain("world");
-      expect(ws.sent).toContain("<FLUSH>");
+      assert(ws!.sent.includes("Hello "));
+      assert(ws!.sent.includes("world"));
+      assert(ws!.sent.includes("<FLUSH>"));
 
-      expect(chunks).toHaveLength(1);
-      expect(chunks[0]).toEqual(new Uint8Array([10, 20]));
+      assertStrictEquals(chunks.length, 1);
+      assertEquals(chunks[0], new Uint8Array([10, 20]));
     },
   );
 
@@ -66,7 +67,7 @@ Deno.test("TtsConnection", async (t) => {
         (c) => chunks.push(c),
         controller.signal,
       );
-      expect(chunks).toHaveLength(0);
+      assertStrictEquals(chunks.length, 0);
     },
   );
 
@@ -86,8 +87,8 @@ Deno.test("TtsConnection", async (t) => {
     controller.abort();
     await promise;
 
-    const ws = mockWs.created[0];
-    expect(ws.readyState).toBe(WebSocket.CLOSED);
+    const ws = mockWs.created[0]!;
+    assertStrictEquals(ws.readyState, WebSocket.CLOSED);
   });
 
   await t.step("close sends EOS and prevents further synthesis", async () => {
@@ -96,20 +97,20 @@ Deno.test("TtsConnection", async (t) => {
 
     const p = conn.synthesizeStream(textStream("Hello"), () => {});
     await flush();
-    mockWs.created[0].close();
+    mockWs.created[0]!.close();
     await p;
 
     conn.close();
 
     const chunks: Uint8Array[] = [];
     await conn.synthesizeStream(textStream("Hello"), (c) => chunks.push(c));
-    expect(chunks).toHaveLength(0);
+    assertStrictEquals(chunks.length, 0);
   });
 
   await t.step("close is idempotent", () => {
     const conn = createTtsConnection(config);
     conn.close();
     conn.close();
-    expect(conn.closed).toBe(true);
+    assertStrictEquals(conn.closed, true);
   });
 });

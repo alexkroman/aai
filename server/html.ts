@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { escape } from "@std/html";
 
 export const FAVICON_SVG: string =

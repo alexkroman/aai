@@ -1,5 +1,6 @@
-import { defineAgent, tool, z } from "@aai/sdk";
-import type { HookContext, StepInfo } from "@aai/sdk";
+import { defineAgent, z } from "@aai/sdk";
+import type { HookContext, StepInfo } from "@aai/sdk/types";
+import * as log from "@std/log";
 
 /**
  * Smart Research Agent — demonstrates all 5 advanced features:
@@ -53,7 +54,7 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
     const state = ctx.state;
     state.stepCount++;
     for (const tc of step.toolCalls) {
-      console.log(
+      log.info(
         `[step ${step.stepNumber}] ${tc.toolName} (phase: ${state.phase})`,
       );
     }
@@ -91,7 +92,7 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
   },
 
   tools: {
-    save_source: tool({
+    save_source: {
       description: "Save a source URL found during research for later analysis",
       parameters: z.object({
         url: z.string().describe("The source URL"),
@@ -102,9 +103,9 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
         state.sources.push(`${args.title}: ${args.url}`);
         return { saved: true, totalSources: state.sources.length };
       },
-    }),
+    },
 
-    mark_complex: tool({
+    mark_complex: {
       description:
         "Mark this research query as complex, allowing more search steps",
       execute: (_args, ctx) => {
@@ -112,9 +113,9 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
         state.complexity = "deep";
         return { complexity: "deep", maxSteps: 10 };
       },
-    }),
+    },
 
-    advance_phase: tool({
+    advance_phase: {
       description:
         "Move to the next research phase (gather -> analyze -> respond)",
       execute: (_args, ctx) => {
@@ -126,10 +127,10 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
         }
         return { phase: state.phase };
       },
-    }),
+    },
 
     // Feature 2: ctx.messages — access conversation history in tools
-    analyze: tool({
+    analyze: {
       description:
         "Analyze all gathered sources and conversation context to form a conclusion",
       parameters: z.object({
@@ -147,9 +148,9 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
           phase: state.phase,
         };
       },
-    }),
+    },
 
-    conversation_summary: tool({
+    conversation_summary: {
       description: "Get a summary of the conversation so far",
       execute: (_args, ctx) => {
         const msgs = ctx.messages;
@@ -162,6 +163,6 @@ Always search first, then analyze, then answer. Be thorough but concise.`,
           },
         };
       },
-    }),
+    },
   },
 });

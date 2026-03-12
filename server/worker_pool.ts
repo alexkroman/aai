@@ -1,7 +1,9 @@
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
 import { encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
 import type { AgentConfig } from "@aai/sdk/types";
-import type { ToolSchema } from "@aai/sdk/schema";
+import type { ToolSchema } from "@aai/sdk/types";
 import {
   createWorkerApi,
   type HostApi,
@@ -18,17 +20,32 @@ export type { AgentMetadata } from "./_schemas.ts";
 
 const IDLE_MS = 5 * 60 * 1000;
 
+/**
+ * Runtime state for a deployed agent, including its worker process and
+ * cached configuration. Managed by the worker pool.
+ */
 export type AgentSlot = {
+  /** The agent's unique slug identifier. */
   slug: string;
+  /** Environment variables provided at deploy time. */
   env: Record<string, string>;
-  transport: ("websocket" | "twilio")[];
+  /** Supported transport types for this agent. */
+  transport: readonly ("websocket" | "twilio")[];
+  /** Cached agent configuration extracted from the worker. */
   config?: AgentConfig;
+  /** Human-readable agent name from the configuration. */
   name?: string;
+  /** Cached tool schemas extracted from the worker. */
   toolSchemas?: ToolSchema[];
+  /** Account ID of the agent owner (for KV scoping). */
   accountId?: string;
+  /** Active worker handle and Comlink API proxy. */
   worker?: { handle: { terminate(): void }; api: WorkerApi };
+  /** Promise that resolves when the worker is done initializing. */
   initializing?: Promise<void>;
+  /** Whether the agent config has been loaded from the worker. */
   configLoaded?: boolean;
+  /** Timer handle for idle worker eviction. */
   idleTimer?: ReturnType<typeof setTimeout>;
 };
 
@@ -39,7 +56,7 @@ async function spawnAgent(
 ): Promise<void> {
   const { slug } = slot;
 
-  console.info("Spawning agent worker", { slug });
+  log.info("Spawning agent worker", { slug });
 
   if (!getWorkerCode) {
     throw new Error(`No worker code source for ${slug}`);
@@ -54,19 +71,19 @@ async function spawnAgent(
   worker.addEventListener(
     "error",
     ((event: ErrorEvent) => {
-      console.error("Worker died", { slug, error: event.message });
+      log.error("Worker died", { slug, error: event.message });
       if (slot.worker?.handle !== worker) return;
-      slot.worker = undefined;
+      delete slot.worker;
 
       const now = Date.now();
       if (now - lastCrash < 5_000) {
-        console.error("Worker crash loop, not respawning", { slug });
+        log.error("Worker crash loop, not respawning", { slug });
         return;
       }
       lastCrash = now;
-      console.info("Respawning worker", { slug });
+      log.info("Respawning worker", { slug });
       spawnAgent(slot, getWorkerCode, kvCtx).catch((err: unknown) => {
-        console.error("Worker respawn failed", {
+        log.error("Worker respawn failed", {
           slug,
           error: err instanceof Error ? err.message : String(err),
         });
@@ -126,8 +143,8 @@ function createHostApi(
         case "list":
           return {
             result: await kvStore.list(scope, req.prefix, {
-              limit: req.limit,
-              reverse: req.reverse,
+              ...(req.limit !== undefined && { limit: req.limit }),
+              ...(req.reverse !== undefined && { reverse: req.reverse }),
             }),
           };
         default:
@@ -143,20 +160,37 @@ function resetIdleTimer(slot: AgentSlot): void {
   if (slot.idleTimer) clearTimeout(slot.idleTimer);
   const id = setTimeout(() => {
     if (!slot.worker) return;
-    console.info("Evicting idle worker", { slug: slot.slug });
+    log.info("Evicting idle worker", { slug: slot.slug });
     slot.worker.handle.terminate();
-    slot.worker = undefined;
-    slot.idleTimer = undefined;
+    delete slot.worker;
+    delete slot.idleTimer;
   }, IDLE_MS);
   Deno.unrefTimer(id);
   slot.idleTimer = id;
 }
 
+/**
+ * Ensures an agent worker is running for the given slot.
+ *
+ * If a worker is already active, resets its idle eviction timer. If no worker
+ * exists, spawns a new one and extracts its configuration. Concurrent calls
+ * for the same slot coalesce into a single initialization promise.
+ *
+ * @param slot - The agent slot to ensure has a running worker.
+ * @param getWorkerCode - Async function to retrieve the bundled worker JS by slug.
+ * @param kvCtx - Optional KV context for agents with KV access.
+ * @returns A promise that resolves when the worker is ready.
+ * @throws If the worker code cannot be found or the worker fails to initialize.
+ */
 export function ensureAgent(
   slot: AgentSlot,
-  getWorkerCode?: (slug: string) => Promise<string | null>,
-  kvCtx?: { kvStore: KvStore; scope: AgentScope },
+  opts?: {
+    getWorkerCode?: (slug: string) => Promise<string | null>;
+    kvCtx?: { kvStore: KvStore; scope: AgentScope };
+  },
 ): Promise<void> {
+  const getWorkerCode = opts?.getWorkerCode;
+  const kvCtx = opts?.kvCtx;
   const t0 = performance.now();
 
   if (slot.worker) {
@@ -166,21 +200,31 @@ export function ensureAgent(
   if (slot.initializing) return slot.initializing;
 
   slot.initializing = spawnAgent(slot, getWorkerCode, kvCtx).then(() => {
-    slot.initializing = undefined;
+    delete slot.initializing;
     resetIdleTimer(slot);
-    console.info("Agent ready", {
+    log.info("Agent ready", {
       slug: slot.slug,
       name: slot.name,
       durationMs: Math.round(performance.now() - t0),
     });
   }).catch((err) => {
-    slot.initializing = undefined;
+    delete slot.initializing;
     throw err;
   });
 
   return slot.initializing;
 }
 
+/**
+ * Registers an agent slot from deploy metadata.
+ *
+ * Validates that the metadata contains a valid platform config before
+ * registering. Agents with missing or invalid config are skipped.
+ *
+ * @param slots - The map of active agent slots to register into.
+ * @param metadata - Agent metadata from the bundle store.
+ * @returns `true` if the slot was registered, `false` if skipped due to invalid config.
+ */
 export function registerSlot(
   slots: Map<string, AgentSlot>,
   metadata: AgentMetadata,
@@ -188,7 +232,7 @@ export function registerSlot(
   try {
     loadPlatformConfig(metadata.env); // validate only
   } catch (err: unknown) {
-    console.warn("Skipping deploy — missing platform config", {
+    log.warn("Skipping deploy — missing platform config", {
       slug: metadata.slug,
       err,
     });
@@ -199,32 +243,53 @@ export function registerSlot(
     slug: metadata.slug,
     env: metadata.env,
     transport: metadata.transport,
-    accountId: metadata.account_id,
+    ...(metadata.account_id !== undefined && {
+      accountId: metadata.account_id,
+    }),
   });
   return true;
 }
 
+/** Everything needed to create a {@linkcode Session} for an agent. */
 export type SessionSetup = {
+  /** The agent's configuration from `defineAgent()`. */
   agentConfig: AgentConfig;
+  /** Combined builtin and agent-defined tool schemas. */
   toolSchemas: ToolSchema[];
+  /** Platform-level configuration (API keys, model, STT/TTS settings). */
   platformConfig: ReturnType<typeof loadPlatformConfig>;
+  /** Function to execute a tool call in the agent worker. */
   executeTool: ExecuteTool;
+  /** Factory to lazily obtain the worker API. */
   getWorkerApi: () => Promise<WorkerApi>;
+  /** Environment variables available to the agent. */
   env?: Record<string, string | undefined>;
 };
 
+/**
+ * Prepares all dependencies needed to create a session for an agent.
+ *
+ * Boots the agent worker (if not already running), extracts its configuration,
+ * and assembles tool schemas, platform config, and tool execution functions.
+ *
+ * @param slot - The agent slot to prepare a session for.
+ * @param slug - The agent's slug identifier.
+ * @param store - Bundle store for retrieving worker code.
+ * @param kvStore - Key-value store for agent state persistence.
+ * @returns A {@linkcode SessionSetup} with everything needed to create a session.
+ * @throws If the worker cannot be spawned or config cannot be extracted.
+ */
 export async function prepareSession(
   slot: AgentSlot,
-  slug: string,
-  store: BundleStore,
-  kvStore: KvStore,
+  opts: { slug: string; store: BundleStore; kvStore: KvStore },
 ): Promise<SessionSetup> {
+  const { slug, store, kvStore } = opts;
   const kvCtx = slot.accountId
     ? { kvStore, scope: { accountId: slot.accountId, slug } }
     : undefined;
   const getWorkerCode = (s: string) => store.getFile(s, "worker");
   const getWorkerApi = async () => {
-    await ensureAgent(slot, getWorkerCode, kvCtx);
+    await ensureAgent(slot, { getWorkerCode, ...(kvCtx && { kvCtx }) });
     return slot.worker!.api;
   };
   const executeTool: ExecuteTool = async (name, args, sessionId, messages) => {

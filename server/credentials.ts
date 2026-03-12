@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Encrypts and decrypts agent env vars at rest using jose JWE (A256GCM + dir).
  * The encryption key is derived from KV_SCOPE_SECRET via HKDF.

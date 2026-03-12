@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assertStringIncludes } from "@std/assert";
 import { assertSpyCalls, stub } from "@std/testing/mock";
 import { error, info, step, stepInfo, warn } from "./_output.ts";
 
@@ -7,8 +8,8 @@ Deno.test("step writes action prefix to stdout", () => {
   try {
     step("Bundle", "my-agent");
     assertSpyCalls(logStub, 1);
-    expect(logStub.calls[0].args[0]).toContain("Bundle");
-    expect(logStub.calls[0].args[0]).toContain("my-agent");
+    assertStringIncludes(logStub.calls[0]!.args[0], "Bundle");
+    assertStringIncludes(logStub.calls[0]!.args[0], "my-agent");
   } finally {
     logStub.restore();
   }
@@ -19,7 +20,7 @@ Deno.test("stepInfo writes action prefix to stdout", () => {
   try {
     stepInfo("Watch", "for changes...");
     assertSpyCalls(logStub, 1);
-    expect(logStub.calls[0].args[0]).toContain("Watch");
+    assertStringIncludes(logStub.calls[0]!.args[0], "Watch");
   } finally {
     logStub.restore();
   }
@@ -30,7 +31,7 @@ Deno.test("info writes to stdout", () => {
   try {
     info("secondary note");
     assertSpyCalls(logStub, 1);
-    expect(logStub.calls[0].args[0]).toContain("secondary note");
+    assertStringIncludes(logStub.calls[0]!.args[0], "secondary note");
   } finally {
     logStub.restore();
   }
@@ -41,7 +42,7 @@ Deno.test("warn writes to stderr", () => {
   try {
     warn("careful");
     assertSpyCalls(errStub, 1);
-    expect(errStub.calls[0].args[0]).toContain("careful");
+    assertStringIncludes(errStub.calls[0]!.args[0], "careful");
   } finally {
     errStub.restore();
   }
@@ -52,7 +53,7 @@ Deno.test("error writes to stderr", () => {
   try {
     error("oops");
     assertSpyCalls(errStub, 1);
-    expect(errStub.calls[0].args[0]).toContain("oops");
+    assertStringIncludes(errStub.calls[0]!.args[0], "oops");
   } finally {
     errStub.restore();
   }

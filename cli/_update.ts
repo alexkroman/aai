@@ -1,6 +1,7 @@
-import { Confirm } from "@cliffy/prompt";
+// Copyright 2025 the AAI authors. MIT license.
 import { deadline } from "@std/async/deadline";
 import { bold, brightBlue, dim, yellow } from "@std/fmt/colors";
+import * as log from "@std/log";
 import { greaterThan, parse } from "@std/semver";
 
 const REPO = "alexkroman/aai";
@@ -33,12 +34,12 @@ async function doUpgrade(newVersion: string): Promise<boolean> {
   const url =
     `https://github.com/${REPO}/releases/download/latest/${target}.tar.gz`;
 
-  console.log(`Downloading aai ${newVersion}...`);
+  log.info(`Downloading aai ${newVersion}...`);
 
   try {
     const resp = await fetch(url);
     if (!resp.ok) {
-      console.error(`Download failed: ${resp.status} ${resp.statusText}`);
+      log.error(`Download failed: ${resp.status} ${resp.statusText}`);
       return false;
     }
 
@@ -52,7 +53,7 @@ async function doUpgrade(newVersion: string): Promise<boolean> {
     });
     const tarResult = await tar.output();
     if (!tarResult.success) {
-      console.error("Failed to extract archive");
+      log.error("Failed to extract archive");
       return false;
     }
 
@@ -65,37 +66,41 @@ async function doUpgrade(newVersion: string): Promise<boolean> {
     await Deno.chmod(binPath, 0o755);
     await Deno.remove(tmp, { recursive: true });
 
-    console.log(`Updated aai to ${newVersion}`);
+    log.info(`Updated aai to ${newVersion}`);
     return true;
   } catch (err) {
-    console.error(`Upgrade failed: ${err}`);
+    log.error(`Upgrade failed: ${err}`);
     return false;
   }
 }
 
+/**
+ * Checks for a newer CLI release on GitHub and, if one is found, prompts the
+ * user to upgrade in place. Downloads and replaces the current binary if the
+ * user confirms. Exits the process after a successful upgrade.
+ *
+ * @param currentVersion The currently running CLI version (semver string).
+ */
 export async function promptUpgradeIfAvailable(
   currentVersion: string,
 ): Promise<void> {
   const newVersion = await checkForUpdate(currentVersion);
   if (!newVersion) return;
 
-  console.log(
+  log.info(
     `\n${yellow("Update available:")} ${dim(currentVersion)} → ${
       bold(brightBlue(newVersion))
     }`,
   );
-  const confirmed = await Confirm.prompt({
-    message: "Upgrade now?",
-    default: true,
-  });
+  const confirmed = confirm("Upgrade now?");
   if (!confirmed) {
-    console.log(dim(`Run aai again to upgrade later.\n`));
+    log.info(dim(`Run aai again to upgrade later.\n`));
     return;
   }
 
   const ok = await doUpgrade(newVersion);
   if (ok) {
-    console.log("Restart aai to use the new version.\n");
+    log.info("Restart aai to use the new version.\n");
     Deno.exit(0);
   }
 }

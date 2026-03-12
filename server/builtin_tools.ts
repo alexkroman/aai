@@ -1,3 +1,5 @@
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
 import { z } from "zod";
 import {
   jsonSchema,
@@ -9,7 +11,7 @@ import * as Comlink from "comlink";
 import type {
   BuiltinTool as BuiltinToolName,
   ToolSchema,
-} from "@aai/sdk/schema";
+} from "@aai/sdk/types";
 import TurndownService from "turndown";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "@aai/core/deno-worker";
 import { matchSubnets } from "@std/net/unstable-ip";
@@ -47,6 +49,16 @@ const BLOCKED_CIDRS = [
   "ff00::/8",
 ];
 
+/**
+ * Validates that a URL resolves to a public (non-private) IP address.
+ *
+ * Used as an SSRF guard for the fetch proxy. Resolves the hostname via DNS
+ * and checks all addresses against blocked CIDR ranges (private, loopback,
+ * link-local, multicast).
+ *
+ * @param url - The URL to validate.
+ * @throws If the URL's hostname resolves to a private or blocked IP address.
+ */
 export async function assertPublicUrl(url: string): Promise<void> {
   const parsed = new URL(url);
   const hostname = parsed.hostname.replace(/^\[|\]$/g, "");
@@ -109,7 +121,7 @@ const webSearch = defineTool({
   execute: async (args, env) => {
     const { query, max_results: maxResults = 5 } = args;
 
-    console.info("web_search", { query, maxResults });
+    log.info("web_search", { query, maxResults });
 
     const apiKey = env.BRAVE_API_KEY;
     if (!apiKey) {
@@ -129,7 +141,7 @@ const webSearch = defineTool({
     });
 
     if (!resp.ok) {
-      console.error("Brave Search request failed", {
+      log.error("Brave Search request failed", {
         status: resp.status,
         statusText: resp.statusText,
       });
@@ -139,7 +151,7 @@ const webSearch = defineTool({
     const raw = await resp.json();
     const data = BraveSearchResponseSchema.safeParse(raw);
     if (!data.success) {
-      console.error("Unexpected Brave Search response", {
+      log.error("Unexpected Brave Search response", {
         error: data.error.message,
       });
       return NO_RESULTS;
@@ -174,7 +186,7 @@ const visitWebpage = defineTool({
   execute: async (args) => {
     const { url } = args;
 
-    console.info("visit_webpage", { url });
+    log.info("visit_webpage", { url });
     await assertPublicUrl(url);
 
     const resp = await _internals.fetch(url, {
@@ -228,7 +240,7 @@ const runCode = defineTool({
   execute: async (args) => {
     const { code } = args;
 
-    console.info("run_code", { codeLength: code.length });
+    log.info("run_code", { codeLength: code.length });
 
     const worker = createDenoWorker(
       SANDBOX_WORKER_URL,
@@ -271,11 +283,11 @@ const fetchJson = defineTool({
   execute: async (args) => {
     const { url, headers } = args;
 
-    console.info("fetch_json", { url });
+    log.info("fetch_json", { url });
     await assertPublicUrl(url);
 
     const resp = await _internals.fetch(url, {
-      headers,
+      ...(headers && { headers }),
       signal: AbortSignal.timeout(15_000),
     });
 
@@ -308,7 +320,7 @@ const userInput = defineTool({
     "Ask the user a follow-up question and wait for their spoken response. Use this when you need clarification, a preference, or any additional input from the user before proceeding.",
   parameters: userInputParams,
   execute: () => {
-    throw new Error("user_input is handled by the turn handler");
+    throw new Error("Tool user_input is handled by the turn handler");
   },
 });
 
@@ -328,23 +340,35 @@ const finalAnswer = defineTool({
   },
 });
 
+/** Name of the built-in tool that terminates the agentic loop with a response. */
 export const FINAL_ANSWER_TOOL: BuiltinToolName = "final_answer";
+
+/** Name of the built-in tool that asks the user a follow-up question. */
 export const USER_INPUT_TOOL: BuiltinToolName = "user_input";
 
-const REQUIRED_BUILTIN_TOOLS: BuiltinToolName[] = [
+const REQUIRED_BUILTIN_TOOLS: readonly BuiltinToolName[] = [
   FINAL_ANSWER_TOOL,
   USER_INPUT_TOOL,
 ];
 
 const BUILTIN_TOOLS: Record<BuiltinToolName, BuiltinTool> = {
-  web_search: webSearch,
-  visit_webpage: visitWebpage,
-  run_code: runCode,
-  fetch_json: fetchJson,
-  user_input: userInput,
-  final_answer: finalAnswer,
+  "web_search": webSearch,
+  "visit_webpage": visitWebpage,
+  "run_code": runCode,
+  "fetch_json": fetchJson,
+  "user_input": userInput,
+  "final_answer": finalAnswer,
 };
 
+/**
+ * Returns JSON tool schemas for the specified builtin tools.
+ *
+ * Always includes `final_answer` and `user_input` in addition to any
+ * tools explicitly requested by the agent.
+ *
+ * @param names - Builtin tool names requested by the agent configuration.
+ * @returns An array of {@linkcode ToolSchema} objects for use in LLM calls.
+ */
 export function getBuiltinToolSchemas(
   names: readonly BuiltinToolName[],
 ): ToolSchema[] {
@@ -381,7 +405,7 @@ export function getBuiltinVercelTools(
       tools[name] = vercelTool({
         description: bt.description,
         parameters: params,
-      });
+      }) as unknown as ToolSet[string];
     } else {
       tools[name] = vercelTool({
         description: bt.description,

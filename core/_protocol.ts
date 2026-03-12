@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * WebSocket wire-format types shared by server and client.
  *
@@ -6,18 +7,53 @@
 
 import { z } from "zod";
 
-/** Current protocol version for client-server compatibility checks. */
+/**
+ * Current protocol version for client-server compatibility checks.
+ *
+ * Increment this when making breaking changes to the wire protocol.
+ */
 export const PROTOCOL_VERSION = 1;
-/** Default sample rate for speech-to-text audio in Hz. */
+
+/**
+ * Default sample rate for speech-to-text audio in Hz.
+ *
+ * This is the sample rate expected by the STT provider (AssemblyAI).
+ */
 export const DEFAULT_STT_SAMPLE_RATE = 16_000;
-/** Default sample rate for text-to-speech audio in Hz. */
+
+/**
+ * Default sample rate for text-to-speech audio in Hz.
+ *
+ * This is the sample rate produced by the TTS provider (Rime).
+ */
 export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
-/** Audio codec identifier used in the wire protocol. */
+
+/**
+ * Audio codec identifier used in the wire protocol.
+ *
+ * All audio frames are 16-bit signed PCM, little-endian, mono.
+ */
 export const AUDIO_FORMAT = "pcm16" as const;
 
-// ── Server → Client messages ──────────────────────────────────────────
-
-/** Message sent from the server to the client over WebSocket. */
+/**
+ * Message sent from the server to the client over WebSocket.
+ *
+ * This is a discriminated union on the `type` field. The server sends these
+ * messages to communicate session state, transcripts, agent responses, and
+ * audio lifecycle events to the client.
+ *
+ * Message types:
+ * - `ready` — Session initialized, includes audio format and sample rates
+ * - `partial_transcript` — Interim STT result (may change)
+ * - `final_transcript` — Finalized STT result
+ * - `turn` — Agent response text for a completed turn
+ * - `chat` — Streamed chat text (e.g. for text-only mode)
+ * - `tts_done` — All TTS audio for the current turn has been sent
+ * - `cancelled` — The current turn was cancelled (e.g. by user interruption)
+ * - `reset` — Session state has been reset
+ * - `error` — An error occurred
+ * - `pong` — Response to a client `ping`
+ */
 export type ServerMessage =
   | {
     type: "ready";
@@ -25,16 +61,16 @@ export type ServerMessage =
     audio_format: "pcm16";
     sample_rate: number;
     tts_sample_rate: number;
-    mode?: "full" | "stt-only";
+    mode?: "full" | "stt-only" | undefined;
   }
   | { type: "partial_transcript"; text: string }
-  | { type: "final_transcript"; text: string; turn_order?: number }
-  | { type: "turn"; text: string; turn_order?: number }
+  | { type: "final_transcript"; text: string; turn_order?: number | undefined }
+  | { type: "turn"; text: string; turn_order?: number | undefined }
   | { type: "chat"; text: string }
   | { type: "tts_done" }
   | { type: "cancelled" }
   | { type: "reset" }
-  | { type: "error"; message: string; details?: string[] }
+  | { type: "error"; message: string; details?: readonly string[] | undefined }
   | { type: "pong" };
 
 /** Zod schema for {@linkcode ServerMessage}. */
@@ -71,9 +107,19 @@ export const ServerMessageSchema: z.ZodType<ServerMessage> = z
     z.object({ type: z.literal("pong") }),
   ]);
 
-// ── Client → Server messages ──────────────────────────────────────────
-
-/** Message sent from the client to the server over WebSocket. */
+/**
+ * Message sent from the client to the server over WebSocket.
+ *
+ * This is a discriminated union on the `type` field. The client sends these
+ * messages to control the session and provide context.
+ *
+ * Message types:
+ * - `audio_ready` — Client is ready to send/receive audio
+ * - `cancel` — Cancel the current in-flight turn
+ * - `reset` — Reset the session state
+ * - `ping` — Keepalive ping (server responds with `pong`)
+ * - `history` — Restore conversation history from a previous session
+ */
 export type ClientMessage =
   | { type: "audio_ready" }
   | { type: "cancel" }
@@ -81,7 +127,7 @@ export type ClientMessage =
   | { type: "ping" }
   | {
     type: "history";
-    messages: { role: "user" | "assistant"; text: string }[];
+    messages: readonly { role: "user" | "assistant"; text: string }[];
   };
 
 /** Zod schema for {@linkcode ClientMessage}. */
@@ -99,8 +145,6 @@ export const ClientMessageSchema: z.ZodType<ClientMessage> = z
       })).min(1),
     }),
   ]);
-
-// ── Binary audio frame spec ───────────────────────────────────────────
 
 /**
  * Binary audio frame specification. All audio exchanged over the WebSocket as
@@ -124,14 +168,28 @@ export const AudioFrameSpec = {
   bytesPerSample: (_bitsPerSample / 8) * _channels,
 } as const;
 
-// ── KV operations (shared by worker RPC and server HTTP endpoint) ─────
-
-/** KV operation request sent from worker to host. */
+/**
+ * KV operation request sent from the worker to the host via Comlink RPC.
+ *
+ * This is a discriminated union on the `op` field, representing the four
+ * key-value store operations available to sandboxed agent workers.
+ *
+ * Operations:
+ * - `get` — Retrieve a value by key
+ * - `set` — Store a value with an optional TTL (in seconds)
+ * - `del` — Delete a key
+ * - `list` — List entries matching a key prefix, with optional limit and ordering
+ */
 export type KvRequest =
   | { op: "get"; key: string }
-  | { op: "set"; key: string; value: string; ttl?: number }
+  | { op: "set"; key: string; value: string; ttl?: number | undefined }
   | { op: "del"; key: string }
-  | { op: "list"; prefix: string; limit?: number; reverse?: boolean };
+  | {
+    op: "list";
+    prefix: string;
+    limit?: number | undefined;
+    reverse?: boolean | undefined;
+  };
 
 /** Zod schema for {@linkcode KvRequest}. */
 export const KvRequestBaseSchema: z.ZodType<KvRequest> = z
@@ -152,15 +210,25 @@ export const KvRequestBaseSchema: z.ZodType<KvRequest> = z
     }),
   ]);
 
-// ── Twilio Media Stream messages ──────────────────────────────────────
-
-/** Message received from Twilio Media Streams. */
+/**
+ * Message received from Twilio Media Streams over WebSocket.
+ *
+ * This is a discriminated union on the `event` field, representing the
+ * Twilio Media Streams protocol messages.
+ *
+ * Event types:
+ * - `start` — Stream started, includes the stream SID
+ * - `media` — Audio payload (base64-encoded mulaw)
+ * - `stop` — Stream ended
+ * - `connected` — WebSocket connection established
+ * - `mark` — A previously sent mark was reached during playback
+ */
 export type TwilioMessage =
   | { event: "start"; start: { streamSid: string } }
   | { event: "media"; media: { payload: string } }
   | { event: "stop" }
   | { event: "connected" }
-  | { event: "mark"; mark?: { name: string } };
+  | { event: "mark"; mark?: { name: string } | undefined };
 
 /** Zod schema for {@linkcode TwilioMessage}. */
 export const TwilioMessageSchema: z.ZodType<TwilioMessage> = z

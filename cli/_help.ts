@@ -1,9 +1,36 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { bold, brightBlue, brightMagenta, dim } from "@std/fmt/colors";
-// deno-lint-ignore-file no-explicit-any
-import type { Command } from "@cliffy/command";
 
-export function rootHelp(this: Command): string {
-  const version = this.getVersion();
+/** Definition of a CLI option flag for help text rendering. */
+export interface OptionDef {
+  /** Flag syntax string (e.g. `"-s, --server <url>"`). */
+  flags: string;
+  /** Human-readable description of the option. */
+  description: string;
+  /** If `true`, the option is omitted from help output. */
+  hidden?: boolean;
+}
+
+/** Definition of a CLI subcommand used to generate help text. */
+export interface SubcommandDef {
+  /** Subcommand name (e.g. `"new"`, `"deploy"`). */
+  name: string;
+  /** Short description shown in help output. */
+  description: string;
+  /** Positional arguments accepted by the subcommand. */
+  args?: { name: string; optional?: boolean }[];
+  /** Option flags accepted by the subcommand. */
+  options?: OptionDef[];
+}
+
+/**
+ * Generates the top-level `aai --help` output with ASCII logo, available
+ * commands, global options, and a getting-started example.
+ *
+ * @param version The current CLI version string.
+ * @returns Formatted, colorized help text.
+ */
+export function rootHelp(version: string): string {
   const lines: string[] = [];
 
   lines.push("");
@@ -68,31 +95,34 @@ export function rootHelp(this: Command): string {
   return lines.join("\n");
 }
 
-export function subcommandHelp(this: Command): string {
-  const name = this.getName();
-  const parentCmd = this.getParent() as Command | undefined;
-  const parent = parentCmd?.getName() ?? "aai";
-  const desc = this.getDescription();
-  const version = this.getVersion() || parentCmd?.getVersion();
+/**
+ * Generates help text for a specific subcommand, listing its arguments,
+ * options, and descriptions.
+ *
+ * @param cmd The subcommand definition to render help for.
+ * @param version The current CLI version string.
+ * @returns Formatted, colorized help text.
+ */
+export function subcommandHelp(
+  cmd: SubcommandDef,
+  version: string,
+): string {
   const lines: string[] = [];
 
   lines.push("");
   lines.push(
-    `  ${brightMagenta(bold(parent))} ${brightBlue(bold(name))}${
+    `  ${brightMagenta(bold("aai"))} ${brightBlue(bold(cmd.name))}${
       version ? dim(`  v${version}`) : ""
     }`,
   );
-  lines.push(`  ${dim(desc)}`);
+  lines.push(`  ${dim(cmd.description)}`);
   lines.push("");
 
-  const args = this.getArguments();
-  if (args.length > 0) {
+  if (cmd.args && cmd.args.length > 0) {
     lines.push(`  ${bold(brightBlue("Arguments"))}`);
     lines.push("");
-    for (const arg of args) {
-      // deno-lint-ignore no-explicit-any
-      const isOptional = (arg as any).optional ?? (arg as any).optionalValue;
-      const label = isOptional
+    for (const arg of cmd.args) {
+      const label = arg.optional
         ? brightMagenta(`[${arg.name}]`)
         : brightMagenta(`<${arg.name}>`);
       lines.push(`    ${label}`);
@@ -100,27 +130,12 @@ export function subcommandHelp(this: Command): string {
     lines.push("");
   }
 
-  const options = this.getOptions(false);
-  const visibleOptions = options.filter(
-    (o) => !o.hidden && o.name !== "help",
-  );
+  const visibleOptions = (cmd.options ?? []).filter((o) => !o.hidden);
   if (visibleOptions.length > 0) {
     lines.push(`  ${bold(brightBlue("Options"))}`);
     lines.push("");
     for (const opt of visibleOptions) {
-      const flagList = Array.isArray(opt.flags) ? opt.flags : [opt.flags];
-      const flags = flagList
-        .map((f: string) => brightBlue(f.trim()))
-        .join(dim(", "));
-
-      let hint = "";
-      if (opt.default !== undefined) {
-        hint = dim(` (default: ${brightMagenta(JSON.stringify(opt.default))})`);
-      } else if (opt.required) {
-        hint = dim(` (required)`);
-      }
-
-      lines.push(`    ${flags}${hint}`);
+      lines.push(`    ${brightBlue(opt.flags)}`);
       lines.push(`      ${dim(opt.description)}`);
     }
 

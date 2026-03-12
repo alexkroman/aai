@@ -1,33 +1,62 @@
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
 import { StreamingTranscriber } from "assemblyai";
 import type { TurnEvent } from "assemblyai";
 import type { STTConfig } from "./types.ts";
 import * as metrics from "./metrics.ts";
 
-// ── Event detail types ──────────────────────────────────────────────
-
+/** Detail payload emitted when a transcript (partial or final) is received. */
 export type SttTranscriptDetail = {
+  /** The transcribed text. */
   text: string;
+  /** Whether this is a finalized transcript segment. */
   isFinal: boolean;
+  /** The turn order index from the STT service, if available. */
   turnOrder?: number;
 };
-export type SttTurnDetail = { text: string; turnOrder?: number };
-// ── Public type ─────────────────────────────────────────────────────
 
+/** Detail payload emitted when a complete turn is detected by the STT service. */
+export type SttTurnDetail = {
+  /** The full transcribed text for this turn. */
+  text: string;
+  /** The turn order index from the STT service, if available. */
+  turnOrder?: number;
+};
+
+/** A streaming speech-to-text connection to AssemblyAI. */
 export type SttConnection = {
+  /** Whether the WebSocket connection is currently open. */
   readonly connected: boolean;
+  /** Whether the connection has been closed. */
   readonly closed: boolean;
+  /** Opens the WebSocket connection to the STT service. */
   connect(): Promise<void>;
+  /** Sends raw PCM audio data to the STT service. */
   send(audio: Uint8Array): void;
+  /** Forces an endpoint on the current utterance, flushing buffered audio. */
   clear(): void;
+  /** Closes the STT connection. */
   close(): void | Promise<void>;
+  /** Callback invoked when a transcript (partial or final) is received. */
   onTranscript: ((detail: SttTranscriptDetail) => void) | null;
+  /** Callback invoked when a complete turn is detected. */
   onTurn: ((detail: SttTurnDetail) => void) | null;
+  /** Callback invoked when an error occurs on the STT connection. */
   onError: ((error: Error) => void) | null;
+  /** Callback invoked when the STT connection closes. */
   onClose: (() => void) | null;
 };
 
-// ── Factory ─────────────────────────────────────────────────────────
-
+/**
+ * Creates a new streaming STT connection to AssemblyAI.
+ *
+ * The returned connection manages the WebSocket lifecycle, emits transcript
+ * and turn events, and handles automatic reconnection on unexpected closes.
+ *
+ * @param apiKey - AssemblyAI API key for authentication.
+ * @param config - STT configuration (sample rate, speech model, VAD settings).
+ * @returns An {@linkcode SttConnection} ready to be connected via `.connect()`.
+ */
 export function createSttConnection(
   apiKey: string,
   config: STTConfig,
@@ -58,7 +87,7 @@ export function createSttConnection(
       state = "Connecting";
       const t0 = performance.now();
 
-      console.info("Connecting to STT", {
+      log.info("Connecting to STT", {
         url: config.wssBase,
         speechModel: config.speechModel,
         sampleRate: config.sampleRate,
@@ -96,7 +125,7 @@ export function createSttConnection(
       }
 
       metrics.sttConnectDuration.observe((performance.now() - t0) / 1000);
-      console.info("STT WebSocket connected");
+      log.info("STT WebSocket connected");
 
       transcriber = t;
       state = "Open";
@@ -107,7 +136,7 @@ export function createSttConnection(
       try {
         transcriber!.sendAudio(audio.buffer);
       } catch {
-        console.warn("STT send skipped, ws not open");
+        log.warn("STT send skipped, ws not open");
       }
     },
 
@@ -116,7 +145,7 @@ export function createSttConnection(
       try {
         transcriber!.forceEndpoint();
       } catch (e) {
-        console.warn("STT forceEndpoint failed (socket may be closed)", e);
+        log.warn("STT forceEndpoint failed (socket may be closed)", e);
       }
     },
 
@@ -126,7 +155,7 @@ export function createSttConnection(
       try {
         await transcriber?.close(false);
       } catch (e) {
-        console.warn("STT close failed", e);
+        log.warn("STT close failed", e);
       }
       transcriber = null;
     },
@@ -136,7 +165,7 @@ export function createSttConnection(
     t.on("turn", (turn: TurnEvent) => {
       msgCount++;
       const text = (turn.transcript ?? "").trim();
-      console.info("STT message", {
+      log.info("STT message", {
         msgCount,
         type: "Turn",
         transcript: text.slice(0, 100),
@@ -164,9 +193,9 @@ export function createSttConnection(
     });
 
     t.on("close", (code: number, reason: string) => {
-      console.info("STT WebSocket closed", { code, reason, msgCount });
+      log.info("STT WebSocket closed", { code, reason, msgCount });
       if (code !== 1000 && code !== 1005) {
-        console.error("WebSocket closed unexpectedly", { code, reason });
+        log.error("WebSocket closed unexpectedly", { code, reason });
         conn.onError?.(
           new Error(`STT WebSocket closed unexpectedly (code ${code})`),
         );

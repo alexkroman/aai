@@ -1,4 +1,4 @@
-import { defineAgent, tool, z } from "@aai/sdk";
+import { defineAgent, z } from "@aai/sdk";
 import type { HookContext, ToolContext } from "@aai/sdk";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ const TYPE_MULTIPLIERS: Record<IncidentType, number> = {
   hazmat: 1.5,
   traffic: 1.0,
   crime: 1.1,
-  natural_disaster: 1.8,
+  "natural_disaster": 1.8,
   utility: 0.8,
   other: 0.7,
 };
@@ -311,7 +311,7 @@ function recommendType(description: string): IncidentType {
       "hostage",
       "active shooter",
     ],
-    natural_disaster: [
+    "natural_disaster": [
       "earthquake",
       "flood",
       "tornado",
@@ -470,7 +470,7 @@ function recommendResources(
     hazmat: ["hazmat_team", "fire_engine", "ambulance"],
     traffic: ["police", "ambulance", "fire_engine"],
     crime: ["police"],
-    natural_disaster: ["fire_engine", "ambulance", "police"],
+    "natural_disaster": ["fire_engine", "ambulance", "police"],
     utility: ["fire_engine"],
     other: [],
   };
@@ -620,7 +620,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
   },
 
   tools: {
-    incident_create: tool({
+    incident_create: {
       description: "Create a new incident from an incoming emergency call.",
       parameters: z.object({
         location: z.string().describe("Address or location description"),
@@ -716,9 +716,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
             : `${id} created. Triage score ${triageScore}. ${recommended.length} resource(s) recommended.`,
         };
       },
-    }),
+    },
 
-    incident_triage: tool({
+    incident_triage: {
       description:
         "Triage an incident — confirm or override severity, type, hazards, and casualty count.",
       parameters: z.object({
@@ -808,9 +808,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           systemAlertLevel: state.alertLevel,
         };
       },
-    }),
+    },
 
-    incident_update_status: tool({
+    incident_update_status: {
       description:
         "Update an incident's status (en_route, on_scene, resolved, escalated).",
       parameters: z.object({
@@ -887,9 +887,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           systemAlertLevel: state.alertLevel,
         };
       },
-    }),
+    },
 
-    incident_escalate: tool({
+    incident_escalate: {
       description:
         "Escalate an incident when it exceeds current capacity or severity increases.",
       parameters: z.object({
@@ -981,9 +981,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
             `ESCALATION CONFIRMED — ${incidentId} now Level ${inc.escalationLevel}. ${additionalResources.length} additional resource(s) available for dispatch.`,
         };
       },
-    }),
+    },
 
-    incident_get: tool({
+    incident_get: {
       description:
         "Get full details on a specific incident including timeline and assigned resources.",
       parameters: z.object({
@@ -1021,9 +1021,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
             .map((p) => p.name),
         };
       },
-    }),
+    },
 
-    incident_add_note: tool({
+    incident_add_note: {
       description: "Add a situational update note to an incident.",
       parameters: z.object({
         incidentId: z.string().describe("The incident ID"),
@@ -1049,9 +1049,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           totalNotes: inc.notes.length,
         };
       },
-    }),
+    },
 
-    resources_dispatch: tool({
+    resources_dispatch: {
       description:
         "Dispatch units to an incident. Can auto-dispatch recommended resources or manually specify callsigns.",
       parameters: z.object({
@@ -1152,9 +1152,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
             : undefined,
         };
       },
-    }),
+    },
 
-    resources_get_available: tool({
+    resources_get_available: {
       description: "List available resources, optionally filtered by type.",
       parameters: z.object({
         type: z.enum([
@@ -1194,9 +1194,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           },
         };
       },
-    }),
+    },
 
-    resources_update_status: tool({
+    resources_update_status: {
       description: "Update a resource unit's status when it radios in.",
       parameters: z.object({
         callsign: z.string().describe("The resource callsign"),
@@ -1251,9 +1251,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           systemAlertLevel: state.alertLevel,
         };
       },
-    }),
+    },
 
-    ops_dashboard: tool({
+    ops_dashboard: {
       description:
         "Get the full operational dashboard: alert level, resource utilization, active incidents, and available resources.",
       execute: (_args: Record<string, never>, ctx: ToolContext) => {
@@ -1263,18 +1263,16 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           .filter((i) => i.status !== "resolved")
           .sort((a, b) => b.triageScore - a.triageScore);
 
-        const resolvedCount = Object.values(state.incidents).filter((i) =>
-          i.status === "resolved"
-        ).length;
+        const resolvedCount =
+          Object.values(state.incidents).filter((i) => i.status === "resolved")
+            .length;
 
         const resourceSummary = {
           total: state.resources.length,
-          available: state.resources.filter((r) =>
-            r.status === "available"
-          ).length,
-          dispatched: state.resources.filter((r) =>
-            r.status === "dispatched"
-          ).length,
+          available:
+            state.resources.filter((r) => r.status === "available").length,
+          dispatched:
+            state.resources.filter((r) => r.status === "dispatched").length,
           enRoute:
             state.resources.filter((r) => r.status === "en_route").length,
           onScene:
@@ -1314,9 +1312,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           })),
         };
       },
-    }),
+    },
 
-    ops_protocols: tool({
+    ops_protocols: {
       description:
         "Look up step-by-step response protocols for a given incident type and severity.",
       parameters: z.object({
@@ -1353,9 +1351,9 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           })),
         };
       },
-    }),
+    },
 
-    ops_run_scenario: tool({
+    ops_run_scenario: {
       description:
         "Run a training scenario that creates simulated incidents for dispatch practice.",
       parameters: z.object({
@@ -1373,7 +1371,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
           string,
           { incidents: Partial<Incident>[]; narrative: string }
         > = {
-          mass_casualty: {
+          "mass_casualty": {
             narrative:
               "Bus crash at Main and 5th. School bus vs delivery truck. Multiple pediatric patients. Fuel spill on roadway.",
             incidents: [
@@ -1393,7 +1391,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               },
             ],
           },
-          multi_alarm_fire: {
+          "multi_alarm_fire": {
             narrative:
               "Working structure fire at 200 Industrial Parkway. 3-story warehouse, heavy smoke showing. Reports of workers possibly trapped on upper floors.",
             incidents: [
@@ -1413,7 +1411,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               },
             ],
           },
-          active_shooter: {
+          "active_shooter": {
             narrative:
               "Reports of active shooter at Riverside Mall. Multiple shots fired, crowds fleeing. At least 3 victims reported down in food court area.",
             incidents: [
@@ -1433,7 +1431,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               },
             ],
           },
-          natural_disaster: {
+          "natural_disaster": {
             narrative:
               "EF-3 tornado touched down in residential area. Path of destruction along Oak Street corridor. Multiple structures collapsed. Power lines down.",
             incidents: [
@@ -1460,7 +1458,7 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
               },
             ],
           },
-          highway_pileup: {
+          "highway_pileup": {
             narrative:
               "20-plus vehicle pileup on Interstate 95 southbound near mile marker 42. Fog conditions. Multiple entrapments. Tanker truck involved.",
             incidents: [
@@ -1533,6 +1531,6 @@ Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac
             `SCENARIO ACTIVE: ${s.narrative}. ${created.length} incidents created. Awaiting dispatch orders.`,
         };
       },
-    }),
+    },
   },
 });

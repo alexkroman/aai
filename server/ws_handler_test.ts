@@ -1,9 +1,9 @@
-import { expect } from "@std/expect";
-import { createSessionWSEvents } from "./ws_handler.ts";
+// Copyright 2025 the AAI authors. MIT license.
+import { assert, assertStrictEquals } from "@std/assert";
+import { wireSessionSocket } from "./ws_handler.ts";
 import type { Session } from "./session.ts";
 import { MockWebSocket } from "./_mock_ws.ts";
 import { flush } from "./_test_utils.ts";
-import { WSContext } from "hono/ws";
 
 function createSpySession(): Session & { calls: string[] } {
   const calls: string[] = [];
@@ -43,30 +43,11 @@ function setup(overrides?: { onOpen?: () => void; onClose?: () => void }) {
   const sessions = new Map<string, Session>();
   const spy = createSpySession();
 
-  const events = createSessionWSEvents(sessions, {
+  wireSessionSocket(ws as unknown as WebSocket, {
+    sessions,
     createSession: () => spy,
     ...overrides,
   });
-
-  // Wire WSEvents to MockWebSocket via a WSContext wrapper
-  const wsContext = new WSContext({
-    send: (data) => ws.send(data),
-    close: (code, reason) => ws.close(code, reason),
-    raw: ws,
-    get readyState() {
-      return ws.readyState as 0 | 1 | 2 | 3;
-    },
-  });
-  ws.addEventListener("open", (e) => events.onOpen!(e, wsContext));
-  ws.addEventListener(
-    "message",
-    (e) => events.onMessage!(e as MessageEvent, wsContext),
-  );
-  ws.addEventListener(
-    "close",
-    (e) => void events.onClose!(e as CloseEvent, wsContext),
-  );
-  ws.addEventListener("error", (e) => events.onError!(e, wsContext));
 
   return { ws, sessions, spy };
 }
@@ -75,8 +56,8 @@ Deno.test("creates and starts session on open", async () => {
   const { ws, sessions, spy } = setup();
   ws.open();
   await flush();
-  expect(sessions.size).toBe(1);
-  expect(spy.calls).toContain("start");
+  assertStrictEquals(sessions.size, 1);
+  assert(spy.calls.includes("start"));
 });
 
 Deno.test("calls onOpen/onClose callbacks", async () => {
@@ -92,16 +73,16 @@ Deno.test("calls onOpen/onClose callbacks", async () => {
   });
   ws.open();
   await flush();
-  expect(openCalled).toBe(true);
+  assertStrictEquals(openCalled, true);
   ws.disconnect();
   await flush();
-  expect(closeCalled).toBe(true);
+  assertStrictEquals(closeCalled, true);
 });
 
 Deno.test("responds to ping with pong before session is ready", () => {
   const { ws } = setup();
   ws.msg(JSON.stringify({ type: "ping" }));
-  expect(ws.sentJson().some((m) => m.type === "pong")).toBe(true);
+  assertStrictEquals(ws.sentJson().some((m) => m.type === "pong"), true);
 });
 
 Deno.test("responds to ping with pong after session is ready", async () => {
@@ -111,7 +92,7 @@ Deno.test("responds to ping with pong after session is ready", async () => {
   ws.sent.length = 0;
   ws.msg(JSON.stringify({ type: "ping" }));
   await flush();
-  expect(ws.sentJson().some((m) => m.type === "pong")).toBe(true);
+  assertStrictEquals(ws.sentJson().some((m) => m.type === "pong"), true);
 });
 
 Deno.test("queues control messages before open and replays them", async () => {
@@ -120,8 +101,8 @@ Deno.test("queues control messages before open and replays them", async () => {
   ws.open();
   await flush();
   await flush();
-  expect(spy.calls).toContain("start");
-  expect(spy.calls).toContain("onAudioReady");
+  assert(spy.calls.includes("start"));
+  assert(spy.calls.includes("onAudioReady"));
 });
 
 Deno.test("dispatches audio_ready, cancel, reset to session", async () => {
@@ -133,9 +114,9 @@ Deno.test("dispatches audio_ready, cancel, reset to session", async () => {
   ws.msg(JSON.stringify({ type: "cancel" }));
   ws.msg(JSON.stringify({ type: "reset" }));
   await flush();
-  expect(spy.calls).toContain("onAudioReady");
-  expect(spy.calls).toContain("onCancel");
-  expect(spy.calls).toContain("onReset");
+  assert(spy.calls.includes("onAudioReady"));
+  assert(spy.calls.includes("onCancel"));
+  assert(spy.calls.includes("onReset"));
 });
 
 Deno.test("dispatches binary audio to session.onAudio", async () => {
@@ -143,7 +124,7 @@ Deno.test("dispatches binary audio to session.onAudio", async () => {
   ws.open();
   await flush();
   ws.msg(new ArrayBuffer(16));
-  expect(spy.calls).toContain("onAudio");
+  assert(spy.calls.includes("onAudio"));
 });
 
 Deno.test("ignores invalid JSON and unknown control types", async () => {
@@ -154,18 +135,18 @@ Deno.test("ignores invalid JSON and unknown control types", async () => {
   ws.msg("not json");
   ws.msg(JSON.stringify({ type: "bogus" }));
   await flush();
-  expect(spy.calls.length).toBe(callsBefore);
+  assertStrictEquals(spy.calls.length, callsBefore);
 });
 
 Deno.test("stops session and removes from map on close", async () => {
   const { ws, sessions, spy } = setup();
   ws.open();
   await flush();
-  expect(sessions.size).toBe(1);
+  assertStrictEquals(sessions.size, 1);
   ws.disconnect();
   await flush();
-  expect(spy.calls).toContain("stop");
-  expect(sessions.size).toBe(0);
+  assert(spy.calls.includes("stop"));
+  assertStrictEquals(sessions.size, 0);
 });
 
 Deno.test("handles ws error without crashing", () => {

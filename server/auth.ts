@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { encodeHex } from "@std/encoding/hex";
 import type { BundleStore, NamespaceOwner } from "./bundle_store_tigris.ts";
 
@@ -15,9 +16,9 @@ export function generateAccountId(): string {
 /** Verify an API key against namespace ownership. Does not claim. */
 export async function verifyOwner(
   apiKey: string,
-  namespace: string,
-  store: BundleStore,
+  opts: { namespace: string; store: BundleStore },
 ): Promise<string | null> {
+  const { namespace, store } = opts;
   const keyHash = await hashApiKey(apiKey);
   const existing = await store.getNamespaceOwner(namespace);
   if (!existing) return keyHash; // unclaimed — caller decides whether to claim
@@ -29,9 +30,9 @@ export async function verifyOwner(
 /** Claim a namespace for an owner hash. */
 export async function claimNamespace(
   namespace: string,
-  owner: NamespaceOwner,
-  store: BundleStore,
+  opts: { owner: NamespaceOwner; store: BundleStore },
 ): Promise<void> {
+  const { owner, store } = opts;
   await store.putNamespaceOwner(namespace, owner);
 }
 
@@ -41,9 +42,9 @@ export async function claimNamespace(
  */
 export async function verifyOrClaimNamespace(
   apiKey: string,
-  namespace: string,
-  store: BundleStore,
+  opts: { namespace: string; store: BundleStore },
 ): Promise<string | null> {
+  const { namespace, store } = opts;
   const keyHash = await hashApiKey(apiKey);
   const existing = await store.getNamespaceOwner(namespace);
 
@@ -56,8 +57,8 @@ export async function verifyOrClaimNamespace(
   // Unclaimed — attempt atomic claim with new account ID
   const accountId = generateAccountId();
   const owner: NamespaceOwner = {
-    account_id: accountId,
-    credential_hashes: [keyHash],
+    "account_id": accountId,
+    "credential_hashes": [keyHash],
   };
   const claimed = await store.claimIfUnclaimed(namespace, owner);
   if (claimed) return accountId;

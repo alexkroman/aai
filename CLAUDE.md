@@ -121,7 +121,7 @@ The `HostApi` type (fetch + kv proxy) is exposed to workers via a dedicated
 
 - **Runtime**: Deno (not Node). Use `@std/*` for standard library.
 - **Frameworks**: Preact (client UI)
-- **Testing**: `@std/testing/bdd` (`describe`/`it`) + `@std/expect`. Test files
+- **Testing**: `Deno.test()` with `t.step()` + `@std/assert`. Test files
   are co-located: `foo.ts` → `foo_test.ts`
 - **Browser behavior**: CLI opens the browser only when scaffolding a new agent
 - **Agent API docs**: `cli/claude.md` is copied into user agent directories as

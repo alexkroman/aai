@@ -1,8 +1,17 @@
-import { Input, Secret } from "@cliffy/prompt";
+// Copyright 2025 the AAI authors. MIT license.
+import { promptSecret } from "@std/cli/prompt-secret";
 import { parse as parseDotenv } from "@std/dotenv/parse";
 import { exists } from "@std/fs/exists";
+import * as log from "@std/log";
 import { basename, join, resolve } from "@std/path";
 import { z } from "zod";
+/**
+ * Converts a string into a URL-safe slug by lowercasing, replacing
+ * non-alphanumeric runs with hyphens, and trimming leading/trailing hyphens.
+ *
+ * @param str The input string to slugify.
+ * @returns A lowercase, hyphen-separated slug.
+ */
 export function slugify(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -54,6 +63,12 @@ async function writeConfig(config: CliConfig): Promise<void> {
   }
 }
 
+/**
+ * Retrieves the AssemblyAI API key from the CLI config file. If not found,
+ * interactively prompts the user to enter one and persists it.
+ *
+ * @returns The AssemblyAI API key.
+ */
 export async function getApiKey(): Promise<string> {
   const config = await readConfig();
   if (config.assemblyai_api_key) {
@@ -62,11 +77,11 @@ export async function getApiKey(): Promise<string> {
   }
 
   step("Setup", "AssemblyAI API key required for speech-to-text");
-  console.log("Get one at https://www.assemblyai.com/dashboard/signup\n");
-  const key = await Secret.prompt({
-    message: "ASSEMBLYAI_API_KEY",
-    minLength: 1,
-  });
+  log.info("Get one at https://www.assemblyai.com/dashboard/signup\n");
+  let key: string | null = null;
+  while (!key) {
+    key = promptSecret("ASSEMBLYAI_API_KEY");
+  }
 
   config.assemblyai_api_key = key;
   Deno.env.set("ASSEMBLYAI_API_KEY", key);
@@ -75,22 +90,27 @@ export async function getApiKey(): Promise<string> {
   return key;
 }
 
+/**
+ * Retrieves the user's agent namespace from the CLI config file. If not found,
+ * interactively prompts the user to choose one and persists it.
+ *
+ * @returns The slugified namespace string.
+ */
 export async function getNamespace(): Promise<string> {
   const config = await readConfig();
   if (config.namespace) return config.namespace;
 
-  console.log(
+  log.info(
     "\nChoose a namespace for your agents.\n" +
       "Agents deploy to https://aai-agent.fly.dev/<namespace>/\n",
   );
 
-  const ns = await Input.prompt({
-    message: "Namespace",
-    minLength: 1,
-    transform: (v) => slugify(v),
-    validate: (v) => slugify(v) ? true : "Must contain alphanumeric characters",
-  });
-  const slug = slugify(ns);
+  let slug = "";
+  while (!slug) {
+    const ns = prompt("Namespace");
+    if (ns) slug = slugify(ns);
+    if (!slug) log.info("Must contain alphanumeric characters");
+  }
 
   config.namespace = slug;
   await writeConfig(config);
@@ -98,6 +118,11 @@ export async function getNamespace(): Promise<string> {
   return slug;
 }
 
+/**
+ * Persists a namespace to the CLI config file.
+ *
+ * @param namespace The namespace string to save.
+ */
 export async function saveNamespace(namespace: string): Promise<void> {
   const config = await readConfig();
   config.namespace = namespace;
@@ -105,12 +130,26 @@ export async function saveNamespace(namespace: string): Promise<void> {
   step("Saved", `namespace: ${namespace}`);
 }
 
+/**
+ * Derives an agent slug from a directory path by slugifying the directory's
+ * base name. Falls back to `"agent"` if the result is empty.
+ *
+ * @param dir Path to the agent directory.
+ * @returns A URL-safe slug derived from the directory name.
+ */
 export function slugFromDir(dir: string): string {
   const dirName = basename(resolve(dir));
   const slug = slugify(dirName);
   return slug || "agent";
 }
 
+/**
+ * Increments a numeric suffix on a name, or appends `-1` if none exists.
+ * Used to generate unique slugs when a name collision is detected.
+ *
+ * @param name The name to increment (e.g. `"my-agent"` or `"my-agent-2"`).
+ * @returns The name with an incremented suffix (e.g. `"my-agent-1"` or `"my-agent-3"`).
+ */
 export function incrementName(name: string): string {
   const match = name.match(/^(.+)-(\d+)$/);
   if (match) {
@@ -119,6 +158,16 @@ export function incrementName(name: string): string {
   return `${name}-1`;
 }
 
+/**
+ * Resolves a unique slug for an agent within a namespace. Returns the existing
+ * slug if the directory is already linked, otherwise finds an unused slug by
+ * incrementing a numeric suffix.
+ *
+ * @param dir Path to the agent directory.
+ * @param namespace The user's namespace.
+ * @param baseSlug The preferred slug to start from.
+ * @returns A slug that is unique within the namespace.
+ */
 export async function resolveSlug(
   dir: string,
   namespace: string,
@@ -148,6 +197,13 @@ export async function resolveSlug(
   return slug;
 }
 
+/**
+ * Persists the namespace/slug/apiKey association for an agent directory
+ * in the CLI config file.
+ *
+ * @param dir Path to the agent directory.
+ * @param link The agent link containing namespace, slug, and API key.
+ */
 export async function saveAgentLink(
   dir: string,
   link: AgentLink,
@@ -158,17 +214,33 @@ export async function saveAgentLink(
   await writeConfig(config);
 }
 
+/** Discovered agent metadata extracted from an agent directory. */
 export type AgentEntry = {
+  /** URL-safe identifier derived from the directory name. */
   slug: string;
+  /** Absolute path to the agent directory. */
   dir: string;
+  /** Absolute path to the `agent.ts` entry point. */
   entryPoint: string;
+  /** Environment variables loaded from `.env` (includes `ASSEMBLYAI_API_KEY`). */
   env: Record<string, string>;
+  /** Absolute path to the client entry point (`client.ts`, `client.tsx`, or default). */
   clientEntry: string;
-  transport: ("websocket" | "twilio")[];
+  /** Transport protocols the agent supports. */
+  transport: readonly ("websocket" | "twilio")[];
 };
 
+/** Default production server URL for agent deployments. */
 export const DEFAULT_SERVER = "https://aai-agent.fly.dev";
 
+/**
+ * Loads agent metadata from a directory by checking for `agent.ts`, reading
+ * `.env` variables, resolving the client entry point, and ensuring an
+ * AssemblyAI API key is available.
+ *
+ * @param dir Path to the directory containing `agent.ts`.
+ * @returns The discovered agent entry, or `null` if no `agent.ts` exists.
+ */
 export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   const hasAgentTs = await exists(join(dir, "agent.ts"));
   if (!hasAgentTs) return null;
@@ -201,6 +273,12 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   };
 }
 
+/**
+ * Copies the canonical `cli/claude.md` into the agent directory as `CLAUDE.md`.
+ * Creates the file if missing or updates it if the content has changed.
+ *
+ * @param targetDir Path to the agent directory.
+ */
 export async function ensureClaudeMd(targetDir: string): Promise<void> {
   const claudePath = join(targetDir, "CLAUDE.md");
   const srcClaude = join(AAI_ROOT, "cli", "claude.md");

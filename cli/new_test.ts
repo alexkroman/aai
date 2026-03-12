@@ -1,4 +1,10 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import {
+  assert,
+  assertEquals,
+  assertStrictEquals,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { listTemplates, runNew } from "./_new.ts";
 import { silenceSteps, withTempDir } from "./_test_utils.ts";
@@ -51,14 +57,14 @@ Deno.test("listTemplates returns sorted directory names", async () => {
   await withTempDir(async (dir) => {
     const templatesDir = await createFakeTemplates(dir);
     const result = await listTemplates(templatesDir);
-    expect(result).toEqual(["advanced", "simple", "with-env"]);
+    assertEquals(result, ["advanced", "simple", "with-env"]);
   });
 });
 
 Deno.test("listTemplates returns empty for empty dir", async () => {
   await withTempDir(async (dir) => {
     const result = await listTemplates(dir);
-    expect(result).toEqual([]);
+    assertEquals(result, []);
   });
 });
 
@@ -78,10 +84,10 @@ Deno.test("runNew copies template files to target", async () => {
       });
 
       const agent = await Deno.readTextFile(join(target, "agent.ts"));
-      expect(agent).toContain("Default Name");
+      assertStringIncludes(agent, "Default Name");
 
       const readme = await Deno.readTextFile(join(target, "readme.txt"));
-      expect(readme).toBe("hello");
+      assertStrictEquals(readme, "hello");
     });
   } finally {
     s.restore();
@@ -106,14 +112,14 @@ Deno.test("runNew skips node_modules and _deno.json", async () => {
         await Deno.stat(join(target, "node_modules"));
         hasNodeModules = true;
       } catch { /* expected */ }
-      expect(hasNodeModules).toBe(false);
+      assertStrictEquals(hasNodeModules, false);
 
       let hasDenoJson = false;
       try {
         await Deno.stat(join(target, "_deno.json"));
         hasDenoJson = true;
       } catch { /* expected */ }
-      expect(hasDenoJson).toBe(false);
+      assertStrictEquals(hasDenoJson, false);
     });
   } finally {
     s.restore();
@@ -135,8 +141,8 @@ Deno.test("runNew replaces name in agent.ts", async () => {
       });
 
       const agent = await Deno.readTextFile(join(target, "agent.ts"));
-      expect(agent).toContain('"Custom Bot"');
-      expect(agent).not.toContain("Default Name");
+      assertStringIncludes(agent, '"Custom Bot"');
+      assert(!agent.includes("Default Name"));
     });
   } finally {
     s.restore();
@@ -158,7 +164,7 @@ Deno.test("runNew escapes special characters in name", async () => {
       });
 
       const agent = await Deno.readTextFile(join(target, "agent.ts"));
-      expect(agent).toContain('He said \\"hello\\"');
+      assertStringIncludes(agent, 'He said \\"hello\\"');
     });
   } finally {
     s.restore();
@@ -181,7 +187,7 @@ Deno.test("runNew copies subdirectories recursively", async () => {
       const helper = await Deno.readTextFile(
         join(target, "tools", "helper.ts"),
       );
-      expect(helper).toBe("// helper");
+      assertStrictEquals(helper, "// helper");
     });
   } finally {
     s.restore();
@@ -202,7 +208,7 @@ Deno.test("runNew copies .env.example to .env", async () => {
       });
 
       const env = await Deno.readTextFile(join(target, ".env"));
-      expect(env).toBe("MY_KEY=");
+      assertStrictEquals(env, "MY_KEY=");
     });
   } finally {
     s.restore();
@@ -225,10 +231,10 @@ Deno.test("runNew throws for unknown template", async () => {
         });
       } catch (err) {
         threw = true;
-        expect((err as Error).message).toContain("unknown template");
-        expect((err as Error).message).toContain("nonexistent");
+        assertStringIncludes((err as Error).message, "unknown template");
+        assertStringIncludes((err as Error).message, "nonexistent");
       }
-      expect(threw).toBe(true);
+      assertStrictEquals(threw, true);
     });
   } finally {
     s.restore();

@@ -1,17 +1,18 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { z } from "zod";
-import { expect } from "@std/expect";
+import { assertStrictEquals } from "@std/assert";
 import { agentToolsToSchemas, type ToolDef } from "./types.ts";
 
 Deno.test("agentToolsToSchemas - converts tool definitions to OpenAI schema", () => {
   const tools: Record<string, ToolDef> = {
-    get_weather: {
+    "get_weather": {
       description: "Get weather",
       parameters: z.object({
         city: z.string().describe("City"),
       }),
       execute: async () => {},
     },
-    set_alarm: {
+    "set_alarm": {
       description: "Set alarm",
       parameters: z.object({
         time: z.string(),
@@ -21,8 +22,8 @@ Deno.test("agentToolsToSchemas - converts tool definitions to OpenAI schema", ()
     },
   };
   const schemas = agentToolsToSchemas(tools);
-  expect(schemas.length).toBe(2);
-  expect(schemas[0].name).toBe("get_weather");
-  expect(schemas[0].description).toBe("Get weather");
-  expect(schemas[1].name).toBe("set_alarm");
+  assertStrictEquals(schemas.length, 2);
+  assertStrictEquals(schemas[0]!.name, "get_weather");
+  assertStrictEquals(schemas[0]!.description, "Get weather");
+  assertStrictEquals(schemas[1]!.name, "set_alarm");
 });

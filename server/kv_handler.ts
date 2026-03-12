@@ -1,46 +1,54 @@
-import type { Context } from "hono";
-import type { HonoEnv } from "./hono_env.ts";
-import { jsonValidator } from "./_validation.ts";
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
+import { HttpError, json, type RouteContext } from "./context.ts";
 import { type KvHttpRequest, KvHttpRequestSchema } from "./_schemas.ts";
+import type { AgentScope } from "./scope_token.ts";
 
-export const validateKvRequest = jsonValidator(
-  KvHttpRequestSchema,
-  "Invalid request",
-);
-
+/**
+ * Handler for the KV operations endpoint (`POST /:slug/kv`).
+ *
+ * Dispatches `get`, `set`, `del`, `keys`, and `list` operations to the
+ * KV store, scoped to the requesting agent.
+ */
 export async function handleKv(
-  c: Context<HonoEnv, string, { out: { json: KvHttpRequest } }>,
-) {
-  const { scope, kvStore } = c.var;
-  const msg = c.req.valid("json");
+  ctx: RouteContext,
+  scope: AgentScope,
+): Promise<Response> {
+  const { kvStore } = ctx.state;
+  let msg: KvHttpRequest;
+  try {
+    msg = KvHttpRequestSchema.parse(await ctx.req.json());
+  } catch {
+    throw new HttpError(400, "Invalid request");
+  }
 
   try {
     switch (msg.op) {
       case "get":
-        return c.json({ result: await kvStore.get(scope, msg.key) });
+        return json({ result: await kvStore.get(scope, msg.key) });
       case "set":
         await kvStore.set(scope, msg.key, msg.value, msg.ttl);
-        return c.json({ result: "OK" });
+        return json({ result: "OK" });
       case "del":
         await kvStore.del(scope, msg.key);
-        return c.json({ result: "OK" });
+        return json({ result: "OK" });
       case "keys":
-        return c.json({ result: await kvStore.keys(scope, msg.pattern) });
+        return json({ result: await kvStore.keys(scope, msg.pattern) });
       case "list":
-        return c.json({
+        return json({
           result: await kvStore.list(scope, msg.prefix, {
-            limit: msg.limit,
-            reverse: msg.reverse,
+            ...(msg.limit !== undefined && { limit: msg.limit }),
+            ...(msg.reverse !== undefined && { reverse: msg.reverse }),
           }),
         });
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("KV operation failed", {
+    log.error("KV operation failed", {
       op: msg.op,
       slug: scope.slug,
       error: message,
     });
-    return c.json({ error: `KV operation failed: ${message}` }, 500);
+    return json({ error: `KV operation failed: ${message}` }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { FakeTime } from "@std/testing/time";
 import { render } from "preact";
 import { installDomShim } from "./_dom_shim.ts";
@@ -29,7 +30,9 @@ export function getContainer(): Element {
 // Ensure document exists at import time for modules that need DOM globals.
 setupDOM();
 
-export const flush = () => new Promise<void>((r) => queueMicrotask(r));
+export function flush(): Promise<void> {
+  return new Promise<void>((r) => queueMicrotask(r));
+}
 
 export function installMockLocation(origin = "http://localhost:3000") {
   const had = "location" in globalThis;
@@ -41,8 +44,6 @@ export function installMockLocation(origin = "http://localhost:3000") {
   };
 }
 
-// ── Audio mock helpers ──
-
 export class MockMediaStreamTrack {
   stopped = false;
   stop() {
@@ -51,9 +52,9 @@ export class MockMediaStreamTrack {
 }
 
 export class MockMediaStream {
-  private tracks = [new MockMediaStreamTrack()];
+  #tracks = [new MockMediaStreamTrack()];
   getTracks() {
-    return this.tracks;
+    return this.#tracks;
   }
 }
 
@@ -199,8 +200,6 @@ export function findWorkletNode(
   return node;
 }
 
-// ── Test environment wrappers ──
-
 /**
  * Set up a DOM + FakeTime environment, run `fn`, then clean up.
  * Used by component tests that need a container and timer control.
@@ -285,8 +284,6 @@ export function withSignalsEnv(
     }
   };
 }
-
-// ── Mock signals ──
 
 export function createMockSignals(
   overrides?: Partial<{

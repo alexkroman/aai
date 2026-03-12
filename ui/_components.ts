@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import type * as preact from "preact";
 import { useRef } from "preact/hooks";
 import { useComputed, useSignalEffect } from "@preact/signals";

@@ -1,90 +1,108 @@
-import { cors } from "hono/cors";
-import { secureHeaders } from "hono/secure-headers";
-import { createMiddleware } from "hono/factory";
-import { HTTPException } from "hono/http-exception";
-import type { HonoEnv } from "./hono_env.ts";
+// Copyright 2025 the AAI authors. MIT license.
+import { HttpError } from "./context.ts";
 import { verifyOrClaimNamespace } from "./auth.ts";
-import { type ScopeKey, verifyScopeToken } from "./scope_token.ts";
+import {
+  type AgentScope,
+  type ScopeKey,
+  verifyScopeToken,
+} from "./scope_token.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 
-const VALID_SLUG_PART = /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/;
+const VALID_SLUG_REGEXP = /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/;
 
-function bearerToken(c: { req: { header(name: string): string | undefined } }) {
-  return c.req.header("Authorization")?.slice(7) || null;
-}
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "*",
+  "Access-Control-Allow-Headers": "*",
+};
 
-export const corsMiddleware = cors({
-  origin: "*",
-  allowMethods: ["*"],
-  allowHeaders: ["*"],
-});
+const SECURITY_HEADERS: Record<string, string> = {
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Embedder-Policy": "credentialless",
+};
 
-export const securityHeaders = secureHeaders({
-  crossOriginOpenerPolicy: "same-origin",
-  crossOriginEmbedderPolicy: "credentialless",
-  crossOriginResourcePolicy: false,
-  originAgentCluster: false,
-  referrerPolicy: false,
-  strictTransportSecurity: false,
-  xContentTypeOptions: false,
-  xDnsPrefetchControl: false,
-  xDownloadOptions: false,
-  xFrameOptions: false,
-  xPermittedCrossDomainPolicies: false,
-  xXssProtection: false,
-});
-
-export const slugValidation = createMiddleware<HonoEnv>(async (c, next) => {
-  const ns = c.req.param("namespace") ?? "";
-  const slug = c.req.param("slug") ?? "";
-  if (!VALID_SLUG_PART.test(ns) || !VALID_SLUG_PART.test(slug)) {
-    throw new HTTPException(400, { message: "Invalid slug" });
+/** Apply CORS and security headers to a response (mutates nothing, returns new Response). */
+export function applyGlobalHeaders(res: Response): Response {
+  const headers = new Headers(res.headers);
+  for (
+    const [k, v] of Object.entries({ ...CORS_HEADERS, ...SECURITY_HEADERS })
+  ) {
+    if (!headers.has(k)) headers.set(k, v);
   }
-  c.set("slug", `${ns}/${slug}`);
-  await next();
-});
-
-export function requireOwnerMiddleware(store: BundleStore) {
-  return createMiddleware<HonoEnv>(async (c, next) => {
-    const apiKey = bearerToken(c);
-    if (!apiKey) {
-      throw new HTTPException(401, {
-        message: "Missing Authorization header (Bearer <API_KEY>)",
-      });
-    }
-    const slug = c.var.slug;
-    const namespace = slug.split("/")[0];
-
-    const accountId = await verifyOrClaimNamespace(apiKey, namespace, store);
-    if (!accountId) {
-      throw new HTTPException(403, {
-        message: `Namespace "${namespace}" is owned by another user.`,
-      });
-    }
-
-    c.set("accountId", accountId);
-    await next();
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
   });
 }
 
-export const requireUpgrade = createMiddleware<HonoEnv>(async (c, next) => {
-  if (c.req.header("upgrade")?.toLowerCase() !== "websocket") {
-    throw new HTTPException(400, { message: "Expected WebSocket upgrade" });
+/** Handle CORS preflight (OPTIONS) requests. */
+export function handlePreflight(): Response {
+  return new Response(null, {
+    status: 204,
+    headers: { ...CORS_HEADERS, ...SECURITY_HEADERS },
+  });
+}
+
+function bearerToken(req: Request): string | null {
+  return req.headers.get("Authorization")?.slice(7) || null;
+}
+
+/** Validate namespace/slug URL params and return the combined slug. */
+export function validateSlug(params: Record<string, string>): string {
+  const ns = params.namespace ?? "";
+  const slug = params.slug ?? "";
+  if (!VALID_SLUG_REGEXP.test(ns) || !VALID_SLUG_REGEXP.test(slug)) {
+    throw new HttpError(400, "Invalid slug");
   }
-  await next();
-});
+  return `${ns}/${slug}`;
+}
+
+/** Verify the request has a valid owner credential for the namespace. Returns accountId. */
+export async function requireOwner(
+  req: Request,
+  opts: { slug: string; store: BundleStore },
+): Promise<string> {
+  const apiKey = bearerToken(req);
+  if (!apiKey) {
+    throw new HttpError(
+      401,
+      "Missing Authorization header (Bearer <API_KEY>)",
+    );
+  }
+  const namespace = opts.slug.split("/")[0]!;
+  const accountId = await verifyOrClaimNamespace(apiKey, {
+    namespace,
+    store: opts.store,
+  });
+  if (!accountId) {
+    throw new HttpError(
+      403,
+      `Namespace "${namespace}" is owned by another user.`,
+    );
+  }
+  return accountId;
+}
+
+/** Require WebSocket upgrade header. */
+export function requireUpgrade(req: Request): void {
+  if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+    throw new HttpError(400, "Expected WebSocket upgrade");
+  }
+}
 
 /** Only allow requests from loopback / private addresses (Fly internal network, etc.). */
-export const requireInternal = createMiddleware<HonoEnv>(async (c, next) => {
-  const fly = c.req.header("fly-client-ip");
-  const addr = c.env?.remoteAddr;
+export function requireInternal(
+  req: Request,
+  info: Deno.ServeHandlerInfo,
+): void {
+  const fly = req.headers.get("fly-client-ip");
+  const addr = info?.remoteAddr;
   const ip = fly ?? (addr && "hostname" in addr ? addr.hostname : "") ?? "";
-  if (isPrivateIp(ip)) {
-    await next();
-  } else {
-    throw new HTTPException(403, { message: "Forbidden" });
+  if (!isPrivateIp(ip)) {
+    throw new HttpError(403, "Forbidden");
   }
-});
+}
 
 function isPrivateIp(ip: string): boolean {
   if (!ip) return false;
@@ -98,21 +116,18 @@ function isPrivateIp(ip: string): boolean {
   );
 }
 
-export function requireScopeTokenMiddleware(scopeKey: ScopeKey) {
-  return createMiddleware<HonoEnv>(async (c, next) => {
-    const token = bearerToken(c);
-    if (!token) {
-      throw new HTTPException(401, { message: "Missing Authorization header" });
-    }
-
-    const scope = await verifyScopeToken(scopeKey, token);
-    if (!scope) {
-      throw new HTTPException(403, {
-        message: "Invalid or tampered scope token",
-      });
-    }
-
-    c.set("scope", scope);
-    await next();
-  });
+/** Verify scope token from Authorization header. Returns the decoded scope. */
+export async function requireScopeToken(
+  req: Request,
+  scopeKey: ScopeKey,
+): Promise<AgentScope> {
+  const token = bearerToken(req);
+  if (!token) {
+    throw new HttpError(401, "Missing Authorization header");
+  }
+  const scope = await verifyScopeToken(scopeKey, token);
+  if (!scope) {
+    throw new HttpError(403, "Invalid or tampered scope token");
+  }
+  return scope;
 }

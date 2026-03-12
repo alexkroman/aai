@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assertStrictEquals } from "@std/assert";
 import { applyTheme, darkTheme, defaultTheme, lightTheme } from "./theme.ts";
 
 function mockElement(): { el: HTMLElement; props: Map<string, string> } {
@@ -24,25 +25,25 @@ Deno.test("applyTheme", async (t) => {
     const { el, props } = mockElement();
     applyTheme(el, defaultTheme);
 
-    expect(props.get("--aai-bg")).toBe("#0f0e17");
-    expect(props.get("--aai-surface-light")).toBe("#2b2c3f");
-    expect(props.get("--aai-text-muted")).toBe("#94a1b2");
-    expect(props.get("--aai-state-listening")).toBe("#7f5af0");
-    expect(props.get("--aai-state-error")).toBe("#ff6b6b");
+    assertStrictEquals(props.get("--aai-bg"), "#0f0e17");
+    assertStrictEquals(props.get("--aai-surface-light"), "#2b2c3f");
+    assertStrictEquals(props.get("--aai-text-muted"), "#94a1b2");
+    assertStrictEquals(props.get("--aai-state-listening"), "#7f5af0");
+    assertStrictEquals(props.get("--aai-state-error"), "#ff6b6b");
     // 9 base + 6 states
-    expect(props.size).toBe(15);
+    assertStrictEquals(props.size, 15);
   });
 
   await t.step("darkTheme is same as defaultTheme", () => {
-    expect(darkTheme).toBe(defaultTheme);
+    assertStrictEquals(darkTheme, defaultTheme);
   });
 
   await t.step("applies light theme", () => {
     const { el, props } = mockElement();
     applyTheme(el, lightTheme);
 
-    expect(props.get("--aai-bg")).toBe("#ffffff");
-    expect(props.get("--aai-primary")).toBe("#2196F3");
-    expect(props.size).toBe(15);
+    assertStrictEquals(props.get("--aai-bg"), "#ffffff");
+    assertStrictEquals(props.get("--aai-primary"), "#2196F3");
+    assertStrictEquals(props.size, 15);
   });
 });

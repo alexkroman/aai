@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Scope tokens are HS256 JWTs encoding agent ownership.
  * Uses jose for signing and verification.

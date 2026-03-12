@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 /**
  * Auto-bump patch versions for packages with staged changes.
  *
@@ -16,6 +17,8 @@
  *
  * Usage: deno run --allow-read --allow-write --allow-run scripts/bump_versions.ts
  */
+
+import * as log from "@std/log";
 
 const rootConfig = JSON.parse(await Deno.readTextFile("deno.json"));
 const PACKAGES: string[] = rootConfig.workspace;
@@ -68,7 +71,7 @@ for (const file of staged) {
 }
 
 if (directlyChanged.size === 0) {
-  console.log("No package changes detected, skipping version bump.");
+  log.info("No package changes detected, skipping version bump.");
   Deno.exit(0);
 }
 
@@ -89,7 +92,7 @@ for (const pkg of toBump) {
   const config = JSON.parse(text);
 
   if (!config.version) {
-    console.log(`  ${pkg}: no version field, skipping`);
+    log.info(`  ${pkg}: no version field, skipping`);
     continue;
   }
 
@@ -101,5 +104,5 @@ for (const pkg of toBump) {
   await gitAdd(configPath);
 
   const reason = directlyChanged.has(pkg) ? "changed" : "dependency changed";
-  console.log(`  ${pkg}: ${oldVersion} → ${newVersion} (${reason})`);
+  log.info(`  ${pkg}: ${oldVersion} → ${newVersion} (${reason})`);
 }

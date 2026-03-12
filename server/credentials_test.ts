@@ -1,4 +1,11 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import {
+  assert,
+  assertEquals,
+  assertNotStrictEquals,
+  assertRejects,
+  assertStrictEquals,
+} from "@std/assert";
 import { decryptEnv, deriveCredentialKey, encryptEnv } from "./credentials.ts";
 
 Deno.test("credentials", async (t) => {
@@ -6,22 +13,22 @@ Deno.test("credentials", async (t) => {
     const key = await deriveCredentialKey("test-secret");
     const env = { ASSEMBLYAI_API_KEY: "sk-123", MY_SECRET: "hunter2" };
     const jwe = await encryptEnv(key, env);
-    expect(typeof jwe).toBe("string");
-    expect(jwe).not.toContain("sk-123");
-    expect(await decryptEnv(key, jwe)).toEqual(env);
+    assertStrictEquals(typeof jwe, "string");
+    assert(!jwe.includes("sk-123"));
+    assertEquals(await decryptEnv(key, jwe), env);
   });
 
   await t.step("different secrets cannot decrypt", async () => {
     const key1 = await deriveCredentialKey("secret-a");
     const key2 = await deriveCredentialKey("secret-b");
     const jwe = await encryptEnv(key1, { KEY: "val" });
-    await expect(decryptEnv(key2, jwe)).rejects.toThrow();
+    await assertRejects(async () => await decryptEnv(key2, jwe));
   });
 
   await t.step("empty env round-trips", async () => {
     const key = await deriveCredentialKey("test-secret");
     const jwe = await encryptEnv(key, {});
-    expect(await decryptEnv(key, jwe)).toEqual({});
+    assertEquals(await decryptEnv(key, jwe), {});
   });
 
   await t.step("same input produces different JWEs (unique IVs)", async () => {
@@ -29,6 +36,6 @@ Deno.test("credentials", async (t) => {
     const env = { KEY: "value" };
     const jwe1 = await encryptEnv(key, env);
     const jwe2 = await encryptEnv(key, env);
-    expect(jwe1).not.toBe(jwe2);
+    assertNotStrictEquals(jwe1, jwe2);
   });
 });

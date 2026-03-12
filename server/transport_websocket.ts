@@ -1,72 +1,100 @@
-import type { Context } from "hono";
-import { HTTPException } from "hono/http-exception";
+// Copyright 2025 the AAI authors. MIT license.
+import * as log from "@std/log";
+import { html, HttpError, json, type RouteContext } from "./context.ts";
+import { eTag, ifNoneMatch } from "@std/http/etag";
 import { renderAgentPage } from "./html.ts";
-import { createSessionWSEvents } from "./ws_handler.ts";
+import { wireSessionSocket } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
-import type { HonoEnv } from "./hono_env.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import { upgradeWebSocket } from "hono/deno";
 
 export const _internals = { prepareSession };
 
+/**
+ * Discovers an agent slot, lazily loading it from the bundle store if needed.
+ *
+ * If the slot is already registered in memory, returns it immediately.
+ * Otherwise, checks the bundle store for a manifest and registers the slot.
+ */
+type SlotLookup = { slots: Map<string, AgentSlot>; store: BundleStore };
+
 export async function discoverSlot(
   slug: string,
-  slots: Map<string, AgentSlot>,
-  store: BundleStore,
+  opts: SlotLookup,
 ): Promise<AgentSlot | null> {
-  const existing = slots.get(slug);
+  const existing = opts.slots.get(slug);
   if (existing) return existing;
 
-  const manifest = await store.getManifest(slug);
+  const manifest = await opts.store.getManifest(slug);
   if (!manifest) return null;
 
-  if (registerSlot(slots, manifest)) {
-    console.info("Lazy-discovered agent from store", { slug });
+  if (registerSlot(opts.slots, manifest)) {
+    log.info("Lazy-discovered agent from store", { slug });
   }
-  return slots.get(slug) ?? null;
+  return opts.slots.get(slug) ?? null;
 }
 
+/**
+ * Resolves an agent slot that supports the WebSocket transport.
+ */
 export async function resolveSlot(
   slug: string,
-  slots: Map<string, AgentSlot>,
-  store: BundleStore,
+  opts: SlotLookup,
 ): Promise<AgentSlot | null> {
-  const slot = await discoverSlot(slug, slots, store);
+  const slot = await discoverSlot(slug, opts);
   if (!slot?.transport.includes("websocket")) return null;
   return slot;
 }
 
 async function requireSlot(
   slug: string,
-  slots: Map<string, AgentSlot>,
-  store: BundleStore,
+  opts: SlotLookup,
 ): Promise<AgentSlot> {
-  const slot = await resolveSlot(slug, slots, store);
-  if (!slot) throw new HTTPException(404, { message: `Not found: ${slug}` });
+  const slot = await resolveSlot(slug, opts);
+  if (!slot) throw new HttpError(404, `Not found: ${slug}`);
   return slot;
 }
 
-export async function handleAgentHealth(c: Context<HonoEnv>) {
-  const { slug, slots, store } = c.var;
-  const slot = await requireSlot(slug, slots, store);
-  return c.json({ status: "ok", slug, name: slot.name ?? slug });
+/** Handler for the agent health check endpoint (`GET /:slug/health`). */
+export async function handleAgentHealth(
+  ctx: RouteContext,
+  slug: string,
+): Promise<Response> {
+  const slot = await requireSlot(slug, ctx.state);
+  return json({ status: "ok", slug, name: slot.name ?? slug });
 }
 
-export async function handleAgentPage(c: Context<HonoEnv>) {
-  const { slug, slots, store } = c.var;
-  const slot = await requireSlot(slug, slots, store);
-  return c.html(renderAgentPage(slot.name ?? slug, `/${slug}`));
+/** Handler for the agent landing page (`GET /:slug`). */
+export async function handleAgentPage(
+  ctx: RouteContext,
+  slug: string,
+): Promise<Response> {
+  const slot = await requireSlot(slug, ctx.state);
+  return html(renderAgentPage(slot.name ?? slug, `/${slug}`));
 }
 
-export const handleWebSocket = upgradeWebSocket(async (c) => {
-  const { slug, slots, store, kvStore, sessions } = c.var;
-  const slot = await requireSlot(slug, slots, store);
+/**
+ * Handler that upgrades an HTTP request to a WebSocket session.
+ *
+ * Prepares the agent worker and session, then delegates to
+ * {@linkcode wireSessionSocket} for WebSocket lifecycle management.
+ */
+export async function handleWebSocket(
+  ctx: RouteContext,
+  slug: string,
+): Promise<Response> {
+  const slot = await requireSlot(slug, ctx.state);
+  const setup = await _internals.prepareSession(slot, {
+    slug,
+    store: ctx.state.store,
+    kvStore: ctx.state.kvStore,
+  });
+  const resume = new URL(ctx.req.url).searchParams.has("resume");
 
-  const setup = await _internals.prepareSession(slot, slug, store, kvStore);
-  const resume = c.req.query("resume") !== undefined;
+  const { socket, response } = Deno.upgradeWebSocket(ctx.req);
 
-  return createSessionWSEvents(sessions, {
+  wireSessionSocket(socket, {
+    sessions: ctx.state.sessions,
     createSession: (sessionId, transport) =>
       createSession({
         id: sessionId,
@@ -77,11 +105,19 @@ export const handleWebSocket = upgradeWebSocket(async (c) => {
       }),
     logContext: { slug },
   });
-});
 
-export async function handleStaticFile(c: Context<HonoEnv>) {
-  const { slug, slots, store } = c.var;
-  await requireSlot(slug, slots, store);
+  return response;
+}
+
+/**
+ * Handler that serves static agent files (`client.js`, `client.js.map`).
+ */
+export async function handleStaticFile(
+  ctx: RouteContext,
+  opts: { slug: string; file: string },
+): Promise<Response> {
+  const { slug, file } = opts;
+  await requireSlot(slug, ctx.state);
 
   const STATIC_FILES: Record<
     string,
@@ -91,16 +127,30 @@ export async function handleStaticFile(c: Context<HonoEnv>) {
     "client.js.map": { key: "client_map", ct: "application/json" },
   };
 
-  const file = c.req.path.split("/").pop() ?? "";
   const spec = STATIC_FILES[file];
-  if (!spec) throw new HTTPException(404, { message: "Not found" });
+  if (!spec) throw new HttpError(404, "Not found");
 
-  const content = await store.getFile(slug, spec.key);
-  if (!content) throw new HTTPException(404, { message: "Not found" });
-  return c.body(content, {
+  const content = await ctx.state.store.getFile(slug, spec.key);
+  if (!content) throw new HttpError(404, "Not found");
+
+  const data = typeof content === "string"
+    ? new TextEncoder().encode(content)
+    : new Uint8Array(content as ArrayBuffer);
+  const tag = await eTag(data);
+
+  // Conditional request support
+  if (tag && !ifNoneMatch(ctx.req.headers.get("If-None-Match"), tag)) {
+    return new Response(null, {
+      status: 304,
+      headers: { ...(tag ? { ETag: tag } : {}) },
+    });
+  }
+
+  return new Response(content, {
     headers: {
       "Content-Type": spec.ct,
       "Cache-Control": "no-cache",
+      ...(tag ? { ETag: tag } : {}),
     },
   });
 }

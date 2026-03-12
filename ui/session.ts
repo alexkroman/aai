@@ -1,4 +1,6 @@
+// Copyright 2025 the AAI authors. MIT license.
 import { batch, type Signal, signal } from "@preact/signals";
+import * as log from "@std/log";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
@@ -37,18 +39,42 @@ import type { VoiceIO } from "./audio.ts";
 
 /** Reconnection state machine with exponential backoff. */
 export type Reconnect = {
+  /** Whether more reconnection attempts are available. */
   readonly canRetry: boolean;
+  /**
+   * Schedule the next reconnection attempt with exponential backoff.
+   *
+   * @param cb - Callback to invoke when the backoff timer fires.
+   * @returns `true` if the attempt was scheduled, `false` if max attempts reached.
+   */
   schedule(cb: () => void): boolean;
+  /** Cancel any pending reconnection timer. */
   cancel(): void;
+  /** Reset the attempt counter back to zero. */
   reset(): void;
 };
 
-/** Create a reconnection handler with exponential backoff. */
+/**
+ * Create a reconnection handler with exponential backoff.
+ *
+ * @param maxAttempts - Maximum number of reconnection attempts before giving up.
+ *   Defaults to {@linkcode MAX_RECONNECT_ATTEMPTS}.
+ * @param maxBackoff - Maximum backoff delay in milliseconds.
+ *   Defaults to {@linkcode MAX_BACKOFF_MS}.
+ * @param initialBackoff - Initial backoff delay in milliseconds.
+ *   Defaults to {@linkcode INITIAL_BACKOFF_MS}.
+ * @returns A {@linkcode Reconnect} state machine.
+ */
 export function createReconnect(
-  maxAttempts = MAX_RECONNECT_ATTEMPTS,
-  maxBackoff = MAX_BACKOFF_MS,
-  initialBackoff = INITIAL_BACKOFF_MS,
+  opts?: {
+    maxAttempts?: number;
+    maxBackoff?: number;
+    initialBackoff?: number;
+  },
 ): Reconnect {
+  const maxAttempts = opts?.maxAttempts ?? MAX_RECONNECT_ATTEMPTS;
+  const maxBackoff = opts?.maxBackoff ?? MAX_BACKOFF_MS;
+  const initialBackoff = opts?.initialBackoff ?? INITIAL_BACKOFF_MS;
   let attempts = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -78,7 +104,13 @@ export function createReconnect(
   };
 }
 
-/** Parse a JSON string into a ServerMessage, returning null on failure. */
+/**
+ * Parse a JSON string into a ServerMessage.
+ *
+ * @param data - Raw JSON string received from the WebSocket.
+ * @returns The parsed {@linkcode ServerMessage}, or `null` if parsing fails
+ *   or the payload is not a valid message object.
+ */
 export function parseServerMessage(data: string): ServerMessage | null {
   try {
     const msg = JSON.parse(data);
@@ -91,22 +123,52 @@ export function parseServerMessage(data: string): ServerMessage | null {
   }
 }
 
-/** A reactive voice session that manages WebSocket, audio, and state. */
+/**
+ * A reactive voice session that manages WebSocket communication,
+ * audio capture/playback, and agent state transitions.
+ *
+ * Implements {@linkcode Disposable} for resource cleanup via `using`.
+ */
 export type VoiceSession = {
+  /** Current agent state (connecting, listening, thinking, etc.). */
   readonly state: Signal<AgentState>;
+  /** Chat message history for the session. */
   readonly messages: Signal<Message[]>;
+  /** Live partial transcript from the STT engine. */
   readonly transcript: Signal<string>;
+  /** Current session error, or `null` if no error. */
   readonly error: Signal<SessionError | null>;
+  /** Disconnection info, or `null` if connected. */
   readonly disconnected: Signal<{ intentional: boolean } | null>;
+  /**
+   * Open a WebSocket connection to the server and begin audio capture.
+   *
+   * @param options - Optional connection options.
+   * @param options.signal - An AbortSignal that, when aborted, disconnects the session.
+   */
   connect(options?: { signal?: AbortSignal }): void;
+  /** Cancel the current agent turn and discard in-flight TTS audio. */
   cancel(): void;
+  /** Clear messages, transcript, and error state without disconnecting. */
   resetState(): void;
+  /** Reset the session: clear state and reconnect. */
   reset(): void;
+  /** Close the WebSocket and release all audio resources. */
   disconnect(): void;
+  /** Alias for {@linkcode disconnect} for use with `using`. */
   [Symbol.dispose](): void;
 };
 
-/** Create a voice session that connects to an AAI server via WebSocket. */
+/**
+ * Create a voice session that connects to an AAI server via WebSocket.
+ *
+ * Manages the full lifecycle of a voice conversation: WebSocket connection
+ * with automatic reconnection, microphone capture, TTS playback, and
+ * reactive state updates via Preact signals.
+ *
+ * @param options - Session configuration including the platform server URL.
+ * @returns A {@linkcode VoiceSession} handle for controlling the session.
+ */
 export function createVoiceSession(options: SessionOptions): VoiceSession {
   const state = signal<AgentState>("connecting");
   const messages = signal<Message[]>([]);
@@ -321,7 +383,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
           const fullMessage = details?.length
             ? `${msg.message}: ${details.join(", ")}`
             : msg.message;
-          console.error("Agent error:", fullMessage);
+          log.error("Agent error:", fullMessage);
           error.value = { code: "protocol", message: fullMessage };
           state.value = "error";
           break;

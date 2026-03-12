@@ -1,3 +1,4 @@
+// Copyright 2025 the AAI authors. MIT license.
 import type { BundleStore, NamespaceOwner } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
@@ -6,8 +7,9 @@ import type { AgentConfig } from "@aai/sdk/types";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { createOrchestrator } from "./orchestrator.ts";
 
-export const flush = (): Promise<void> =>
-  new Promise<void>((r) => setTimeout(r, 0));
+export function flush(): Promise<void> {
+  return new Promise<void>((r) => setTimeout(r, 0));
+}
 
 /** Poll `predicate` every tick until it returns true, or throw after `ms`. */
 export async function waitFor(
@@ -16,7 +18,9 @@ export async function waitFor(
 ): Promise<void> {
   const deadline = Date.now() + ms;
   while (!predicate()) {
-    if (Date.now() > deadline) throw new Error("waitFor timed out");
+    if (Date.now() > deadline) {
+      throw new Error("Timed out waiting for condition");
+    }
     await flush();
   }
 }
@@ -76,10 +80,12 @@ export function createTestStore(): BundleStore {
       const fileNames: Record<string, string> = {
         worker: "worker.js",
         client: "client.js",
-        client_map: "client.js.map",
+        "client_map": "client.js.map",
       };
+      const fileName = fileNames[file];
+      if (!fileName) return Promise.resolve(null);
       return Promise.resolve(
-        objects.get(objectKey(slug, fileNames[file])) ?? null,
+        objects.get(objectKey(slug, fileName)) ?? null,
       );
     },
 

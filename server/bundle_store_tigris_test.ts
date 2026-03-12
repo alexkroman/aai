@@ -1,4 +1,5 @@
-import { expect } from "@std/expect";
+// Copyright 2025 the AAI authors. MIT license.
+import { assertEquals, assertStrictEquals } from "@std/assert";
 import { createTestStore, VALID_ENV } from "./_test_utils.ts";
 
 Deno.test("TigrisBundleStore", async (t) => {
@@ -13,17 +14,17 @@ Deno.test("TigrisBundleStore", async (t) => {
     });
 
     const manifest = await store.getManifest("hello");
-    expect(manifest).toEqual({
+    assertEquals(manifest, {
       slug: "hello",
       env: VALID_ENV,
       transport: ["websocket"],
     });
 
     const worker = await store.getFile("hello", "worker");
-    expect(worker).toBe("console.log('worker');");
+    assertStrictEquals(worker, "console.log('worker');");
 
     const client = await store.getFile("hello", "client");
-    expect(client).toBe("console.log('client');");
+    assertStrictEquals(client, "console.log('client');");
   });
 
   await t.step("deleteAgent removes all data", async () => {
@@ -37,9 +38,9 @@ Deno.test("TigrisBundleStore", async (t) => {
     });
     await store.deleteAgent("gone");
 
-    expect(await store.getManifest("gone")).toBeNull();
-    expect(await store.getFile("gone", "worker")).toBeNull();
-    expect(await store.getFile("gone", "client")).toBeNull();
+    assertStrictEquals(await store.getManifest("gone"), null);
+    assertStrictEquals(await store.getFile("gone", "worker"), null);
+    assertStrictEquals(await store.getFile("gone", "client"), null);
   });
 
   await t.step("overwrite replaces existing agent", async () => {
@@ -60,8 +61,8 @@ Deno.test("TigrisBundleStore", async (t) => {
     });
 
     const manifest = await store.getManifest("x");
-    expect(manifest!.env.EXTRA).toBe("val");
-    expect(await store.getFile("x", "worker")).toBe("new");
+    assertStrictEquals(manifest!.env.EXTRA, "val");
+    assertStrictEquals(await store.getFile("x", "worker"), "new");
   });
 
   await t.step("handles large strings without chunking", async () => {
@@ -76,15 +77,15 @@ Deno.test("TigrisBundleStore", async (t) => {
     });
 
     const result = await store.getFile("big", "worker");
-    expect(result).toBe(big);
-    expect(result!.length).toBe(150_000);
+    assertStrictEquals(result, big);
+    assertStrictEquals(result!.length, 150_000);
   });
 
   await t.step("missing slug returns null", async () => {
     using store = createTestStore();
-    expect(await store.getManifest("nope")).toBeNull();
-    expect(await store.getFile("nope", "worker")).toBeNull();
-    expect(await store.getFile("nope", "client")).toBeNull();
+    assertStrictEquals(await store.getManifest("nope"), null);
+    assertStrictEquals(await store.getFile("nope", "worker"), null);
+    assertStrictEquals(await store.getFile("nope", "client"), null);
   });
 
   await t.step("clientMap is optional", async () => {
@@ -96,7 +97,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       worker: "w",
       client: "c",
     });
-    expect(await store.getFile("nomap", "client_map")).toBeNull();
+    assertStrictEquals(await store.getFile("nomap", "client_map"), null);
   });
 
   await t.step("stores and retrieves clientMap when provided", async () => {
@@ -109,7 +110,8 @@ Deno.test("TigrisBundleStore", async (t) => {
       client: "c",
       client_map: '{"mappings":[]}',
     });
-    expect(await store.getFile("mapped", "client_map")).toBe(
+    assertStrictEquals(
+      await store.getFile("mapped", "client_map"),
       '{"mappings":[]}',
     );
   });
