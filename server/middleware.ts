@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { HttpError } from "./context.ts";
-import { verifyOrClaimNamespace } from "./auth.ts";
+import { generateAccountId, verifySlugOwner } from "./auth.ts";
 import {
   type AgentScope,
   type ScopeKey,
@@ -48,21 +48,20 @@ function bearerToken(req: Request): string | null {
   return req.headers.get("Authorization")?.slice(7) || null;
 }
 
-/** Validate namespace/slug URL params and return the combined slug. */
+/** Validate slug URL param and return it. */
 export function validateSlug(params: Record<string, string>): string {
-  const ns = params.namespace ?? "";
   const slug = params.slug ?? "";
-  if (!VALID_SLUG_REGEXP.test(ns) || !VALID_SLUG_REGEXP.test(slug)) {
+  if (!VALID_SLUG_REGEXP.test(slug)) {
     throw new HttpError(400, "Invalid slug");
   }
-  return `${ns}/${slug}`;
+  return slug;
 }
 
-/** Verify the request has a valid owner credential for the namespace. Returns accountId. */
+/** Verify the request has a valid owner credential for the slug. Returns { accountId, keyHash }. */
 export async function requireOwner(
   req: Request,
   opts: { slug: string; store: BundleStore },
-): Promise<string> {
+): Promise<{ accountId: string; keyHash: string }> {
   const apiKey = bearerToken(req);
   if (!apiKey) {
     throw new HttpError(
@@ -70,18 +69,20 @@ export async function requireOwner(
       "Missing Authorization header (Bearer <API_KEY>)",
     );
   }
-  const namespace = opts.slug.split("/")[0]!;
-  const accountId = await verifyOrClaimNamespace(apiKey, {
-    namespace,
+  const result = await verifySlugOwner(apiKey, {
+    slug: opts.slug,
     store: opts.store,
   });
-  if (!accountId) {
+  if (result.status === "forbidden") {
     throw new HttpError(
       403,
-      `Namespace "${namespace}" is owned by another user.`,
+      `Slug "${opts.slug}" is owned by another user.`,
     );
   }
-  return accountId;
+  if (result.status === "unclaimed") {
+    return { accountId: generateAccountId(), keyHash: result.keyHash };
+  }
+  return { accountId: result.accountId, keyHash: result.keyHash };
 }
 
 /** Require WebSocket upgrade header. */

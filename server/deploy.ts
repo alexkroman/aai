@@ -18,10 +18,10 @@ export { hashApiKey } from "./auth.ts";
  */
 export async function handleDeploy(
   ctx: RouteContext,
-  opts: { slug: string; accountId: string },
+  opts: { slug: string; accountId: string; keyHash: string },
 ): Promise<Response> {
   const { state } = ctx;
-  const { slug, accountId } = opts;
+  const { slug, accountId, keyHash } = opts;
   let body: DeployBody;
   try {
     body = DeployBodySchema.parse(await ctx.req.json());
@@ -63,6 +63,7 @@ export async function handleDeploy(
     worker: body.worker,
     client: body.client,
     account_id: accountId,
+    credential_hashes: [keyHash],
   });
 
   const slot: AgentSlot = {

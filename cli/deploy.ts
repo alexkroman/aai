@@ -8,10 +8,9 @@ import { runBuild } from "./build.ts";
 import { runDeploy } from "./_deploy.ts";
 import {
   DEFAULT_SERVER,
+  generateSlug,
   getApiKey,
   readProjectConfig,
-  slugFromDir,
-  slugify,
   writeProjectConfig,
 } from "./_discover.ts";
 import type { SubcommandDef } from "./_help.ts";
@@ -36,7 +35,7 @@ export const deployCommandDef: SubcommandDef = {
 /**
  * Runs the `aai deploy` subcommand. If no `agent.ts` exists in the current
  * directory, scaffolds a new agent first. Then builds the agent bundle,
- * resolves the deploy target (namespace/slug), uploads to the server, and
+ * resolves the deploy target (slug), uploads to the server, and
  * prints endpoint URLs.
  *
  * @param args Command-line arguments passed to the `deploy` subcommand.
@@ -78,37 +77,17 @@ export async function runDeployCommand(
   // Read project-local config (.aai/project.json)
   const projectConfig = await readProjectConfig(cwd);
 
-  // Namespace: from project config, derive from dir name with -y, or prompt
-  let namespace = projectConfig?.namespace ?? "";
-  if (!namespace) {
-    if (parsed.yes) {
-      namespace = slugFromDir(cwd);
-    } else {
-      log.info(
-        "\nChoose a namespace for your agents.\n" +
-          "Agents deploy to https://aai-agent.fly.dev/<namespace>/\n",
-      );
-      while (!namespace) {
-        const ns = prompt("Namespace");
-        if (ns) namespace = slugify(ns);
-        if (!namespace) log.info("Must contain alphanumeric characters");
-      }
-    }
-  }
+  // Slug: from project config, or generate a new human-readable one
+  const slug = projectConfig?.slug ?? generateSlug();
 
   const result = await runBuild({ agentDir: cwd });
   const { agent } = result;
 
-  // Slug: from project config, or derive from directory name
-  const slug = projectConfig?.slug ?? slugFromDir(cwd);
-  const fullPath = `${namespace}/${slug}`;
-
-  step("Deploy", fullPath);
+  step("Deploy", slug);
   const deployed = await runDeploy({
     url: serverUrl,
     bundle: result.bundle,
     env: {},
-    namespace,
     slug,
     dryRun,
     apiKey,
@@ -116,17 +95,15 @@ export async function runDeployCommand(
 
   // Save to .aai/project.json (like .vercel/project.json)
   await writeProjectConfig(cwd, {
-    namespace: deployed.namespace,
     slug: deployed.slug,
     serverUrl,
   });
 
-  const deployedPath = `${deployed.namespace}/${deployed.slug}`;
   if (agent.transport.includes("websocket")) {
-    stepInfo("App", `${serverUrl}/${deployedPath}`);
+    stepInfo("App", `${serverUrl}/${deployed.slug}`);
   }
   if (agent.transport.includes("twilio")) {
-    stepInfo("Twilio", `${serverUrl}/${deployedPath}/twilio/voice`);
+    stepInfo("Twilio", `${serverUrl}/${deployed.slug}/twilio/voice`);
   }
 
   stepInfo("Agent", deployed.slug);

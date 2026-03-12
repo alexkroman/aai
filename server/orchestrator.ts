@@ -115,7 +115,7 @@ export function createOrchestrator(opts: {
 
     // --- Trailing-slash redirect ---
     {
-      pattern: p("/:namespace/:slug/"),
+      pattern: p("/:slug/"),
       method: "GET",
       handler: (req) => {
         const url = new URL(req.url);
@@ -126,18 +126,21 @@ export function createOrchestrator(opts: {
 
     // --- Agent routes ---
     {
-      pattern: p("/:namespace/:slug/deploy"),
+      pattern: p("/:slug/deploy"),
       method: "POST",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
         const slug = validateSlug(c.params);
-        const accountId = await requireOwner(req, { slug, store: state.store });
-        return handleDeploy(c, { slug, accountId });
+        const { accountId, keyHash } = await requireOwner(req, {
+          slug,
+          store: state.store,
+        });
+        return handleDeploy(c, { slug, accountId, keyHash });
       },
     },
     // --- Env management (like `vercel env`) ---
     {
-      pattern: p("/:namespace/:slug/env"),
+      pattern: p("/:slug/env"),
       method: "GET",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -147,7 +150,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/env"),
+      pattern: p("/:slug/env"),
       method: "PUT",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -157,7 +160,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/env/:key"),
+      pattern: p("/:slug/env/:key"),
       method: "DELETE",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -168,7 +171,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/kv"),
+      pattern: p("/:slug/kv"),
       method: "POST",
       handler: async (req, match, info) => {
         requireInternal(req, info!);
@@ -179,7 +182,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/twilio/voice"),
+      pattern: p("/:slug/twilio/voice"),
       method: "POST",
       handler: (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -188,7 +191,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/twilio/stream"),
+      pattern: p("/:slug/twilio/stream"),
       handler: (req, match, info) => {
         requireUpgrade(req);
         const c = ctx(req, match, info, state);
@@ -197,7 +200,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/metrics"),
+      pattern: p("/:slug/metrics"),
       method: "GET",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -209,7 +212,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/health"),
+      pattern: p("/:slug/health"),
       method: "GET",
       handler: (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -218,7 +221,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/websocket"),
+      pattern: p("/:slug/websocket"),
       handler: (req, match, info) => {
         requireUpgrade(req);
         const c = ctx(req, match, info, state);
@@ -227,7 +230,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/client.js"),
+      pattern: p("/:slug/client.js"),
       method: "GET",
       handler: (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -236,7 +239,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug/client.js.map"),
+      pattern: p("/:slug/client.js.map"),
       method: "GET",
       handler: (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -245,7 +248,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:namespace/:slug"),
+      pattern: p("/:slug"),
       method: "GET",
       handler: (req, match, info) => {
         const c = ctx(req, match, info, state);

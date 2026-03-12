@@ -490,7 +490,7 @@ my-agent/
   README.md         # Getting started guide
   CLAUDE.md         # Agent API reference (auto-generated)
   .aai/             # CLI output (gitignored, like .vercel/ or .next/)
-    project.json    # Deploy target (namespace, slug, server URL)
+    project.json    # Deploy target (slug, server URL)
     build/          # Bundle output (worker.js, client.js, manifest.json)
 ```
 

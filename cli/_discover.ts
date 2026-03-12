@@ -2,18 +2,15 @@
 import { promptSecret } from "@std/cli/prompt-secret";
 import { exists } from "@std/fs/exists";
 import * as log from "@std/log";
-import { basename, dirname, fromFileUrl, join, resolve } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
+import { humanId } from "human-id";
 import { step } from "./_output.ts";
 
 /**
- * Converts a string into a URL-safe slug by lowercasing, replacing
- * non-alphanumeric runs with hyphens, and trimming leading/trailing hyphens.
- *
- * @param str The input string to slugify.
- * @returns A lowercase, hyphen-separated slug.
+ * Generates a human-readable slug using human-id.
  */
-export function slugify(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+export function generateSlug(): string {
+  return humanId({ separator: "-", capitalize: false });
 }
 
 // --- Global auth config (~/.config/aai/config.json) ---
@@ -75,11 +72,10 @@ export async function getApiKey(): Promise<string> {
 }
 
 // --- Project-local config (.aai/project.json) ---
-// Like .vercel/project.json — stores namespace, slug, server URL
+// Like .vercel/project.json — stores slug, server URL
 
 /** Project-level deployment metadata stored in `.aai/project.json`. */
 export type ProjectConfig = {
-  namespace: string;
   slug: string;
   serverUrl: string;
 };
@@ -115,34 +111,11 @@ export async function writeProjectConfig(
   );
 }
 
-// --- Slug helpers ---
-
-/**
- * Derives an agent slug from a directory path by slugifying the directory's
- * base name. Falls back to `"agent"` if the result is empty.
- */
-export function slugFromDir(dir: string): string {
-  const dirName = basename(resolve(dir));
-  const slug = slugify(dirName);
-  return slug || "agent";
-}
-
-/**
- * Increments a numeric suffix on a name, or appends `-1` if none exists.
- */
-export function incrementName(name: string): string {
-  const match = name.match(/^(.+)-(\d+)$/);
-  if (match) {
-    return `${match[1]}-${Number(match[2]) + 1}`;
-  }
-  return `${name}-1`;
-}
-
 // --- Agent discovery ---
 
 /** Discovered agent metadata extracted from an agent directory. */
 export type AgentEntry = {
-  /** URL-safe identifier derived from the directory name. */
+  /** URL-safe identifier from project config or generated. */
   slug: string;
   /** Absolute path to the agent directory. */
   dir: string;
@@ -170,7 +143,8 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
   const hasAgentTs = await exists(join(dir, "agent.ts"));
   if (!hasAgentTs) return null;
 
-  const slug = slugFromDir(dir);
+  const config = await readProjectConfig(dir);
+  const slug = config?.slug ?? generateSlug();
 
   const clientEntry = await exists(join(dir, "client.ts"))
     ? join(dir, "client.ts")

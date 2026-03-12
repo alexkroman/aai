@@ -8,21 +8,21 @@ Deno.test("renderAgentPage escapes HTML in agent name", () => {
 });
 
 Deno.test("renderAgentPage includes basePath in script src", () => {
-  const html = renderAgentPage("Test", "/ns/agent");
-  assertStringIncludes(html, 'src="/ns/agent/client.js"');
+  const html = renderAgentPage("Test", "/my-agent");
+  assertStringIncludes(html, 'src="/my-agent/client.js"');
 });
 
 Deno.test("renderAgentPage injects __AAI_BASE__ with basePath", () => {
-  const html = renderAgentPage("Test", "/ns/agent");
-  assertStringIncludes(html, 'window.__AAI_BASE__="/ns/agent"');
+  const html = renderAgentPage("Test", "/my-agent");
+  assertStringIncludes(html, 'window.__AAI_BASE__="/my-agent"');
 });
 
 Deno.test("renderAgentPage escapes basePath in __AAI_BASE__", () => {
-  const html = renderAgentPage("Test", '/ns/"><script>xss');
+  const html = renderAgentPage("Test", '/bad"><script>xss');
   assert(!html.includes("<script>xss"));
 });
 
 Deno.test("renderAgentPage injects __AAI_WS__ path", () => {
-  const html = renderAgentPage("Test", "/ns/agent");
-  assertStringIncludes(html, 'window.__AAI_WS__="/ns/agent/websocket"');
+  const html = renderAgentPage("Test", "/my-agent");
+  assertStringIncludes(html, 'window.__AAI_WS__="/my-agent/websocket"');
 });

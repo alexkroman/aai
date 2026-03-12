@@ -3,7 +3,6 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { stub } from "@std/testing/mock";
 import { _internals as _wsInternals } from "./transport_websocket.ts";
 import { hashApiKey } from "./auth.ts";
-import type { NamespaceOwner } from "./bundle_store_tigris.ts";
 import { signScopeToken } from "./scope_token.ts";
 import {
   createTestOrchestrator,
@@ -92,22 +91,27 @@ Deno.test("adds Cross-Origin-Isolation headers", async () => {
 Deno.test("deploy rejects without auth", async () => {
   const { handler } = await createTestOrchestrator();
   const res = await handler(
-    req("/ns/agent/deploy", { method: "POST", body: deployBody() }),
+    req("/my-agent/deploy", { method: "POST", body: deployBody() }),
     DUMMY_INFO,
   );
   assertEquals(res.status, 401);
 });
 
-Deno.test("deploy rejects different owner for claimed namespace", async () => {
+Deno.test("deploy rejects different owner for claimed slug", async () => {
   const { handler, store } = await createTestOrchestrator();
-  const owner: NamespaceOwner = {
-    "account_id": "acct-1",
-    "credential_hashes": [await hashApiKey("key1")],
-  };
-  await store.putNamespaceOwner("ns", owner);
+  // Deploy with key1 first to claim the slug
+  await store.putAgent({
+    slug: "my-agent",
+    env: {},
+    transport: ["websocket"],
+    worker: "w",
+    client: "c",
+    account_id: "acct-1",
+    credential_hashes: [await hashApiKey("key1")],
+  });
 
   const res = await handler(
-    req("/ns/agent/deploy", {
+    req("/my-agent/deploy", {
       method: "POST",
       headers: { Authorization: "Bearer key2" },
       body: deployBody(),
@@ -120,7 +124,7 @@ Deno.test("deploy rejects different owner for claimed namespace", async () => {
 Deno.test("deploy succeeds and stores agent", async () => {
   const { handler, store } = await createTestOrchestrator();
   const res = await handler(
-    req("/ns/my-agent/deploy", {
+    req("/my-agent/deploy", {
       method: "POST",
       headers: {
         Authorization: "Bearer key1",
@@ -131,9 +135,12 @@ Deno.test("deploy succeeds and stores agent", async () => {
     DUMMY_INFO,
   );
   assertEquals(res.status, 200);
-  const manifest = await store.getManifest("ns/my-agent");
+  const manifest = await store.getManifest("my-agent");
   // account_id is a UUID generated on first claim, just verify it exists
   assert(manifest!.account_id);
+  // credential_hashes should be stored
+  assert(manifest!.credential_hashes);
+  assert(manifest!.credential_hashes!.includes(await hashApiKey("key1")));
 });
 
 Deno.test("deploy can redeploy same slug", async () => {
@@ -146,9 +153,9 @@ Deno.test("deploy can redeploy same slug", async () => {
     },
     body: deployBody(),
   };
-  await handler(req("/ns/my-agent/deploy", init), DUMMY_INFO);
+  await handler(req("/my-agent/deploy", init), DUMMY_INFO);
   const res = await handler(
-    req("/ns/my-agent/deploy", {
+    req("/my-agent/deploy", {
       ...init,
       body: deployBody(),
     }),
@@ -163,7 +170,7 @@ Deno.test("deploy can redeploy same slug", async () => {
 
 async function deployAgent(
   handler: Deno.ServeHandler,
-  slug = "ns/agent",
+  slug = "my-agent",
   key = "key1",
 ) {
   await handler(
@@ -181,34 +188,34 @@ async function deployAgent(
 
 Deno.test("agent health returns 404 for unknown agent", async () => {
   const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/ns/missing/health"), DUMMY_INFO);
+  const res = await handler(req("/missing-agent/health"), DUMMY_INFO);
   assertEquals(res.status, 404);
 });
 
 Deno.test("agent health returns ok for deployed agent", async () => {
   const { handler } = await createTestOrchestrator();
   await deployAgent(handler);
-  const res = await handler(req("/ns/agent/health"), DUMMY_INFO);
+  const res = await handler(req("/my-agent/health"), DUMMY_INFO);
   assertEquals(res.status, 200);
   const body = await res.json();
   assertEquals(body.status, "ok");
-  assertEquals(body.slug, "ns/agent");
+  assertEquals(body.slug, "my-agent");
 });
 
 Deno.test("agent page returns 404 for unknown agent", async () => {
   const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/ns/missing"), DUMMY_INFO);
+  const res = await handler(req("/missing-agent"), DUMMY_INFO);
   assertEquals(res.status, 404);
 });
 
 Deno.test("agent page returns HTML for deployed agent", async () => {
   const { handler } = await createTestOrchestrator();
   await deployAgent(handler);
-  const res = await handler(req("/ns/agent"), DUMMY_INFO);
+  const res = await handler(req("/my-agent"), DUMMY_INFO);
   assertEquals(res.status, 200);
   assertStringIncludes(res.headers.get("Content-Type")!, "text/html");
   const body = await res.text();
-  assertStringIncludes(body, 'src="/ns/agent/client.js"');
+  assertStringIncludes(body, 'src="/my-agent/client.js"');
 });
 
 // =============================================================================
@@ -217,27 +224,25 @@ Deno.test("agent page returns HTML for deployed agent", async () => {
 
 Deno.test("static file returns 404 for unknown agent", async () => {
   const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/ns/missing/client.js"), DUMMY_INFO);
+  const res = await handler(req("/missing-agent/client.js"), DUMMY_INFO);
   assertEquals(res.status, 404);
 });
 
 Deno.test("static file serves client.js after deploy", async () => {
   const { handler } = await createTestOrchestrator();
   await deployAgent(handler);
-  const res = await handler(req("/ns/agent/client.js"), DUMMY_INFO);
+  const res = await handler(req("/my-agent/client.js"), DUMMY_INFO);
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("Content-Type"), "application/javascript");
   assertStringIncludes(await res.text(), "console.log");
 });
 
 Deno.test("client.js sets Cache-Control no-cache without server-side caching", async () => {
-  // Verify the response uses etag + Cache-Control: no-cache.
   const { handler } = await createTestOrchestrator();
   await deployAgent(handler);
-  const res = await handler(req("/ns/agent/client.js"), DUMMY_INFO);
+  const res = await handler(req("/my-agent/client.js"), DUMMY_INFO);
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("Cache-Control"), "no-cache");
-  // ETag should be present for conditional requests
   assert(res.headers.get("ETag"));
 });
 
@@ -247,10 +252,10 @@ Deno.test("client.js sets Cache-Control no-cache without server-side caching", a
 
 Deno.test("trailing slash on agent page redirects to canonical URL", async () => {
   const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/ns/agent/"), DUMMY_INFO);
+  const res = await handler(req("/my-agent/"), DUMMY_INFO);
   assertEquals(res.status, 301);
   const location = res.headers.get("Location");
-  assertEquals(location, "http://localhost/ns/agent");
+  assertEquals(location, "http://localhost/my-agent");
 });
 
 // =============================================================================
@@ -260,7 +265,7 @@ Deno.test("trailing slash on agent page redirects to canonical URL", async () =>
 Deno.test("websocket returns 404 for unknown agent", async () => {
   const { handler } = await createTestOrchestrator();
   const res = await handler(
-    req("/ns/missing/websocket", { headers: { upgrade: "websocket" } }),
+    req("/missing-agent/websocket", { headers: { upgrade: "websocket" } }),
     DUMMY_INFO,
   );
   assertEquals(res.status, 404);
@@ -269,7 +274,7 @@ Deno.test("websocket returns 404 for unknown agent", async () => {
 Deno.test("websocket returns 400 without upgrade header", async () => {
   const { handler } = await createTestOrchestrator();
   await deployAgent(handler);
-  const res = await handler(req("/ns/agent/websocket"), DUMMY_INFO);
+  const res = await handler(req("/my-agent/websocket"), DUMMY_INFO);
   assertEquals(res.status, 400);
 });
 
@@ -305,7 +310,7 @@ Deno.test("websocket upgrades for deployed agent", async () => {
   );
   try {
     const res = await handler(
-      req("/ns/agent/websocket", { headers: { upgrade: "websocket" } }),
+      req("/my-agent/websocket", { headers: { upgrade: "websocket" } }),
       DUMMY_INFO,
     );
     assertEquals(res.status, 101);
@@ -322,20 +327,18 @@ Deno.test("websocket upgrades for deployed agent", async () => {
 Deno.test("per-agent metrics rejects without auth", async () => {
   const { handler } = await createTestOrchestrator();
   const res = await handler(
-    req("/test-ns/test-agent/metrics"),
+    req("/test-agent/metrics"),
     DUMMY_INFO,
   );
   assertEquals(res.status, 401);
 });
 
 Deno.test("per-agent metrics returns Prometheus format", async () => {
-  const { handler, store } = await createTestOrchestrator();
-  await store.putNamespaceOwner("test-ns", {
-    "account_id": "acct-1",
-    "credential_hashes": [await hashApiKey("key1")],
-  });
+  const { handler } = await createTestOrchestrator();
+  // Deploy the agent first so the slug exists with credentials
+  await deployAgent(handler, "test-agent", "key1");
   const res = await handler(
-    req("/test-ns/test-agent/metrics", {
+    req("/test-agent/metrics", {
       headers: { Authorization: "Bearer key1" },
     }),
     DUMMY_INFO,
@@ -359,7 +362,7 @@ Deno.test("per-agent metrics returns Prometheus format", async () => {
 Deno.test("kv rejects without auth", async () => {
   const { handler } = await createTestOrchestrator();
   const res = await handler(
-    req("/ns/agent/kv", {
+    req("/my-agent/kv", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "get", key: "k" }),
@@ -373,11 +376,11 @@ Deno.test("kv set and get round-trip", async () => {
   const { handler, scopeKey } = await createTestOrchestrator();
   const token = await signScopeToken(scopeKey, {
     accountId: "acct-1",
-    slug: "ns/agent",
+    slug: "my-agent",
   });
 
   const kvReq = (body: Record<string, unknown>) =>
-    req("/ns/agent/kv", {
+    req("/my-agent/kv", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -404,16 +407,16 @@ Deno.test("kv scope isolation", async () => {
   const { handler, scopeKey } = await createTestOrchestrator();
   const tokenA = await signScopeToken(scopeKey, {
     accountId: "acct-1",
-    slug: "ns/agent-a",
+    slug: "agent-a",
   });
   const tokenB = await signScopeToken(scopeKey, {
     accountId: "acct-1",
-    slug: "ns/agent-b",
+    slug: "agent-b",
   });
 
   // Set via agent-a
   await handler(
-    req("/ns/agent-a/kv", {
+    req("/agent-a/kv", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${tokenA}`,
@@ -426,7 +429,7 @@ Deno.test("kv scope isolation", async () => {
 
   // Get via agent-b — should be null
   const res = await handler(
-    req("/ns/agent-b/kv", {
+    req("/agent-b/kv", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${tokenB}`,
@@ -443,10 +446,10 @@ Deno.test("kv rejects invalid op", async () => {
   const { handler, scopeKey } = await createTestOrchestrator();
   const token = await signScopeToken(scopeKey, {
     accountId: "h",
-    slug: "ns/agent",
+    slug: "my-agent",
   });
   const res = await handler(
-    req("/ns/agent/kv", {
+    req("/my-agent/kv", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,

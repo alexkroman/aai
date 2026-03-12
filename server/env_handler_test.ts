@@ -1,7 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assertEquals } from "@std/assert";
-import { hashApiKey } from "./auth.ts";
-import type { NamespaceOwner } from "./bundle_store_tigris.ts";
 import {
   createTestOrchestrator,
   deployBody,
@@ -12,13 +10,8 @@ function req(path: string, init?: RequestInit) {
   return new Request(`http://localhost${path}`, init);
 }
 
-async function deployAndAuth(slug = "ns/agent", key = "key1") {
+async function deployAndAuth(slug = "my-agent", key = "key1") {
   const orch = await createTestOrchestrator();
-  const owner: NamespaceOwner = {
-    "account_id": "acct-1",
-    "credential_hashes": [await hashApiKey(key)],
-  };
-  await orch.store.putNamespaceOwner("ns", owner);
 
   await orch.handler(
     req(`/${slug}/deploy`, {
@@ -41,14 +34,14 @@ async function deployAndAuth(slug = "ns/agent", key = "key1") {
 
 Deno.test("env list rejects without auth", async () => {
   const { handler } = await deployAndAuth();
-  const res = await handler(req("/ns/agent/env"), DUMMY_INFO);
+  const res = await handler(req("/my-agent/env"), DUMMY_INFO);
   assertEquals(res.status, 401);
 });
 
 Deno.test("env list returns var names for deployed agent", async () => {
   const { handler, key } = await deployAndAuth();
   const res = await handler(
-    req("/ns/agent/env", {
+    req("/my-agent/env", {
       headers: { Authorization: `Bearer ${key}` },
     }),
     DUMMY_INFO,
@@ -65,7 +58,7 @@ Deno.test("env list returns var names for deployed agent", async () => {
 Deno.test("env set rejects without auth", async () => {
   const { handler } = await deployAndAuth();
   const res = await handler(
-    req("/ns/agent/env", {
+    req("/my-agent/env", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ MY_KEY: "secret" }),
@@ -79,7 +72,7 @@ Deno.test("env set merges new vars", async () => {
   const { handler, key } = await deployAndAuth();
 
   const setRes = await handler(
-    req("/ns/agent/env", {
+    req("/my-agent/env", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -96,7 +89,7 @@ Deno.test("env set merges new vars", async () => {
 
   // Verify via list
   const listRes = await handler(
-    req("/ns/agent/env", {
+    req("/my-agent/env", {
       headers: { Authorization: `Bearer ${key}` },
     }),
     DUMMY_INFO,
@@ -109,7 +102,7 @@ Deno.test("env set rejects non-object body", async () => {
   const { handler, key } = await deployAndAuth();
 
   const res = await handler(
-    req("/ns/agent/env", {
+    req("/my-agent/env", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -126,7 +119,7 @@ Deno.test("env set rejects non-string values", async () => {
   const { handler, key } = await deployAndAuth();
 
   const res = await handler(
-    req("/ns/agent/env", {
+    req("/my-agent/env", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -146,7 +139,7 @@ Deno.test("env set rejects non-string values", async () => {
 Deno.test("env delete rejects without auth", async () => {
   const { handler } = await deployAndAuth();
   const res = await handler(
-    req("/ns/agent/env/ASSEMBLYAI_API_KEY", { method: "DELETE" }),
+    req("/my-agent/env/ASSEMBLYAI_API_KEY", { method: "DELETE" }),
     DUMMY_INFO,
   );
   assertEquals(res.status, 401);
@@ -157,7 +150,7 @@ Deno.test("env delete removes a key", async () => {
 
   // Add an extra key first
   await handler(
-    req("/ns/agent/env", {
+    req("/my-agent/env", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -170,7 +163,7 @@ Deno.test("env delete removes a key", async () => {
 
   // Delete it
   const delRes = await handler(
-    req("/ns/agent/env/EXTRA", {
+    req("/my-agent/env/EXTRA", {
       method: "DELETE",
       headers: { Authorization: `Bearer ${key}` },
     }),
@@ -181,7 +174,7 @@ Deno.test("env delete removes a key", async () => {
 
   // Verify it's gone
   const listRes = await handler(
-    req("/ns/agent/env", {
+    req("/my-agent/env", {
       headers: { Authorization: `Bearer ${key}` },
     }),
     DUMMY_INFO,
@@ -193,12 +186,13 @@ Deno.test("env delete removes a key", async () => {
 Deno.test("env delete returns 404 for unknown agent", async () => {
   const { handler, key } = await deployAndAuth();
   const res = await handler(
-    req("/ns/nonexistent/env/KEY", {
+    req("/nonexistent/env/KEY", {
       method: "DELETE",
       headers: { Authorization: `Bearer ${key}` },
     }),
     DUMMY_INFO,
   );
-  // 403 because namespace owner check passes but agent doesn't exist
+  // 404 because the agent doesn't exist (unclaimed slug, no manifest)
+  // The requireOwner will succeed (unclaimed), but handleEnvDelete will 404
   assertEquals(res.status, 404);
 });

@@ -4,7 +4,7 @@ import { json, type RouteContext } from "./context.ts";
 import { HttpError } from "./context.ts";
 
 /**
- * GET /:namespace/:slug/env — list env var names (values masked).
+ * GET /:slug/env — list env var names (values masked).
  */
 export async function handleEnvList(
   ctx: RouteContext,
@@ -18,7 +18,7 @@ export async function handleEnvList(
 }
 
 /**
- * PUT /:namespace/:slug/env — set one or more env vars.
+ * PUT /:slug/env — set one or more env vars.
  * Body: { "KEY": "value", "KEY2": "value2" }
  */
 export async function handleEnvSet(
@@ -61,7 +61,7 @@ export async function handleEnvSet(
 }
 
 /**
- * DELETE /:namespace/:slug/env/:key — remove a single env var.
+ * DELETE /:slug/env/:key — remove a single env var.
  */
 export async function handleEnvDelete(
   ctx: RouteContext,

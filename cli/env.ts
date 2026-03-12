@@ -83,8 +83,8 @@ async function getServerInfo(cwd: string) {
   const config = await requireProjectConfig(cwd);
   const apiKey = await getApiKey();
   const serverUrl = config.serverUrl || DEFAULT_SERVER;
-  const fullPath = `${config.namespace}/${config.slug}`;
-  return { serverUrl, fullPath, apiKey };
+  const slug = config.slug;
+  return { serverUrl, slug, apiKey };
 }
 
 async function envAdd(cwd: string, name: string): Promise<void> {
@@ -93,9 +93,9 @@ async function envAdd(cwd: string, name: string): Promise<void> {
   const value = promptSecret(`Enter value for ${name}`);
   if (!value) throw new Error("No value provided");
 
-  const { serverUrl, fullPath, apiKey } = await getServerInfo(cwd);
+  const { serverUrl, slug, apiKey } = await getServerInfo(cwd);
 
-  const resp = await fetch(`${serverUrl}/${fullPath}/env`, {
+  const resp = await fetch(`${serverUrl}/${slug}/env`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -109,15 +109,15 @@ async function envAdd(cwd: string, name: string): Promise<void> {
     throw new Error(`Failed to set env var: ${text}`);
   }
 
-  step("Set", `${name} for ${fullPath}`);
+  step("Set", `${name} for ${slug}`);
 }
 
 async function envRemove(cwd: string, name: string): Promise<void> {
   if (!name) throw new Error("Usage: aai env rm <NAME>");
 
-  const { serverUrl, fullPath, apiKey } = await getServerInfo(cwd);
+  const { serverUrl, slug, apiKey } = await getServerInfo(cwd);
 
-  const resp = await fetch(`${serverUrl}/${fullPath}/env/${name}`, {
+  const resp = await fetch(`${serverUrl}/${slug}/env/${name}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${apiKey}` },
   });
@@ -127,13 +127,13 @@ async function envRemove(cwd: string, name: string): Promise<void> {
     throw new Error(`Failed to remove env var: ${text}`);
   }
 
-  step("Removed", `${name} from ${fullPath}`);
+  step("Removed", `${name} from ${slug}`);
 }
 
 async function envList(cwd: string): Promise<void> {
-  const { serverUrl, fullPath, apiKey } = await getServerInfo(cwd);
+  const { serverUrl, slug, apiKey } = await getServerInfo(cwd);
 
-  const resp = await fetch(`${serverUrl}/${fullPath}/env`, {
+  const resp = await fetch(`${serverUrl}/${slug}/env`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
 
@@ -153,9 +153,9 @@ async function envList(cwd: string): Promise<void> {
 }
 
 async function envPull(cwd: string, filename: string): Promise<void> {
-  const { serverUrl, fullPath, apiKey } = await getServerInfo(cwd);
+  const { serverUrl, slug, apiKey } = await getServerInfo(cwd);
 
-  const resp = await fetch(`${serverUrl}/${fullPath}/env`, {
+  const resp = await fetch(`${serverUrl}/${slug}/env`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
 

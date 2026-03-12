@@ -1,5 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
-import type { BundleStore, NamespaceOwner } from "./bundle_store_tigris.ts";
+import type { BundleStore } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentMetadata, AgentSlot } from "./worker_pool.ts";
@@ -55,6 +55,9 @@ export function createTestStore(): BundleStore {
         env: bundle.env,
         transport: bundle.transport,
         ...(bundle.account_id ? { account_id: bundle.account_id } : {}),
+        ...(bundle.credential_hashes
+          ? { credential_hashes: bundle.credential_hashes }
+          : {}),
       };
       objects.set(
         objectKey(bundle.slug, "manifest.json"),
@@ -115,35 +118,6 @@ export function createTestStore(): BundleStore {
       return Promise.resolve();
     },
 
-    getNamespaceOwner(namespace) {
-      const data = objects.get(`namespaces/${namespace}/owner.json`);
-      if (!data) return Promise.resolve(null);
-      try {
-        const parsed = JSON.parse(data);
-        if (!parsed.account_id || !Array.isArray(parsed.credential_hashes)) {
-          return Promise.resolve(null);
-        }
-        return Promise.resolve(parsed as NamespaceOwner);
-      } catch {
-        return Promise.resolve(null);
-      }
-    },
-
-    putNamespaceOwner(namespace, owner) {
-      objects.set(
-        `namespaces/${namespace}/owner.json`,
-        JSON.stringify(owner),
-      );
-      return Promise.resolve();
-    },
-
-    claimIfUnclaimed(namespace, owner) {
-      const key = `namespaces/${namespace}/owner.json`;
-      if (objects.has(key)) return Promise.resolve(false);
-      objects.set(key, JSON.stringify(owner));
-      return Promise.resolve(true);
-    },
-
     close() {},
     [Symbol.dispose]() {},
   };
@@ -167,7 +141,7 @@ export function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
 /** Create a minimal AgentSlot for tests. */
 export function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
   return {
-    slug: "ns/test-agent",
+    slug: "test-agent",
     env: VALID_ENV,
     transport: ["websocket"],
     ...overrides,

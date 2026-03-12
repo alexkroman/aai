@@ -1,7 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { info, step, stepInfo, warn } from "./_output.ts";
 import type { BundleOutput } from "./_bundler.ts";
-import { incrementName } from "./_discover.ts";
+import { generateSlug } from "./_discover.ts";
 
 export const _internals = {
   fetch: globalThis.fetch.bind(globalThis),
@@ -12,20 +12,17 @@ export type DeployOpts = {
   bundle: BundleOutput;
   /** Env var values from .env to send to the server. */
   env: Record<string, string>;
-  namespace: string;
   slug: string;
   dryRun: boolean;
   apiKey: string;
 };
 
 export type DeployResult = {
-  namespace: string;
   slug: string;
 };
 
 async function attemptDeploy(
   url: string,
-  namespace: string,
   slug: string,
   apiKey: string,
   env: Record<string, string>,
@@ -33,8 +30,7 @@ async function attemptDeploy(
   worker: string,
   client: string,
 ): Promise<Response> {
-  const fullPath = `${namespace}/${slug}`;
-  return await _internals.fetch(`${url}/${fullPath}/deploy`, {
+  return await _internals.fetch(`${url}/${slug}/deploy`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -59,21 +55,18 @@ export async function runDeploy(
   const client = opts.bundle.client;
   const transport = manifest.transport ?? ["websocket"];
 
-  let namespace = opts.namespace;
-  const slug = opts.slug;
+  let slug = opts.slug;
 
   if (opts.dryRun) {
-    const fullPath = `${namespace}/${slug}`;
     stepInfo("Dry run", "would deploy:");
-    info(`${fullPath} -> ${opts.url}/${fullPath}`);
-    return { namespace, slug };
+    info(`${slug} -> ${opts.url}/${slug}`);
+    return { slug };
   }
 
-  // Try deploying, auto-incrementing namespace on 403
+  // Try deploying, generating a new slug on 403
   for (let i = 0; i < MAX_RETRIES; i++) {
     const resp = await attemptDeploy(
       opts.url,
-      namespace,
       slug,
       opts.apiKey,
       opts.env,
@@ -83,15 +76,14 @@ export async function runDeploy(
     );
 
     if (resp.ok) {
-      const fullPath = `${namespace}/${slug}`;
       const urls: string[] = [];
       if (transport.includes("websocket")) {
-        urls.push(`${opts.url}/${fullPath}`);
+        urls.push(`${opts.url}/${slug}`);
       }
       if (transport.includes("twilio")) {
-        urls.push(`${opts.url}/${fullPath}/twilio/voice`);
+        urls.push(`${opts.url}/${slug}/twilio/voice`);
       }
-      step("Deploy", `${fullPath} -> ${urls[0] ?? opts.url}`);
+      step("Deploy", `${slug} -> ${urls[0] ?? opts.url}`);
       for (const url of urls.slice(1)) {
         info(url);
       }
@@ -99,31 +91,31 @@ export async function runDeploy(
       // Health check: best-effort verification
       try {
         const healthResp = await _internals.fetch(
-          `${opts.url}/${fullPath}/health`,
+          `${opts.url}/${slug}/health`,
         );
         const ok = healthResp.ok &&
           (await healthResp.json()).status === "ok";
         if (ok) {
-          step("Ready", fullPath);
+          step("Ready", slug);
         } else {
           warn(
-            `${fullPath} deployed but health check failed -- check for runtime errors`,
+            `${slug} deployed but health check failed -- check for runtime errors`,
           );
         }
       } catch {
         // Health check is best-effort
       }
 
-      return { namespace, slug };
+      return { slug };
     }
 
     if (resp.status === 403) {
       const text = await resp.text();
-      // Namespace conflict — increment and retry
-      if (text.includes("Namespace")) {
-        const next = incrementName(namespace);
-        step("Retry", `namespace "${namespace}" taken, trying "${next}"`);
-        namespace = next;
+      // Slug conflict — generate a new one and retry
+      if (text.includes("Slug")) {
+        const next = generateSlug();
+        step("Retry", `slug "${slug}" taken, trying "${next}"`);
+        slug = next;
         continue;
       }
     }
@@ -133,6 +125,6 @@ export async function runDeploy(
   }
 
   throw new Error(
-    `deploy failed: could not find available namespace after ${MAX_RETRIES} attempts`,
+    `deploy failed: could not find available slug after ${MAX_RETRIES} attempts`,
   );
 }
