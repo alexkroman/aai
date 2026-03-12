@@ -1,4 +1,5 @@
-import { defineAgent, z } from "@jsr/aai__sdk";
+import { defineAgent } from "@jsr/aai__sdk";
+import { z } from "zod";
 import type { ToolContext } from "@jsr/aai__sdk";
 
 type GameState = {

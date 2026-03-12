@@ -25,7 +25,8 @@ import {
  *
  * @example Basic agent with a custom tool
  * ```ts
- * import { defineAgent, z } from "@aai/sdk";
+ * import { defineAgent } from "@aai/sdk";
+ * import { z } from "zod";
  *
  * export default defineAgent({
  *   name: "greeter",
