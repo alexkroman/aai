@@ -1,10 +1,9 @@
 {
   "name": "@aai/cli",
-  "version": "0.1.126",
+  "version": "0.1.127",
   "exports": "./cli.ts",
   "imports": {
     "@aai/sdk": "workspace:@aai/sdk",
-    "@aai/core": "workspace:@aai/core",
     "esbuild": "npm:esbuild-wasm@^0.27.3/esm/browser.js",
     "esbuild-wasm-types": "npm:esbuild-wasm@^0.27.3",
     "@deno/esbuild-plugin": "jsr:@deno/esbuild-plugin@^1.2.1",

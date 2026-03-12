@@ -106,6 +106,7 @@ Deno.test("deploy rejects different owner for claimed slug", async () => {
     transport: ["websocket"],
     worker: "w",
     client: "c",
+    html: "<html></html>",
     credential_hashes: [await hashApiKey("key1")],
   });
 
@@ -212,7 +213,7 @@ Deno.test("agent page returns HTML for deployed agent", async () => {
   assertEquals(res.status, 200);
   assertStringIncludes(res.headers.get("Content-Type")!, "text/html");
   const body = await res.text();
-  assertStringIncludes(body, 'src="/my-agent/client.js"');
+  assertStringIncludes(body, "<html>");
 });
 
 // =============================================================================

@@ -6,7 +6,7 @@ import {
   DEFAULT_TTS_SAMPLE_RATE,
   PROTOCOL_VERSION,
   type ServerMessage as _ServerMessage,
-} from "@aai/core/protocol";
+} from "@aai/sdk/protocol";
 
 const SUPPORTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 const SUPPORTED_AUDIO_FORMATS = new Set(["pcm16"]);
@@ -406,10 +406,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     }
 
     const base = options.platformUrl;
-    const wsPath =
-      (globalThis as unknown as Record<string, unknown>).__AAI_WS__ as string ??
-        "websocket";
-    const wsUrl = new URL(wsPath, base.endsWith("/") ? base : base + "/");
+    const wsUrl = new URL("websocket", base.endsWith("/") ? base : base + "/");
     wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
     if (hasConnected) wsUrl.searchParams.set("resume", "1");
     const socket = new WebSocket(wsUrl);

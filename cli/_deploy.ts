@@ -29,6 +29,7 @@ async function attemptDeploy(
   transport: string[],
   worker: string,
   client: string,
+  html: string,
 ): Promise<Response> {
   return await _internals.fetch(`${url}/${slug}/deploy`, {
     method: "POST",
@@ -40,6 +41,7 @@ async function attemptDeploy(
       env,
       worker,
       client,
+      html,
       transport,
     }),
   });
@@ -53,6 +55,7 @@ export async function runDeploy(
   const manifest = JSON.parse(opts.bundle.manifest);
   const worker = opts.bundle.worker;
   const client = opts.bundle.client;
+  const html = opts.bundle.html;
   const transport = manifest.transport ?? ["websocket"];
 
   let slug = opts.slug;
@@ -73,6 +76,7 @@ export async function runDeploy(
       transport,
       worker,
       client,
+      html,
     );
 
     if (resp.ok) {

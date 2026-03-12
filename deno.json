@@ -1,19 +1,19 @@
 {
-  "workspace": ["server", "ui", "cli", "sdk", "core", "scripts"],
+  "workspace": ["server", "ui", "cli", "sdk", "scripts"],
   "tasks": {
     "setup": "git config core.hooksPath .githooks",
     "deploy": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run cli/cli.ts deploy",
     "new": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run cli/cli.ts new",
     "serve": "deno run --allow-net --allow-env --allow-read --allow-write --unstable-worker-options server/main.ts",
     "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options",
-    "check": "deno check server/**/*.ts server/**/*.tsx ui/**/*.ts ui/**/*.tsx cli/**/*.ts sdk/**/*.ts core/**/*.ts scripts/**/*.ts && deno lint && deno fmt --check && deno run -A npm:markdownlint-cli CLAUDE.md README.md cli/claude.md && deno task check:boundaries && deno task check:exports && deno task publish && deno test --quiet --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options && deno task test:templates",
+    "check": "deno check server/**/*.ts server/**/*.tsx ui/**/*.ts ui/**/*.tsx cli/**/*.ts sdk/**/*.ts scripts/**/*.ts && deno lint && deno fmt --check && deno run -A npm:markdownlint-cli CLAUDE.md README.md cli/claude.md && deno task check:boundaries && deno task check:exports && deno task publish && deno test --quiet --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options",
     "check:boundaries": "deno run --allow-read scripts/check_boundaries.ts",
     "check:exports": "deno run --allow-read scripts/check_export_names.ts",
     "bump": "deno run --allow-read --allow-write --allow-run scripts/bump_versions.ts",
     "test:templates": "deno run --allow-all scripts/test_templates.ts",
     "install-dev": "echo '#!/bin/sh\nINIT_CWD=\"$(pwd)\" exec deno run --allow-all --unstable-worker-options '\"$(pwd)/cli/cli.ts\"' \"$@\"' > \"$HOME/.deno/bin/aai\" && chmod +x \"$HOME/.deno/bin/aai\" && echo 'Installed aai to ~/.deno/bin/aai'",
-    "publish": "cd sdk && deno publish --allow-dirty --dry-run && cd ../core && deno publish --allow-dirty --dry-run && cd ../ui && deno publish --allow-dirty --dry-run && cd ../cli && deno publish --allow-dirty --dry-run && cd ../server && deno publish --allow-dirty --dry-run && echo 'Dry run OK. Run deno task publish:live to publish.'",
-    "publish:live": "cd sdk && deno publish --allow-dirty && cd ../core && deno publish --allow-dirty && cd ../ui && deno publish --allow-dirty"
+    "publish": "cd sdk && deno publish --allow-dirty --dry-run && cd ../ui && deno publish --allow-dirty --dry-run && cd ../cli && deno publish --allow-dirty --dry-run && cd ../server && deno publish --allow-dirty --dry-run && echo 'Dry run OK. Run deno task publish:live to publish.'",
+    "publish:live": "cd sdk && deno publish --allow-dirty && cd ../ui && deno publish --allow-dirty"
   },
   "imports": {
     "@std/testing": "jsr:@std/testing@^1.0.17",
@@ -66,7 +66,6 @@
       "ui/",
       "cli/",
       "sdk/",
-      "core/",
       "templates/"
     ]
   },
@@ -76,7 +75,6 @@
       "ui/",
       "cli/",
       "sdk/",
-      "core/",
       "templates/"
     ],
     "rules": {

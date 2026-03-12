@@ -2,7 +2,7 @@
 import * as log from "@std/log";
 import type { PlatformConfig } from "./config.ts";
 import { createModel } from "./model.ts";
-import type { ExecuteTool } from "@aai/core/worker-entry";
+import type { ExecuteTool } from "./_worker_entry.ts";
 import { createSttConnection, type SttConnection } from "./stt.ts";
 import { createTtsConnection, type TtsConnection } from "./tts.ts";
 import { getBuiltinVercelTools } from "./builtin_tools.ts";
@@ -10,7 +10,7 @@ import { executeTurn } from "./turn_handler.ts";
 import type { STTConfig, TTSConfig } from "./types.ts";
 import type { AgentConfig } from "@aai/sdk/types";
 import type { ToolSchema } from "@aai/sdk/types";
-import type { WorkerApi } from "@aai/core/worker-entry";
+import type { WorkerApi } from "./_worker_entry.ts";
 import { buildSystemPrompt } from "./system_prompt.ts";
 import {
   type CoreAssistantMessage,
@@ -24,7 +24,7 @@ import {
 } from "ai";
 import type { Message } from "@aai/sdk/types";
 import * as metrics from "./metrics.ts";
-import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/core/protocol";
+import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/sdk/protocol";
 
 /** Transport abstraction for sending data to a connected client. */
 export type SessionTransport = {

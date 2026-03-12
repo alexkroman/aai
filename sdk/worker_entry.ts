@@ -9,14 +9,17 @@ import * as log from "@std/log";
 import * as Comlink from "comlink";
 import { z } from "zod";
 import type {
+  AgentConfig,
   AgentDef,
   HookContext,
   Message,
   ToolContext,
   ToolDef,
-} from "@aai/sdk/types";
-import type { AgentConfig, ToolSchema, WorkerConfig } from "@aai/sdk/types";
-import type { Kv, KvEntry } from "@aai/sdk/kv";
+  ToolSchema,
+  WorkerConfig,
+} from "./types.ts";
+import type { Kv, KvEntry } from "./kv.ts";
+import type { KvRequest } from "./protocol.ts";
 import { deadline } from "@std/async/deadline";
 
 /**
@@ -43,6 +46,16 @@ export type ExecuteTool = (
   messages?: readonly Message[],
 ) => Promise<string>;
 
+/** Options for {@linkcode executeToolCall}. */
+export type ExecuteToolCallOptions = {
+  tool: ToolDef;
+  env: Readonly<Record<string, string>>;
+  sessionId?: string | undefined;
+  state?: unknown;
+  kv?: Kv | undefined;
+  messages?: readonly Message[] | undefined;
+};
+
 /**
  * Execute a tool call with argument validation, timeout, and error handling.
  *
@@ -53,34 +66,23 @@ export type ExecuteTool = (
  *
  * @param name - The name of the tool being invoked.
  * @param args - Raw arguments from the LLM to validate and pass to the tool.
- * @param tool - The tool definition containing schema and execute function.
- * @param env - Environment variables available to the tool handler.
- * @param sessionId - Optional session identifier for the current connection.
- * @param state - Optional per-session state object.
- * @param kv - Optional key-value store proxy for persistent storage.
- * @param messages - Optional conversation history for context-aware tools.
+ * @param options - Tool definition, environment, and optional context.
  * @returns The tool's result serialized as a string, or an error message.
  *
  * @example
  * ```ts
- * const result = await executeToolCall(
- *   "lookup",
- *   { query: "weather" },
- *   myToolDef,
- *   { API_KEY: "abc" },
- * );
+ * const result = await executeToolCall("lookup", { query: "weather" }, {
+ *   tool: myToolDef,
+ *   env: { API_KEY: "abc" },
+ * });
  * ```
  */
 export async function executeToolCall(
   name: string,
   args: Readonly<Record<string, unknown>>,
-  tool: ToolDef,
-  env: Readonly<Record<string, string>>,
-  sessionId?: string,
-  state?: unknown,
-  kv?: Kv,
-  messages?: readonly Message[],
+  options: ExecuteToolCallOptions,
 ): Promise<string> {
+  const { tool, env, sessionId, state, kv, messages } = options;
   const schema = tool.parameters ?? z.object({});
   const parsed = schema.safeParse(args);
   if (!parsed.success) {
@@ -119,7 +121,7 @@ export async function executeToolCall(
   }
 }
 
-export type { WorkerConfig } from "@aai/sdk/types";
+export type { WorkerConfig } from "./types.ts";
 
 /**
  * Step info payload for RPC transport between host and worker.
@@ -140,148 +142,7 @@ export type StepInfoRpc = {
   text: string;
 };
 
-/**
- * High-level API for communicating with a sandboxed agent worker.
- *
- * This is the host-side interface returned by {@linkcode createWorkerApi}.
- * All methods automatically wait for the Comlink connection to be ready
- * and support optional RPC timeouts.
- */
-export type WorkerApi = {
-  /**
-   * Retrieve the agent's configuration and tool schemas from the worker.
-   *
-   * @returns The agent config and tool JSON schemas.
-   */
-  getConfig(): Promise<WorkerConfig>;
-
-  /**
-   * Execute a named tool in the worker's sandbox.
-   *
-   * @param name - Tool name to invoke.
-   * @param args - Arguments to pass to the tool handler.
-   * @param sessionId - Optional session identifier.
-   * @param timeoutMs - Optional RPC timeout in milliseconds.
-   * @param env - Optional environment variables to merge.
-   * @param messages - Optional conversation history.
-   * @returns The tool result as a string.
-   */
-  executeTool(
-    name: string,
-    args: Readonly<Record<string, unknown>>,
-    sessionId?: string,
-    timeoutMs?: number,
-    env?: Record<string, string>,
-    messages?: readonly Message[],
-  ): Promise<string>;
-
-  /**
-   * Notify the worker that a new session has connected.
-   *
-   * @param sessionId - The session identifier.
-   * @param timeoutMs - Optional RPC timeout in milliseconds.
-   * @param env - Optional environment variables to merge.
-   */
-  onConnect(
-    sessionId: string,
-    timeoutMs?: number,
-    env?: Record<string, string>,
-  ): Promise<void>;
-
-  /**
-   * Notify the worker that a session has disconnected.
-   *
-   * @param sessionId - The session identifier.
-   * @param timeoutMs - Optional RPC timeout in milliseconds.
-   * @param env - Optional environment variables to merge.
-   */
-  onDisconnect(
-    sessionId: string,
-    timeoutMs?: number,
-    env?: Record<string, string>,
-  ): Promise<void>;
-
-  /**
-   * Notify the worker that a user turn has been finalized.
-   *
-   * @param sessionId - The session identifier.
-   * @param text - The finalized user transcript text.
-   * @param timeoutMs - Optional RPC timeout in milliseconds.
-   * @param env - Optional environment variables to merge.
-   */
-  onTurn(
-    sessionId: string,
-    text: string,
-    timeoutMs?: number,
-    env?: Record<string, string>,
-  ): Promise<void>;
-
-  /**
-   * Notify the worker that an error occurred during the session.
-   *
-   * @param sessionId - The session identifier.
-   * @param error - The error message string.
-   * @param timeoutMs - Optional RPC timeout in milliseconds.
-   * @param env - Optional environment variables to merge.
-   */
-  onError(
-    sessionId: string,
-    error: string,
-    timeoutMs?: number,
-    env?: Record<string, string>,
-  ): Promise<void>;
-
-  /**
-   * Notify the worker about a completed agentic loop step.
-   *
-   * @param sessionId - The session identifier.
-   * @param step - The step info payload (tool calls and text).
-   * @param timeoutMs - Optional RPC timeout in milliseconds.
-   * @param env - Optional environment variables to merge.
-   */
-  onStep(
-    sessionId: string,
-    step: StepInfoRpc,
-    timeoutMs?: number,
-    env?: Record<string, string>,
-  ): Promise<void>;
-
-  /**
-   * Ask the worker to resolve the dynamic max steps for the current session.
-   *
-   * @param sessionId - The session identifier.
-   * @param timeoutMs - Optional RPC timeout in milliseconds.
-   * @param env - Optional environment variables to merge.
-   * @returns The max steps number, or `null` if not dynamically configured.
-   */
-  resolveMaxSteps(
-    sessionId: string,
-    timeoutMs?: number,
-    env?: Record<string, string>,
-  ): Promise<number | null>;
-
-  /**
-   * Ask the worker to run the `onBeforeStep` hook for filtering active tools.
-   *
-   * @param sessionId - The session identifier.
-   * @param stepNumber - The upcoming step number.
-   * @param timeoutMs - Optional RPC timeout in milliseconds.
-   * @param env - Optional environment variables to merge.
-   * @returns An object with `activeTools` filter, or `null` if no hook defined.
-   */
-  resolveBeforeStep(
-    sessionId: string,
-    stepNumber: number,
-    timeoutMs?: number,
-    env?: Record<string, string>,
-  ): Promise<{ activeTools?: string[] } | null>;
-
-  /** Release the underlying Comlink proxy and its MessagePort resources. */
-  dispose?: () => Promise<void>;
-};
-
-import type { KvRequest } from "./_protocol.ts";
-export type { KvRequest };
+export type { KvRequest } from "./protocol.ts";
 
 /**
  * API shape the host process exposes to the sandboxed worker via Comlink.
@@ -325,7 +186,7 @@ export type HostApi = {
  * API shape exposed by the worker to the host via Comlink.
  *
  * This is the low-level interface that runs inside the sandboxed Deno Worker.
- * The host communicates with it through {@linkcode WorkerApi}, which wraps
+ * The host communicates with it through the host-side WorkerApi, which wraps
  * this interface with timeout handling and JSON serialization.
  */
 export type ExposedWorkerApi = {
@@ -455,98 +316,13 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs?: number): Promise<T> {
   });
 }
 
-/**
- * Create a {@linkcode WorkerApi} backed by Comlink over a Worker or MessagePort.
- *
- * Wraps a Comlink endpoint to produce the host-side API for communicating with
- * a sandboxed agent worker. If `hostApi` is provided, a dedicated MessageChannel
- * is created so the worker can proxy fetch and KV requests back to the host.
- *
- * @param endpoint - The Comlink endpoint (typically a `Worker` or `MessagePort`).
- * @param hostApi - Optional host-side API to expose to the worker for fetch/kv proxy.
- * @returns A {@linkcode WorkerApi} instance with timeout-wrapped RPC methods.
- *
- * @example
- * ```ts
- * const worker = createDenoWorker(specifier, "agent", LOCKED_PERMISSIONS);
- * const api = createWorkerApi(worker, { fetch: hostFetch, kv: hostKv });
- * const config = await api.getConfig();
- * ```
- */
-export function createWorkerApi(
-  endpoint: Comlink.Endpoint,
-  hostApi?: HostApi,
-): WorkerApi {
-  const remote = Comlink.wrap<ExposedWorkerApi>(endpoint);
-  let hostPort: MessagePort | undefined;
-  let ready: Promise<void>;
-
-  if (hostApi) {
-    const ch = new MessageChannel();
-    hostPort = ch.port1;
-    Comlink.expose(hostApi, ch.port1);
-    ready = remote.init(Comlink.transfer(ch.port2, [ch.port2]));
-  } else {
-    ready = Promise.resolve();
-  }
-
-  return {
-    async getConfig() {
-      await ready;
-      return await withTimeout(remote.getConfig(), 5_000);
-    },
-    async executeTool(name, args, sessionId, timeoutMs, env, messages) {
-      await ready;
-      const raw = await withTimeout(
-        remote.executeTool(name, args, sessionId, env, messages),
-        timeoutMs,
-      );
-      return typeof raw === "string" ? raw : String(raw ?? "");
-    },
-    async onConnect(sessionId, timeoutMs, env) {
-      await ready;
-      await withTimeout(remote.onConnect(sessionId, env), timeoutMs);
-    },
-    async onDisconnect(sessionId, timeoutMs, env) {
-      await ready;
-      await withTimeout(remote.onDisconnect(sessionId, env), timeoutMs);
-    },
-    async onTurn(sessionId, text, timeoutMs, env) {
-      await ready;
-      await withTimeout(remote.onTurn(sessionId, text, env), timeoutMs);
-    },
-    async onError(sessionId, error, timeoutMs, env) {
-      await ready;
-      await withTimeout(remote.onError(sessionId, error, env), timeoutMs);
-    },
-    async onStep(sessionId, step, timeoutMs, env) {
-      await ready;
-      await withTimeout(
-        remote.onStep(sessionId, JSON.stringify(step), env),
-        timeoutMs,
-      );
-    },
-    async resolveMaxSteps(sessionId, timeoutMs, env) {
-      await ready;
-      return await withTimeout(
-        remote.resolveMaxSteps(sessionId, env),
-        timeoutMs ?? 5_000,
-      );
-    },
-    async resolveBeforeStep(sessionId, stepNumber, timeoutMs, env) {
-      await ready;
-      return await withTimeout(
-        remote.resolveBeforeStep(sessionId, stepNumber, env),
-        timeoutMs ?? 5_000,
-      );
-    },
-    async dispose() {
-      await remote.dispose();
-      remote[Comlink.releaseProxy]();
-      hostPort?.close();
-    },
-  };
-}
+/** Options for {@linkcode startWorker}. */
+export type StartWorkerOptions = {
+  /** Initial environment variables available to the agent. */
+  env?: Readonly<Record<string, string>>;
+  /** Comlink endpoint; defaults to `self` (the Worker global). */
+  endpoint?: Comlink.Endpoint;
+};
 
 /**
  * Start the worker-side Comlink endpoint that serves agent RPC calls.
@@ -556,22 +332,21 @@ export function createWorkerApi(
  * environment variable merging, and Comlink-based communication.
  *
  * @param agent - The agent definition returned by `defineAgent()`.
- * @param env - Initial environment variables available to the agent.
- * @param endpoint - Optional Comlink endpoint; defaults to `self` (the Worker global).
+ * @param options - Optional environment and endpoint configuration.
  *
  * @example
  * ```ts
- * import { startWorker } from "@aai/core/worker-entry";
+ * import { startWorker } from "@aai/sdk/worker-entry";
  * import agent from "./agent.ts";
  *
- * startWorker(agent, {});
+ * startWorker(agent);
  * ```
  */
 export function startWorker(
   agent: AgentDef,
-  env: Readonly<Record<string, string>>,
-  endpoint?: Comlink.Endpoint,
+  options?: StartWorkerOptions,
 ): void {
+  const { env = {}, endpoint } = options ?? {};
   const toolHandlers = new Map(Object.entries(agent.tools));
   const sessions = new Map<string, unknown>();
   let mergedEnv = { ...env };
@@ -645,16 +420,14 @@ export function startWorker(
       applyEnv(env);
       const tool = toolHandlers.get(name);
       if (!tool) return `Error: Unknown tool "${name}"`;
-      return await executeToolCall(
-        name,
-        args,
+      return await executeToolCall(name, args, {
         tool,
-        mergedEnv,
+        env: mergedEnv,
         sessionId,
-        getState(sessionId ?? ""),
-        proxyKv,
+        state: getState(sessionId ?? ""),
+        kv: proxyKv,
         messages,
-      );
+      });
     },
 
     async onConnect(sessionId, env) {

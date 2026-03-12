@@ -20,6 +20,8 @@ export type BundleOutput = {
   worker: string;
   /** Minified ESM JavaScript for the browser client. Empty string if skipped. */
   client: string;
+  /** Static HTML page rendered from layout.tsx at build time. */
+  html: string;
   /** JSON manifest containing env var names and transport configuration. */
   manifest: string;
   /** Size of the worker bundle in bytes. */
@@ -64,6 +66,35 @@ async function runEsbuild(
   return new TextDecoder().decode(stdout);
 }
 
+/**
+ * Execute a bundled JS module via Node and capture its stdout.
+ * Used to render layout.tsx to HTML at build time.
+ */
+async function renderBundle(
+  agentDir: string,
+  bundle: string,
+): Promise<string> {
+  const tmp = await Deno.makeTempFile({ suffix: ".mjs" });
+  try {
+    await Deno.writeTextFile(tmp, bundle);
+    const cmd = new Deno.Command("node", {
+      args: [tmp],
+      cwd: agentDir,
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const { code, stdout, stderr } = await cmd.output();
+    if (code !== 0) {
+      throw new BundleError(
+        "Layout render failed:\n" + new TextDecoder().decode(stderr),
+      );
+    }
+    return new TextDecoder().decode(stdout).trimEnd();
+  } finally {
+    await Deno.remove(tmp).catch(() => {});
+  }
+}
+
 const COMMON_ARGS = [
   "--bundle",
   "--format=esm",
@@ -101,8 +132,8 @@ export async function bundleAgent(
   // Env values are NOT embedded in the bundle — they're injected at runtime
   // by the server via applyEnv() on each RPC call, like Vercel injects env vars.
   const workerStdin = `import agent from "${agentAbsolute}";\n` +
-    `import { startWorker } from "@jsr/aai__core/worker-entry";\n` +
-    `startWorker(agent, {});\n`;
+    `import { startWorker } from "@jsr/aai__sdk/worker-entry";\n` +
+    `startWorker(agent);\n`;
 
   const worker = await runEsbuild(agent.dir, COMMON_ARGS, workerStdin);
 
@@ -111,7 +142,7 @@ export async function bundleAgent(
   if (!skipClient) {
     const clientStdin = `import { mount } from "@jsr/aai__ui";\n` +
       `import App from "${resolve(agent.clientEntry)}";\n` +
-      `mount(App, { platformUrl: new URL(".", globalThis.location.href).href.replace(/\\/$/, "") });\n`;
+      `mount(App);\n`;
 
     client = await runEsbuild(agent.dir, [
       ...COMMON_ARGS,
@@ -122,6 +153,24 @@ export async function bundleAgent(
     ], clientStdin);
   }
 
+  // Render layout.tsx to static HTML at build time
+  const layoutAbsolute = resolve(join(agent.dir, "layout.tsx"));
+  const layoutStdin =
+    `import { renderToString } from "preact-render-to-string";\n` +
+    `import { h } from "preact";\n` +
+    `import Layout from "${layoutAbsolute}";\n` +
+    `console.log("<!DOCTYPE html>" + renderToString(h(Layout, {})));\n`;
+
+  const layoutJs = await runEsbuild(agent.dir, [
+    ...COMMON_ARGS,
+    "--jsx=automatic",
+    "--jsx-import-source=preact",
+    "--loader:.ts=tsx",
+    "--loader:.tsx=tsx",
+  ], layoutStdin);
+
+  const html = await renderBundle(agent.dir, layoutJs);
+
   const manifest = JSON.stringify(
     { transport: agent.transport },
     null,
@@ -131,6 +180,7 @@ export async function bundleAgent(
   return {
     worker,
     client,
+    html,
     manifest,
     workerBytes: new TextEncoder().encode(worker).length,
     clientBytes: new TextEncoder().encode(client).length,

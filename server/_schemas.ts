@@ -1,7 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 // Zod validation schemas for server-side use.
 // These validate untrusted input at HTTP/WebSocket boundaries.
-// Protocol schemas (ClientMessage, Twilio) live in @aai/core/protocol.
+// Protocol schemas (ClientMessage, Twilio) live in @aai/sdk/protocol.
 
 import { z } from "zod";
 import type {
@@ -18,8 +18,8 @@ export {
   ClientMessageSchema,
   ServerMessageSchema,
   TwilioMessageSchema,
-} from "@aai/core/protocol";
-import type { KvRequest } from "@aai/core/protocol";
+} from "@aai/sdk/protocol";
+import type { KvRequest } from "@aai/sdk/protocol";
 
 /** Zod schema for validating transport type values. */
 export const TransportSchema: z.ZodType<Transport> = z.enum([
@@ -79,6 +79,7 @@ export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
   env: z.record(z.string(), z.string()).optional(),
   worker: z.string().min(1).max(10_000_000),
   client: z.string().min(1).max(10_000_000),
+  html: z.string().min(1).max(1_000_000),
   transport: z.array(TransportSchema).min(1).optional(),
 });
 

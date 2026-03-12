@@ -10,7 +10,7 @@ import {
   DEFAULT_TTS_SAMPLE_RATE,
   ServerMessageSchema,
   TwilioMessageSchema,
-} from "@aai/core/protocol";
+} from "@aai/sdk/protocol";
 import { mulawToPcm16, pcm16ToMulaw, resample } from "./mulaw.ts";
 
 const MULAW_RATE = 8000;

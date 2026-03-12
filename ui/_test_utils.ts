@@ -7,8 +7,8 @@ import { signal } from "@preact/signals";
 import { createVoiceSession, type VoiceSession } from "./session.ts";
 import { createSessionControls, type SessionSignals } from "./signals.ts";
 import type { AgentState, Message, SessionError } from "./types.ts";
-export { installMockWebSocket, MockWebSocket } from "../core/_mock_ws.ts";
-import { installMockWebSocket } from "../core/_mock_ws.ts";
+export { installMockWebSocket, MockWebSocket } from "./_mock_ws.ts";
+import { installMockWebSocket } from "./_mock_ws.ts";
 
 const HTML =
   `<!DOCTYPE html><html><head></head><body><div id="app"></div></body></html>`;

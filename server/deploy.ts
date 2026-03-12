@@ -62,6 +62,7 @@ export async function handleDeploy(
     transport,
     worker: body.worker,
     client: body.client,
+    html: body.html,
     credential_hashes: [keyHash],
   });
 

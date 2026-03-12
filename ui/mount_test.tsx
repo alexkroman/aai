@@ -111,26 +111,24 @@ Deno.test("mount()", async (t) => {
   );
 
   await t.step(
-    "reads __AAI_BASE__ for platformUrl when not explicitly provided",
+    "derives platformUrl from location.href when not explicitly provided",
     withMountEnv(async (mock) => {
       const g = globalThis as unknown as Record<string, unknown>;
-      g.__AAI_BASE__ = "/alex/ai-takes";
-      g.location = { origin: "https://aai-agent.fly.dev", pathname: "/" };
+      g.location = {
+        origin: "https://aai-agent.fly.dev",
+        pathname: "/alex/ai-takes",
+        href: "https://aai-agent.fly.dev/alex/ai-takes",
+      };
       const App = () => <div />;
-      try {
-        const handle = mount(App);
-        // Session connects on start — trigger it and flush microtasks
-        handle.session.connect();
-        await new Promise<void>((r) => setTimeout(r, 0));
-        const ws = mock.lastWs!;
-        assertStrictEquals(
-          ws.url.toString(),
-          "wss://aai-agent.fly.dev/alex/ai-takes/websocket",
-        );
-        handle.dispose();
-      } finally {
-        delete g.__AAI_BASE__;
-      }
+      const handle = mount(App);
+      handle.session.connect();
+      await new Promise<void>((r) => setTimeout(r, 0));
+      const ws = mock.lastWs!;
+      assertStrictEquals(
+        ws.url.toString(),
+        "wss://aai-agent.fly.dev/alex/ai-takes/websocket",
+      );
+      handle.dispose();
     }),
   );
 });

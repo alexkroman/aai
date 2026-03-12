@@ -130,6 +130,7 @@ export type DeployBody = {
   env?: Readonly<Record<string, string>> | undefined;
   worker: string;
   client: string;
+  html: string;
   transport?: readonly Transport[] | undefined;
 };
 

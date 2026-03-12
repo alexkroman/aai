@@ -8,11 +8,11 @@ import {
   createWorkerApi,
   type HostApi,
   type WorkerApi,
-} from "@aai/core/worker-entry";
-import type { ExecuteTool } from "@aai/core/worker-entry";
+} from "./_worker_entry.ts";
+import type { ExecuteTool } from "./_worker_entry.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "./_schemas.ts";
-import { createDenoWorker, LOCKED_PERMISSIONS } from "@aai/core/deno-worker";
+import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";
 import { assertPublicUrl, getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentScope } from "./scope_token.ts";

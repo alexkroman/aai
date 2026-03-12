@@ -179,6 +179,11 @@ snapshot[`DeployBodySchema snapshot 1`] = `
       },
       type: "object",
     },
+    html: {
+      maxLength: 1000000,
+      minLength: 1,
+      type: "string",
+    },
     transport: {
       items: {
         enum: [
@@ -199,6 +204,7 @@ snapshot[`DeployBodySchema snapshot 1`] = `
   required: [
     "worker",
     "client",
+    "html",
   ],
   type: "object",
 }

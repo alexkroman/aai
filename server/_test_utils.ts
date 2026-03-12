@@ -62,6 +62,7 @@ export function createTestStore(): BundleStore {
       );
       objects.set(objectKey(bundle.slug, "worker.js"), bundle.worker);
       objects.set(objectKey(bundle.slug, "client.js"), bundle.client);
+      objects.set(objectKey(bundle.slug, "index.html"), bundle.html);
       if (bundle.client_map) {
         objects.set(objectKey(bundle.slug, "client.js.map"), bundle.client_map);
       }
@@ -80,6 +81,7 @@ export function createTestStore(): BundleStore {
       const fileNames: Record<string, string> = {
         worker: "worker.js",
         client: "client.js",
+        html: "index.html",
         "client_map": "client.js.map",
       };
       const fileName = fileNames[file];
@@ -154,6 +156,8 @@ export function deployBody(
     env: VALID_ENV,
     worker: "console.log('w');",
     client: "console.log('c');",
+    html:
+      '<!DOCTYPE html><html><body><script src="client.js"></script></body></html>',
     ...overrides,
   });
 }

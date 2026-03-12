@@ -2,7 +2,6 @@
 import * as log from "@std/log";
 import { html, HttpError, json, type RouteContext } from "./context.ts";
 import { eTag, ifNoneMatch } from "@std/http/etag";
-import { renderAgentPage } from "./html.tsx";
 import { wireSessionSocket } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
@@ -69,8 +68,10 @@ export async function handleAgentPage(
   ctx: RouteContext,
   slug: string,
 ): Promise<Response> {
-  const slot = await requireSlot(slug, ctx.state);
-  return html(renderAgentPage(slot.name ?? slug, `/${slug}`));
+  await requireSlot(slug, ctx.state);
+  const page = await ctx.state.store.getFile(slug, "html");
+  if (!page) throw new HttpError(404, "HTML not found");
+  return html(page);
 }
 
 /**

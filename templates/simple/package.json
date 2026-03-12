@@ -7,10 +7,11 @@
   },
   "dependencies": {
     "@jsr/aai__sdk": "*",
-    "@jsr/aai__core": "*"
+    "@jsr/aai__ui": "*"
   },
   "devDependencies": {
     "esbuild": "^0.25",
+    "preact-render-to-string": "*",
     "typescript": "^5"
   }
 }

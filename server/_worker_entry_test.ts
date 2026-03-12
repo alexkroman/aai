@@ -7,13 +7,13 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { z } from "zod";
+import { createWorkerApi } from "./_worker_entry.ts";
 import {
-  createWorkerApi,
   executeToolCall,
   type HostApi,
   startWorker,
   TOOL_HANDLER_TIMEOUT,
-} from "./_worker_entry.ts";
+} from "@aai/sdk/worker-entry";
 import type { ToolDef } from "@aai/sdk/types";
 
 function makeTool(
@@ -46,19 +46,19 @@ function hostApi(overrides?: Partial<HostApi>): HostApi {
 Deno.test("executeToolCall", async (t) => {
   await t.step("calls execute and returns string result", async () => {
     const tool = makeTool(() => "hello");
-    const result = await executeToolCall("greet", {}, tool, {});
+    const result = await executeToolCall("greet", {}, { tool, env: {} });
     assertStrictEquals(result, "hello");
   });
 
   await t.step("returns JSON for non-string result", async () => {
     const tool = makeTool(() => ({ key: "value" }));
-    const result = await executeToolCall("data", {}, tool, {});
+    const result = await executeToolCall("data", {}, { tool, env: {} });
     assertStrictEquals(result, '{"key":"value"}');
   });
 
   await t.step("returns 'null' for null result", async () => {
     const tool = makeTool(() => null);
-    const result = await executeToolCall("noop", {}, tool, {});
+    const result = await executeToolCall("noop", {}, { tool, env: {} });
     assertStrictEquals(result, "null");
   });
 
@@ -67,7 +67,10 @@ Deno.test("executeToolCall", async (t) => {
       (args) => `Hello ${args.name}`,
       z.object({ name: z.string() }),
     );
-    const result = await executeToolCall("greet", { name: 42 }, tool, {});
+    const result = await executeToolCall("greet", { name: 42 }, {
+      tool,
+      env: {},
+    });
     assertStringIncludes(result, "Error: Invalid arguments");
     assertStringIncludes(result, "greet");
   });
@@ -77,7 +80,10 @@ Deno.test("executeToolCall", async (t) => {
       (args) => `Hello ${args.name}`,
       z.object({ name: z.string() }),
     );
-    const result = await executeToolCall("greet", { name: "world" }, tool, {});
+    const result = await executeToolCall("greet", { name: "world" }, {
+      tool,
+      env: {},
+    });
     assertStrictEquals(result, "Hello world");
   });
 
@@ -85,7 +91,7 @@ Deno.test("executeToolCall", async (t) => {
     const tool = makeTool(() => {
       throw new Error("boom");
     });
-    const result = await executeToolCall("fail", {}, tool, {});
+    const result = await executeToolCall("fail", {}, { tool, env: {} });
     assertStrictEquals(result, "Error: boom");
   });
 
@@ -95,7 +101,11 @@ Deno.test("executeToolCall", async (t) => {
       capturedCtx = ctx;
       return "ok";
     });
-    await executeToolCall("t", {}, tool, { KEY: "val" }, "sess-1");
+    await executeToolCall("t", {}, {
+      tool,
+      env: { KEY: "val" },
+      sessionId: "sess-1",
+    });
     const ctx = capturedCtx as {
       env: Record<string, string>;
       sessionId: string;
@@ -111,7 +121,7 @@ Deno.test("executeToolCall", async (t) => {
       return "ok";
     });
     const state = { count: 5 };
-    await executeToolCall("t", {}, tool, {}, undefined, state);
+    await executeToolCall("t", {}, { tool, env: {}, state });
     assertEquals(capturedState, { count: 5 });
   });
 });
@@ -140,8 +150,7 @@ Deno.test("startWorker via Comlink", async (t) => {
           },
         },
       },
-      { KEY: "val" },
-      port1,
+      { env: { KEY: "val" }, endpoint: port1 },
     );
 
     const api = createWorkerApi(port2);
@@ -166,8 +175,7 @@ Deno.test("startWorker via Comlink", async (t) => {
         maxSteps: 5,
         tools: {},
       },
-      {},
-      port1,
+      { endpoint: port1 },
     );
 
     const api = createWorkerApi(port2);
@@ -196,8 +204,7 @@ Deno.test("startWorker via Comlink", async (t) => {
           connected = true;
         },
       },
-      {},
-      port1,
+      { endpoint: port1 },
     );
 
     const api = createWorkerApi(port2);
@@ -232,8 +239,7 @@ Deno.test("startWorker via Comlink", async (t) => {
         },
         state: () => ({ count: 0 }),
       },
-      {},
-      port1,
+      { endpoint: port1 },
     );
 
     const api = createWorkerApi(port2, dummyHostApi());
@@ -269,8 +275,7 @@ Deno.test("startWorker via Comlink", async (t) => {
         state: () => ({ count: 0 }),
         onDisconnect: () => {},
       },
-      {},
-      port1,
+      { endpoint: port1 },
     );
 
     const api = createWorkerApi(port2, dummyHostApi());
@@ -322,8 +327,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
             },
           },
         },
-        {},
-        port1,
+        { endpoint: port1 },
       );
 
       const api = createWorkerApi(
@@ -382,8 +386,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
             },
           },
         },
-        {},
-        port1,
+        { endpoint: port1 },
       );
 
       const api = createWorkerApi(
@@ -440,8 +443,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
             },
           },
         },
-        {},
-        port1,
+        { endpoint: port1 },
       );
 
       const api = createWorkerApi(
@@ -502,8 +504,7 @@ Deno.test("fetch proxy via Comlink", async (t) => {
             },
           },
         },
-        {},
-        port1,
+        { endpoint: port1 },
       );
 
       const api = createWorkerApi(
@@ -566,8 +567,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
             },
           },
         },
-        {},
-        port1,
+        { endpoint: port1 },
       );
 
       const api = createWorkerApi(
@@ -614,8 +614,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
             },
           },
         },
-        {},
-        port1,
+        { endpoint: port1 },
       );
 
       const api = createWorkerApi(port2);

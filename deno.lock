@@ -45,7 +45,6 @@
     "jsr:@zod/zod@^4.3.6": "4.3.6",
     "npm:@ai-sdk/openai@1": "1.3.24_zod@3.25.76",
     "npm:@aws-sdk/client-s3@^3.1001.0": "3.1001.0",
-    "npm:@jsr/aai__core@*": "0.1.69",
     "npm:@jsr/aai__sdk@*": "0.1.55",
     "npm:@jsr/aai__ui@*": "0.1.86",
     "npm:@preact/signals@2": "2.8.1_preact@10.28.4",
@@ -2999,7 +2998,6 @@
     ],
     "packageJson": {
       "dependencies": [
-        "npm:@jsr/aai__core@*",
         "npm:@jsr/aai__sdk@*",
         "npm:@jsr/aai__ui@*",
         "npm:@preact/signals@2",
@@ -3020,15 +3018,13 @@
           "npm:esbuild-wasm@~0.27.3"
         ]
       },
-      "core": {
-        "dependencies": [
-          "jsr:@zod/zod@^4.3.6"
-        ]
-      },
       "sdk": {
         "dependencies": [
+          "jsr:@std/async@^1.2.0",
+          "jsr:@std/log@~0.224.14",
           "jsr:@zod/zod@^4.3.6",
-          "npm:@types/json-schema@^7.0.15"
+          "npm:@types/json-schema@^7.0.15",
+          "npm:comlink@^4.4.2"
         ]
       },
       "server": {

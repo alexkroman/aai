@@ -475,7 +475,8 @@ After scaffolding, your project directory looks like:
 ```text
 my-agent/
   agent.ts          # Agent definition
-  client.ts         # Optional custom UI
+  layout.tsx        # HTML shell (Preact component, rendered at build time)
+  client.tsx        # UI component (mounted into layout's #app)
   package.json      # Dependencies + scripts (dev, build, deploy)
   tsconfig.json     # TypeScript config (strict, path aliases)
   .npmrc            # JSR registry config

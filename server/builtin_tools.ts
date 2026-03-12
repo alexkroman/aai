@@ -13,7 +13,7 @@ import type {
   ToolSchema,
 } from "@aai/sdk/types";
 import TurndownService from "turndown";
-import { createDenoWorker, LOCKED_PERMISSIONS } from "@aai/core/deno-worker";
+import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";
 import { matchSubnets } from "@std/net/unstable-ip";
 
 const turndown = new TurndownService({ headingStyle: "atx" });

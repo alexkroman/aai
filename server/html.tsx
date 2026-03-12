@@ -75,36 +75,3 @@ function LandingPage() {
 export function renderLandingPage(): string {
   return "<!DOCTYPE html>" + renderToString(<LandingPage />);
 }
-
-function AgentPage({ name, basePath }: { name: string; basePath: string }) {
-  const initScript = `window.__AAI_BASE__="${
-    escape(basePath)
-  }";window.__AAI_WS__="${escape(basePath)}/websocket";`;
-
-  return (
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-        />
-        <title>{name}</title>
-        <meta name="description" content={`${name} — AI voice agent`} />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <script src="https://cdn.tailwindcss.com" />
-      </head>
-      <body>
-        <main id="app" />
-
-        <script dangerouslySetInnerHTML={{ __html: initScript }} />
-        <script type="module" src={`${escape(basePath)}/client.js`} />
-      </body>
-    </html>
-  );
-}
-
-export function renderAgentPage(name: string, basePath = ""): string {
-  return "<!DOCTYPE html>" +
-    renderToString(<AgentPage name={name} basePath={basePath} />);
-}

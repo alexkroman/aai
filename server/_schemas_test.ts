@@ -90,6 +90,7 @@ Deno.test("DeployBodySchema", async (t) => {
       env: { ASSEMBLYAI_API_KEY: "test" },
       worker: "code",
       client: "code",
+      html: "<html></html>",
     });
     assertStrictEquals(result.success, true);
   });
@@ -99,6 +100,7 @@ Deno.test("DeployBodySchema", async (t) => {
       env: {},
       worker: "",
       client: "code",
+      html: "<html></html>",
     });
     assertStrictEquals(result.success, false);
   });
@@ -108,6 +110,7 @@ Deno.test("DeployBodySchema", async (t) => {
       env: {},
       worker: "code",
       client: "code",
+      html: "<html></html>",
       transport: ["websocket", "twilio"],
     });
     assertStrictEquals(result.success, true);
@@ -118,6 +121,7 @@ Deno.test("DeployBodySchema", async (t) => {
       env: {},
       worker: "code",
       client: "code",
+      html: "<html></html>",
       transport: "twilio",
     });
     assertStrictEquals(result.success, false);

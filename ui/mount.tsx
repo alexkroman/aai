@@ -24,7 +24,7 @@ export type MountOptions = {
   theme?: Partial<Theme>;
   /** CSS selector or DOM element to render into. Defaults to `"#app"`. */
   target?: string | HTMLElement;
-  /** Base URL of the AAI platform server. Falls back to `__AAI_BASE__` global. */
+  /** Base URL of the AAI platform server. Derived from `location.href` by default. */
   platformUrl?: string;
 };
 
@@ -63,7 +63,6 @@ function resolveContainer(target: string | HTMLElement = "#app"): HTMLElement {
  * @param options - Mount options (theme, target element, platform URL).
  * @returns A {@linkcode MountHandle} for cleanup.
  * @throws {Error} If the target element is not found in the DOM.
- * @throws {Error} If `platformUrl` is not provided and `__AAI_BASE__` global is missing.
  */
 export function mount(
   Component: ComponentType,
@@ -73,15 +72,8 @@ export function mount(
   const theme = { ...defaultTheme, ...options?.theme };
   applyTheme(container, theme);
 
-  const injectedBase = (globalThis as unknown as Record<string, unknown>)
-    .__AAI_BASE__ as
-      | string
-      | undefined;
-  if (!options?.platformUrl && !injectedBase) {
-    throw new Error("Missing __AAI_BASE__ global — the server must inject it");
-  }
   const platformUrl = options?.platformUrl ??
-    globalThis.location.origin + injectedBase;
+    globalThis.location.origin + globalThis.location.pathname;
   const session = createVoiceSession({ platformUrl });
   const signals = createSessionControls(session);
   const styleEl = injectBodyStyle(theme);
