@@ -71,172 +71,144 @@ Deno.test("listTemplates returns empty for empty dir", async () => {
 // --- runNew ---
 
 Deno.test("runNew copies template files to target", async () => {
-  const s = silenceSteps();
-  try {
-    await withTempDir(async (dir) => {
-      const templatesDir = await createFakeTemplates(dir);
-      const target = join(dir, "output");
+  using _s = silenceSteps();
+  await withTempDir(async (dir) => {
+    const templatesDir = await createFakeTemplates(dir);
+    const target = join(dir, "output");
 
-      await runNew({
-        targetDir: target,
-        template: "simple",
-        templatesDir,
-      });
-
-      const agent = await Deno.readTextFile(join(target, "agent.ts"));
-      assertStringIncludes(agent, "Default Name");
-
-      const readme = await Deno.readTextFile(join(target, "readme.txt"));
-      assertStrictEquals(readme, "hello");
+    await runNew({
+      targetDir: target,
+      template: "simple",
+      templatesDir,
     });
-  } finally {
-    s.restore();
-  }
+
+    const agent = await Deno.readTextFile(join(target, "agent.ts"));
+    assertStringIncludes(agent, "Default Name");
+
+    const readme = await Deno.readTextFile(join(target, "readme.txt"));
+    assertStrictEquals(readme, "hello");
+  });
 });
 
 Deno.test("runNew skips node_modules and _deno.json", async () => {
-  const s = silenceSteps();
-  try {
-    await withTempDir(async (dir) => {
-      const templatesDir = await createFakeTemplates(dir);
-      const target = join(dir, "output");
+  using _s = silenceSteps();
+  await withTempDir(async (dir) => {
+    const templatesDir = await createFakeTemplates(dir);
+    const target = join(dir, "output");
 
-      await runNew({
-        targetDir: target,
-        template: "simple",
-        templatesDir,
-      });
-
-      let hasNodeModules = false;
-      try {
-        await Deno.stat(join(target, "node_modules"));
-        hasNodeModules = true;
-      } catch { /* expected */ }
-      assertStrictEquals(hasNodeModules, false);
-
-      let hasDenoJson = false;
-      try {
-        await Deno.stat(join(target, "_deno.json"));
-        hasDenoJson = true;
-      } catch { /* expected */ }
-      assertStrictEquals(hasDenoJson, false);
+    await runNew({
+      targetDir: target,
+      template: "simple",
+      templatesDir,
     });
-  } finally {
-    s.restore();
-  }
+
+    let hasNodeModules = false;
+    try {
+      await Deno.stat(join(target, "node_modules"));
+      hasNodeModules = true;
+    } catch { /* expected */ }
+    assertStrictEquals(hasNodeModules, false);
+
+    let hasDenoJson = false;
+    try {
+      await Deno.stat(join(target, "_deno.json"));
+      hasDenoJson = true;
+    } catch { /* expected */ }
+    assertStrictEquals(hasDenoJson, false);
+  });
 });
 
 Deno.test("runNew replaces name in agent.ts", async () => {
-  const s = silenceSteps();
-  try {
-    await withTempDir(async (dir) => {
-      const templatesDir = await createFakeTemplates(dir);
-      const target = join(dir, "output");
+  using _s = silenceSteps();
+  await withTempDir(async (dir) => {
+    const templatesDir = await createFakeTemplates(dir);
+    const target = join(dir, "output");
 
-      await runNew({
-        targetDir: target,
-        template: "simple",
-        templatesDir,
-        name: "Custom Bot",
-      });
-
-      const agent = await Deno.readTextFile(join(target, "agent.ts"));
-      assertStringIncludes(agent, '"Custom Bot"');
-      assert(!agent.includes("Default Name"));
+    await runNew({
+      targetDir: target,
+      template: "simple",
+      templatesDir,
+      name: "Custom Bot",
     });
-  } finally {
-    s.restore();
-  }
+
+    const agent = await Deno.readTextFile(join(target, "agent.ts"));
+    assertStringIncludes(agent, '"Custom Bot"');
+    assert(!agent.includes("Default Name"));
+  });
 });
 
 Deno.test("runNew escapes special characters in name", async () => {
-  const s = silenceSteps();
-  try {
-    await withTempDir(async (dir) => {
-      const templatesDir = await createFakeTemplates(dir);
-      const target = join(dir, "output");
+  using _s = silenceSteps();
+  await withTempDir(async (dir) => {
+    const templatesDir = await createFakeTemplates(dir);
+    const target = join(dir, "output");
 
-      await runNew({
-        targetDir: target,
-        template: "simple",
-        templatesDir,
-        name: 'He said "hello"',
-      });
-
-      const agent = await Deno.readTextFile(join(target, "agent.ts"));
-      assertStringIncludes(agent, 'He said \\"hello\\"');
+    await runNew({
+      targetDir: target,
+      template: "simple",
+      templatesDir,
+      name: 'He said "hello"',
     });
-  } finally {
-    s.restore();
-  }
+
+    const agent = await Deno.readTextFile(join(target, "agent.ts"));
+    assertStringIncludes(agent, 'He said \\"hello\\"');
+  });
 });
 
 Deno.test("runNew copies subdirectories recursively", async () => {
-  const s = silenceSteps();
-  try {
-    await withTempDir(async (dir) => {
-      const templatesDir = await createFakeTemplates(dir);
-      const target = join(dir, "output");
+  using _s = silenceSteps();
+  await withTempDir(async (dir) => {
+    const templatesDir = await createFakeTemplates(dir);
+    const target = join(dir, "output");
 
-      await runNew({
-        targetDir: target,
-        template: "advanced",
-        templatesDir,
-      });
-
-      const helper = await Deno.readTextFile(
-        join(target, "tools", "helper.ts"),
-      );
-      assertStrictEquals(helper, "// helper");
+    await runNew({
+      targetDir: target,
+      template: "advanced",
+      templatesDir,
     });
-  } finally {
-    s.restore();
-  }
+
+    const helper = await Deno.readTextFile(
+      join(target, "tools", "helper.ts"),
+    );
+    assertStrictEquals(helper, "// helper");
+  });
 });
 
 Deno.test("runNew copies .env.example to .env", async () => {
-  const s = silenceSteps();
-  try {
-    await withTempDir(async (dir) => {
-      const templatesDir = await createFakeTemplates(dir);
-      const target = join(dir, "output");
+  using _s = silenceSteps();
+  await withTempDir(async (dir) => {
+    const templatesDir = await createFakeTemplates(dir);
+    const target = join(dir, "output");
 
-      await runNew({
-        targetDir: target,
-        template: "with-env",
-        templatesDir,
-      });
-
-      const env = await Deno.readTextFile(join(target, ".env"));
-      assertStrictEquals(env, "MY_KEY=");
+    await runNew({
+      targetDir: target,
+      template: "with-env",
+      templatesDir,
     });
-  } finally {
-    s.restore();
-  }
+
+    const env = await Deno.readTextFile(join(target, ".env"));
+    assertStrictEquals(env, "MY_KEY=");
+  });
 });
 
 Deno.test("runNew throws for unknown template", async () => {
-  const s = silenceSteps();
-  try {
-    await withTempDir(async (dir) => {
-      const templatesDir = await createFakeTemplates(dir);
-      const target = join(dir, "output");
+  using _s = silenceSteps();
+  await withTempDir(async (dir) => {
+    const templatesDir = await createFakeTemplates(dir);
+    const target = join(dir, "output");
 
-      let threw = false;
-      try {
-        await runNew({
-          targetDir: target,
-          template: "nonexistent",
-          templatesDir,
-        });
-      } catch (err) {
-        threw = true;
-        assertStringIncludes((err as Error).message, "unknown template");
-        assertStringIncludes((err as Error).message, "nonexistent");
-      }
-      assertStrictEquals(threw, true);
-    });
-  } finally {
-    s.restore();
-  }
+    let threw = false;
+    try {
+      await runNew({
+        targetDir: target,
+        template: "nonexistent",
+        templatesDir,
+      });
+    } catch (err) {
+      threw = true;
+      assertStringIncludes((err as Error).message, "unknown template");
+      assertStringIncludes((err as Error).message, "nonexistent");
+    }
+    assertStrictEquals(threw, true);
+  });
 });

@@ -5,7 +5,7 @@ import {
   assertRejects,
   assertStrictEquals,
 } from "@std/assert";
-import { spy } from "@std/testing/mock";
+import { assertSpyCall, assertSpyCalls, spy } from "@std/testing/mock";
 import {
   createSttConnection,
   type SttConnection,
@@ -166,7 +166,7 @@ Deno.test("SttConnection", async (t) => {
     const conn = await createConnected();
     conn.onClose = onClose;
     conn.close();
-    assertStrictEquals(onClose.calls.length, 1);
+    assertSpyCalls(onClose, 1);
   });
 
   await t.step("dispatches completed Turn via onTurn", async () => {
@@ -180,10 +180,8 @@ Deno.test("SttConnection", async (t) => {
       end_of_turn: true,
     });
 
-    assertStrictEquals(onTurn.calls.length, 1);
-    assertEquals(onTurn.calls[0]!.args[0], {
-      text: "What is the weather?",
-      turnOrder: 0,
+    assertSpyCall(onTurn, 0, {
+      args: [{ text: "What is the weather?", turnOrder: 0 }],
     });
   });
 
@@ -200,8 +198,8 @@ Deno.test("SttConnection", async (t) => {
       end_of_turn: false,
     });
 
-    assertStrictEquals(onTurn.calls.length, 0);
-    assertStrictEquals(onTranscript.calls.length, 1);
+    assertSpyCalls(onTurn, 0);
+    assertSpyCalls(onTranscript, 1);
     assertStrictEquals(onTranscript.calls[0]!.args[0].text, "partial text");
   });
 
@@ -218,8 +216,8 @@ Deno.test("SttConnection", async (t) => {
       end_of_turn: true,
     });
 
-    assertStrictEquals(onTurn.calls.length, 0);
-    assertStrictEquals(onTranscript.calls.length, 0);
+    assertSpyCalls(onTurn, 0);
+    assertSpyCalls(onTranscript, 0);
   });
 
   await t.step("fires onError on SDK error", async () => {
@@ -228,7 +226,7 @@ Deno.test("SttConnection", async (t) => {
     const conn = await createConnected();
     conn.onError = onError;
     lastMock!.emitError(new Error("something went wrong"));
-    assertStrictEquals(onError.calls.length, 1);
+    assertSpyCalls(onError, 1);
   });
 
   await t.step(
@@ -241,8 +239,8 @@ Deno.test("SttConnection", async (t) => {
       conn.onClose = onClose;
       conn.onError = onError;
       lastMock!.emitClose(1006, "");
-      assertStrictEquals(onClose.calls.length, 1);
-      assertStrictEquals(onError.calls.length, 1);
+      assertSpyCalls(onClose, 1);
+      assertSpyCalls(onError, 1);
     },
   );
 
@@ -258,8 +256,9 @@ Deno.test("SttConnection", async (t) => {
       turn_order: 3,
     });
 
-    assertStrictEquals(onTurn.calls.length, 1);
-    assertEquals(onTurn.calls[0]!.args[0], { text: "Hello", turnOrder: 3 });
+    assertSpyCall(onTurn, 0, {
+      args: [{ text: "Hello", turnOrder: 3 }],
+    });
   });
 
   await t.step(
@@ -276,11 +275,8 @@ Deno.test("SttConnection", async (t) => {
         turn_order: 2,
       });
 
-      assertStrictEquals(onTranscript.calls.length, 1);
-      assertEquals(onTranscript.calls[0]!.args[0], {
-        text: "partial",
-        isFinal: false,
-        turnOrder: 2,
+      assertSpyCall(onTranscript, 0, {
+        args: [{ text: "partial", isFinal: false, turnOrder: 2 }],
       });
     },
   );

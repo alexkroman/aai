@@ -224,8 +224,8 @@ export type AgentEntry = {
   entryPoint: string;
   /** Environment variables loaded from `.env` (includes `ASSEMBLYAI_API_KEY`). */
   env: Record<string, string>;
-  /** Absolute path to the client entry point (`client.ts`, `client.tsx`, or default). */
-  clientEntry: string;
+  /** Absolute path to the client entry point (`client.ts` or `client.tsx`), or null if none. */
+  clientEntry: string | null;
   /** Transport protocols the agent supports. */
   transport: readonly ("websocket" | "twilio")[];
 };
@@ -261,7 +261,7 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
     ? join(dir, "client.ts")
     : await exists(join(dir, "client.tsx"))
     ? join(dir, "client.tsx")
-    : resolve(AAI_ROOT, "ui/client.ts");
+    : null;
 
   return {
     slug,

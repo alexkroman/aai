@@ -59,6 +59,44 @@ export function renderLandingPage(): string {
 </html>`;
 }
 
+export function renderNoClientPage(name: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escape(name)} — No UI</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:-apple-system,system-ui,sans-serif;background:#0a0a0a;color:#e5e5e5;min-height:100vh;display:flex;align-items:center;justify-content:center}
+      .wrap{max-width:640px;padding:3rem;width:100%}
+      h1{font-size:1.5rem;font-weight:600;margin-bottom:1rem;color:#f87171}
+      p{color:#999;margin-bottom:1.5rem;line-height:1.6}
+      code{font-family:'SF Mono',Menlo,monospace;background:#161616;border:1px solid #262626;border-radius:6px;padding:2px 6px;font-size:0.9em}
+      pre{background:#161616;border:1px solid #262626;border-radius:10px;padding:1.25rem;margin-bottom:1.5rem;overflow-x:auto}
+      pre code{background:none;border:none;padding:0}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>No client.ts found</h1>
+      <p>
+        The agent <strong>${
+    escape(name)
+  }</strong> was deployed without a browser UI.
+        WebSocket and Twilio connections still work.
+      </p>
+      <p>To add a UI, create a <code>client.ts</code> in your agent directory:</p>
+      <pre><code>import { App } from "@aai/ui";
+
+export default App;</code></pre>
+      <p>Then redeploy with <code>aai deploy</code>.</p>
+    </div>
+  </body>
+</html>`;
+}
+
 export function renderAgentPage(name: string, basePath = ""): string {
   return `<!DOCTYPE html>
 <html lang="en">

@@ -278,7 +278,7 @@ Deno.test("websocket upgrades for deployed agent", async () => {
   await deployAgent(handler);
 
   const mockSocket = new MockWebSocket("ws://test");
-  const upgradeStub = stub(
+  using _upgradeStub = stub(
     Deno,
     "upgradeWebSocket",
     () => ({
@@ -286,7 +286,7 @@ Deno.test("websocket upgrades for deployed agent", async () => {
       response: new Response(null, { status: 101 }),
     }),
   );
-  const prepareStub = stub(
+  using _prepareStub = stub(
     _wsInternals,
     "prepareSession",
     (() =>
@@ -303,16 +303,11 @@ Deno.test("websocket upgrades for deployed agent", async () => {
         getWorkerApi: () => Promise.resolve({} as never),
       })) as never,
   );
-  try {
-    const res = await handler(
-      req("/ns/agent/websocket", { headers: { upgrade: "websocket" } }),
-      DUMMY_INFO,
-    );
-    assertEquals(res.status, 101);
-  } finally {
-    upgradeStub.restore();
-    prepareStub.restore();
-  }
+  const res = await handler(
+    req("/ns/agent/websocket", { headers: { upgrade: "websocket" } }),
+    DUMMY_INFO,
+  );
+  assertEquals(res.status, 101);
 });
 
 // =============================================================================
