@@ -5,12 +5,19 @@ import {
   assertStrictEquals,
   assertStringIncludes,
 } from "@std/assert";
+import { exists } from "@std/fs/exists";
 import { join } from "@std/path";
 import { listTemplates, runNew } from "./_new.ts";
 import { silenceSteps, withTempDir } from "./_test_utils.ts";
 
 async function createFakeTemplates(dir: string): Promise<string> {
   const templatesDir = join(dir, "templates");
+
+  // shared files
+  const shared = join(templatesDir, "shared");
+  await Deno.mkdir(shared, { recursive: true });
+  await Deno.writeTextFile(join(shared, "shared.txt"), "from shared");
+  await Deno.writeTextFile(join(shared, ".env.example"), "MY_KEY=");
 
   // simple template
   const simple = join(templatesDir, "simple");
@@ -31,29 +38,23 @@ async function createFakeTemplates(dir: string): Promise<string> {
   );
   await Deno.writeTextFile(join(sub, "helper.ts"), "// helper");
 
-  // template with excluded dirs
-  await Deno.mkdir(join(simple, "node_modules"), { recursive: true });
-  await Deno.writeTextFile(
-    join(simple, "node_modules", "pkg.js"),
-    "// should be skipped",
-  );
   await Deno.writeTextFile(join(simple, "_deno.json"), "{}");
 
-  // template with .env.example
+  // template with .env.example that overrides shared
   const withEnv = join(templatesDir, "with-env");
   await Deno.mkdir(withEnv, { recursive: true });
   await Deno.writeTextFile(
     join(withEnv, "agent.ts"),
     'export default defineAgent({ name: "Env Agent" });',
   );
-  await Deno.writeTextFile(join(withEnv, ".env.example"), "MY_KEY=");
+  await Deno.writeTextFile(join(withEnv, ".env.example"), "CUSTOM_KEY=");
 
   return templatesDir;
 }
 
 // --- listTemplates ---
 
-Deno.test("listTemplates returns sorted directory names", async () => {
+Deno.test("listTemplates returns sorted directory names excluding shared", async () => {
   await withTempDir(async (dir) => {
     const templatesDir = await createFakeTemplates(dir);
     const result = await listTemplates(templatesDir);
@@ -70,7 +71,7 @@ Deno.test("listTemplates returns empty for empty dir", async () => {
 
 // --- runNew ---
 
-Deno.test("runNew copies template files to target", async () => {
+Deno.test("runNew copies template and shared files to target", async () => {
   const s = silenceSteps();
   try {
     await withTempDir(async (dir) => {
@@ -88,31 +89,36 @@ Deno.test("runNew copies template files to target", async () => {
 
       const readme = await Deno.readTextFile(join(target, "readme.txt"));
       assertStrictEquals(readme, "hello");
+
+      // shared file should be present
+      const shared = await Deno.readTextFile(join(target, "shared.txt"));
+      assertStrictEquals(shared, "from shared");
     });
   } finally {
     s.restore();
   }
 });
 
-Deno.test("runNew skips node_modules", async () => {
+Deno.test("runNew template files take precedence over shared", async () => {
   const s = silenceSteps();
   try {
     await withTempDir(async (dir) => {
       const templatesDir = await createFakeTemplates(dir);
       const target = join(dir, "output");
 
+      // with-env has its own .env.example that should NOT be overwritten by shared
       await runNew({
         targetDir: target,
-        template: "simple",
+        template: "with-env",
         templatesDir,
       });
 
-      let hasNodeModules = false;
-      try {
-        await Deno.stat(join(target, "node_modules"));
-        hasNodeModules = true;
-      } catch { /* expected */ }
-      assertStrictEquals(hasNodeModules, false);
+      const env = await Deno.readTextFile(join(target, ".env.example"));
+      assertStrictEquals(env, "CUSTOM_KEY=");
+
+      // .env should be copied from the template's .env.example
+      const dotEnv = await Deno.readTextFile(join(target, ".env"));
+      assertStrictEquals(dotEnv, "CUSTOM_KEY=");
     });
   } finally {
     s.restore();
@@ -187,19 +193,21 @@ Deno.test("runNew copies subdirectories recursively", async () => {
   }
 });
 
-Deno.test("runNew copies .env.example to .env", async () => {
+Deno.test("runNew copies .env.example to .env from shared", async () => {
   const s = silenceSteps();
   try {
     await withTempDir(async (dir) => {
       const templatesDir = await createFakeTemplates(dir);
       const target = join(dir, "output");
 
+      // simple doesn't have its own .env.example, so shared one is used
       await runNew({
         targetDir: target,
-        template: "with-env",
+        template: "simple",
         templatesDir,
       });
 
+      assert(await exists(join(target, ".env")));
       const env = await Deno.readTextFile(join(target, ".env"));
       assertStrictEquals(env, "MY_KEY=");
     });

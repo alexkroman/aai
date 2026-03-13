@@ -90,7 +90,7 @@ export default {
         // and ui/ component files
         const isComponentFile = context.filename.endsWith(".tsx") ||
           context.filename.includes("/ui/") ||
-          context.filename.includes("/templates/");
+          context.filename.includes("/cli/templates/");
 
         return {
           TSTypeAliasDeclaration(node) {

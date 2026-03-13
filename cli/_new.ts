@@ -1,4 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
+import { copy } from "@std/fs/copy";
+import { exists } from "@std/fs/exists";
 import { join } from "@std/path";
 import { step } from "./_output.ts";
 
@@ -16,19 +18,25 @@ export type NewOptions = {
 export async function listTemplates(dir: string): Promise<string[]> {
   const templates: string[] = [];
   for await (const entry of Deno.readDir(dir)) {
-    if (entry.isDirectory) templates.push(entry.name);
+    if (entry.isDirectory && entry.name !== "shared") {
+      templates.push(entry.name);
+    }
   }
   return templates.sort();
 }
 
-async function copyDir(src: string, dest: string): Promise<void> {
+/**
+ * Copy all files from `src` into `dest`, skipping files that already exist
+ * in `dest` so that template-specific files take precedence over shared ones.
+ */
+async function copyDirNoOverwrite(src: string, dest: string): Promise<void> {
   await Deno.mkdir(dest, { recursive: true });
   for await (const entry of Deno.readDir(src)) {
     const srcPath = join(src, entry.name);
     const destPath = join(dest, entry.name);
     if (entry.isDirectory) {
-      await copyDir(srcPath, destPath);
-    } else {
+      await copyDirNoOverwrite(srcPath, destPath);
+    } else if (!await exists(destPath)) {
       await Deno.copyFile(srcPath, destPath);
     }
   }
@@ -44,22 +52,13 @@ export async function runNew(opts: NewOptions): Promise<string> {
     );
   }
 
-  const src = join(templatesDir, template);
-
   _internals.step("Create", `from template '${template}'`);
 
-  await Deno.mkdir(targetDir, { recursive: true });
+  // 1. Copy template-specific files first
+  await copy(join(templatesDir, template), targetDir, { overwrite: true });
 
-  for await (const entry of Deno.readDir(src)) {
-    if (entry.name === "node_modules") continue;
-    const srcPath = join(src, entry.name);
-    const destPath = join(targetDir, entry.name);
-    if (entry.isDirectory) {
-      await copyDir(srcPath, destPath);
-    } else {
-      await Deno.copyFile(srcPath, destPath);
-    }
-  }
+  // 2. Layer shared files underneath (don't overwrite template files)
+  await copyDirNoOverwrite(join(templatesDir, "shared"), targetDir);
 
   if (name) {
     const agentPath = join(targetDir, "agent.ts");

@@ -163,13 +163,13 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
 }
 
 /**
- * Copies the canonical `cli/claude.md` into the agent directory as `CLAUDE.md`.
+ * Copies `cli/templates/shared/CLAUDE.md` into the agent directory as `CLAUDE.md`.
  * Creates the file if missing or updates it if the content has changed.
  */
 export async function ensureClaudeMd(targetDir: string): Promise<void> {
   const claudePath = join(targetDir, "CLAUDE.md");
   const cliDir = dirname(fromFileUrl(import.meta.url));
-  const srcPath = join(cliDir, "claude.md");
+  const srcPath = join(cliDir, "templates", "shared", "CLAUDE.md");
   const srcContent = await Deno.readTextFile(srcPath);
   let existing = "";
   try {

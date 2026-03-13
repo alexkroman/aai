@@ -4,7 +4,7 @@
 // import { runBuild } from "./build.ts";
 
 // const CLI_DIR = dirname(fromFileUrl(import.meta.url));
-// const TEMPLATES_DIR = join(CLI_DIR, "..", "templates");
+// const TEMPLATES_DIR = join(CLI_DIR, "templates");
 
 // TODO: Re-enable after @jsr/aai__sdk/worker-entry is published to JSR/npm.
 // esbuild can't resolve the new export path until the package is live.

@@ -31,13 +31,11 @@ jobs:
           deno compile \
             --allow-all \
             --unstable-worker-options \
-            --include templates/ \
+            --include cli/templates/ \
             --include sdk/ \
             --include core/ \
             --include ui/ \
-            --include cli/claude.md \
             --include cli/deno.json \
-            --include cli/_bundler_config.json \
             $npm_includes \
             --output dist/aai \
             cli/cli.ts
