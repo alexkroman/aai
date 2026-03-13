@@ -6,23 +6,6 @@ import type { Signal } from "@preact/signals";
 import type { AgentState, Message, SessionError } from "./types.ts";
 import { useSession } from "./signals.ts";
 
-// --- Bounce animation (injected once into document) ---
-
-const BOUNCE_CSS = `
-@keyframes aai-bounce {
-  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1); }
-}`;
-
-let bounceInjected = false;
-function ensureBounceCSS(): void {
-  if (bounceInjected) return;
-  bounceInjected = true;
-  const style = document.createElement("style");
-  style.textContent = BOUNCE_CSS;
-  document.head.appendChild(style);
-}
-
 // --- Components ---
 
 export function StateIndicator(
@@ -34,10 +17,7 @@ export function StateIndicator(
         className="w-3 h-3 rounded-full"
         style={{ background: `var(--aai-state-${state.value})` }}
       />
-      <span
-        className="text-sm capitalize"
-        style={{ color: "var(--aai-text-muted)" }}
-      >
+      <span className="text-sm capitalize text-aai-text-muted">
         {state}
       </span>
     </div>
@@ -49,10 +29,7 @@ export function ErrorBanner(
 ): preact.JSX.Element | null {
   if (!error.value) return null;
   return (
-    <div
-      className="rounded-lg mb-4 text-sm px-3.5 py-2.5"
-      style={{ background: "var(--aai-surface)", color: "var(--aai-error)" }}
-    >
+    <div className="rounded-aai mb-4 text-sm px-3.5 py-2.5 bg-aai-surface text-aai-error">
       {error.value.message}
     </div>
   );
@@ -65,13 +42,9 @@ export function MessageBubble(
   return (
     <div className={`mb-3 ${isUser ? "text-right" : "text-left"}`}>
       <div
-        className="inline-block max-w-[80%] px-3 py-2 text-sm text-left"
-        style={{
-          borderRadius: "var(--aai-radius)",
-          background: isUser
-            ? "var(--aai-surface-light)"
-            : "var(--aai-surface)",
-        }}
+        className={`inline-block max-w-[80%] px-3 py-2 text-sm text-left rounded-aai ${
+          isUser ? "bg-aai-surface-light" : "bg-aai-surface"
+        }`}
       >
         <div>{message.text}</div>
       </div>
@@ -85,13 +58,7 @@ export function Transcript(
   if (!text.value) return null;
   return (
     <div className="mb-3 text-right">
-      <div
-        className="inline-block max-w-[80%] px-3 py-2 text-sm text-left opacity-60"
-        style={{
-          borderRadius: "var(--aai-radius)",
-          background: "var(--aai-surface-light)",
-        }}
-      >
+      <div className="inline-block max-w-[80%] px-3 py-2 text-sm text-left opacity-60 rounded-aai bg-aai-surface-light">
         <div>{text}</div>
       </div>
     </div>
@@ -99,29 +66,25 @@ export function Transcript(
 }
 
 export function ThinkingIndicator(): preact.JSX.Element {
-  ensureBounceCSS();
   return (
     <div className="flex items-center gap-1 px-3 py-2 mb-3">
       <div
-        className="w-3 h-3 rounded-full"
+        className="w-3 h-3 rounded-full bg-aai-text-muted"
         style={{
-          background: "var(--aai-text-muted)",
           animation: "aai-bounce 1.4s infinite ease-in-out both",
           animationDelay: "0s",
         }}
       />
       <div
-        className="w-3 h-3 rounded-full"
+        className="w-3 h-3 rounded-full bg-aai-text-muted"
         style={{
-          background: "var(--aai-text-muted)",
           animation: "aai-bounce 1.4s infinite ease-in-out both",
           animationDelay: "0.16s",
         }}
       />
       <div
-        className="w-3 h-3 rounded-full"
+        className="w-3 h-3 rounded-full bg-aai-text-muted"
         style={{
-          background: "var(--aai-text-muted)",
           animation: "aai-bounce 1.4s infinite ease-in-out both",
           animationDelay: "0.32s",
         }}
@@ -143,12 +106,8 @@ function MessageList() {
 
   return (
     <div
-      className="flex-1 min-h-[200px] overflow-y-auto mb-4 p-4 border"
-      style={{
-        borderColor: "var(--aai-surface-light)",
-        borderRadius: "var(--aai-radius)",
-        WebkitOverflowScrolling: "touch",
-      }}
+      className="flex-1 min-h-[200px] overflow-y-auto mb-4 p-4 border border-aai-surface-light rounded-aai"
+      style={{ WebkitOverflowScrolling: "touch" }}
     >
       {messages.value.map((msg: Message, i: number) => (
         <MessageBubble key={i} message={msg} />
@@ -170,11 +129,9 @@ function Controls() {
     <div className="flex gap-2 shrink-0 pb-[env(safe-area-inset-bottom,0)]">
       <button
         type="button"
-        className="flex-1 px-4 py-3 border-none cursor-pointer text-[15px]"
+        className="flex-1 px-4 py-3 border-none cursor-pointer text-[15px] rounded-aai text-aai-text"
         style={{
-          borderRadius: "var(--aai-radius)",
           background: primaryBg.value,
-          color: "var(--aai-text)",
           WebkitTapHighlightColor: "transparent",
         }}
         onClick={toggle}
@@ -183,13 +140,8 @@ function Controls() {
       </button>
       <button
         type="button"
-        className="flex-1 px-4 py-3 bg-transparent cursor-pointer text-[15px] border"
-        style={{
-          borderRadius: "var(--aai-radius)",
-          borderColor: "var(--aai-surface-light)",
-          color: "var(--aai-text-muted)",
-          WebkitTapHighlightColor: "transparent",
-        }}
+        className="flex-1 px-4 py-3 bg-transparent cursor-pointer text-[15px] border border-aai-surface-light rounded-aai text-aai-text-muted"
+        style={{ WebkitTapHighlightColor: "transparent" }}
         onClick={reset}
       >
         New Conversation
@@ -202,10 +154,7 @@ export function ChatView(): preact.JSX.Element {
   const { state, error } = useSession();
 
   return (
-    <div
-      className="max-w-[600px] mx-auto p-5 min-h-screen box-border flex flex-col"
-      style={{ fontFamily: "var(--aai-font)", color: "var(--aai-text)" }}
-    >
+    <div className="max-w-[600px] mx-auto p-5 min-h-screen box-border flex flex-col font-aai text-aai-text">
       <StateIndicator state={state} />
       <ErrorBanner error={error} />
       <MessageList />
@@ -219,19 +168,11 @@ export function App(): preact.JSX.Element {
 
   if (!started.value) {
     return (
-      <div
-        className="max-w-[600px] mx-auto p-5 flex items-center justify-center min-h-screen"
-        style={{ fontFamily: "var(--aai-font)", color: "var(--aai-text)" }}
-      >
+      <div className="max-w-[600px] mx-auto p-5 flex items-center justify-center min-h-screen font-aai text-aai-text">
         <button
           type="button"
-          className="px-10 py-[18px] border-none text-lg font-medium cursor-pointer"
-          style={{
-            borderRadius: "var(--aai-radius)",
-            background: "var(--aai-primary)",
-            color: "var(--aai-text)",
-            WebkitTapHighlightColor: "transparent",
-          }}
+          className="px-10 py-[18px] border-none text-lg font-medium cursor-pointer rounded-aai bg-aai-primary text-aai-text"
+          style={{ WebkitTapHighlightColor: "transparent" }}
           onClick={start}
         >
           Start Conversation

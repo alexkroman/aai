@@ -84,12 +84,12 @@ export function createReconnect(
     },
     schedule(cb) {
       if (attempts >= maxAttempts) return false;
-      const delay = Math.min(initialBackoff * 2 ** attempts, maxBackoff);
+      const ms = Math.min(initialBackoff * 2 ** attempts, maxBackoff);
       attempts++;
       timer = setTimeout(() => {
         timer = null;
         cb();
-      }, delay);
+      }, ms);
       return true;
     },
     cancel() {

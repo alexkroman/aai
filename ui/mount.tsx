@@ -14,7 +14,6 @@ function injectBodyStyle(theme: Theme): HTMLStyleElement {
   style.textContent =
     `body { margin: 0; padding: 0; background: ${theme.bg}; }`;
   document.head.appendChild(style);
-  document.body.classList.add("m-0", "p-0");
   return style;
 }
 

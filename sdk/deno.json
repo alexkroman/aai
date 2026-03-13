@@ -10,7 +10,9 @@
     "./protocol": "./protocol.ts",
     "./worker-entry": "./worker_entry.ts",
     "./rpc": "./_rpc.ts",
-    "./worker-shim": "./_worker_shim.ts"
+    "./worker-shim": "./_worker_shim.ts",
+    "./timeout": "./_timeout.ts",
+    "./testing": "./_mock_ws.ts"
   },
   "imports": {
     "zod": "jsr:@zod/zod@^4.3.6",

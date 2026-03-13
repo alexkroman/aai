@@ -36,6 +36,27 @@ export const _internals = {
 };
 
 /**
+ * Compile a CSS entry point through PostCSS with the Tailwind v4 plugin.
+ * Runs entirely in-process — no CLI binary required. Returns empty string
+ * if the entry point does not exist. Dependencies are loaded lazily so
+ * importing this module doesn't trigger native addon resolution.
+ */
+async function compileCss(entryPoint: string): Promise<string> {
+  let source: string;
+  try {
+    source = await Deno.readTextFile(entryPoint);
+  } catch {
+    return "";
+  }
+
+  const { default: postcss } = await import("postcss");
+  const { default: tailwindcss } = await import("@tailwindcss/postcss");
+  const processor = postcss([tailwindcss({ optimize: true })]);
+  const result = await processor.process(source, { from: entryPoint });
+  return result.css;
+}
+
+/**
  * Run the project's native esbuild binary via CLI on an entry point file.
  * esbuild is installed as a devDependency in the agent project.
  */
@@ -144,7 +165,15 @@ export async function bundleAgent(
   }
 
   const htmlPath = join(agent.dir, "index.html");
-  const html = await Deno.readTextFile(htmlPath);
+  let html = await Deno.readTextFile(htmlPath);
+
+  // Compile Tailwind CSS via PostCSS and inject into HTML <head>
+  const cssEntry = join(agent.dir, "styles.css");
+  const css = await compileCss(cssEntry);
+  if (css.trim()) {
+    const safeCss = css.replaceAll("</", "<\\/");
+    html = html.replace("</head>", `<style>${safeCss}</style>\n</head>`);
+  }
 
   const manifest = JSON.stringify(
     { transport: agent.transport },

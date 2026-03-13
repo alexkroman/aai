@@ -25,8 +25,7 @@
   "publish": {
     "exclude": [
       "*_test.ts",
-      "*_test.tsx",
-      "_mock_ws.ts"
+      "*_test.tsx"
     ]
   },
   "lint": {
