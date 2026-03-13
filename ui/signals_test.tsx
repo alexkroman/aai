@@ -5,6 +5,7 @@ import {
   assertStrictEquals,
   assertStringIncludes,
 } from "@std/assert";
+import { delay } from "@std/async/delay";
 import { render } from "preact";
 import {
   flush,
@@ -114,6 +115,6 @@ Deno.test("useSession", async (t) => {
     );
 
     render(null, container);
-    await new Promise<void>((r) => setTimeout(r, 0));
+    await delay(0);
   });
 });

@@ -78,8 +78,7 @@ export const ToolSchemaSchema = z.object({
 export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
   env: z.record(z.string(), z.string()).optional(),
   worker: z.string().min(1).max(10_000_000),
-  client: z.string().min(1).max(10_000_000),
-  html: z.string().min(1).max(1_000_000),
+  html: z.string().min(1).max(10_000_000),
   transport: z.array(TransportSchema).min(1).optional(),
 });
 

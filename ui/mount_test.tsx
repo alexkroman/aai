@@ -5,6 +5,7 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
+import { delay } from "@std/async/delay";
 import { withMountEnv } from "./_test_utils.ts";
 import { mount } from "./mount.tsx";
 import { defaultTheme } from "./theme.ts";
@@ -122,7 +123,7 @@ Deno.test("mount()", async (t) => {
       const App = () => <div />;
       const handle = mount(App);
       handle.session.connect();
-      await new Promise<void>((r) => setTimeout(r, 0));
+      await delay(0);
       const ws = mock.lastWs!;
       assertStrictEquals(
         ws.url.toString(),

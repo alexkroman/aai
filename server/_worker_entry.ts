@@ -8,7 +8,7 @@
 
 import type { Message } from "@aai/sdk/types";
 import type { KvRequest } from "@aai/sdk/protocol";
-import { deadline } from "@std/async/deadline";
+import { withTimeout } from "@aai/sdk/timeout";
 import {
   createRpcClient,
   createRpcServer,
@@ -120,15 +120,6 @@ export type WorkerApi = {
   ): Promise<{ activeTools?: string[] } | null>;
   dispose?: () => void;
 };
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs?: number): Promise<T> {
-  if (!timeoutMs) return promise;
-  return deadline(promise, timeoutMs).catch((err) => {
-    throw err.name === "TimeoutError"
-      ? new Error(`RPC timed out after ${timeoutMs}ms`)
-      : err;
-  });
-}
 
 /**
  * Create a {@linkcode WorkerApi} backed by postMessage RPC over a Worker.

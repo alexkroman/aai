@@ -2,7 +2,7 @@
 import { Redis } from "@upstash/redis";
 import type { AgentScope } from "./scope_token.ts";
 
-const MAX_VALUE_SIZE = 65_536;
+import { MAX_VALUE_SIZE } from "@aai/sdk/kv";
 
 export type KvListEntry = { key: string; value: unknown };
 

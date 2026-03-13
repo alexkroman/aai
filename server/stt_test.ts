@@ -199,8 +199,9 @@ Deno.test("SttConnection", async (t) => {
     });
 
     assertSpyCalls(onTurn, 0);
-    assertSpyCalls(onTranscript, 1);
-    assertStrictEquals(onTranscript.calls[0]!.args[0].text, "partial text");
+    assertSpyCall(onTranscript, 0, {
+      args: [{ text: "partial text", isFinal: false, turnOrder: 0 }],
+    });
   });
 
   await t.step("skips Turn with empty transcript", async () => {

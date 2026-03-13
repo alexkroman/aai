@@ -27,28 +27,11 @@ import {
   type RpcClient,
   type RpcHandlers,
 } from "./_rpc.ts";
+import { withTimeout } from "./_timeout.ts";
+
 const FETCH_TIMEOUT_MS = 30_000;
 const KV_TIMEOUT_MS = 10_000;
 const EMPTY_PARAMS = z.object({});
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`RPC timed out after ${timeoutMs}ms`)),
-      timeoutMs,
-    );
-    promise.then(
-      (v) => {
-        clearTimeout(timer);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(timer);
-        reject(e);
-      },
-    );
-  });
-}
 
 function headersToRecord(h?: HeadersInit): Record<string, string> {
   return Object.fromEntries(new Headers(h).entries());

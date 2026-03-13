@@ -129,7 +129,6 @@ export type DeployBody = {
   /** Env vars are optional at deploy time — set separately via `aai env add`. */
   env?: Readonly<Record<string, string>> | undefined;
   worker: string;
-  client: string;
   html: string;
   transport?: readonly Transport[] | undefined;
 };

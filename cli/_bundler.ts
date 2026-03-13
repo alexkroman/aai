@@ -18,43 +18,18 @@ export class BundleError extends Error {
 export type BundleOutput = {
   /** Minified ESM JavaScript for the server-side Deno Worker. */
   worker: string;
-  /** Minified ESM JavaScript for the browser client. Empty string if skipped. */
-  client: string;
-  /** Static HTML page. */
+  /** Single-file HTML page with inlined client JS and CSS. */
   html: string;
   /** JSON manifest containing env var names and transport configuration. */
   manifest: string;
   /** Size of the worker bundle in bytes. */
   workerBytes: number;
-  /** Size of the client bundle in bytes. */
-  clientBytes: number;
 };
 
 /** Internal helpers exposed for testing. Not part of the public API. */
 export const _internals = {
   BundleError,
 };
-
-/**
- * Compile a CSS entry point through PostCSS with the Tailwind v4 plugin.
- * Runs entirely in-process — no CLI binary required. Returns empty string
- * if the entry point does not exist. Dependencies are loaded lazily so
- * importing this module doesn't trigger native addon resolution.
- */
-async function compileCss(entryPoint: string): Promise<string> {
-  let source: string;
-  try {
-    source = await Deno.readTextFile(entryPoint);
-  } catch {
-    return "";
-  }
-
-  const { default: postcss } = await import("postcss");
-  const { default: tailwindcss } = await import("@tailwindcss/postcss");
-  const processor = postcss([tailwindcss({ optimize: true })]);
-  const result = await processor.process(source, { from: entryPoint });
-  return result.css;
-}
 
 /**
  * Run the project's native esbuild binary via CLI on an entry point file.
@@ -84,18 +59,13 @@ async function runEsbuild(
 /**
  * Compute esbuild --alias flags for local monorepo development.
  * Maps JSR package specifiers to local source files so changes to
- * sdk/ and ui/ are reflected without publishing to JSR.
+ * sdk/ are reflected without publishing to JSR.
  */
 function devAliasArgs(): string[] {
   const root = resolve(new URL("..", import.meta.url).pathname);
   return [
     // Map JSR npm-bridge package names to local source entry points
     `--alias:@jsr/aai__sdk=${resolve(root, "sdk/mod.ts")}`,
-    `--alias:@jsr/aai__ui=${resolve(root, "ui/mod.ts")}`,
-    // UI source imports @aai/sdk subpaths (workspace specifier);
-    // alias each subpath individually since esbuild aliases are prefix-based.
-    `--alias:@aai/sdk/protocol=${resolve(root, "sdk/protocol.ts")}`,
-    `--alias:@aai/sdk=${resolve(root, "sdk/mod.ts")}`,
     // SDK source uses Deno import-map specifiers that esbuild can't resolve;
     // redirect to the JSR npm-bridge equivalents already in node_modules.
     "--alias:zod=@jsr/zod__zod",
@@ -125,18 +95,55 @@ const COMMON_ARGS = [
 ];
 
 /**
+ * Build the client (HTML + CSS + JS) into a single HTML file using Vite
+ * with vite-plugin-singlefile. All CSS and JS are inlined into the HTML.
+ *
+ * Vite reads `.aai/index.html` (scaffolded with the project) which
+ * references client.tsx and styles.css via relative paths. The singlefile
+ * plugin inlines everything into one self-contained HTML file.
+ */
+async function runViteBuild(
+  agentDir: string,
+  dev?: boolean,
+): Promise<string> {
+  const viteBin = join(agentDir, "node_modules", ".bin", "vite");
+  const cmd = new Deno.Command(viteBin, {
+    args: ["build"],
+    cwd: agentDir,
+    stdout: "piped",
+    stderr: "piped",
+    ...(dev
+      ? {
+        env: {
+          ...Deno.env.toObject(),
+          AAI_DEV_ROOT: resolve(new URL("..", import.meta.url).pathname),
+        },
+      }
+      : {}),
+  });
+
+  const { code, stdout, stderr } = await cmd.output();
+  if (code !== 0) {
+    throw new BundleError(
+      new TextDecoder().decode(stderr) ||
+        new TextDecoder().decode(stdout),
+    );
+  }
+
+  return await Deno.readTextFile(join(agentDir, ".aai", "build", "index.html"));
+}
+
+/**
  * Bundles an agent project into deployable artifacts.
  *
- * The bundler does NOT generate any code — it bundles files that already
- * exist in the agent project:
- * - `_worker.ts` — imports agent.ts and calls initWorker()
- * - `client.tsx` — imports mount() and calls it with a component
- * - `index.html` — static HTML shell
+ * - Worker: bundled with esbuild (server-side Deno Worker code)
+ * - Client: bundled with Vite + vite-plugin-singlefile into a single HTML
+ *   file containing inlined JS and CSS
  *
  * @param agent The discovered agent entry containing paths and configuration.
  * @param opts Optional settings. Set `skipClient` to omit the client bundle.
- * @returns The bundled worker code, client code, HTML, manifest, and byte sizes.
- * @throws {BundleError} If esbuild encounters a build error.
+ * @returns The bundled worker code, single-file HTML, manifest, and byte sizes.
+ * @throws {BundleError} If esbuild or Vite encounters a build error.
  */
 export async function bundleAgent(
   agent: AgentEntry,
@@ -144,35 +151,20 @@ export async function bundleAgent(
 ): Promise<BundleOutput> {
   const extraArgs = opts?.dev ? devAliasArgs() : [];
 
-  const workerEntry = join(agent.dir, "_worker.ts");
+  const workerEntry = join(agent.dir, ".aai", "_worker.ts");
   const worker = await runEsbuild(
     agent.dir,
     workerEntry,
     [...COMMON_ARGS, ...extraArgs],
   );
 
-  let client = "";
+  // Build client+CSS+HTML as a single file with Vite
   const skipClient = opts?.skipClient || !agent.clientEntry;
-  if (!skipClient) {
-    client = await runEsbuild(agent.dir, resolve(agent.clientEntry), [
-      ...COMMON_ARGS,
-      ...extraArgs,
-      "--jsx=automatic",
-      "--jsx-import-source=preact",
-      "--loader:.ts=tsx",
-      "--loader:.tsx=tsx",
-    ]);
-  }
-
-  const htmlPath = join(agent.dir, "index.html");
-  let html = await Deno.readTextFile(htmlPath);
-
-  // Compile Tailwind CSS via PostCSS and inject into HTML <head>
-  const cssEntry = join(agent.dir, "styles.css");
-  const css = await compileCss(cssEntry);
-  if (css.trim()) {
-    const safeCss = css.replaceAll("</", "<\\/");
-    html = html.replace("</head>", `<style>${safeCss}</style>\n</head>`);
+  let html: string;
+  if (skipClient) {
+    html = await Deno.readTextFile(join(agent.dir, ".aai", "index.html"));
+  } else {
+    html = await runViteBuild(agent.dir, opts?.dev);
   }
 
   const manifest = JSON.stringify(
@@ -183,10 +175,8 @@ export async function bundleAgent(
 
   return {
     worker,
-    client,
     html,
     manifest,
     workerBytes: new TextEncoder().encode(worker).length,
-    clientBytes: new TextEncoder().encode(client).length,
   };
 }

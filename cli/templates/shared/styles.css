@@ -1,1 +1,31 @@
 @import "tailwindcss";
+@source "../node_modules/@jsr/aai__ui";
+
+@theme {
+  --color-aai-bg: var(--aai-bg);
+  --color-aai-surface: var(--aai-surface);
+  --color-aai-surface-light: var(--aai-surface-light);
+  --color-aai-primary: var(--aai-primary);
+  --color-aai-text: var(--aai-text);
+  --color-aai-text-muted: var(--aai-text-muted);
+  --color-aai-error: var(--aai-error);
+  --color-aai-state-connecting: var(--aai-state-connecting);
+  --color-aai-state-ready: var(--aai-state-ready);
+  --color-aai-state-listening: var(--aai-state-listening);
+  --color-aai-state-thinking: var(--aai-state-thinking);
+  --color-aai-state-speaking: var(--aai-state-speaking);
+  --color-aai-state-error: var(--aai-state-error);
+  --radius-aai: var(--aai-radius);
+  --font-aai: var(--aai-font);
+}
+
+@keyframes aai-bounce {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

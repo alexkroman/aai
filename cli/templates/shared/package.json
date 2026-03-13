@@ -10,8 +10,12 @@
     "@jsr/aai__ui": "*"
   },
   "devDependencies": {
+    "@preact/preset-vite": "^2",
+    "@tailwindcss/vite": "^4",
     "esbuild": "^0.25",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^6",
+    "vite-plugin-singlefile": "^2"
   }
 }

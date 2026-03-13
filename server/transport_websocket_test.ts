@@ -31,7 +31,6 @@ Deno.test("discoverSlot lazy-loads from store", async () => {
     env: VALID_ENV,
     transport: ["websocket"],
     worker: "console.log('w');",
-    client: "console.log('c');",
     html: "<html></html>",
     credential_hashes: ["hash1"],
   });

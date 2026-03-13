@@ -1,7 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import { html, HttpError, json, type RouteContext } from "./context.ts";
-import { eTag, ifNoneMatch } from "@std/http/etag";
+import { STATUS_CODE } from "@std/http/status";
 import { wireSessionSocket } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
@@ -50,7 +50,7 @@ async function requireSlot(
   opts: SlotLookup,
 ): Promise<AgentSlot> {
   const slot = await resolveSlot(slug, opts);
-  if (!slot) throw new HttpError(404, `Not found: ${slug}`);
+  if (!slot) throw new HttpError(STATUS_CODE.NotFound, `Not found: ${slug}`);
   return slot;
 }
 
@@ -70,7 +70,7 @@ export async function handleAgentPage(
 ): Promise<Response> {
   await requireSlot(slug, ctx.state);
   const page = await ctx.state.store.getFile(slug, "html");
-  if (!page) throw new HttpError(404, "HTML not found");
+  if (!page) throw new HttpError(STATUS_CODE.NotFound, "HTML not found");
   return html(page);
 }
 
@@ -108,50 +108,4 @@ export async function handleWebSocket(
   });
 
   return response;
-}
-
-/**
- * Handler that serves static agent files (`client.js`, `client.js.map`).
- */
-export async function handleStaticFile(
-  ctx: RouteContext,
-  opts: { slug: string; file: string },
-): Promise<Response> {
-  const { slug, file } = opts;
-  await requireSlot(slug, ctx.state);
-
-  const STATIC_FILES: Record<
-    string,
-    { key: "client" | "client_map"; ct: string }
-  > = {
-    "client.js": { key: "client", ct: "application/javascript" },
-    "client.js.map": { key: "client_map", ct: "application/json" },
-  };
-
-  const spec = STATIC_FILES[file];
-  if (!spec) throw new HttpError(404, "Not found");
-
-  const content = await ctx.state.store.getFile(slug, spec.key);
-  if (!content) throw new HttpError(404, "Not found");
-
-  const data = typeof content === "string"
-    ? new TextEncoder().encode(content)
-    : new Uint8Array(content as ArrayBuffer);
-  const tag = await eTag(data);
-
-  // Conditional request support
-  if (tag && !ifNoneMatch(ctx.req.headers.get("If-None-Match"), tag)) {
-    return new Response(null, {
-      status: 304,
-      headers: { ...(tag ? { ETag: tag } : {}) },
-    });
-  }
-
-  return new Response(content, {
-    headers: {
-      "Content-Type": spec.ct,
-      "Cache-Control": "no-cache",
-      ...(tag ? { ETag: tag } : {}),
-    },
-  });
 }

@@ -1,5 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
+import { STATUS_CODE } from "@std/http/status";
 import { json, type RouteContext } from "./context.ts";
 import { loadPlatformConfig } from "./config.ts";
 import type { DeployBody } from "@aai/sdk/types";
@@ -26,7 +27,7 @@ export async function handleDeploy(
   try {
     body = DeployBodySchema.parse(await ctx.req.json());
   } catch {
-    throw new HttpError(400, "Invalid deploy body");
+    throw new HttpError(STATUS_CODE.BadRequest, "Invalid deploy body");
   }
 
   // Merge env: deploy body env takes precedence, then stored env
@@ -42,7 +43,7 @@ export async function handleDeploy(
           err instanceof Error ? err.message : String(err)
         }`,
       },
-      { status: 400 },
+      { status: STATUS_CODE.BadRequest },
     );
   }
 
@@ -61,7 +62,6 @@ export async function handleDeploy(
     env,
     transport,
     worker: body.worker,
-    client: body.client,
     html: body.html,
     credential_hashes: [keyHash],
   });

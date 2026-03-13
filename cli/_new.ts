@@ -26,13 +26,18 @@ export async function listTemplates(dir: string): Promise<string[]> {
   return templates.sort();
 }
 
+/** Strip `.tmpl` suffix so `foo.ts.tmpl` becomes `foo.ts` in the target. */
+function destName(name: string): string {
+  return name.endsWith(".tmpl") ? name.slice(0, -5) : name;
+}
+
 /** Recursively copy `src` into `dest`, skipping names in SKIP. */
 async function copyDir(src: string, dest: string): Promise<void> {
   await Deno.mkdir(dest, { recursive: true });
   for await (const entry of Deno.readDir(src)) {
     if (SKIP.has(entry.name)) continue;
     const srcPath = join(src, entry.name);
-    const destPath = join(dest, entry.name);
+    const destPath = join(dest, destName(entry.name));
     if (entry.isDirectory) {
       await copyDir(srcPath, destPath);
     } else {
@@ -50,7 +55,7 @@ async function copyDirNoOverwrite(src: string, dest: string): Promise<void> {
   for await (const entry of Deno.readDir(src)) {
     if (SKIP.has(entry.name)) continue;
     const srcPath = join(src, entry.name);
-    const destPath = join(dest, entry.name);
+    const destPath = join(dest, destName(entry.name));
     if (entry.isDirectory) {
       await copyDirNoOverwrite(srcPath, destPath);
     } else if (!await exists(destPath)) {
@@ -76,17 +81,6 @@ export async function runNew(opts: NewOptions): Promise<string> {
 
   // 2. Layer shared files underneath (don't overwrite template files)
   await copyDirNoOverwrite(join(templatesDir, "shared"), targetDir);
-
-  // 3. Rename .tmpl files (stored with .tmpl extension to avoid deno compile resolution)
-  for await (const entry of Deno.readDir(targetDir)) {
-    if (entry.isFile && entry.name.endsWith(".tmpl")) {
-      const dest = entry.name.slice(0, -".tmpl".length);
-      const destPath = join(targetDir, dest);
-      if (!await exists(destPath)) {
-        await Deno.rename(join(targetDir, entry.name), destPath);
-      }
-    }
-  }
 
   try {
     await Deno.copyFile(

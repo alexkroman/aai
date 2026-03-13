@@ -33,9 +33,7 @@ async function writeBuildOutput(
   await Promise.all([
     Deno.writeTextFile(join(buildDir, "worker.js"), bundle.worker),
     Deno.writeTextFile(join(buildDir, "manifest.json"), bundle.manifest),
-    bundle.client
-      ? Deno.writeTextFile(join(buildDir, "client.js"), bundle.client)
-      : Promise.resolve(),
+    Deno.writeTextFile(join(buildDir, "index.html"), bundle.html),
   ]);
 }
 

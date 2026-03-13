@@ -479,20 +479,22 @@ After scaffolding, your project directory looks like:
 ```text
 my-agent/
   agent.ts          # Agent definition
-  _worker.ts        # Worker entry point (imports agent.ts, calls initWorker)
-  index.html        # Static HTML shell
   client.tsx        # UI component (calls mount() to render into #app)
+  styles.css        # Tailwind CSS entry point
   package.json      # Dependencies + scripts (dev, build, deploy)
+  vite.config.ts    # Vite build config (singlefile output)
   tsconfig.json     # TypeScript config (strict, path aliases)
   .npmrc            # JSR registry config
   .env.example      # Reference for env var names
   .env              # Local dev secrets (gitignored)
-  .gitignore        # Ignores node_modules/, .aai/, .env, .DS_Store, etc.
+  .gitignore        # Ignores node_modules/, .aai/build/, .env, etc.
   README.md         # Getting started guide
   CLAUDE.md         # Agent API reference (auto-generated)
-  .aai/             # CLI output (gitignored, like .vercel/ or .next/)
-    project.json    # Deploy target (slug, server URL)
-    build/          # Bundle output (worker.js, client.js, manifest.json)
+  .aai/             # Build plumbing
+    _worker.ts      # Worker entry point (imports agent.ts, calls initWorker)
+    index.html      # HTML shell (Vite entry point)
+    project.json    # Deploy target (slug, server URL) — gitignored
+    build/          # Bundle output — gitignored
 ```
 
 ## Common pitfalls

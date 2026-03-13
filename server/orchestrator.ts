@@ -1,6 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import { type Route, route } from "@std/http/unstable-route";
+import { STATUS_CODE } from "@std/http/status";
 import { type AppState, html, HttpError, json, text } from "./context.ts";
 import { FAVICON_SVG, renderLandingPage } from "./html.tsx";
 import { INSTALL_SCRIPT } from "./install.ts";
@@ -9,7 +10,6 @@ import { handleEnvDelete, handleEnvList, handleEnvSet } from "./env_handler.ts";
 import {
   handleAgentHealth,
   handleAgentPage,
-  handleStaticFile,
   handleWebSocket,
 } from "./transport_websocket.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
@@ -113,14 +113,14 @@ export function createOrchestrator(opts: {
       handler: () => text(INSTALL_SCRIPT),
     },
 
-    // --- Agent page (no trailing slash is canonical) ---
+    // --- Agent page (trailing slash is canonical for relative URL resolution) ---
     {
       pattern: p("/:slug"),
       method: "GET",
-      handler: (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        return handleAgentPage(c, slug);
+      handler: (req) => {
+        const url = new URL(req.url);
+        url.pathname += "/";
+        return Response.redirect(url.toString(), STATUS_CODE.MovedPermanently);
       },
     },
 
@@ -229,39 +229,21 @@ export function createOrchestrator(opts: {
         return handleWebSocket(c, slug);
       },
     },
-    {
-      pattern: p("/:slug/client.js"),
-      method: "GET",
-      handler: (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        return handleStaticFile(c, { slug, file: "client.js" });
-      },
-    },
-    {
-      pattern: p("/:slug/client.js.map"),
-      method: "GET",
-      handler: (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        return handleStaticFile(c, { slug, file: "client.js.map" });
-      },
-    },
-    // --- Trailing-slash redirect to canonical URL ---
+    // --- Agent page (served at trailing-slash so relative URLs resolve correctly) ---
     {
       pattern: p("/:slug/"),
       method: "GET",
-      handler: (req) => {
-        const url = new URL(req.url);
-        url.pathname = url.pathname.replace(/\/+$/, "");
-        return Response.redirect(url.toString(), 301);
+      handler: (req, match, info) => {
+        const c = ctx(req, match, info, state);
+        const slug = validateSlug(c.params);
+        return handleAgentPage(c, slug);
       },
     },
   ];
 
   const handler = route(
     routes,
-    () => json({ error: "Not found" }, { status: 404 }),
+    () => json({ error: "Not found" }, { status: STATUS_CODE.NotFound }),
   );
 
   return async (req: Request, info: Deno.ServeHandlerInfo) => {
@@ -283,7 +265,9 @@ export function createOrchestrator(opts: {
         path: new URL(req.url).pathname,
       });
       return applyGlobalHeaders(
-        json({ error: "Internal server error" }, { status: 500 }),
+        json({ error: "Internal server error" }, {
+          status: STATUS_CODE.InternalServerError,
+        }),
       );
     }
   };

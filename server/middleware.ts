@@ -1,4 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
+import { STATUS_CODE } from "@std/http/status";
 import { HttpError } from "./context.ts";
 import { verifySlugOwner } from "./auth.ts";
 import {
@@ -39,7 +40,7 @@ export function applyGlobalHeaders(res: Response): Response {
 /** Handle CORS preflight (OPTIONS) requests. */
 export function handlePreflight(): Response {
   return new Response(null, {
-    status: 204,
+    status: STATUS_CODE.NoContent,
     headers: { ...CORS_HEADERS, ...SECURITY_HEADERS },
   });
 }
@@ -52,7 +53,7 @@ function bearerToken(req: Request): string | null {
 export function validateSlug(params: Record<string, string>): string {
   const slug = params.slug ?? "";
   if (!VALID_SLUG_REGEXP.test(slug)) {
-    throw new HttpError(400, "Invalid slug");
+    throw new HttpError(STATUS_CODE.BadRequest, "Invalid slug");
   }
   return slug;
 }
@@ -65,7 +66,7 @@ export async function requireOwner(
   const apiKey = bearerToken(req);
   if (!apiKey) {
     throw new HttpError(
-      401,
+      STATUS_CODE.Unauthorized,
       "Missing Authorization header (Bearer <API_KEY>)",
     );
   }
@@ -75,7 +76,7 @@ export async function requireOwner(
   });
   if (result.status === "forbidden") {
     throw new HttpError(
-      403,
+      STATUS_CODE.Forbidden,
       `Slug "${opts.slug}" is owned by another user.`,
     );
   }
@@ -85,7 +86,7 @@ export async function requireOwner(
 /** Require WebSocket upgrade header. */
 export function requireUpgrade(req: Request): void {
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-    throw new HttpError(400, "Expected WebSocket upgrade");
+    throw new HttpError(STATUS_CODE.BadRequest, "Expected WebSocket upgrade");
   }
 }
 
@@ -98,7 +99,7 @@ export function requireInternal(
   const addr = info?.remoteAddr;
   const ip = fly ?? (addr && "hostname" in addr ? addr.hostname : "") ?? "";
   if (!isPrivateIp(ip)) {
-    throw new HttpError(403, "Forbidden");
+    throw new HttpError(STATUS_CODE.Forbidden, "Forbidden");
   }
 }
 
@@ -121,11 +122,17 @@ export async function requireScopeToken(
 ): Promise<AgentScope> {
   const token = bearerToken(req);
   if (!token) {
-    throw new HttpError(401, "Missing Authorization header");
+    throw new HttpError(
+      STATUS_CODE.Unauthorized,
+      "Missing Authorization header",
+    );
   }
   const scope = await verifyScopeToken(scopeKey, token);
   if (!scope) {
-    throw new HttpError(403, "Invalid or tampered scope token");
+    throw new HttpError(
+      STATUS_CODE.Forbidden,
+      "Invalid or tampered scope token",
+    );
   }
   return scope;
 }

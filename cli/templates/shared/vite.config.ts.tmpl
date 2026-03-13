@@ -1,0 +1,35 @@
+import process from "node:process";
+import { defineConfig } from "vite";
+import preact from "@preact/preset-vite";
+import tailwindcss from "@tailwindcss/vite";
+import { viteSingleFile } from "vite-plugin-singlefile";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = dirname(fileURLToPath(import.meta.url));
+const devRoot = process.env.AAI_DEV_ROOT;
+
+export default defineConfig({
+  plugins: [preact(), tailwindcss(), viteSingleFile()],
+  build: {
+    outDir: resolve(root, ".aai/build"),
+    emptyOutDir: true,
+    rollupOptions: {
+      input: resolve(root, ".aai/index.html"),
+    },
+  },
+  resolve: devRoot
+    ? {
+      alias: {
+        "@jsr/aai__sdk": resolve(devRoot, "sdk/mod.ts"),
+        "@jsr/aai__ui": resolve(devRoot, "ui/mod.ts"),
+        "@aai/sdk/protocol": resolve(devRoot, "sdk/protocol.ts"),
+        "@aai/sdk": resolve(devRoot, "sdk/mod.ts"),
+        "zod": "@jsr/zod__zod",
+        "json-schema": "@jsr/types__json-schema",
+        "@std/async": "@jsr/std__async",
+        "@std/log": "@jsr/std__log",
+      },
+    }
+    : {},
+});

@@ -33,7 +33,6 @@ Deno.test("verifySlugOwner returns owned for matching credential", async () => {
     env: {},
     transport: ["websocket"],
     worker: "w",
-    client: "c",
     html: "<html></html>",
     credential_hashes: [hash],
   });
@@ -50,7 +49,6 @@ Deno.test("verifySlugOwner returns forbidden for different credential", async ()
     env: {},
     transport: ["websocket"],
     worker: "w",
-    client: "c",
     html: "<html></html>",
     credential_hashes: [hash],
   });
@@ -67,7 +65,6 @@ Deno.test("verifySlugOwner allows multiple credential hashes", async () => {
     env: {},
     transport: ["websocket"],
     worker: "w",
-    client: "c",
     html: "<html></html>",
     credential_hashes: [hash1, hash2],
   });
@@ -89,7 +86,6 @@ Deno.test("verifySlugOwner rejects when credential_hashes is empty", async () =>
     env: {},
     transport: ["websocket"],
     worker: "w",
-    client: "c",
     html: "<html></html>",
     credential_hashes: [],
   });

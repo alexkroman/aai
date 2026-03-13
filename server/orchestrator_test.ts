@@ -9,7 +9,7 @@ import {
   deployBody,
   DUMMY_INFO,
 } from "./_test_utils.ts";
-import { MockWebSocket } from "./_mock_ws.ts";
+import { MockWebSocket } from "@aai/sdk/testing";
 
 function req(path: string, init?: RequestInit) {
   return new Request(`http://localhost${path}`, init);
@@ -60,10 +60,7 @@ Deno.test("returns install script", async () => {
 
 Deno.test("returns 404 for unknown paths", async () => {
   const { handler } = await createTestOrchestrator();
-  assertEquals(
-    (await handler(req("/nonexistent"), DUMMY_INFO)).status,
-    404,
-  );
+  // /:slug redirects to /:slug/ (301), so single-segment paths are not 404
   assertEquals(
     (await handler(req("/foo/bar/baz"), DUMMY_INFO)).status,
     404,
@@ -105,7 +102,6 @@ Deno.test("deploy rejects different owner for claimed slug", async () => {
     env: {},
     transport: ["websocket"],
     worker: "w",
-    client: "c",
     html: "<html></html>",
     credential_hashes: [await hashApiKey("key1")],
   });
@@ -200,16 +196,23 @@ Deno.test("agent health returns ok for deployed agent", async () => {
   assertEquals(body.slug, "my-agent");
 });
 
+Deno.test("agent page redirects bare slug to trailing slash", async () => {
+  const { handler } = await createTestOrchestrator();
+  const res = await handler(req("/my-agent"), DUMMY_INFO);
+  assertEquals(res.status, 301);
+  assertEquals(res.headers.get("Location"), "http://localhost/my-agent/");
+});
+
 Deno.test("agent page returns 404 for unknown agent", async () => {
   const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/missing-agent"), DUMMY_INFO);
+  const res = await handler(req("/missing-agent/"), DUMMY_INFO);
   assertEquals(res.status, 404);
 });
 
 Deno.test("agent page returns HTML for deployed agent", async () => {
   const { handler } = await createTestOrchestrator();
   await deployAgent(handler);
-  const res = await handler(req("/my-agent"), DUMMY_INFO);
+  const res = await handler(req("/my-agent/"), DUMMY_INFO);
   assertEquals(res.status, 200);
   assertStringIncludes(res.headers.get("Content-Type")!, "text/html");
   const body = await res.text();
@@ -217,43 +220,15 @@ Deno.test("agent page returns HTML for deployed agent", async () => {
 });
 
 // =============================================================================
-// Static files
-// =============================================================================
-
-Deno.test("static file returns 404 for unknown agent", async () => {
-  const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/missing-agent/client.js"), DUMMY_INFO);
-  assertEquals(res.status, 404);
-});
-
-Deno.test("static file serves client.js after deploy", async () => {
-  const { handler } = await createTestOrchestrator();
-  await deployAgent(handler);
-  const res = await handler(req("/my-agent/client.js"), DUMMY_INFO);
-  assertEquals(res.status, 200);
-  assertEquals(res.headers.get("Content-Type"), "application/javascript");
-  assertStringIncludes(await res.text(), "console.log");
-});
-
-Deno.test("client.js sets Cache-Control no-cache without server-side caching", async () => {
-  const { handler } = await createTestOrchestrator();
-  await deployAgent(handler);
-  const res = await handler(req("/my-agent/client.js"), DUMMY_INFO);
-  assertEquals(res.status, 200);
-  assertEquals(res.headers.get("Cache-Control"), "no-cache");
-  assert(res.headers.get("ETag"));
-});
-
-// =============================================================================
 // Trailing-slash redirect
 // =============================================================================
 
-Deno.test("trailing slash on agent page redirects to canonical URL", async () => {
+Deno.test("trailing slash on agent page serves HTML", async () => {
   const { handler } = await createTestOrchestrator();
+  await deployAgent(handler);
   const res = await handler(req("/my-agent/"), DUMMY_INFO);
-  assertEquals(res.status, 301);
-  const location = res.headers.get("Location");
-  assertEquals(location, "http://localhost/my-agent");
+  assertEquals(res.status, 200);
+  assertStringIncludes(res.headers.get("Content-Type")!, "text/html");
 });
 
 // =============================================================================

@@ -2,7 +2,8 @@
 node_modules/
 
 # build output
-.aai/
+.aai/build/
+.aai/project.json
 
 # env files
 .env

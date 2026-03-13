@@ -10,7 +10,7 @@ import type { AgentMetadata } from "./worker_pool.ts";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { type CredentialKey, decryptEnv, encryptEnv } from "./credentials.ts";
 
-export type FileKey = "worker" | "client" | "client_map" | "html";
+export type FileKey = "worker" | "html";
 
 export type BundleStore = {
   putAgent(bundle: {
@@ -18,9 +18,7 @@ export type BundleStore = {
     env: Record<string, string>;
     transport: readonly ("websocket" | "twilio")[];
     worker: string;
-    client: string;
     html: string;
-    client_map?: string;
     credential_hashes: string[];
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
@@ -41,9 +39,7 @@ type CacheEntry = {
 
 const FILE_NAMES: Record<FileKey, string> = {
   worker: "worker.js",
-  client: "client.js",
   html: "index.html",
-  "client_map": "client.js.map",
 };
 
 function objectKey(slug: string, file: string): string {
@@ -181,27 +177,11 @@ export function createBundleStore(
         "application/javascript",
       );
 
-      if (bundle.client) {
-        await put(
-          objectKey(bundle.slug, "client.js"),
-          bundle.client,
-          "application/javascript",
-        );
-      }
-
       await put(
         objectKey(bundle.slug, "index.html"),
         bundle.html,
         "text/html",
       );
-
-      if (bundle.client_map) {
-        await put(
-          objectKey(bundle.slug, "client.js.map"),
-          bundle.client_map,
-          "application/json",
-        );
-      }
     },
 
     async getManifest(slug) {

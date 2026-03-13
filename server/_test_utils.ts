@@ -1,14 +1,17 @@
 // Copyright 2025 the AAI authors. MIT license.
+import { deadline } from "@std/async/deadline";
+import { delay } from "@std/async/delay";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentMetadata, AgentSlot } from "./worker_pool.ts";
 import type { AgentConfig } from "@aai/sdk/types";
+import { sortAndPaginate } from "@aai/sdk/kv";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { createOrchestrator } from "./orchestrator.ts";
 
 export function flush(): Promise<void> {
-  return new Promise<void>((r) => setTimeout(r, 0));
+  return delay(0);
 }
 
 /** Poll `predicate` every tick until it returns true, or throw after `ms`. */
@@ -16,13 +19,12 @@ export async function waitFor(
   predicate: () => boolean,
   ms = 1000,
 ): Promise<void> {
-  const deadline = Date.now() + ms;
-  while (!predicate()) {
-    if (Date.now() > deadline) {
-      throw new Error("Timed out waiting for condition");
-    }
-    await flush();
-  }
+  await deadline(
+    (async () => {
+      while (!predicate()) await flush();
+    })(),
+    ms,
+  );
 }
 
 export const DUMMY_INFO: Deno.ServeHandlerInfo = {
@@ -61,11 +63,7 @@ export function createTestStore(): BundleStore {
         JSON.stringify(manifest),
       );
       objects.set(objectKey(bundle.slug, "worker.js"), bundle.worker);
-      objects.set(objectKey(bundle.slug, "client.js"), bundle.client);
       objects.set(objectKey(bundle.slug, "index.html"), bundle.html);
-      if (bundle.client_map) {
-        objects.set(objectKey(bundle.slug, "client.js.map"), bundle.client_map);
-      }
       return Promise.resolve();
     },
 
@@ -80,9 +78,7 @@ export function createTestStore(): BundleStore {
     getFile(slug, file) {
       const fileNames: Record<string, string> = {
         worker: "worker.js",
-        client: "client.js",
         html: "index.html",
-        "client_map": "client.js.map",
       };
       const fileName = fileNames[file];
       if (!fileName) return Promise.resolve(null);
@@ -155,9 +151,8 @@ export function deployBody(
   return JSON.stringify({
     env: VALID_ENV,
     worker: "console.log('w');",
-    client: "console.log('c');",
     html:
-      '<!DOCTYPE html><html><body><script src="client.js"></script></body></html>',
+      '<!DOCTYPE html><html><body><script>console.log("c");</script></body></html>',
     ...overrides,
   });
 }
@@ -235,12 +230,7 @@ export function createTestKvStore(): KvStore {
           }
         }
       }
-      entries.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
-      if (options?.reverse) entries.reverse();
-      if (options?.limit && options.limit > 0) {
-        entries.length = Math.min(entries.length, options.limit);
-      }
-      return Promise.resolve(entries);
+      return Promise.resolve(sortAndPaginate(entries, options));
     },
   };
 }
