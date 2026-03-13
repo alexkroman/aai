@@ -33,7 +33,6 @@ jobs:
             --unstable-worker-options \
             --include cli/templates/ \
             --include sdk/ \
-            --include core/ \
             --include ui/ \
             --include cli/deno.json \
             $npm_includes \
