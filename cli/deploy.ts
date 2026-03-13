@@ -2,7 +2,7 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { exists } from "@std/fs/exists";
 import { join } from "@std/path";
-import { step, stepInfo } from "./_output.ts";
+
 import { runBuild } from "./build.ts";
 import { runDeploy } from "./_deploy.ts";
 import {
@@ -86,8 +86,6 @@ export async function runDeployCommand(
   // Auto-enable dev mode when running via `deno run` (aai-dev) vs compiled binary
   const isDevCli = Deno.execPath().endsWith("deno");
   const result = await runBuild({ agentDir: cwd, dev: parsed.dev || isDevCli });
-  const { agent } = result;
-
   const deployed = await runDeploy({
     url: serverUrl,
     bundle: result.bundle,
