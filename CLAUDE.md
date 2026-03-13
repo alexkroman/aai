@@ -119,7 +119,8 @@ The host side (`server/_worker_entry.ts`) uses `createWorkerApi()` to produce a
 ## Conventions
 
 - **Runtime**: Deno (not Node). Use `@std/*` for standard library.
-- **Frameworks**: Preact (client UI), Tailwind CSS (via CDN for styling)
+- **Frameworks**: Preact (client UI), Tailwind CSS v4 (PostCSS,
+  compiled at bundle time)
 - **Testing**: `Deno.test()` with `t.step()` + `@std/assert`. Test files
   are co-located: `foo.ts` → `foo_test.ts`
 - **Browser behavior**: CLI opens the browser only when scaffolding a new agent
