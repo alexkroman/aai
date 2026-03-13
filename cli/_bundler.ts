@@ -38,7 +38,7 @@ export const _internals = {
  * directly. Uses Vite's JS API to build the worker + client bundles.
  */
 const BUILD_SCRIPT = `\
-import { existsSync, mkdirSync, readdirSync, copyFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
@@ -155,27 +155,33 @@ const loader = await new Workspace({
 
 const deno = denoLoader(loader);
 
-// Vendor @aai/ui source files to .aai/vendor/ so Tailwind can scan them on disk.
-function aaiVendor() {
-  return {
-    name: "aai-vendor",
-    enforce: "pre",
-    async buildStart() {
-      const resolved = await this.resolve("@aai/ui");
-      if (!resolved || resolved.id.startsWith("\\0")) return;
-      const modPath = resolved.id.replace(/^file:\\/\\//, "");
-      const uiDir = dirname(modPath);
-      const outDir = resolve(root, ".aai", "vendor", "ui");
+// Pre-resolve @aai/ui sources to disk so Tailwind can scan them for class names.
+// @tailwindcss/vite only scans on-disk files, not virtual modules from the deno loader.
+async function writeUiSources() {
+  const sourcesDir = resolve(root, ".aai", "sources");
+  mkdirSync(sourcesDir, { recursive: true });
+  try {
+    const modUrl = await loader.resolve("@aai/ui", undefined, ResolutionMode.Import);
+    const queue = [modUrl];
+    const seen = new Set();
+    let count = 0;
+    while (queue.length > 0) {
+      const url = queue.shift();
+      if (seen.has(url)) continue;
+      seen.add(url);
       try {
-        mkdirSync(outDir, { recursive: true });
-        for (const f of readdirSync(uiDir)) {
-          if ((f.endsWith(".tsx") || f.endsWith(".ts")) && !f.includes("_test")) {
-            copyFileSync(resolve(uiDir, f), resolve(outDir, f));
-          }
+        const result = await loader.load(url, RequestedModuleType.Default);
+        if (result.kind === "external") continue;
+        const code = new TextDecoder().decode(result.code);
+        writeFileSync(resolve(sourcesDir, \`mod\${count++}.ts\`), code);
+        // Follow relative imports
+        const baseUrl = url.replace(/\\/[^\\/]+$/, "");
+        for (const m of code.matchAll(/from\\s+['"](\\.\\/[^'"]+)['"]/g)) {
+          queue.push(baseUrl + "/" + m[1].replace(/^\\.\\//,""));
         }
-      } catch { /* vendoring is best-effort */ }
-    },
-  };
+      } catch { /* skip */ }
+    }
+  } catch { /* @aai/ui not resolvable */ }
 }
 
 function buildClient() {
@@ -184,10 +190,11 @@ function buildClient() {
     async closeBundle() {
       const hasClient = existsSync(resolve(root, "client.tsx"));
       if (skipClient || !hasClient) return;
+      await writeUiSources();
       await build({
         configFile: false,
         root: resolve(root, ".aai"),
-        plugins: [deno, aaiVendor(), preact(), tailwindcss(), viteSingleFile()],
+        plugins: [deno, preact(), tailwindcss(), viteSingleFile()],
         build: {
           outDir: resolve(root, ".aai/build"),
           emptyOutDir: false,

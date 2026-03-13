@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @source "./";
-@source ".aai/vendor/";
+@source ".aai/sources/";
 
 @theme {
   --color-aai-bg: var(--aai-bg);
