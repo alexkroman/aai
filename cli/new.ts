@@ -2,7 +2,7 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { promptSelect } from "@std/cli/unstable-prompt-select";
 import { exists } from "@std/fs/exists";
-import { basename, dirname, fromFileUrl, join, resolve } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 import { brightBlue } from "@std/fmt/colors";
 import * as log from "@std/log";
 import { ensureClaudeMd, ensureDependencies } from "./_discover.ts";
@@ -16,22 +16,11 @@ export const newCommandDef: SubcommandDef = {
   description: "Scaffold a new agent project",
   args: [{ name: "dir", optional: true }],
   options: [
-    { flags: "-n, --name <name>", description: "Agent name" },
     { flags: "-t, --template <template>", description: "Template to use" },
     { flags: "-f, --force", description: "Overwrite existing agent.ts" },
     { flags: "-y, --yes", description: "Accept defaults (no prompts)" },
   ],
 };
-
-/**
- * Interactively prompts for agent name if not provided.
- * Defaults to the current directory's base name.
- */
-function promptName(cwd: string): string {
-  const defaultName = basename(resolve(cwd));
-  const answer = prompt(`What is your agent named?`, defaultName);
-  return answer || defaultName;
-}
 
 /**
  * Interactively prompts for template selection using an arrow-key menu.
@@ -57,9 +46,9 @@ export async function runNewCommand(
   version: string,
 ): Promise<string> {
   const parsed = parseArgs(args, {
-    string: ["name", "template"],
+    string: ["template"],
     boolean: ["force", "help", "yes"],
-    alias: { n: "name", t: "template", f: "force", h: "help", y: "yes" },
+    alias: { t: "template", f: "force", h: "help", y: "yes" },
   });
 
   if (parsed.help) {
@@ -87,14 +76,11 @@ export async function runNewCommand(
   const available = await listTemplates(templatesDir);
   const template = parsed.template ||
     (parsed.yes ? "simple" : selectTemplate(available));
-  const name = parsed.name ||
-    (parsed.yes ? basename(resolve(cwd)) : promptName(cwd));
 
   await runNew({
     targetDir: cwd,
     template,
     templatesDir,
-    name,
   });
   await ensureClaudeMd(cwd);
   await ensureDependencies(cwd);

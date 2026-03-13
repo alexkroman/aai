@@ -1,7 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { copy } from "@std/fs/copy";
 import { exists } from "@std/fs/exists";
-import { join } from "@std/path";
+import { basename, join, resolve } from "@std/path";
 import { step } from "./_output.ts";
 
 export const _internals = {
@@ -12,7 +12,6 @@ export type NewOptions = {
   targetDir: string;
   template: string;
   templatesDir: string;
-  name?: string;
 };
 
 export async function listTemplates(dir: string): Promise<string[]> {
@@ -43,7 +42,7 @@ async function copyDirNoOverwrite(src: string, dest: string): Promise<void> {
 }
 
 export async function runNew(opts: NewOptions): Promise<string> {
-  const { targetDir, template, templatesDir, name } = opts;
+  const { targetDir, template, templatesDir } = opts;
   const available = await listTemplates(templatesDir);
 
   if (!available.includes(template)) {
@@ -60,17 +59,6 @@ export async function runNew(opts: NewOptions): Promise<string> {
   // 2. Layer shared files underneath (don't overwrite template files)
   await copyDirNoOverwrite(join(templatesDir, "shared"), targetDir);
 
-  if (name) {
-    const agentPath = join(targetDir, "agent.ts");
-    const content = await Deno.readTextFile(agentPath);
-    const escaped = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const updated = content.replace(
-      /^(\s*name:\s*)"[^"]*"/m,
-      `$1"${escaped}"`,
-    );
-    await Deno.writeTextFile(agentPath, updated);
-  }
-
   try {
     await Deno.copyFile(
       join(targetDir, ".env.example"),
@@ -79,8 +67,8 @@ export async function runNew(opts: NewOptions): Promise<string> {
   } catch { /* no .env.example in template */ }
 
   // Generate README.md with getting-started instructions
-  const agentName = name ?? "My Agent";
-  const readme = `# ${agentName}
+  const slug = basename(resolve(targetDir));
+  const readme = `# ${slug}
 
 A voice agent built with [aai](https://github.com/anthropics/aai).
 
