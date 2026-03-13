@@ -148,8 +148,6 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
 
   const clientEntry = await exists(join(dir, "client.tsx"))
     ? join(dir, "client.tsx")
-    : await exists(join(dir, "client.ts"))
-    ? join(dir, "client.ts")
     : "";
 
   return {

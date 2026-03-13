@@ -181,11 +181,13 @@ export function createBundleStore(
         "application/javascript",
       );
 
-      await put(
-        objectKey(bundle.slug, "client.js"),
-        bundle.client,
-        "application/javascript",
-      );
+      if (bundle.client) {
+        await put(
+          objectKey(bundle.slug, "client.js"),
+          bundle.client,
+          "application/javascript",
+        );
+      }
 
       await put(
         objectKey(bundle.slug, "index.html"),

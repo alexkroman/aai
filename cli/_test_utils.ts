@@ -16,9 +16,13 @@ export async function withTempDir(
 }
 
 /** Stub _internals.step to suppress output in tests. */
-export function silenceSteps(): { restore: () => void } {
+export function silenceSteps(): {
+  restore: () => void;
+  [Symbol.dispose]: () => void;
+} {
   const stepStub = stub(_internals, "step", () => {});
-  return { restore: () => stepStub.restore() };
+  const restore = () => stepStub.restore();
+  return { restore, [Symbol.dispose]: restore };
 }
 
 /** Create a minimal BundleOutput for deploy tests. */

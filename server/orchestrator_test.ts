@@ -281,7 +281,7 @@ Deno.test("websocket upgrades for deployed agent", async () => {
   await deployAgent(handler);
 
   const mockSocket = new MockWebSocket("ws://test");
-  const upgradeStub = stub(
+  using _upgradeStub = stub(
     Deno,
     "upgradeWebSocket",
     () => ({
@@ -289,7 +289,7 @@ Deno.test("websocket upgrades for deployed agent", async () => {
       response: new Response(null, { status: 101 }),
     }),
   );
-  const prepareStub = stub(
+  using _prepareStub = stub(
     _wsInternals,
     "prepareSession",
     (() =>
