@@ -28,7 +28,7 @@ deno compile \
   --no-check \
   --allow-all \
   --unstable-worker-options \
-  --include cli/templates/ \
+  --include templates/ \
   --include sdk/ \
   --include ui/ \
   --include cli/deno.json \

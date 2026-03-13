@@ -38,7 +38,7 @@ export const _internals = {
  * directly. Uses Vite's JS API to build the worker + client bundles.
  */
 const BUILD_SCRIPT = `\
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, copyFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
@@ -155,6 +155,29 @@ const loader = await new Workspace({
 
 const deno = denoLoader(loader);
 
+// Vendor @aai/ui source files to .aai/vendor/ so Tailwind can scan them on disk.
+function aaiVendor() {
+  return {
+    name: "aai-vendor",
+    enforce: "pre",
+    async buildStart() {
+      const resolved = await this.resolve("@aai/ui");
+      if (!resolved || resolved.id.startsWith("\\0")) return;
+      const modPath = resolved.id.replace(/^file:\\/\\//, "");
+      const uiDir = dirname(modPath);
+      const outDir = resolve(root, ".aai", "vendor", "ui");
+      try {
+        mkdirSync(outDir, { recursive: true });
+        for (const f of readdirSync(uiDir)) {
+          if ((f.endsWith(".tsx") || f.endsWith(".ts")) && !f.includes("_test")) {
+            copyFileSync(resolve(uiDir, f), resolve(outDir, f));
+          }
+        }
+      } catch { /* vendoring is best-effort */ }
+    },
+  };
+}
+
 function buildClient() {
   return {
     name: "aai-build-client",
@@ -164,7 +187,7 @@ function buildClient() {
       await build({
         configFile: false,
         root: resolve(root, ".aai"),
-        plugins: [deno, preact(), tailwindcss(), viteSingleFile()],
+        plugins: [deno, aaiVendor(), preact(), tailwindcss(), viteSingleFile()],
         build: {
           outDir: resolve(root, ".aai/build"),
           emptyOutDir: false,

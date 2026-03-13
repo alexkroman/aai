@@ -1,8 +1,8 @@
 {
   "imports": {
-    "@aai/sdk": "../../sdk/mod.ts",
-    "@aai/sdk/types": "../../sdk/types.ts",
-    "@aai/ui": "../../ui/mod.ts",
+    "@aai/sdk": "../sdk/mod.ts",
+    "@aai/sdk/types": "../sdk/types.ts",
+    "@aai/ui": "../ui/mod.ts",
     "zod": "jsr:@zod/zod@^4",
     "preact/hooks": "npm:preact@^10/hooks",
     "@preact/signals": "npm:@preact/signals@^2",

@@ -68,11 +68,12 @@ export async function runDeployCommand(
   }
 
   const local = parsed.local;
+  const isDevMode = Deno.execPath().endsWith("deno");
   const serverUrl = local !== undefined
     ? (typeof local === "string" && local !== ""
       ? local
       : "http://localhost:3100")
-    : (parsed.server || DEFAULT_SERVER);
+    : (parsed.server || (isDevMode ? "http://localhost:3100" : DEFAULT_SERVER));
 
   const dryRun = parsed["dry-run"] ?? false;
   const apiKey = dryRun ? "" : await getApiKey();

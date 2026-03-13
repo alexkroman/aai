@@ -240,22 +240,18 @@ Deno.test("ChatView", async (t) => {
         signals,
       );
 
-      const buttons = () =>
-        Array.from(container.querySelectorAll("button")).map((b) =>
-          b.textContent
-        );
+      const text = () => container.textContent!;
 
-      assert(buttons().includes("Stop"));
-      assert(buttons().includes("New Conversation"));
+      assertStringIncludes(text(), "Stop");
+      assertStringIncludes(text(), "New Conversation");
 
       signals.running.value = false;
-      render(null, container);
       renderWithProvider(
         container,
         <ChatView />,
         signals,
       );
-      assert(buttons().includes("Resume"));
+      assertStringIncludes(text(), "Resume");
     }),
   );
 

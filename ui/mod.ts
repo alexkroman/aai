@@ -47,3 +47,25 @@ export {
   ThinkingIndicator,
   Transcript,
 } from "./components.ts";
+
+export {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  cn,
+  ScrollArea,
+} from "./primitives/mod.ts";
+export type {
+  AlertProps,
+  BadgeProps,
+  ButtonProps,
+  CardProps,
+  ScrollAreaProps,
+} from "./primitives/mod.ts";

@@ -58,7 +58,7 @@ const staged = await getStagedFiles();
 const directlyChanged = new Set<string>();
 
 // Directories outside workspace packages that should trigger a cli rebuild.
-const CLI_EXTRAS = ["cli/templates/"];
+const CLI_EXTRAS = ["templates/"];
 
 for (const file of staged) {
   for (const pkg of PACKAGES) {

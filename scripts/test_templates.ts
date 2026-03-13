@@ -14,7 +14,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 
 const ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const CLI = join(ROOT, "cli", "cli.ts");
-const TEMPLATES_DIR = join(ROOT, "cli", "templates");
+const TEMPLATES_DIR = join(ROOT, "templates");
 const DENO_RUN = [
   Deno.execPath(),
   "run",

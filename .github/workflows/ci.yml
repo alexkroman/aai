@@ -31,7 +31,7 @@ jobs:
           deno compile \
             --allow-all \
             --unstable-worker-options \
-            --include cli/templates/ \
+            --include templates/ \
             --include sdk/ \
             --include ui/ \
             --include cli/deno.json \

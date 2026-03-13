@@ -2,8 +2,7 @@
 import { delay } from "@std/async/delay";
 import { FakeTime } from "@std/testing/time";
 import { render } from "preact";
-import { installDomShim } from "./_dom_shim.ts";
-import { DOMParser } from "@b-fuze/deno-dom";
+import { DOMParser, installDomShim } from "./_dom_shim.ts";
 import { signal } from "@preact/signals";
 import { createVoiceSession, type VoiceSession } from "./session.ts";
 import { createSessionControls, type SessionSignals } from "./signals.ts";

@@ -124,11 +124,12 @@ The host side (`server/_worker_entry.ts`) uses `createWorkerApi()` to produce a
 - **Testing**: `Deno.test()` with `t.step()` + `@std/assert`. Test files
   are co-located: `foo.ts` → `foo_test.ts`
 - **Browser behavior**: CLI opens the browser only when scaffolding a new agent
-- **Agent API docs**: `cli/templates/_shared/CLAUDE.md` is copied into user
+- **Agent API docs**: `templates/_shared/CLAUDE.md` is copied into user
   agent directories. When modifying the agent API surface (`sdk/types.ts`),
   update it to match.
-- **Templates**: `cli/templates/` contains agent scaffolding templates.
-  `cli/templates/_shared/` has files common to all templates (copied without
-  overwriting template-specific files).
+- **Templates**: `templates/` (repo root) contains agent scaffolding templates.
+  Each template is self-contained with its own `agent.ts` and `client.tsx`.
+  `templates/_shared/` has non-code files common to all templates (config,
+  styles, docs — copied without overwriting template-specific files).
 - **Scripts**: `scripts/check_boundaries.ts` enforces the workspace dependency
   rule; `scripts/bump_versions.ts` handles version bumps

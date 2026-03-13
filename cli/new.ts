@@ -95,7 +95,7 @@ export async function runNewCommand(
   }
 
   const cliDir = dirname(fromFileUrl(import.meta.url));
-  const templatesDir = join(cliDir, "templates");
+  const templatesDir = join(cliDir, "..", "templates");
   const { runNew } = await import("./_new.ts");
 
   // Interactive prompts when flags aren't provided (skip with -y)
