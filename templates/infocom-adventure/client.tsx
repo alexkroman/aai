@@ -1,5 +1,4 @@
 import { mount, useSession } from "@aai/ui";
-import { ErrorBanner } from "./components.tsx";
 import type { Message } from "@aai/ui";
 import { useEffect, useRef } from "preact/hooks";
 
@@ -92,14 +91,6 @@ function InfocomAdventure() {
   }, [messages.value.length, transcript.value]);
 
   const stateVal = state.value;
-  const dotClass = stateVal === "listening"
-    ? "listening"
-    : stateVal === "speaking"
-    ? "speaking"
-    : stateVal === "thinking"
-    ? "thinking"
-    : "";
-
   const stateLabel = stateVal === "listening"
     ? "Listening"
     : stateVal === "speaking"
@@ -115,125 +106,60 @@ function InfocomAdventure() {
   const msgCount =
     messages.value.filter((m: Message) => m.role === "user").length;
 
-  const dotColor = dotClass === "listening"
+  const dotColor = stateVal === "listening"
     ? "#00ff41"
-    : dotClass === "speaking"
+    : stateVal === "speaking"
     ? "#ffaa00"
-    : dotClass === "thinking"
+    : stateVal === "thinking"
     ? "#00ccff"
     : "#003300";
-  const dotShadow = dotClass ? `0 0 6px ${dotColor}` : "none";
-
-  const crtStyle = {
-    position: "fixed" as const,
-    inset: 0,
-    background: "#000800",
-    color: "#00ff41",
-    fontFamily: "monospace",
-    fontSize: "15px",
-    lineHeight: 1.6,
-    overflow: "hidden",
-    animation: "ic-flicker 4s infinite",
-  };
-
-  const vignette = {
-    position: "fixed" as const,
-    inset: 0,
-    pointerEvents: "none" as const,
-    zIndex: 12,
-    background:
-      "radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%)",
-  };
-
-  const btnBase = {
-    padding: "4px 16px",
-    background: "transparent",
-    color: "#00aa2a",
-    border: "1px solid #003300",
-    fontFamily: "monospace",
-    fontSize: "11px",
-    cursor: "pointer",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-  };
 
   if (!started.value) {
     return (
       <>
         <style>{CSS}</style>
-        <div className="ic-crt" style={crtStyle}>
+        <div
+          class="ic-crt fixed inset-0 overflow-hidden"
+          style={{
+            background: "#000800",
+            color: "#00ff41",
+            fontFamily: "monospace",
+            fontSize: "15px",
+            lineHeight: 1.6,
+            animation: "ic-flicker 4s infinite",
+          }}
+        >
           <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "100%",
-              textAlign: "center",
-              padding: "40px",
-              animation: "ic-boot 1.5s ease-out",
-            }}
+            class="flex flex-col items-center justify-center h-full text-center p-10"
+            style={{ animation: "ic-boot 1.5s ease-out" }}
           >
             <div
-              style={{
-                fontSize: "11px",
-                whiteSpace: "pre",
-                marginBottom: "32px",
-                textShadow: "0 0 10px rgba(0, 255, 65, 0.5)",
-              }}
+              class="text-[11px] whitespace-pre mb-8"
+              style={{ textShadow: "0 0 10px rgba(0, 255, 65, 0.5)" }}
             >
               {ASCII_LOGO}
             </div>
-            <div
-              style={{
-                color: "#00aa2a",
-                fontSize: "13px",
-                marginBottom: "8px",
-              }}
-            >
+            <div class="text-[13px] mb-2" style={{ color: "#00aa2a" }}>
               INFOCOM INTERACTIVE FICTION
             </div>
-            <div
-              style={{
-                color: "#00aa2a",
-                fontSize: "13px",
-                marginBottom: "8px",
-              }}
-            >
+            <div class="text-[13px] mb-2" style={{ color: "#00aa2a" }}>
               Copyright (c) 1980 Infocom, Inc.
             </div>
-            <div
-              style={{
-                color: "#00aa2a",
-                fontSize: "13px",
-                marginBottom: "8px",
-              }}
-            >
+            <div class="text-[13px] mb-2" style={{ color: "#00aa2a" }}>
               All rights reserved.
             </div>
-            <div
-              style={{ color: "#00ff41", fontSize: "13px", marginTop: "16px" }}
-            >
+            <div class="text-[13px] mt-4" style={{ color: "#00ff41" }}>
               VOICE-ENABLED EDITION
             </div>
-            <div
-              style={{ color: "#00aa2a", fontSize: "13px", marginTop: "24px" }}
-            >
+            <div class="text-[13px] mt-6" style={{ color: "#00aa2a" }}>
               Release 88 / Serial No. 840726
             </div>
             <button
               type="button"
+              class="mt-10 px-12 py-3.5 bg-transparent cursor-pointer uppercase tracking-[3px] font-mono text-base"
               style={{
-                marginTop: "40px",
-                padding: "14px 48px",
-                background: "transparent",
                 color: "#00ff41",
                 border: "1px solid #00ff41",
-                fontFamily: "monospace",
-                fontSize: "1rem",
-                cursor: "pointer",
-                textTransform: "uppercase",
-                letterSpacing: "3px",
                 animation: "ic-pulse 2s ease-in-out infinite",
               }}
               onClick={start}
@@ -241,7 +167,13 @@ function InfocomAdventure() {
               Begin Adventure
             </button>
           </div>
-          <div style={vignette} />
+          <div
+            class="fixed inset-0 pointer-events-none z-[12]"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%)",
+            }}
+          />
         </div>
       </>
     );
@@ -250,39 +182,43 @@ function InfocomAdventure() {
   return (
     <>
       <style>{CSS}</style>
-      <div className="ic-crt" style={crtStyle}>
-        <div
-          style={{ display: "flex", flexDirection: "column", height: "100%" }}
-        >
+      <div
+        class="ic-crt fixed inset-0 overflow-hidden"
+        style={{
+          background: "#000800",
+          color: "#00ff41",
+          fontFamily: "monospace",
+          fontSize: "15px",
+          lineHeight: 1.6,
+          animation: "ic-flicker 4s infinite",
+        }}
+      >
+        <div class="flex flex-col h-full">
+          {/* Status bar */}
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 20px",
-              background: "#00ff41",
-              color: "#000800",
-              fontSize: "13px",
-              fontWeight: "bold",
-              letterSpacing: "0.05em",
-              flexShrink: 0,
-            }}
+            class="flex items-center justify-between px-5 py-2 text-[13px] font-bold tracking-wider shrink-0"
+            style={{ background: "#00ff41", color: "#000800" }}
           >
-            <div style={{ display: "flex", gap: "24px" }}>
+            <div class="flex gap-6">
               <span>ZORK I</span>
               <span>Moves: {msgCount}</span>
             </div>
             <span>Voice Adventure</span>
           </div>
 
-          <ErrorBanner error={error} />
+          {error.value && (
+            <div
+              class="px-5 py-2 text-xs"
+              style={{ background: "#3a0000", color: "#ff4141" }}
+            >
+              ERROR: {error.value.message}
+            </div>
+          )}
 
+          {/* Messages */}
           <div
-            className="ic-messages"
+            class="ic-messages flex-1 overflow-y-auto p-5"
             style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: "20px",
               scrollbarWidth: "thin",
               scrollbarColor: "#00ff41 #001a00",
             }}
@@ -290,9 +226,8 @@ function InfocomAdventure() {
             {messages.value.map((msg: Message, i: number) => (
               <div
                 key={i}
-                className={msg.role === "user" ? "ic-user-msg" : ""}
+                class={`mb-4 ${msg.role === "user" ? "ic-user-msg" : ""}`}
                 style={{
-                  marginBottom: "16px",
                   textShadow: msg.role === "user"
                     ? "0 0 5px rgba(0, 204, 255, 0.3)"
                     : "0 0 5px rgba(0, 255, 65, 0.3)",
@@ -304,9 +239,8 @@ function InfocomAdventure() {
             ))}
             {transcript.value && (
               <div
-                className="ic-transcript"
+                class="ic-transcript italic"
                 style={{
-                  fontStyle: "italic",
                   color: "#007a1e",
                   textShadow: "0 0 5px rgba(0, 255, 65, 0.15)",
                 }}
@@ -317,51 +251,56 @@ function InfocomAdventure() {
             <div ref={bottom} />
           </div>
 
+          {/* Footer controls */}
           <div
+            class="flex items-center justify-between px-5 py-2 shrink-0 gap-3"
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 20px",
               borderTop: "1px solid #003300",
               background: "#001100",
-              flexShrink: 0,
-              gap: "12px",
             }}
           >
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                fontSize: "12px",
-                color: "#00aa2a",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
+              class="flex items-center gap-2.5 text-xs uppercase tracking-wider"
+              style={{ color: "#00aa2a" }}
             >
               <div
+                class="w-2 h-2 rounded-full"
                 style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
                   background: dotColor,
-                  boxShadow: dotShadow,
+                  boxShadow: dotColor !== "#003300"
+                    ? `0 0 6px ${dotColor}`
+                    : "none",
                 }}
               />
               <span>{stateLabel}</span>
             </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button type="button" style={btnBase} onClick={toggle}>
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="px-4 py-1 bg-transparent cursor-pointer uppercase tracking-wider font-mono text-[11px]"
+                style={{ color: "#00aa2a", border: "1px solid #003300" }}
+                onClick={toggle}
+              >
                 {running.value ? "[P]ause" : "[R]esume"}
               </button>
-              <button type="button" style={btnBase} onClick={reset}>
+              <button
+                type="button"
+                class="px-4 py-1 bg-transparent cursor-pointer uppercase tracking-wider font-mono text-[11px]"
+                style={{ color: "#00aa2a", border: "1px solid #003300" }}
+                onClick={reset}
+              >
                 [Q]uit
               </button>
             </div>
           </div>
         </div>
-        <div style={vignette} />
+        <div
+          class="fixed inset-0 pointer-events-none z-[12]"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%)",
+          }}
+        />
       </div>
     </>
   );

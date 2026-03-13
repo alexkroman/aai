@@ -25,6 +25,7 @@ aai                      # Scaffold (if needed) + deploy
 aai new                  # Scaffold a new agent (interactive)
 aai new -t <template>    # Scaffold from a specific template
 aai deploy               # Bundle and deploy to production
+aai deploy -y            # Deploy without prompts
 aai deploy --dry-run     # Validate and bundle without deploying
 aai env add <NAME>       # Set an environment variable on the server
 aai env rm <NAME>        # Remove an environment variable
@@ -33,6 +34,19 @@ aai env pull             # Pull env var names into .env for local dev
 ```
 
 Install: `curl -fsSL https://aai-agent.fly.dev/install | sh`
+
+### Deploy a scaffolded project
+
+After scaffolding with `aai new`, deploy from the project directory:
+
+```sh
+cd my-agent
+aai deploy          # Bundle, check, and deploy
+aai deploy -y       # Skip confirmation prompts
+```
+
+The CLI auto-detects the server URL. When running via `aai-dev` (the local
+monorepo dev wrapper), it targets `http://localhost:3100` automatically.
 
 ### Start from a template
 

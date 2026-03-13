@@ -108,6 +108,44 @@ export async function runNewCommand(
     template,
     templatesDir,
   });
+
+  // In dev mode (running via deno, e.g. aai-dev), rewrite @aai imports
+  // to point at the local monorepo source so builds use latest code.
+  const isDevMode = Deno.execPath().endsWith("deno");
+  if (isDevMode) {
+    const monorepoRoot = join(cliDir, "..");
+    const denoJsonPath = join(cwd, "deno.json");
+    const denoJson = JSON.parse(await Deno.readTextFile(denoJsonPath));
+
+    // Read sub-path exports from each package's deno.json to map them all
+    for (const pkg of ["sdk", "ui"]) {
+      const pkgJson = JSON.parse(
+        await Deno.readTextFile(join(monorepoRoot, pkg, "deno.json")),
+      );
+      const pkgName = pkgJson.name as string; // e.g. "@aai/sdk"
+      const exports = pkgJson.exports;
+      if (typeof exports === "string") {
+        denoJson.imports[pkgName] = join(monorepoRoot, pkg, exports);
+      } else if (typeof exports === "object") {
+        for (const [subpath, target] of Object.entries(exports)) {
+          const importKey = subpath === "."
+            ? pkgName
+            : `${pkgName}/${subpath.slice(2)}`; // "./foo" -> "@aai/sdk/foo"
+          denoJson.imports[importKey] = join(
+            monorepoRoot,
+            pkg,
+            target as string,
+          );
+        }
+      }
+    }
+
+    await Deno.writeTextFile(
+      denoJsonPath,
+      JSON.stringify(denoJson, null, 2) + "\n",
+    );
+  }
+
   await ensureClaudeMd(cwd);
   await ensureDependencies(cwd);
 

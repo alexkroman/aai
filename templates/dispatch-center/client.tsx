@@ -134,6 +134,38 @@ function stateColor(state: string): string {
     : "#6b7280";
 }
 
+function Panel(
+  { title, children }: { title: string; children: preact.ComponentChildren },
+) {
+  return (
+    <div
+      class="rounded-lg p-3"
+      style={{ background: "#1a1a2e", border: "1px solid #1e293b" }}
+    >
+      <div
+        class="text-[10px] font-bold uppercase tracking-[1.5px] mb-2.5"
+        style={{ color: "#64748b" }}
+      >
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function StatRow(
+  { label, value, color }: { label: string; value: number; color?: string },
+) {
+  return (
+    <div class="flex justify-between items-center py-1 text-xs">
+      <span style={{ color: "#94a3b8" }}>{label}</span>
+      <span class="font-bold" style={{ color: color || "#e2e8f0" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function App() {
   const session = useSession();
   const msgs = session.messages.value;
@@ -157,82 +189,30 @@ function App() {
   const alertBg = alertColors[alertLevel] || "#6b7280";
   const alertTextColor = alertLevel === "yellow" ? "#000" : "#fff";
 
-  const panelStyle = {
-    background: "#1a1a2e",
-    border: "1px solid #1e293b",
-    borderRadius: "8px",
-    padding: "12px",
-  };
-
-  const panelTitle = {
-    fontSize: "10px",
-    fontWeight: "bold" as const,
-    textTransform: "uppercase" as const,
-    letterSpacing: "1.5px",
-    color: "#64748b",
-    marginBottom: "10px",
-  };
-
-  const btnBase = {
-    padding: "8px 16px",
-    border: "none",
-    borderRadius: "6px",
-    fontFamily: "monospace",
-    fontSize: "12px",
-    fontWeight: 600,
-    cursor: "pointer",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-  };
-
   return (
     <>
       <style>{CSS}</style>
       <div
-        style={{
-          fontFamily: "monospace",
-          background: "#0a0a0f",
-          color: "#e2e8f0",
-          minHeight: "100vh",
-          padding: 0,
-          margin: 0,
-          display: "flex",
-          flexDirection: "column",
-        }}
+        class="flex flex-col min-h-screen m-0 p-0 font-mono"
+        style={{ background: "#0a0a0f", color: "#e2e8f0" }}
       >
         {/* Header */}
         <div
+          class="flex items-center justify-between px-6 py-4 gap-4 flex-wrap shrink-0"
           style={{
             background: "linear-gradient(135deg, #1a1a2e, #16213e)",
             borderBottom: "1px solid #1e293b",
-            padding: "16px 24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "16px",
-            flexWrap: "wrap",
           }}
         >
           <div
-            style={{
-              fontSize: "18px",
-              fontWeight: "bold",
-              color: "#f1f5f9",
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-            }}
+            class="flex items-center gap-2.5 text-lg font-bold uppercase tracking-wider"
+            style={{ color: "#f1f5f9" }}
           >
             <span style={{ color: "#3b82f6" }}>&#9670;</span>
             Dispatch Command Center
             <span
+              class="w-2.5 h-2.5 rounded-full inline-block"
               style={{
-                width: "10px",
-                height: "10px",
-                borderRadius: "50%",
-                display: "inline-block",
                 background: stateColor(state),
                 animation: state === "listening"
                   ? "dc-pulse 1.5s ease-in-out infinite"
@@ -243,12 +223,8 @@ function App() {
               title={state}
             />
             <span
-              style={{
-                fontSize: "11px",
-                color: "#64748b",
-                fontWeight: "normal",
-                textTransform: "none",
-              }}
+              class="text-[11px] font-normal normal-case"
+              style={{ color: "#64748b" }}
             >
               {state === "listening"
                 ? "LISTENING"
@@ -259,24 +235,16 @@ function App() {
                 : state.toUpperCase()}
             </span>
           </div>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div class="flex gap-2 items-center">
             <span
-              style={{
-                fontSize: "10px",
-                color: "#64748b",
-                letterSpacing: "0.05em",
-              }}
+              class="text-[10px] tracking-wider"
+              style={{ color: "#64748b" }}
             >
               SYSTEM ALERT:
             </span>
             <span
+              class="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wider"
               style={{
-                padding: "4px 12px",
-                borderRadius: "4px",
-                fontSize: "11px",
-                fontWeight: "bold",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
                 background: alertBg,
                 color: alertTextColor,
                 animation: alertLevel === "red"
@@ -291,43 +259,19 @@ function App() {
 
         {/* Main content */}
         <div
-          className="dc-main"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 320px",
-            gridTemplateRows: "1fr",
-            flex: 1,
-            overflow: "hidden",
-          }}
+          class="dc-main flex-1 grid overflow-hidden"
+          style={{ gridTemplateColumns: "1fr 320px" }}
         >
           {/* Left: conversation feed */}
           <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              borderRight: "1px solid #1e293b",
-            }}
+            class="flex flex-col overflow-hidden"
+            style={{ borderRight: "1px solid #1e293b" }}
           >
-            <div
-              className="dc-messages"
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-              }}
-            >
+            <div class="dc-messages flex-1 overflow-y-auto p-4 flex flex-col gap-2">
               {msgs.length === 0 && (
                 <div
-                  style={{
-                    textAlign: "center",
-                    color: "#475569",
-                    padding: "40px 20px",
-                    fontSize: "13px",
-                  }}
+                  class="text-center p-10 text-[13px]"
+                  style={{ color: "#475569" }}
                 >
                   Dispatch Command Center standing by. Click START to begin
                   operations.
@@ -336,12 +280,9 @@ function App() {
               {msgs.map((m: Message, i: number) => (
                 <div
                   key={i}
+                  class="rounded-lg text-[13px] max-w-[85%] px-3.5 py-2.5"
                   style={{
-                    padding: "10px 14px",
-                    borderRadius: "8px",
-                    fontSize: "13px",
                     lineHeight: 1.6,
-                    maxWidth: "85%",
                     alignSelf: m.role === "assistant"
                       ? "flex-start"
                       : "flex-end",
@@ -356,13 +297,8 @@ function App() {
                   }}
                 >
                   <div
-                    style={{
-                      fontSize: "10px",
-                      color: "#64748b",
-                      marginBottom: "4px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
+                    class="text-[10px] uppercase tracking-wider mb-1"
+                    style={{ color: "#64748b" }}
                   >
                     {m.role === "assistant" ? "DISPATCH" : "OPERATOR"}
                   </div>
@@ -374,25 +310,16 @@ function App() {
 
             {tx && (
               <div
+                class="flex items-center px-4 py-2 text-xs italic min-h-8"
                 style={{
-                  padding: "8px 16px",
                   background: "#111827",
                   borderTop: "1px solid #1e293b",
-                  fontSize: "12px",
                   color: "#64748b",
-                  fontStyle: "italic",
-                  minHeight: "32px",
-                  display: "flex",
-                  alignItems: "center",
                 }}
               >
                 <span
+                  class="w-2.5 h-2.5 rounded-full inline-block mr-2"
                   style={{
-                    width: "10px",
-                    height: "10px",
-                    borderRadius: "50%",
-                    display: "inline-block",
-                    marginRight: "8px",
                     background: "#22c55e",
                     animation: "dc-pulse 1.5s ease-in-out infinite",
                   }}
@@ -402,11 +329,10 @@ function App() {
             )}
             {error && (
               <div
+                class="px-4 py-2 text-xs"
                 style={{
-                  padding: "8px 16px",
                   background: "#450a0a",
                   color: "#fca5a5",
-                  fontSize: "12px",
                   borderTop: "1px solid #991b1b",
                 }}
               >
@@ -415,24 +341,15 @@ function App() {
             )}
 
             <div
-              style={{
-                padding: "12px 16px",
-                background: "#111827",
-                borderTop: "1px solid #1e293b",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-              }}
+              class="flex items-center gap-2.5 px-4 py-3"
+              style={{ background: "#111827", borderTop: "1px solid #1e293b" }}
             >
               {!session.started.value
                 ? (
                   <button
                     type="button"
-                    style={{
-                      ...btnBase,
-                      background: "#2563eb",
-                      color: "white",
-                    }}
+                    class="px-4 py-2 border-none rounded-md font-mono text-xs font-semibold uppercase tracking-wider cursor-pointer text-white"
+                    style={{ background: "#2563eb" }}
                     onClick={() => session.start()}
                   >
                     Start Dispatch
@@ -442,8 +359,8 @@ function App() {
                   <>
                     <button
                       type="button"
+                      class="px-4 py-2 border-none rounded-md font-mono text-xs font-semibold uppercase tracking-wider cursor-pointer"
                       style={{
-                        ...btnBase,
                         background: session.running.value
                           ? "#334155"
                           : "#2563eb",
@@ -455,19 +372,16 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      style={{
-                        ...btnBase,
-                        background: "#dc2626",
-                        color: "white",
-                      }}
+                      class="px-4 py-2 border-none rounded-md font-mono text-xs font-semibold uppercase tracking-wider cursor-pointer text-white"
+                      style={{ background: "#dc2626" }}
                       onClick={() => session.reset()}
                     >
                       Reset
                     </button>
                   </>
                 )}
-              <div style={{ flex: 1 }} />
-              <span style={{ fontSize: "10px", color: "#475569" }}>
+              <div class="flex-1" />
+              <span class="text-[10px]" style={{ color: "#475569" }}>
                 {incidentList.length} incident
                 {incidentList.length !== 1 ? "s" : ""} logged
               </span>
@@ -476,80 +390,25 @@ function App() {
 
           {/* Right: sidebar dashboard */}
           <div
-            className="dc-sidebar"
-            style={{
-              background: "#111827",
-              overflowY: "auto",
-              padding: "16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "16px",
-            }}
+            class="dc-sidebar overflow-y-auto p-4 flex flex-col gap-4"
+            style={{ background: "#111827" }}
           >
-            {/* Quick stats */}
-            <div style={panelStyle}>
-              <div style={panelTitle}>Operations Summary</div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "4px 0",
-                  fontSize: "12px",
-                }}
-              >
-                <span style={{ color: "#94a3b8" }}>Active Incidents</span>
-                <span
-                  style={{
-                    fontWeight: "bold",
-                    color: activeIncidents.length > 3 ? "#ef4444" : "#e2e8f0",
-                  }}
-                >
-                  {activeIncidents.length}
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "4px 0",
-                  fontSize: "12px",
-                }}
-              >
-                <span style={{ color: "#94a3b8" }}>Resolved</span>
-                <span style={{ fontWeight: "bold", color: "#22c55e" }}>
-                  {resolvedCount}
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "4px 0",
-                  fontSize: "12px",
-                }}
-              >
-                <span style={{ color: "#94a3b8" }}>Total Logged</span>
-                <span style={{ fontWeight: "bold" }}>
-                  {incidentList.length}
-                </span>
-              </div>
-            </div>
+            <Panel title="Operations Summary">
+              <StatRow
+                label="Active Incidents"
+                value={activeIncidents.length}
+                color={activeIncidents.length > 3 ? "#ef4444" : "#e2e8f0"}
+              />
+              <StatRow label="Resolved" value={resolvedCount} color="#22c55e" />
+              <StatRow label="Total Logged" value={incidentList.length} />
+            </Panel>
 
-            {/* Active incidents */}
-            <div style={panelStyle}>
-              <div style={panelTitle}>Active Incidents</div>
+            <Panel title="Active Incidents">
               {activeIncidents.length === 0
                 ? (
                   <div
-                    style={{
-                      fontSize: "12px",
-                      color: "#475569",
-                      textAlign: "center",
-                      padding: "8px 0",
-                    }}
+                    class="text-xs text-center py-2"
+                    style={{ color: "#475569" }}
                   >
                     No active incidents
                   </div>
@@ -557,11 +416,9 @@ function App() {
                 : activeIncidents.map((inc) => (
                   <div
                     key={inc.id}
+                    class="rounded-md p-2.5 mb-2"
                     style={{
                       background: "#0f172a",
-                      borderRadius: "6px",
-                      padding: "10px",
-                      marginBottom: "8px",
                       animation: "dc-slide-in 0.3s ease-out",
                       border: `1px solid ${
                         severityColors[inc.severity ?? ""] || "#334155"
@@ -571,31 +428,17 @@ function App() {
                       }`,
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "4px",
-                      }}
-                    >
+                    <div class="flex justify-between items-center mb-1">
                       <span
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                          color: "#f1f5f9",
-                        }}
+                        class="text-xs font-bold"
+                        style={{ color: "#f1f5f9" }}
                       >
                         {inc.id}
                       </span>
                       {inc.severity && (
                         <span
+                          class="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase"
                           style={{
-                            fontSize: "9px",
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            fontWeight: "bold",
-                            textTransform: "uppercase",
                             background: `${
                               severityColors[inc.severity ?? ""]
                             }30`,
@@ -608,79 +451,50 @@ function App() {
                     </div>
                     {inc.location && (
                       <div
-                        style={{
-                          fontSize: "11px",
-                          color: "#94a3b8",
-                          marginBottom: "2px",
-                        }}
+                        class="text-[11px] mb-0.5"
+                        style={{ color: "#94a3b8" }}
                       >
                         {inc.location}
                       </div>
                     )}
                     {inc.status && (
                       <div
-                        style={{
-                          fontSize: "10px",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          color: statusColors[inc.status] || "#6b7280",
-                        }}
+                        class="text-[10px] uppercase tracking-wider"
+                        style={{ color: statusColors[inc.status] || "#6b7280" }}
                       >
                         {inc.status.replace("_", " ")}
                       </div>
                     )}
                   </div>
                 ))}
-            </div>
+            </Panel>
 
-            {/* Legend */}
-            <div style={panelStyle}>
-              <div style={panelTitle}>Severity Legend</div>
+            <Panel title="Severity Legend">
               {Object.entries(severityColors).map(([sev, color]) => (
-                <div
-                  key={sev}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "2px 0",
-                  }}
-                >
+                <div key={sev} class="flex items-center gap-2 py-0.5">
                   <span
-                    style={{
-                      width: "10px",
-                      height: "10px",
-                      borderRadius: "2px",
-                      background: color,
-                    }}
+                    class="w-2.5 h-2.5 rounded-sm"
+                    style={{ background: color }}
                   />
                   <span
-                    style={{
-                      fontSize: "11px",
-                      textTransform: "capitalize",
-                      color: "#94a3b8",
-                    }}
+                    class="text-[11px] capitalize"
+                    style={{ color: "#94a3b8" }}
                   >
                     {sev}
                   </span>
                 </div>
               ))}
-            </div>
+            </Panel>
 
-            {/* Scenario shortcuts */}
-            <div style={panelStyle}>
-              <div style={panelTitle}>Training Scenarios</div>
+            <Panel title="Training Scenarios">
               <div
-                style={{
-                  fontSize: "11px",
-                  color: "#64748b",
-                  lineHeight: 1.6,
-                }}
+                class="text-[11px] leading-relaxed"
+                style={{ color: "#64748b" }}
               >
                 Say "run mass casualty scenario" or "simulate active shooter" to
                 test dispatch operations with complex multi-incident drills.
               </div>
-            </div>
+            </Panel>
           </div>
         </div>
       </div>

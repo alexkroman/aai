@@ -14,14 +14,28 @@ deno task setup          # Configure git hooks (run after clone)
 deno task check          # Full CI: type-check, lint, fmt, tests
 deno task test           # Run all tests
 deno task serve          # Run the orchestrator server directly
-deno task deploy         # Production deploy
-deno task new            # Scaffold a new agent from templates/
 deno task bump           # Auto-bump versions for changed packages
 deno lint                # Lint only
 deno fmt                 # Format only
 ```
 
 Run a single test file: `deno test --allow-all server/session_test.ts`
+
+### aai-dev CLI
+
+`aai-dev` is a locally-installed dev wrapper (`deno task install-dev`) that
+points at the monorepo source. It automatically resolves `@aai` packages from
+the local tree and targets the local server — no `--dev` or `--server` flags
+needed.
+
+```sh
+aai-dev deploy           # Bundle and deploy to the local server
+aai-dev deploy -y        # Deploy without prompts
+aai-dev new              # Scaffold a new agent
+```
+
+To deploy a template for testing:
+`cd templates/<name> && aai-dev deploy -y`
 
 ## Git Hooks
 

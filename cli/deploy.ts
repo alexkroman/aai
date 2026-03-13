@@ -27,10 +27,6 @@ export const deployCommandDef: SubcommandDef = {
       flags: "--dry-run",
       description: "Validate and bundle without deploying",
     },
-    {
-      flags: "--dev",
-      description: "Resolve @aai packages from local monorepo source",
-    },
     { flags: "-y, --yes", description: "Accept defaults (no prompts)" },
   ],
 };
