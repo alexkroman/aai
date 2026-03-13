@@ -43,7 +43,7 @@ async function writeBuildOutput(
  *
  * @param opts Build options specifying the agent directory.
  * @returns The discovered agent metadata and bundle output.
- * @throws If no `agent.ts` is found or the esbuild bundle fails.
+ * @throws If no `agent.ts` is found or the bundle fails.
  */
 export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
   const agent = await loadAgent(opts.agentDir);

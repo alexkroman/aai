@@ -58,8 +58,8 @@ never on each other.
 - `cli.ts` — arg parsing, subcommands: new, build, deploy, types
 - `new.ts` / `deploy.ts` — Cliffy command definitions for subcommands
 - `_new.ts` / `_deploy.ts` — internal logic for new/deploy
-- `_bundler.ts` — esbuild bundling of `agent.ts`/`client.tsx` into
-  `worker.js`/`client.js`
+- `_bundler.ts` — Vite bundling of `agent.ts`/`client.tsx` into
+  `worker.js`/`index.html`
 - `_discover.ts` — imports `agent.ts` to extract config from `defineAgent()`
 - `_validate.ts` — build-time agent config validation
 

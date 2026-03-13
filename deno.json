@@ -41,7 +41,6 @@
     "@tailwindcss/postcss": "npm:@tailwindcss/postcss@^4",
     "postcss": "npm:postcss@^8",
     "tailwindcss": "npm:tailwindcss@^4",
-    "esbuild": "npm:esbuild@^0.25.12",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0",
     "turndown": "npm:turndown@^7.2.2",
     "@jsr/aai__sdk": "./sdk/mod.ts",

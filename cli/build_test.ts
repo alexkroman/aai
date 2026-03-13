@@ -7,7 +7,7 @@
 // const TEMPLATES_DIR = join(CLI_DIR, "templates");
 
 // TODO: Re-enable after @jsr/aai__sdk/worker-entry is published to JSR/npm.
-// esbuild can't resolve the new export path until the package is live.
+// Vite can't resolve the new export path until the package is live.
 //
 // Deno.test(
 //   { name: "runBuild", sanitizeOps: false, sanitizeResources: false },
