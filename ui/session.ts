@@ -1,6 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { batch, type Signal, signal } from "@preact/signals";
-import * as log from "@std/log";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
@@ -383,7 +382,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
           const fullMessage = details?.length
             ? `${msg.message}: ${details.join(", ")}`
             : msg.message;
-          log.error("Agent error:", fullMessage);
+          console.error("Agent error:", fullMessage);
           error.value = { code: "protocol", message: fullMessage };
           state.value = "error";
           break;

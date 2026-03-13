@@ -10,6 +10,9 @@
     "@jsr/aai__ui": "*"
   },
   "devDependencies": {
+    "@jsr/std__async": "*",
+    "@jsr/zod__zod": "*",
+    "@types/json-schema": "^7",
     "@preact/preset-vite": "^2",
     "@tailwindcss/vite": "^4",
     "tailwindcss": "^4",

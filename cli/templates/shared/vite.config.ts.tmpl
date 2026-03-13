@@ -10,20 +10,23 @@ const root = dirname(fileURLToPath(import.meta.url));
 const devRoot = process.env.AAI_DEV_ROOT;
 const buildTarget = process.env.AAI_BUILD_TARGET;
 
+/** Resolve a package name to its path in node_modules. */
+const pkg = (name: string) => resolve(root, "node_modules", name);
+
 const devAlias = devRoot
   ? {
     "@jsr/aai__sdk": resolve(devRoot, "sdk/mod.ts"),
     "@jsr/aai__ui": resolve(devRoot, "ui/mod.ts"),
     "@aai/sdk/protocol": resolve(devRoot, "sdk/protocol.ts"),
     "@aai/sdk": resolve(devRoot, "sdk/mod.ts"),
-    "zod": "@jsr/zod__zod",
-    "json-schema": "@jsr/types__json-schema",
-    "@std/async": "@jsr/std__async",
-    "@std/log": "@jsr/std__log",
+    "zod": pkg("@jsr/zod__zod"),
+    "json-schema": pkg("@types/json-schema"),
+    "@std/async": pkg("@jsr/std__async"),
   }
   : {};
 
 const workerConfig = defineConfig({
+  root,
   build: {
     outDir: resolve(root, ".aai/build"),
     emptyOutDir: true,
@@ -42,13 +45,11 @@ const workerConfig = defineConfig({
 });
 
 const clientConfig = defineConfig({
+  root: resolve(root, ".aai"),
   plugins: [preact(), tailwindcss(), viteSingleFile()],
   build: {
     outDir: resolve(root, ".aai/build"),
     emptyOutDir: true,
-    rollupOptions: {
-      input: resolve(root, ".aai/index.html"),
-    },
   },
   resolve: { alias: devAlias },
 });
