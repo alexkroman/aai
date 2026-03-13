@@ -14,15 +14,25 @@
 import { bold, brightMagenta, red } from "@std/fmt/colors";
 import * as log from "@std/log";
 import { dirname, fromFileUrl, join } from "@std/path";
+import { deadline } from "@std/async/deadline";
 
 const ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const CLI = join(ROOT, "cli", "cli.ts");
 const SERVER = join(ROOT, "server", "main.ts");
 const TEMPLATES_DIR = join(ROOT, "templates");
 const DENO = Deno.execPath();
-const DENO_RUN = [DENO, "run", "--allow-all", "--unstable-worker-options", CLI];
+const DENO_RUN = [
+  DENO,
+  "run",
+  "--allow-all",
+  "--unstable-worker-options",
+  CLI,
+];
 const PORT = 3199; // Use a non-default port to avoid conflicts
 const BASE_URL = `http://localhost:${PORT}`;
+
+// Timeout for each scaffold+deploy step (3 minutes should be plenty)
+const STEP_TIMEOUT_MS = 180_000;
 
 // Ensure ASSEMBLYAI_API_KEY is set
 if (!Deno.env.get("ASSEMBLYAI_API_KEY")) {
@@ -73,6 +83,47 @@ if (!serverReady) {
 }
 log.info(`Server ready on port ${PORT}\n`);
 
+// --- Pre-install shared node_modules once ---
+// All templates share the same npm dependencies. Install once and symlink
+// to each temp dir so we don't re-download ~100 packages per template.
+log.info("Pre-installing shared dependencies...");
+const sharedDir = await Deno.makeTempDir({ prefix: "aai-test-shared-" });
+const sharedScaffold = new Deno.Command(DENO_RUN[0]!, {
+  args: [...DENO_RUN.slice(1), "new", "-t", "simple", "-y", "--force"],
+  cwd: sharedDir,
+  env: { ...Deno.env.toObject(), INIT_CWD: sharedDir },
+  stdout: "piped",
+  stderr: "piped",
+});
+const sharedResult = await deadline(sharedScaffold.output(), STEP_TIMEOUT_MS);
+if (!sharedResult.success) {
+  const stderr = new TextDecoder().decode(sharedResult.stderr);
+  log.error(`Failed to pre-install dependencies: ${stderr}`);
+  serverProcess.kill("SIGTERM");
+  Deno.exit(1);
+}
+const sharedNodeModules = join(sharedDir, "node_modules");
+log.info("Dependencies ready.\n");
+
+/** Run a command with a timeout. Returns { success, stderr }. */
+async function run(
+  args: string[],
+  cwd: string,
+): Promise<{ success: boolean; stderr: string }> {
+  const cmd = new Deno.Command(args[0]!, {
+    args: args.slice(1),
+    cwd,
+    env: { ...Deno.env.toObject(), INIT_CWD: cwd },
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const result = await deadline(cmd.output(), STEP_TIMEOUT_MS);
+  return {
+    success: result.success,
+    stderr: new TextDecoder().decode(result.stderr),
+  };
+}
+
 // --- Scaffold, deploy, and health-check each template ---
 const results: { name: string; ok: boolean; slug?: string; error?: string }[] =
   [];
@@ -82,31 +133,34 @@ for (const template of templates) {
 
   try {
     // Scaffold
-    const scaffold = new Deno.Command(DENO_RUN[0]!, {
-      args: [...DENO_RUN.slice(1), "new", "-t", template, "-y", "--force"],
-      cwd: tmpDir,
-      env: { ...Deno.env.toObject(), INIT_CWD: tmpDir },
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const scaffoldResult = await scaffold.output();
-    if (!scaffoldResult.success) {
-      const stderr = new TextDecoder().decode(scaffoldResult.stderr);
-      throw new Error(`Scaffold failed: ${stderr}`);
+    log.info(`  ${template}: scaffolding...`);
+    const scaffold = await run(
+      [...DENO_RUN, "new", "-t", template, "-y", "--force"],
+      tmpDir,
+    );
+    if (!scaffold.success) {
+      throw new Error(`Scaffold failed: ${scaffold.stderr}`);
     }
 
+    // Symlink shared node_modules if the scaffold created its own
+    // (ensureDependencies skips if node_modules exists, but if it ran
+    // and installed fresh, replace with symlink for consistency)
+    const tmpNodeModules = join(tmpDir, "node_modules");
+    try {
+      await Deno.remove(tmpNodeModules, { recursive: true });
+    } catch {
+      // Doesn't exist yet — fine
+    }
+    await Deno.symlink(sharedNodeModules, tmpNodeModules);
+
     // Deploy to local server
-    const deploy = new Deno.Command(DENO_RUN[0]!, {
-      args: [...DENO_RUN.slice(1), "deploy", "-y", "-s", BASE_URL],
-      cwd: tmpDir,
-      env: { ...Deno.env.toObject(), INIT_CWD: tmpDir },
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const deployResult = await deploy.output();
-    if (!deployResult.success) {
-      const stderr = new TextDecoder().decode(deployResult.stderr);
-      throw new Error(`Deploy failed: ${stderr}`);
+    log.info(`  ${template}: deploying...`);
+    const deploy = await run(
+      [...DENO_RUN, "deploy", "-y", "-s", BASE_URL],
+      tmpDir,
+    );
+    if (!deploy.success) {
+      throw new Error(`Deploy failed: ${deploy.stderr}`);
     }
 
     // Extract slug from .aai/project.json
@@ -130,20 +184,21 @@ for (const template of templates) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log.info(`  ${red("✗")} ${template}`);
-    log.info(`    ${msg}`);
+    log.info(`    ${msg.slice(0, 500)}`);
     results.push({ name: template, ok: false, error: msg });
   } finally {
-    await Deno.remove(tmpDir, { recursive: true });
+    await Deno.remove(tmpDir, { recursive: true }).catch(() => {});
   }
 }
 
-// --- Shutdown server ---
+// --- Cleanup ---
 serverProcess.kill("SIGTERM");
 try {
   await serverProcess.status;
 } catch {
   // Expected — process terminated
 }
+await Deno.remove(sharedDir, { recursive: true }).catch(() => {});
 
 // --- Summary ---
 log.info("");
@@ -155,7 +210,7 @@ if (failed === 0) {
 } else {
   log.info(bold(red(`${failed} of ${results.length} templates failed:`)));
   for (const r of results.filter((r) => !r.ok)) {
-    log.info(`  ${red("✗")} ${r.name}: ${r.error}`);
+    log.info(`  ${red("✗")} ${r.name}: ${r.error?.slice(0, 200)}`);
   }
   Deno.exit(1);
 }
