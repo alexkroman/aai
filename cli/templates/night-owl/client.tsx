@@ -1,12 +1,11 @@
+import { mount, useSession } from "@aai/ui";
+import type { Message } from "@aai/ui";
 import {
   ErrorBanner,
   MessageBubble,
-  mount,
   StateIndicator,
   Transcript,
-  useSession,
-} from "@aai/ui";
-import type { Message } from "@aai/ui";
+} from "./components.tsx";
 import { useEffect, useRef } from "preact/hooks";
 
 function NightOwl() {

@@ -1,2 +1,3 @@
-import { App, mount } from "@aai/ui";
+import { mount } from "@aai/ui";
+import { App } from "./components.tsx";
 mount(App);

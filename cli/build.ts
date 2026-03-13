@@ -40,10 +40,20 @@ async function writeBuildOutput(
  * Fails the build on any errors.
  */
 async function checkAgent(agentDir: string): Promise<void> {
+  // Only check user files, not node_modules or .aai/
+  const userFiles = ["agent.ts"];
+  for (const f of ["client.tsx", "components.tsx"]) {
+    try {
+      await Deno.stat(join(agentDir, f));
+      userFiles.push(f);
+    } catch {
+      // file doesn't exist
+    }
+  }
   const checks = [
-    { args: ["check", "agent.ts"], label: "Type-check" },
-    { args: ["lint"], label: "Lint" },
-    { args: ["fmt", "--check"], label: "Format" },
+    { args: ["check", ...userFiles], label: "Type-check" },
+    { args: ["lint", ...userFiles], label: "Lint" },
+    { args: ["fmt", "--check", ...userFiles], label: "Format" },
   ];
   for (const { args, label } of checks) {
     const cmd = new Deno.Command(Deno.execPath(), {

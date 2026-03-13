@@ -168,6 +168,7 @@ function buildClient() {
         build: {
           outDir: resolve(root, ".aai/build"),
           emptyOutDir: false,
+          minify: true,
         },
       });
     },

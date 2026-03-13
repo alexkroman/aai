@@ -1,4 +1,5 @@
-import { ErrorBanner, mount, useSession } from "@aai/ui";
+import { mount, useSession } from "@aai/ui";
+import { ErrorBanner } from "./components.tsx";
 import type { Message } from "@aai/ui";
 import { useEffect, useRef } from "preact/hooks";
 
