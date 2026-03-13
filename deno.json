@@ -26,19 +26,19 @@
     "@std/dotenv": "jsr:@std/dotenv@0.225.6",
     "@std/html": "jsr:@std/html@^1.0.5",
     "@std/bytes": "jsr:@std/bytes@^1.0.6",
-    "@std/fs": "jsr:@std/fs@^1.0.17",
-    "@std/http": "jsr:@std/http@^1.0.18",
-    "@std/crypto": "jsr:@std/crypto@^1.0.4",
-"@std/encoding": "jsr:@std/encoding@^1.0.7",
+    "@std/fs": "jsr:@std/fs@^1.0.23",
+    "@std/http": "jsr:@std/http@^1.0.25",
+    "@std/crypto": "jsr:@std/crypto@^1.0.5",
+"@std/encoding": "jsr:@std/encoding@^1.0.10",
     "@std/log": "jsr:@std/log@^0.224.14",
     "@std/net": "jsr:@std/net@^1.0.6",
-    "@std/semver": "jsr:@std/semver@^1.0.6",
+    "@std/semver": "jsr:@std/semver@^1.0.8",
     "@std/text": "jsr:@std/text@^1.0.17",
-    "preact": "npm:preact@^10.28.4",
-    "preact/hooks": "npm:preact@^10.28.4/hooks",
-    "@preact/signals": "npm:@preact/signals@^2.8.1",
+    "preact": "npm:preact@^10.29.0",
+    "preact/hooks": "npm:preact@^10.29.0/hooks",
+    "@preact/signals": "npm:@preact/signals@^2.8.2",
     "zod": "jsr:@zod/zod@^4.3.6",
-    "esbuild": "npm:esbuild@^0.25.0",
+    "esbuild": "npm:esbuild@^0.25.12",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0",
     "turndown": "npm:turndown@^7.2.2"
   },
@@ -82,7 +82,9 @@
       "include": [
         "camelcase",
         "no-sync-fn-in-async-fn",
-        "single-var-declarator"
+        "single-var-declarator",
+        "verbatim-module-syntax",
+        "no-unused-vars"
       ]
     },
     "plugins": ["./scripts/lint_plugin.ts"]
