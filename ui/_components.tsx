@@ -1,16 +1,10 @@
 // Copyright 2025 the AAI authors. MIT license.
 import type * as preact from "preact";
 import { useRef } from "preact/hooks";
-import { useComputed, useSignalEffect } from "@preact/signals";
+import { useSignalEffect } from "@preact/signals";
 import type { Signal } from "@preact/signals";
 import type { AgentState, Message, SessionError } from "./types.ts";
 import { useSession } from "./signals.ts";
-import { Alert } from "./primitives/alert.tsx";
-import { Badge } from "./primitives/badge.tsx";
-import { Button } from "./primitives/button.tsx";
-import { Card } from "./primitives/card.tsx";
-import { ScrollArea } from "./primitives/scroll-area.tsx";
-import { cn } from "./primitives/cn.ts";
 
 // --- Components ---
 
@@ -18,13 +12,29 @@ export function StateIndicator(
   { state }: { state: Signal<AgentState> },
 ): preact.JSX.Element {
   return (
-    <Badge className="mb-4 shrink-0">
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "6px",
+        fontSize: "13px",
+        fontWeight: 500,
+        lineHeight: "130%",
+        color: "rgba(255,255,255,0.284)",
+        textTransform: "capitalize",
+      }}
+    >
       <div
-        className="w-3 h-3 rounded-full"
-        style={{ background: `var(--aai-state-${state.value})` }}
+        style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "50%",
+          background: `var(--color-aai-state-${state.value})`,
+        }}
       />
       {state}
-    </Badge>
+    </div>
   );
 }
 
@@ -33,9 +43,20 @@ export function ErrorBanner(
 ): preact.JSX.Element | null {
   if (!error.value) return null;
   return (
-    <Alert variant="destructive" className="mb-4">
+    <div
+      style={{
+        margin: "12px 16px 0",
+        padding: "8px 12px",
+        borderRadius: "6px",
+        border: "1px solid rgba(252,83,58,0.4)",
+        background: "rgba(252,83,58,0.08)",
+        fontSize: "13px",
+        lineHeight: "130%",
+        color: "#fc533a",
+      }}
+    >
       {error.value.message}
-    </Alert>
+    </div>
   );
 }
 
@@ -44,17 +65,39 @@ export function MessageBubble(
 ): preact.JSX.Element {
   const isUser = message.role === "user";
   return (
-    <div className={cn("mb-3", isUser ? "text-right" : "text-left")}>
-      <Card
-        className={cn(
-          "inline-block max-w-[80%] border-none text-left shadow-none",
-          isUser ? "bg-aai-surface-light" : "bg-aai-surface",
-        )}
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: isUser ? "flex-end" : "flex-start",
+        alignSelf: "stretch",
+        width: "100%",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "min(82%, 64ch)",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          fontSize: "14px",
+          fontWeight: 400,
+          lineHeight: "150%",
+          color: "rgba(255,255,255,0.936)",
+          ...(isUser
+            ? {
+              background: "rgba(255,255,255,0.031)",
+              border: "1px solid #282828",
+              padding: "8px 12px",
+              borderRadius: "6px",
+              marginLeft: "auto",
+            }
+            : {
+              padding: "0",
+            }),
+        }}
       >
-        <div className="px-3 py-2 text-sm">
-          {message.text}
-        </div>
-      </Card>
+        {message.text}
+      </div>
     </div>
   );
 }
@@ -64,24 +107,56 @@ export function Transcript(
 ): preact.JSX.Element | null {
   if (!text.value) return null;
   return (
-    <div className="mb-3 text-right">
-      <Card className="inline-block max-w-[80%] border-none bg-aai-surface-light opacity-60 text-left shadow-none">
-        <div className="px-3 py-2 text-sm">
-          {text}
-        </div>
-      </Card>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-end",
+        width: "100%",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "min(82%, 64ch)",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          fontSize: "14px",
+          lineHeight: "150%",
+          color: "rgba(255,255,255,0.284)",
+          background: "rgba(255,255,255,0.031)",
+          border: "1px solid #282828",
+          padding: "8px 12px",
+          borderRadius: "6px",
+          marginLeft: "auto",
+        }}
+      >
+        {text.value}
+      </div>
     </div>
   );
 }
 
 export function ThinkingIndicator(): preact.JSX.Element {
   return (
-    <div className="flex items-center gap-1 px-3 py-2 mb-3">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        color: "rgba(255,255,255,0.422)",
+        fontSize: "14px",
+        fontWeight: 500,
+        minHeight: "20px",
+      }}
+    >
       {[0, 0.16, 0.32].map((delay) => (
         <div
           key={delay}
-          className="w-3 h-3 rounded-full bg-aai-text-muted"
           style={{
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.422)",
             animation: "aai-bounce 1.4s infinite ease-in-out both",
             animationDelay: `${delay}s`,
           }}
@@ -103,40 +178,97 @@ function MessageList() {
   });
 
   return (
-    <ScrollArea className="flex-1 min-h-[200px] mb-4 p-4 border border-aai-surface-light rounded-aai">
-      {messages.value.map((msg: Message, i: number) => (
-        <MessageBubble key={i} message={msg} />
-      ))}
-      <Transcript text={transcript} />
-      {state.value === "thinking" && <ThinkingIndicator />}
-      <div ref={scrollRef} />
-    </ScrollArea>
+    <div
+      role="log"
+      style={{
+        flex: 1,
+        overflowY: "auto",
+        scrollbarWidth: "none",
+        WebkitOverflowScrolling: "touch",
+        background: "#151515",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "18px",
+          padding: "16px",
+        }}
+      >
+        {messages.value.map((msg: Message, i: number) => (
+          <MessageBubble key={i} message={msg} />
+        ))}
+        <Transcript text={transcript} />
+        {state.value === "thinking" && <ThinkingIndicator />}
+        <div ref={scrollRef} />
+      </div>
+    </div>
   );
 }
 
 function Controls() {
   const { running, toggle, reset } = useSession();
-  const variant = useComputed(() =>
-    running.value ? "destructive" as const : "default" as const
-  );
+
+  const btnBase = {
+    height: "32px",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    fontSize: "14px",
+    fontWeight: 500,
+    lineHeight: "130%",
+    cursor: "pointer",
+    border: "1px solid transparent",
+    outline: "none",
+  } as const;
 
   return (
-    <div className="flex gap-2 shrink-0 pb-[env(safe-area-inset-bottom,0)]">
-      <Button
-        variant={variant.value}
-        className="flex-1 py-3"
+    <div
+      style={{
+        display: "flex",
+        gap: "8px",
+        padding: "12px 16px",
+        borderTop: "1px solid #282828",
+        flexShrink: 0,
+      }}
+    >
+      <button
+        type="button"
+        style={{
+          ...btnBase,
+          background: running.value ? "rgba(255,255,255,0.059)" : "#034cff",
+          color: running.value ? "rgba(255,255,255,0.618)" : "#fff",
+          borderColor: running.value ? "#282828" : "#034cff",
+        }}
         onClick={toggle}
       >
         {running.value ? "Stop" : "Resume"}
-      </Button>
-      <Button
-        variant="outline"
-        className="flex-1 py-3"
+      </button>
+      <button
+        type="button"
+        style={{
+          ...btnBase,
+          background: "transparent",
+          color: "rgba(255,255,255,0.618)",
+          borderColor: "#282828",
+        }}
         onClick={reset}
       >
         New Conversation
-      </Button>
+      </button>
     </div>
+  );
+}
+
+function BodyStyle(): preact.JSX.Element {
+  return (
+    <>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      />
+      <style>html,body{"{"}margin:0;padding:0;background:#101010{"}"}</style>
+    </>
   );
 }
 
@@ -144,8 +276,47 @@ export function ChatView(): preact.JSX.Element {
   const { state, error } = useSession();
 
   return (
-    <div className="max-w-[600px] mx-auto p-5 min-h-screen box-border flex flex-col font-aai text-aai-text">
-      <StateIndicator state={state} />
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        maxWidth: "520px",
+        margin: "0 auto",
+        background: "#101010",
+        color: "rgba(255,255,255,0.936)",
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        fontSize: "14px",
+      }}
+    >
+      <BodyStyle />
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          padding: "12px 16px",
+          borderBottom: "1px solid #282828",
+          flexShrink: 0,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: "10px",
+            lineHeight: 1.1,
+            fontWeight: 700,
+            color: "#9dbefe",
+            whiteSpace: "pre",
+          }}
+        >
+          ▄▀█ ▄▀█ █ █▀█ █▀█ █
+        </span>
+        <div style={{ marginLeft: "auto" }}>
+          <StateIndicator state={state} />
+        </div>
+      </div>
       <ErrorBanner error={error} />
       <MessageList />
       <Controls />
@@ -158,10 +329,61 @@ export function App(): preact.JSX.Element {
 
   if (!started.value) {
     return (
-      <div className="max-w-[600px] mx-auto p-5 flex items-center justify-center min-h-screen font-aai text-aai-text">
-        <Button size="lg" onClick={start}>
-          Start Conversation
-        </Button>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          background: "#101010",
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        }}
+      >
+        <BodyStyle />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "24px",
+            background: "#151515",
+            border: "1px solid #282828",
+            borderRadius: "8px",
+            padding: "40px 48px",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: "18px",
+              lineHeight: 1.1,
+              fontWeight: 700,
+              color: "#9dbefe",
+              whiteSpace: "pre",
+            }}
+          >
+            ▄▀█ ▄▀█ █ █▀█ █▀█ █
+          </span>
+          <button
+            type="button"
+            style={{
+              height: "32px",
+              padding: "6px 16px",
+              borderRadius: "6px",
+              fontSize: "14px",
+              fontWeight: 500,
+              lineHeight: "130%",
+              cursor: "pointer",
+              background: "rgba(255,255,255,0.059)",
+              color: "rgba(255,255,255,0.618)",
+              border: "1px solid #282828",
+              outline: "none",
+            }}
+            onClick={start}
+          >
+            Start
+          </button>
+        </div>
       </div>
     );
   }

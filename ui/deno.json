@@ -1,6 +1,6 @@
 {
   "name": "@aai/ui",
-  "version": "0.1.124",
+  "version": "0.1.128",
   "exports": "./mod.ts",
   "publish": {
     "exclude": [
@@ -18,16 +18,7 @@
   "imports": {
     "preact": "npm:preact@^10.29.0",
     "preact/hooks": "npm:preact@^10.29.0/hooks",
-    "preact/compat": "npm:preact@^10.29.0/compat",
-    "react": "npm:preact@^10.29.0/compat",
-    "react-dom": "npm:preact@^10.29.0/compat",
     "@preact/signals": "npm:@preact/signals@^2.8.2",
-    "@radix-ui/react-slot": "npm:@radix-ui/react-slot@^1.1.1",
-    "@radix-ui/react-scroll-area": "npm:@radix-ui/react-scroll-area@^1.2.2",
-    "class-variance-authority": "npm:class-variance-authority@^0.7.1",
-    "clsx": "npm:clsx@^2.1.1",
-    "tailwind-merge": "npm:tailwind-merge@^2.6.0",
-    "lucide-react": "npm:lucide-react@^0.468.0",
     "linkedom": "npm:linkedom@^0.18.10",
     "@aai/sdk": "workspace:@aai/sdk"
   },

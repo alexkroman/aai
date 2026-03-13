@@ -8,7 +8,6 @@ import {
 import { delay } from "@std/async/delay";
 import { withMountEnv } from "./_test_utils.ts";
 import { mount } from "./mount.tsx";
-import { defaultTheme } from "./theme.ts";
 
 Deno.test("mount()", async (t) => {
   await t.step(
@@ -53,45 +52,6 @@ Deno.test("mount()", async (t) => {
       assert(handle.session !== undefined);
       assert(handle.signals !== undefined);
       assertStrictEquals(typeof handle.dispose, "function");
-    }),
-  );
-
-  await t.step(
-    "applies theme CSS variables to the container",
-    withMountEnv(() => {
-      function App() {
-        return <div />;
-      }
-      mount(App, { platformUrl: "http://localhost:3000" });
-
-      const el = globalThis.document.querySelector("#app") as HTMLElement;
-      const style = el.style as unknown as CSSStyleDeclaration;
-      const bg = style.getPropertyValue("--aai-bg");
-      assertStrictEquals(bg, defaultTheme.bg);
-      const primary = style.getPropertyValue("--aai-primary");
-      assertStrictEquals(primary, defaultTheme.primary);
-    }),
-  );
-
-  await t.step(
-    "merges custom theme with defaults",
-    withMountEnv(() => {
-      function App() {
-        return <div />;
-      }
-      mount(App, {
-        platformUrl: "http://localhost:3000",
-        theme: { bg: "#000000", primary: "#ff0000" },
-      });
-
-      const el = globalThis.document.querySelector("#app") as HTMLElement;
-      const style = el.style as unknown as CSSStyleDeclaration;
-      const bg = style.getPropertyValue("--aai-bg");
-      assertStrictEquals(bg, "#000000");
-      const primary = style.getPropertyValue("--aai-primary");
-      assertStrictEquals(primary, "#ff0000");
-      const surface = style.getPropertyValue("--aai-surface");
-      assertStrictEquals(surface, defaultTheme.surface);
     }),
   );
 

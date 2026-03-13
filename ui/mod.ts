@@ -3,7 +3,7 @@
  * Browser client library for AAI voice agents.
  *
  * Provides WebSocket session management, audio capture/playback,
- * Preact UI components, and theming.
+ * and Preact UI components.
  *
  * @example
  * ```tsx
@@ -32,9 +32,6 @@ export {
 } from "./signals.ts";
 export type { SessionSignals } from "./signals.ts";
 
-export { applyTheme, darkTheme, defaultTheme, lightTheme } from "./theme.ts";
-export type { Theme } from "./theme.ts";
-
 export { mount } from "./mount.tsx";
 export type { MountHandle, MountOptions } from "./mount.tsx";
 
@@ -47,25 +44,3 @@ export {
   ThinkingIndicator,
   Transcript,
 } from "./components.ts";
-
-export {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  cn,
-  ScrollArea,
-} from "./primitives/mod.ts";
-export type {
-  AlertProps,
-  BadgeProps,
-  ButtonProps,
-  CardProps,
-  ScrollAreaProps,
-} from "./primitives/mod.ts";

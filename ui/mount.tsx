@@ -7,20 +7,9 @@ import {
   SessionProvider,
   type SessionSignals,
 } from "./signals.ts";
-import { applyTheme, defaultTheme, type Theme } from "./theme.ts";
-
-function injectBodyStyle(theme: Theme): HTMLStyleElement {
-  const style = document.createElement("style");
-  style.textContent =
-    `body { margin: 0; padding: 0; background: ${theme.bg}; }`;
-  document.head.appendChild(style);
-  return style;
-}
 
 /** Options for {@linkcode mount}. */
 export type MountOptions = {
-  /** Partial theme overrides merged with the default theme. */
-  theme?: Partial<Theme>;
   /** CSS selector or DOM element to render into. Defaults to `"#app"`. */
   target?: string | HTMLElement;
   /** Base URL of the AAI platform server. Derived from `location.href` by default. */
@@ -52,14 +41,14 @@ function resolveContainer(target: string | HTMLElement = "#app"): HTMLElement {
 }
 
 /**
- * Mount a Preact component with voice session wiring and theming.
+ * Mount a Preact component with voice session wiring.
  *
  * Creates a {@linkcode VoiceSession}, wraps it in
- * {@linkcode SessionSignals}, applies the theme, and renders the component
+ * {@linkcode SessionSignals}, and renders the component
  * inside a {@linkcode SessionProvider}.
  *
  * @param Component - The Preact component to render.
- * @param options - Mount options (theme, target element, platform URL).
+ * @param options - Mount options (target element, platform URL).
  * @returns A {@linkcode MountHandle} for cleanup.
  * @throws {Error} If the target element is not found in the DOM.
  */
@@ -68,14 +57,11 @@ export function mount(
   options?: MountOptions,
 ): MountHandle {
   const container = resolveContainer(options?.target);
-  const theme = { ...defaultTheme, ...options?.theme };
-  applyTheme(container, theme);
 
   const platformUrl = options?.platformUrl ??
     globalThis.location.origin + globalThis.location.pathname;
   const session = createVoiceSession({ platformUrl });
   const signals = createSessionControls(session);
-  const styleEl = injectBodyStyle(theme);
 
   render(
     <SessionProvider value={signals}>
@@ -89,7 +75,6 @@ export function mount(
     signals,
     dispose() {
       render(null, container);
-      styleEl.remove();
       signals.dispose();
       session.disconnect();
     },

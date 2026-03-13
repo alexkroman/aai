@@ -1,23 +1,35 @@
 @import "tailwindcss";
 @source "./";
+@source "./components/";
 @source ".aai/sources/";
 
 @theme {
-  --color-aai-bg: var(--aai-bg);
-  --color-aai-surface: var(--aai-surface);
-  --color-aai-surface-light: var(--aai-surface-light);
-  --color-aai-primary: var(--aai-primary);
-  --color-aai-text: var(--aai-text);
-  --color-aai-text-muted: var(--aai-text-muted);
-  --color-aai-error: var(--aai-error);
-  --color-aai-state-connecting: var(--aai-state-connecting);
-  --color-aai-state-ready: var(--aai-state-ready);
-  --color-aai-state-listening: var(--aai-state-listening);
-  --color-aai-state-thinking: var(--aai-state-thinking);
-  --color-aai-state-speaking: var(--aai-state-speaking);
-  --color-aai-state-error: var(--aai-state-error);
-  --radius-aai: var(--aai-radius);
-  --font-aai: var(--aai-font);
+  /* opencode dark theme */
+  --color-background: #101010;
+  --color-foreground: rgba(255, 255, 255, 0.936);
+  --color-card: #151515;
+  --color-card-foreground: rgba(255, 255, 255, 0.936);
+  --color-primary: #ededed;
+  --color-primary-foreground: #101010;
+  --color-secondary: rgba(255, 255, 255, 0.059);
+  --color-secondary-foreground: rgba(255, 255, 255, 0.936);
+  --color-muted: rgba(255, 255, 255, 0.031);
+  --color-muted-foreground: rgba(255, 255, 255, 0.422);
+  --color-accent: rgba(255, 255, 255, 0.078);
+  --color-accent-foreground: rgba(255, 255, 255, 0.936);
+  --color-destructive: #fc533a;
+  --color-border: #282828;
+  --color-ring: #9dbefe;
+  --color-surface: rgba(255, 255, 255, 0.031);
+  --color-surface-hover: rgba(255, 255, 255, 0.059);
+
+  /* aai state colors */
+  --color-aai-state-connecting: rgba(255, 255, 255, 0.422);
+  --color-aai-state-ready: #12c905;
+  --color-aai-state-listening: #9dbefe;
+  --color-aai-state-thinking: #fcd53a;
+  --color-aai-state-speaking: #fc533a;
+  --color-aai-state-error: #fc533a;
 }
 
 @keyframes aai-bounce {

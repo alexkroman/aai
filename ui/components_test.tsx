@@ -129,7 +129,7 @@ Deno.test("App", async (t) => {
       );
       assertStrictEquals(
         container.querySelector("button")!.textContent,
-        "Start Conversation",
+        "Start",
       );
     }),
   );
@@ -163,7 +163,7 @@ Deno.test("App", async (t) => {
       );
       assertStrictEquals(
         container.querySelector("button")!.textContent,
-        "Start Conversation",
+        "Start",
       );
 
       signals.started.value = true;
@@ -175,7 +175,7 @@ Deno.test("App", async (t) => {
       );
 
       assertStringIncludes(container.textContent!, "listening");
-      assert(!container.textContent!.includes("Start Conversation"));
+      assert(!container.textContent!.includes("Start"));
     }),
   );
 });
