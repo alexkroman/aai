@@ -41,7 +41,9 @@ function LandingPage() {
       </head>
       <body style="margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;background:#0a0a0a;color:#d1d5db;min-height:100vh;display:flex;align-items:center;justify-content:center">
         <div style="max-width:768px;padding:48px;width:100%">
-          <h1 style="font-size:4.5rem;font-weight:bold;margin:0 0 16px 0">aai</h1>
+          <h1 style="font-size:4.5rem;font-weight:bold;margin:0 0 16px 0">
+            aai
+          </h1>
           <p style="color:#6b7280;margin:0 0 32px 0;line-height:1.6;font-size:1.25rem">
             Build and deploy a voice agent in 10 seconds.
           </p>

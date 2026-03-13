@@ -40,7 +40,9 @@
     "zod": "jsr:@zod/zod@^4.3.6",
     "esbuild": "npm:esbuild@^0.25.12",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0",
-    "turndown": "npm:turndown@^7.2.2"
+    "turndown": "npm:turndown@^7.2.2",
+    "@jsr/aai__sdk": "./sdk/mod.ts",
+    "@jsr/aai__ui": "./ui/mod.ts"
   },
   "nodeModulesDir": "auto",
   "compilerOptions": {

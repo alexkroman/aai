@@ -342,7 +342,9 @@ function App() {
                     fontSize: "13px",
                     lineHeight: 1.6,
                     maxWidth: "85%",
-                    alignSelf: m.role === "assistant" ? "flex-start" : "flex-end",
+                    alignSelf: m.role === "assistant"
+                      ? "flex-start"
+                      : "flex-end",
                     background: m.role === "assistant" ? "#1e293b" : "#172554",
                     animation: "dc-slide-in 0.2s ease-out",
                     borderLeft: m.role === "assistant"
@@ -530,7 +532,9 @@ function App() {
                 }}
               >
                 <span style={{ color: "#94a3b8" }}>Total Logged</span>
-                <span style={{ fontWeight: "bold" }}>{incidentList.length}</span>
+                <span style={{ fontWeight: "bold" }}>
+                  {incidentList.length}
+                </span>
               </div>
             </div>
 

@@ -14,7 +14,7 @@ deno task bump
 git add */deno.json deno.lock 2>/dev/null
 
 echo "Running checks before commit..."
-deno task check
+deno task check || exit 1
 
 echo "Verifying binary compiles..."
 # --no-check: full type-checking already runs above (deno task check)

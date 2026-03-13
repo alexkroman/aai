@@ -38,8 +38,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
       timeoutMs,
     );
     promise.then(
-      (v) => { clearTimeout(timer); resolve(v); },
-      (e) => { clearTimeout(timer); reject(e); },
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
     );
   });
 }

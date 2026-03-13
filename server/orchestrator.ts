@@ -113,14 +113,14 @@ export function createOrchestrator(opts: {
       handler: () => text(INSTALL_SCRIPT),
     },
 
-    // --- Trailing-slash redirect (ensures relative URLs in static HTML resolve correctly) ---
+    // --- Agent page (no trailing slash is canonical) ---
     {
       pattern: p("/:slug"),
       method: "GET",
-      handler: (req) => {
-        const url = new URL(req.url);
-        url.pathname += "/";
-        return Response.redirect(url.toString(), 301);
+      handler: (req, match, info) => {
+        const c = ctx(req, match, info, state);
+        const slug = validateSlug(c.params);
+        return handleAgentPage(c, slug);
       },
     },
 
@@ -247,13 +247,14 @@ export function createOrchestrator(opts: {
         return handleStaticFile(c, { slug, file: "client.js.map" });
       },
     },
+    // --- Trailing-slash redirect to canonical URL ---
     {
       pattern: p("/:slug/"),
       method: "GET",
-      handler: (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        return handleAgentPage(c, slug);
+      handler: (req) => {
+        const url = new URL(req.url);
+        url.pathname = url.pathname.replace(/\/+$/, "");
+        return Response.redirect(url.toString(), 301);
       },
     },
   ];

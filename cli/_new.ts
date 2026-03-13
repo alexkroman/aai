@@ -1,5 +1,4 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { copy } from "@std/fs/copy";
 import { exists } from "@std/fs/exists";
 import { basename, join, resolve } from "@std/path";
 import { step } from "./_output.ts";
@@ -14,6 +13,9 @@ export type NewOptions = {
   templatesDir: string;
 };
 
+/** Names to skip when copying template directories. */
+const SKIP = new Set(["node_modules", "_deno.json"]);
+
 export async function listTemplates(dir: string): Promise<string[]> {
   const templates: string[] = [];
   for await (const entry of Deno.readDir(dir)) {
@@ -24,6 +26,21 @@ export async function listTemplates(dir: string): Promise<string[]> {
   return templates.sort();
 }
 
+/** Recursively copy `src` into `dest`, skipping names in SKIP. */
+async function copyDir(src: string, dest: string): Promise<void> {
+  await Deno.mkdir(dest, { recursive: true });
+  for await (const entry of Deno.readDir(src)) {
+    if (SKIP.has(entry.name)) continue;
+    const srcPath = join(src, entry.name);
+    const destPath = join(dest, entry.name);
+    if (entry.isDirectory) {
+      await copyDir(srcPath, destPath);
+    } else {
+      await Deno.copyFile(srcPath, destPath);
+    }
+  }
+}
+
 /**
  * Copy all files from `src` into `dest`, skipping files that already exist
  * in `dest` so that template-specific files take precedence over shared ones.
@@ -31,6 +48,7 @@ export async function listTemplates(dir: string): Promise<string[]> {
 async function copyDirNoOverwrite(src: string, dest: string): Promise<void> {
   await Deno.mkdir(dest, { recursive: true });
   for await (const entry of Deno.readDir(src)) {
+    if (SKIP.has(entry.name)) continue;
     const srcPath = join(src, entry.name);
     const destPath = join(dest, entry.name);
     if (entry.isDirectory) {
@@ -53,17 +71,21 @@ export async function runNew(opts: NewOptions): Promise<string> {
 
   _internals.step("Create", `from template '${template}'`);
 
-  // 1. Copy template-specific files first
-  await copy(join(templatesDir, template), targetDir, { overwrite: true });
+  // 1. Copy template-specific files first (skip node_modules, _deno.json)
+  await copyDir(join(templatesDir, template), targetDir);
 
   // 2. Layer shared files underneath (don't overwrite template files)
   await copyDirNoOverwrite(join(templatesDir, "shared"), targetDir);
 
   // 3. Rename .tmpl files (stored with .tmpl extension to avoid deno compile resolution)
-  const workerTmpl = join(targetDir, "_worker.ts.tmpl");
-  const workerDest = join(targetDir, "_worker.ts");
-  if (await exists(workerTmpl) && !await exists(workerDest)) {
-    await Deno.rename(workerTmpl, workerDest);
+  for await (const entry of Deno.readDir(targetDir)) {
+    if (entry.isFile && entry.name.endsWith(".tmpl")) {
+      const dest = entry.name.slice(0, -".tmpl".length);
+      const destPath = join(targetDir, dest);
+      if (!await exists(destPath)) {
+        await Deno.rename(join(targetDir, entry.name), destPath);
+      }
+    }
   }
 
   try {

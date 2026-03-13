@@ -183,19 +183,41 @@ function InfocomAdventure() {
             >
               {ASCII_LOGO}
             </div>
-            <div style={{ color: "#00aa2a", fontSize: "13px", marginBottom: "8px" }}>
+            <div
+              style={{
+                color: "#00aa2a",
+                fontSize: "13px",
+                marginBottom: "8px",
+              }}
+            >
               INFOCOM INTERACTIVE FICTION
             </div>
-            <div style={{ color: "#00aa2a", fontSize: "13px", marginBottom: "8px" }}>
+            <div
+              style={{
+                color: "#00aa2a",
+                fontSize: "13px",
+                marginBottom: "8px",
+              }}
+            >
               Copyright (c) 1980 Infocom, Inc.
             </div>
-            <div style={{ color: "#00aa2a", fontSize: "13px", marginBottom: "8px" }}>
+            <div
+              style={{
+                color: "#00aa2a",
+                fontSize: "13px",
+                marginBottom: "8px",
+              }}
+            >
               All rights reserved.
             </div>
-            <div style={{ color: "#00ff41", fontSize: "13px", marginTop: "16px" }}>
+            <div
+              style={{ color: "#00ff41", fontSize: "13px", marginTop: "16px" }}
+            >
               VOICE-ENABLED EDITION
             </div>
-            <div style={{ color: "#00aa2a", fontSize: "13px", marginTop: "24px" }}>
+            <div
+              style={{ color: "#00aa2a", fontSize: "13px", marginTop: "24px" }}
+            >
               Release 88 / Serial No. 840726
             </div>
             <button
@@ -228,7 +250,9 @@ function InfocomAdventure() {
     <>
       <style>{CSS}</style>
       <div className="ic-crt" style={crtStyle}>
-        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", height: "100%" }}
+        >
           <div
             style={{
               display: "flex",
