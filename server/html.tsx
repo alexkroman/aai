@@ -9,20 +9,20 @@ export const FAVICON_SVG: string =
 const COPY_SCRIPT = `function copyCmd(btn){
   const text=btn.parentElement.querySelector('code').textContent;
   navigator.clipboard.writeText(text).then(()=>{
-    btn.textContent='Copied!';btn.classList.add('text-green-400','border-green-400');
-    setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('text-green-400','border-green-400')},1500);
+    btn.textContent='Copied!';btn.style.color='#4ade80';btn.style.borderColor='#4ade80';
+    setTimeout(()=>{btn.textContent='Copy';btn.style.color='#6b7280';btn.style.borderColor='#374151'},1500);
   });
 }`;
 
 const COPY_BUTTON_HTML =
-  `<button class="absolute top-1/2 right-4 -translate-y-1/2 bg-transparent border border-gray-700 rounded px-2.5 py-1.5 text-sm font-mono text-gray-500 cursor-pointer transition-colors hover:text-gray-200 hover:border-gray-500" onclick="copyCmd(this)">Copy</button>`;
+  `<button style="position:absolute;top:50%;right:16px;transform:translateY(-50%);background:transparent;border:1px solid #374151;border-radius:4px;padding:6px 10px;font-size:14px;font-family:monospace;color:#6b7280;cursor:pointer" onclick="copyCmd(this)">Copy</button>`;
 
 function CommandBlock({ children }: { children: string }) {
   return (
     <div
-      class="relative bg-[#161616] border border-[#262626] rounded-xl py-5 pr-16 pl-6 text-lg leading-relaxed mb-6"
+      style="position:relative;background:#161616;border:1px solid #262626;border-radius:12px;padding:20px 64px 20px 24px;font-size:18px;line-height:1.6;margin-bottom:24px"
       dangerouslySetInnerHTML={{
-        __html: `<code class="font-mono whitespace-pre">${
+        __html: `<code style="font-family:monospace;white-space:pre">${
           escape(children)
         }</code>${COPY_BUTTON_HTML}`,
       }}
@@ -38,27 +38,26 @@ function LandingPage() {
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>aai</title>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <script src="https://cdn.tailwindcss.com" />
       </head>
-      <body class="m-0 p-0 box-border font-sans bg-[#0a0a0a] text-gray-200 min-h-screen flex items-center justify-center">
-        <div class="max-w-3xl p-12 w-full">
-          <h1 class="text-7xl font-bold mb-4">aai</h1>
-          <p class="text-gray-500 mb-8 leading-relaxed text-xl">
+      <body style="margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;background:#0a0a0a;color:#d1d5db;min-height:100vh;display:flex;align-items:center;justify-content:center">
+        <div style="max-width:768px;padding:48px;width:100%">
+          <h1 style="font-size:4.5rem;font-weight:bold;margin:0 0 16px 0">aai</h1>
+          <p style="color:#6b7280;margin:0 0 32px 0;line-height:1.6;font-size:1.25rem">
             Build and deploy a voice agent in 10 seconds.
           </p>
-          <div class="text-base text-gray-500 uppercase tracking-wide mb-3">
+          <div style="font-size:1rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">
             Install
           </div>
           <CommandBlock>
             curl -fsSL https://aai-agent.fly.dev/install | sh
           </CommandBlock>
-          <div class="text-base text-gray-500 uppercase tracking-wide mb-3">
+          <div style="font-size:1rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">
             Run
           </div>
           <CommandBlock>aai</CommandBlock>
-          <p class="mt-8">
+          <p style="margin-top:32px">
             <a
-              class="text-blue-400 no-underline text-lg hover:underline"
+              style="color:#60a5fa;text-decoration:none;font-size:1.125rem"
               href="https://github.com/alexkroman/aai"
             >
               GitHub

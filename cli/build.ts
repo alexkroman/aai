@@ -1,7 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
-import * as log from "@std/log";
 import { join } from "@std/path";
-import { step } from "./_output.ts";
+import { error as logError, step } from "./_output.ts";
 import { type AgentEntry, loadAgent } from "./_discover.ts";
 import { bundleAgent, BundleError, type BundleOutput } from "./_bundler.ts";
 
@@ -17,6 +16,8 @@ export type BuildResult = {
 export type BuildOpts = {
   /** Absolute path to the directory containing `agent.ts`. */
   agentDir: string;
+  /** Resolve `@jsr/aai__sdk` and `@jsr/aai__ui` from local monorepo source. */
+  dev?: boolean;
 };
 
 /**
@@ -55,10 +56,10 @@ export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
   step("Bundle", agent.slug);
   let bundle: BundleOutput;
   try {
-    bundle = await bundleAgent(agent);
+    bundle = await bundleAgent(agent, { dev: opts.dev ?? false });
   } catch (err) {
     if (err instanceof BundleError) {
-      log.error(err.message);
+      logError(err.message);
       throw new Error("Bundle failed — fix the errors above");
     }
     throw err;

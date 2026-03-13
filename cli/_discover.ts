@@ -1,7 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { promptSecret } from "@std/cli/prompt-secret";
 import { exists } from "@std/fs/exists";
-import * as log from "@std/log";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { humanId } from "human-id";
 import { step } from "./_output.ts";
@@ -58,7 +57,7 @@ export async function getApiKey(): Promise<string> {
   }
 
   step("Setup", "AssemblyAI API key required for speech-to-text");
-  log.info("Get one at https://www.assemblyai.com/dashboard/signup\n");
+  console.log("Get one at https://www.assemblyai.com/dashboard/signup\n");
   let key: string | null = null;
   while (!key) {
     key = promptSecret("ASSEMBLYAI_API_KEY");

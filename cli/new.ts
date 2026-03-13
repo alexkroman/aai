@@ -3,8 +3,7 @@ import { parseArgs } from "@std/cli/parse-args";
 import { promptSelect } from "@std/cli/unstable-prompt-select";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
-import { brightBlue } from "@std/fmt/colors";
-import * as log from "@std/log";
+import { brightBlue, brightMagenta, dim } from "@std/fmt/colors";
 import { ensureClaudeMd, ensureDependencies } from "./_discover.ts";
 import type { SubcommandDef } from "./_help.ts";
 import { subcommandHelp } from "./_help.ts";
@@ -22,6 +21,24 @@ export const newCommandDef: SubcommandDef = {
   ],
 };
 
+const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
+  "simple": "Minimal starter with search, code, and fetch tools",
+  "web-researcher": "Research assistant with web search and page visits",
+  "smart-research": "Phase-based research with dynamic tool filtering",
+  "memory-agent": "Persistent KV storage across conversations",
+  "code-interpreter": "Writes and runs JavaScript for calculations",
+  "math-buddy": "Calculations, unit conversions, dice rolls",
+  "health-assistant": "Medication lookup, drug interactions, BMI",
+  "personal-finance": "Currency, crypto, loans, savings projections",
+  "travel-concierge": "Trip planning, weather, flights, hotels",
+  "night-owl": "Movie/music/book recs by mood — custom UI",
+  "dispatch-center": "911 dispatch with triage — custom UI",
+  "infocom-adventure": "Zork-style text adventure — custom UI",
+  "embedded-assets": "FAQ bot using embedded JSON knowledge",
+  "twilio-phone": "Phone assistant with WebSocket + Twilio",
+  "terminal": "STT-only mode for voice-driven commands",
+};
+
 /**
  * Interactively prompts for template selection using an arrow-key menu.
  * "simple" is listed first as the default.
@@ -29,8 +46,17 @@ export const newCommandDef: SubcommandDef = {
 function selectTemplate(available: string[]): string {
   // Put "simple" first since it's the default
   const sorted = ["simple", ...available.filter((t) => t !== "simple")];
-  const selected = promptSelect("Which template?", sorted, { clear: true });
-  return selected ?? "simple";
+  const maxLen = Math.max(...sorted.map((t) => t.length));
+  const labels = sorted.map((name) =>
+    `${brightMagenta(name.padEnd(maxLen + 2))}${
+      dim(TEMPLATE_DESCRIPTIONS[name] ?? "")
+    }`
+  );
+  const selected = promptSelect("Which template?", labels, { clear: true });
+  if (!selected) return "simple";
+  // Map the selected label back to the template name
+  const idx = labels.indexOf(selected);
+  return idx >= 0 ? sorted[idx]! : "simple";
 }
 
 /**
@@ -52,7 +78,7 @@ export async function runNewCommand(
   });
 
   if (parsed.help) {
-    log.info(subcommandHelp(newCommandDef, version));
+    console.log(subcommandHelp(newCommandDef, version));
     return "";
   }
 
@@ -60,7 +86,7 @@ export async function runNewCommand(
   const cwd = dir ?? (Deno.env.get("INIT_CWD") || Deno.cwd());
 
   if (!parsed.force && await exists(join(cwd, "agent.ts"))) {
-    log.info(
+    console.log(
       `agent.ts already exists in this directory. Use ${
         brightBlue("--force")
       } to overwrite.`,

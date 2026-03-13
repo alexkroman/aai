@@ -1,2 +1,2 @@
-import { App } from "@jsr/aai__ui";
-export default App;
+import { App, mount } from "@jsr/aai__ui";
+mount(App);

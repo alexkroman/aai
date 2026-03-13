@@ -1,6 +1,6 @@
 {
   "name": "@aai/sdk",
-  "version": "0.1.65",
+  "version": "0.1.67",
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
@@ -14,9 +14,7 @@
   },
   "imports": {
     "zod": "jsr:@zod/zod@^4.3.6",
-    "json-schema": "npm:@types/json-schema@^7.0.15",
-    "@std/log": "jsr:@std/log@^0.224.14",
-    "@std/async": "jsr:@std/async@^1.2.0"
+    "json-schema": "npm:@types/json-schema@^7.0.15"
   },
   "publish": {
     "exclude": [

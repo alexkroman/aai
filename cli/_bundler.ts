@@ -20,7 +20,7 @@ export type BundleOutput = {
   worker: string;
   /** Minified ESM JavaScript for the browser client. Empty string if skipped. */
   client: string;
-  /** Static HTML page rendered from layout.tsx at build time. */
+  /** Static HTML page. */
   html: string;
   /** JSON manifest containing env var names and transport configuration. */
   manifest: string;
@@ -36,30 +36,24 @@ export const _internals = {
 };
 
 /**
- * Run the project's native esbuild binary via CLI.
+ * Run the project's native esbuild binary via CLI on an entry point file.
  * esbuild is installed as a devDependency in the agent project.
  */
 async function runEsbuild(
   agentDir: string,
+  entryPoint: string,
   args: string[],
-  stdin: string,
 ): Promise<string> {
   const esbuildBin = join(agentDir, "node_modules", ".bin", "esbuild");
 
   const cmd = new Deno.Command(esbuildBin, {
-    args,
+    args: [entryPoint, ...args],
     cwd: agentDir,
-    stdin: "piped",
     stdout: "piped",
     stderr: "piped",
   });
 
-  const process = cmd.spawn();
-  const writer = process.stdin.getWriter();
-  await writer.write(new TextEncoder().encode(stdin));
-  await writer.close();
-
-  const { code, stdout, stderr } = await process.output();
+  const { code, stdout, stderr } = await cmd.output();
   if (code !== 0) {
     throw new BundleError(new TextDecoder().decode(stderr));
   }
@@ -67,32 +61,27 @@ async function runEsbuild(
 }
 
 /**
- * Execute a bundled JS module via Node and capture its stdout.
- * Used to render layout.tsx to HTML at build time.
+ * Compute esbuild --alias flags for local monorepo development.
+ * Maps JSR package specifiers to local source files so changes to
+ * sdk/ and ui/ are reflected without publishing to JSR.
  */
-async function renderBundle(
-  agentDir: string,
-  bundle: string,
-): Promise<string> {
-  const tmp = await Deno.makeTempFile({ suffix: ".mjs" });
-  try {
-    await Deno.writeTextFile(tmp, bundle);
-    const cmd = new Deno.Command("node", {
-      args: [tmp],
-      cwd: agentDir,
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const { code, stdout, stderr } = await cmd.output();
-    if (code !== 0) {
-      throw new BundleError(
-        "Layout render failed:\n" + new TextDecoder().decode(stderr),
-      );
-    }
-    return new TextDecoder().decode(stdout).trimEnd();
-  } finally {
-    await Deno.remove(tmp).catch(() => {});
-  }
+function devAliasArgs(): string[] {
+  const root = resolve(new URL("..", import.meta.url).pathname);
+  return [
+    // Map JSR npm-bridge package names to local source entry points
+    `--alias:@jsr/aai__sdk=${resolve(root, "sdk/mod.ts")}`,
+    `--alias:@jsr/aai__ui=${resolve(root, "ui/mod.ts")}`,
+    // UI source imports @aai/sdk subpaths (workspace specifier);
+    // alias each subpath individually since esbuild aliases are prefix-based.
+    `--alias:@aai/sdk/protocol=${resolve(root, "sdk/protocol.ts")}`,
+    `--alias:@aai/sdk=${resolve(root, "sdk/mod.ts")}`,
+    // SDK source uses Deno import-map specifiers that esbuild can't resolve;
+    // redirect to the JSR npm-bridge equivalents already in node_modules.
+    "--alias:zod=@jsr/zod__zod",
+    "--alias:json-schema=@jsr/types__json-schema",
+    "--alias:@std/async=@jsr/std__async",
+    "--alias:@std/log=@jsr/std__log",
+  ];
 }
 
 const COMMON_ARGS = [
@@ -115,64 +104,47 @@ const COMMON_ARGS = [
 ];
 
 /**
- * Bundles an agent's `agent.ts` and optional `client.ts` into
- * minified ESM JavaScript using the project's native esbuild binary.
+ * Bundles an agent project into deployable artifacts.
+ *
+ * The bundler does NOT generate any code — it bundles files that already
+ * exist in the agent project:
+ * - `_worker.ts` — imports agent.ts and calls initWorker()
+ * - `client.tsx` — imports mount() and calls it with a component
+ * - `index.html` — static HTML shell
  *
  * @param agent The discovered agent entry containing paths and configuration.
  * @param opts Optional settings. Set `skipClient` to omit the client bundle.
- * @returns The bundled worker code, client code, manifest, and byte sizes.
+ * @returns The bundled worker code, client code, HTML, manifest, and byte sizes.
  * @throws {BundleError} If esbuild encounters a build error.
  */
 export async function bundleAgent(
   agent: AgentEntry,
-  opts?: { skipClient?: boolean },
+  opts?: { skipClient?: boolean; dev?: boolean },
 ): Promise<BundleOutput> {
-  const agentAbsolute = resolve(agent.entryPoint);
+  const extraArgs = opts?.dev ? devAliasArgs() : [];
 
-  // Env values are NOT embedded in the bundle — they're injected at runtime
-  // by the server via applyEnv() on each RPC call, like Vercel injects env vars.
-  const shimPath = resolve(
-    new URL("../sdk/_worker_shim.ts", import.meta.url).pathname,
+  const workerEntry = join(agent.dir, "_worker.ts");
+  const worker = await runEsbuild(
+    agent.dir,
+    workerEntry,
+    [...COMMON_ARGS, ...extraArgs],
   );
-  const workerStdin = `import agent from "${agentAbsolute}";\n` +
-    `import { initWorker } from "${shimPath}";\n` +
-    `initWorker(agent);\n`;
-
-  const worker = await runEsbuild(agent.dir, COMMON_ARGS, workerStdin);
 
   let client = "";
   const skipClient = opts?.skipClient || !agent.clientEntry;
   if (!skipClient) {
-    const clientStdin = `import { mount } from "@jsr/aai__ui";\n` +
-      `import App from "${resolve(agent.clientEntry)}";\n` +
-      `mount(App);\n`;
-
-    client = await runEsbuild(agent.dir, [
+    client = await runEsbuild(agent.dir, resolve(agent.clientEntry), [
       ...COMMON_ARGS,
+      ...extraArgs,
       "--jsx=automatic",
       "--jsx-import-source=preact",
       "--loader:.ts=tsx",
       "--loader:.tsx=tsx",
-    ], clientStdin);
+    ]);
   }
 
-  // Render layout.tsx to static HTML at build time
-  const layoutAbsolute = resolve(join(agent.dir, "layout.tsx"));
-  const layoutStdin =
-    `import { renderToString } from "preact-render-to-string";\n` +
-    `import { h } from "preact";\n` +
-    `import Layout from "${layoutAbsolute}";\n` +
-    `console.log("<!DOCTYPE html>" + renderToString(h(Layout, {})));\n`;
-
-  const layoutJs = await runEsbuild(agent.dir, [
-    ...COMMON_ARGS,
-    "--jsx=automatic",
-    "--jsx-import-source=preact",
-    "--loader:.ts=tsx",
-    "--loader:.tsx=tsx",
-  ], layoutStdin);
-
-  const html = await renderBundle(agent.dir, layoutJs);
+  const htmlPath = join(agent.dir, "index.html");
+  const html = await Deno.readTextFile(htmlPath);
 
   const manifest = JSON.stringify(
     { transport: agent.transport },

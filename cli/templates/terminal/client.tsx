@@ -1,4 +1,4 @@
-import { useSession } from "@jsr/aai__ui";
+import { mount, useSession } from "@jsr/aai__ui";
 import type { Message } from "@jsr/aai__ui";
 import { useEffect, useRef } from "preact/hooks";
 import { signal } from "@preact/signals";
@@ -621,7 +621,7 @@ body {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function Terminal() {
+function Terminal() {
   const {
     state,
     messages,
@@ -757,21 +757,62 @@ export default function Terminal() {
     return (
       <>
         <style>{CSS}</style>
-        <div className="fixed inset-0 flex flex-col bg-[#0d1117]">
-          <div className="flex-1 flex flex-col items-center justify-center gap-6 text-[#c9d1d9]">
-            <div className="text-[28px] font-bold text-[#58a6ff] tracking-[4px]">
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            background: "#0d1117",
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "24px",
+              color: "#c9d1d9",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "28px",
+                fontWeight: "bold",
+                color: "#58a6ff",
+                letterSpacing: "4px",
+              }}
+            >
               K8
             </div>
-            <div className="text-[#8b949e] text-sm">
+            <div style={{ color: "#8b949e", fontSize: "14px" }}>
               Kubernetes Training Terminal
             </div>
-            <div className="text-[#6e7681] text-[13px] text-center max-w-[400px]">
+            <div
+              style={{
+                color: "#6e7681",
+                fontSize: "13px",
+                textAlign: "center",
+                maxWidth: "400px",
+              }}
+            >
               Speak terminal commands into your microphone. They will be
               transcribed and executed in real time.
             </div>
             <button
               type="button"
-              className="px-8 py-2.5 text-sm bg-transparent text-[#58a6ff] border border-[#58a6ff] rounded cursor-pointer font-[inherit] hover:bg-[#21262d]"
+              style={{
+                padding: "10px 32px",
+                fontSize: "14px",
+                background: "transparent",
+                color: "#58a6ff",
+                border: "1px solid #58a6ff",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
               onClick={start}
             >
               Start Session
@@ -788,17 +829,58 @@ export default function Terminal() {
   return (
     <>
       <style>{CSS}</style>
-      <div className="fixed inset-0 flex flex-col bg-[#0d1117]">
-        <div className="flex items-center justify-between px-4 py-1.5 bg-[#161b22] border-b border-[#30363d] text-xs text-[#8b949e] shrink-0 font-[inherit]">
-          <div className="flex gap-0.5">
-            <div className="px-4 py-1 bg-[#0d1117] text-[#c9d1d9] rounded-t-md text-xs border border-[#30363d] border-b-0 font-[inherit]">
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          background: "#0d1117",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "6px 16px",
+            background: "#161b22",
+            borderBottom: "1px solid #30363d",
+            fontSize: "12px",
+            color: "#8b949e",
+            flexShrink: 0,
+            fontFamily: "inherit",
+          }}
+        >
+          <div style={{ display: "flex", gap: "2px" }}>
+            <div
+              style={{
+                padding: "4px 16px",
+                background: "#0d1117",
+                color: "#c9d1d9",
+                borderRadius: "6px 6px 0 0",
+                fontSize: "12px",
+                border: "1px solid #30363d",
+                borderBottom: "none",
+                fontFamily: "inherit",
+              }}
+            >
               trainee@k8s-lab
             </div>
           </div>
-          <div className="flex gap-2 items-center">
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             <button
               type="button"
-              className="px-2.5 py-0.5 bg-transparent text-[#8b949e] border border-[#30363d] font-[inherit] text-[11px] cursor-pointer rounded hover:bg-[#21262d] hover:text-[#c9d1d9]"
+              style={{
+                padding: "2px 10px",
+                background: "transparent",
+                color: "#8b949e",
+                border: "1px solid #30363d",
+                fontFamily: "inherit",
+                fontSize: "11px",
+                cursor: "pointer",
+                borderRadius: "4px",
+              }}
               onClick={toggle}
             >
               {running.value ? "Pause" : "Resume"}
@@ -807,28 +889,70 @@ export default function Terminal() {
         </div>
 
         {errVal && (
-          <div className="px-4 py-1.5 bg-[#3d1f1f] text-[#ff7b72] text-xs border-b border-[#5a2d2d] font-[inherit]">
+          <div
+            style={{
+              padding: "6px 16px",
+              background: "#3d1f1f",
+              color: "#ff7b72",
+              fontSize: "12px",
+              borderBottom: "1px solid #5a2d2d",
+              fontFamily: "inherit",
+            }}
+          >
             {errVal.message}
           </div>
         )}
 
-        <div className="term-xterm flex-1 overflow-hidden" ref={containerRef} />
+        <div
+          className="term-xterm"
+          style={{ flex: 1, overflow: "hidden" }}
+          ref={containerRef}
+        />
 
         {tx && (
-          <div className="px-4 py-1 bg-[#161b22] text-[#6e7681] text-xs italic border-t border-[#30363d] shrink-0 font-[inherit] min-h-[24px]">
+          <div
+            style={{
+              padding: "4px 16px",
+              background: "#161b22",
+              color: "#6e7681",
+              fontSize: "12px",
+              fontStyle: "italic",
+              borderTop: "1px solid #30363d",
+              flexShrink: 0,
+              fontFamily: "inherit",
+              minHeight: "24px",
+            }}
+          >
             {tx}
           </div>
         )}
 
-        <div className="flex items-center gap-4 px-4 py-1 bg-[#161b22] border-t border-[#30363d] text-[#8b949e] text-xs shrink-0 font-[inherit]">
-          <div className="flex items-center gap-1.5">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            padding: "4px 16px",
+            background: "#161b22",
+            borderTop: "1px solid #30363d",
+            color: "#8b949e",
+            fontSize: "12px",
+            flexShrink: 0,
+            fontFamily: "inherit",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <div
-              className="w-2 h-2 rounded-full"
-              style={{ background: statusColor }}
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: statusColor,
+              }}
             />
             <span>{statusLabel}</span>
           </div>
-          <span className="ml-auto">
+          <span style={{ marginLeft: "auto" }}>
             k8s-lab |{" "}
             {messages.value.filter((m: Message) => m.role === "user").length}
             {" "}
@@ -843,3 +967,5 @@ export default function Terminal() {
 function writePromptOn(term: XTermInstance): void {
   term.write(PROMPT);
 }
+
+mount(Terminal);

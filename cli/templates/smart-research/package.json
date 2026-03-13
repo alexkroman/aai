@@ -12,7 +12,6 @@
   },
   "devDependencies": {
     "esbuild": "^0.25",
-    "preact-render-to-string": "*",
     "typescript": "^5"
   }
 }

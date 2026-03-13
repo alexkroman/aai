@@ -59,6 +59,13 @@ export async function runNew(opts: NewOptions): Promise<string> {
   // 2. Layer shared files underneath (don't overwrite template files)
   await copyDirNoOverwrite(join(templatesDir, "shared"), targetDir);
 
+  // 3. Rename .tmpl files (stored with .tmpl extension to avoid deno compile resolution)
+  const workerTmpl = join(targetDir, "_worker.ts.tmpl");
+  const workerDest = join(targetDir, "_worker.ts");
+  if (await exists(workerTmpl) && !await exists(workerDest)) {
+    await Deno.rename(workerTmpl, workerDest);
+  }
+
   try {
     await Deno.copyFile(
       join(targetDir, ".env.example"),

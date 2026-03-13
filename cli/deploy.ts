@@ -2,7 +2,6 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { exists } from "@std/fs/exists";
 import { join } from "@std/path";
-import * as log from "@std/log";
 import { step, stepInfo } from "./_output.ts";
 import { runBuild } from "./build.ts";
 import { runDeploy } from "./_deploy.ts";
@@ -28,6 +27,10 @@ export const deployCommandDef: SubcommandDef = {
       flags: "--dry-run",
       description: "Validate and bundle without deploying",
     },
+    {
+      flags: "--dev",
+      description: "Resolve @aai packages from local monorepo source",
+    },
     { flags: "-y, --yes", description: "Accept defaults (no prompts)" },
   ],
 };
@@ -48,12 +51,12 @@ export async function runDeployCommand(
 ): Promise<void> {
   const parsed = parseArgs(args, {
     string: ["server", "local"],
-    boolean: ["dry-run", "help", "yes"],
+    boolean: ["dry-run", "help", "yes", "dev"],
     alias: { s: "server", h: "help", y: "yes" },
   });
 
   if (parsed.help) {
-    log.info(subcommandHelp(deployCommandDef, version));
+    console.log(subcommandHelp(deployCommandDef, version));
     return;
   }
 
@@ -80,14 +83,15 @@ export async function runDeployCommand(
   // Slug: from project config, or generate a new human-readable one
   const slug = projectConfig?.slug ?? generateSlug();
 
-  const result = await runBuild({ agentDir: cwd });
+  // Auto-enable dev mode when running via `deno run` (aai-dev) vs compiled binary
+  const isDevCli = Deno.execPath().endsWith("deno");
+  const result = await runBuild({ agentDir: cwd, dev: parsed.dev || isDevCli });
   const { agent } = result;
 
-  step("Deploy", slug);
   const deployed = await runDeploy({
     url: serverUrl,
     bundle: result.bundle,
-    env: {},
+    env: dryRun ? {} : { ASSEMBLYAI_API_KEY: apiKey },
     slug,
     dryRun,
     apiKey,
@@ -98,13 +102,4 @@ export async function runDeployCommand(
     slug: deployed.slug,
     serverUrl,
   });
-
-  if (agent.transport.includes("websocket")) {
-    stepInfo("App", `${serverUrl}/${deployed.slug}`);
-  }
-  if (agent.transport.includes("twilio")) {
-    stepInfo("Twilio", `${serverUrl}/${deployed.slug}/twilio/voice`);
-  }
-
-  stepInfo("Agent", deployed.slug);
 }

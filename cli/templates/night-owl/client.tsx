@@ -1,6 +1,7 @@
 import {
   ErrorBanner,
   MessageBubble,
+  mount,
   StateIndicator,
   Transcript,
   useSession,
@@ -8,7 +9,7 @@ import {
 import type { Message } from "@jsr/aai__ui";
 import { useEffect, useRef } from "preact/hooks";
 
-export default function NightOwl() {
+function NightOwl() {
   const {
     state,
     messages,
@@ -28,19 +29,39 @@ export default function NightOwl() {
 
   if (!started.value) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-6">
-        <div className="text-5xl">&#x1F989;</div>
-        <h1 className="text-2xl font-semibold m-0">Night Owl</h1>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          gap: "24px",
+        }}
+      >
+        <div style={{ fontSize: "3rem" }}>&#x1F989;</div>
+        <h1 style={{ fontSize: "1.5rem", fontWeight: 600, margin: 0 }}>
+          Night Owl
+        </h1>
         <p
-          className="text-sm m-0"
-          style={{ color: "var(--aai-text-muted)" }}
+          style={{
+            fontSize: "0.875rem",
+            margin: 0,
+            color: "var(--aai-text-muted)",
+          }}
         >
           your evening companion
         </p>
         <button
           type="button"
-          className="mt-4 px-9 py-3.5 border-none font-medium text-[15px] cursor-pointer tracking-wide"
           style={{
+            marginTop: "16px",
+            padding: "14px 36px",
+            border: "none",
+            fontWeight: 500,
+            fontSize: "15px",
+            cursor: "pointer",
+            letterSpacing: "0.025em",
             background: "var(--aai-primary)",
             color: "var(--aai-text)",
             borderRadius: "var(--aai-radius)",
@@ -54,14 +75,27 @@ export default function NightOwl() {
   }
 
   return (
-    <div className="max-w-[640px] mx-auto p-6 min-h-screen">
+    <div
+      style={{
+        maxWidth: "640px",
+        margin: "0 auto",
+        padding: "24px",
+        minHeight: "100vh",
+      }}
+    >
       <div
-        className="flex items-center gap-2.5 mb-5 pb-4"
-        style={{ borderBottom: "1px solid var(--aai-surface-light)" }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          marginBottom: "20px",
+          paddingBottom: "16px",
+          borderBottom: "1px solid var(--aai-surface-light)",
+        }}
       >
-        <div className="text-xl">&#x1F989;</div>
-        <span className="text-base font-semibold">Night Owl</span>
-        <div className="ml-auto">
+        <div style={{ fontSize: "1.25rem" }}>&#x1F989;</div>
+        <span style={{ fontSize: "1rem", fontWeight: 600 }}>Night Owl</span>
+        <div style={{ marginLeft: "auto" }}>
           <StateIndicator state={state} />
         </div>
       </div>
@@ -69,8 +103,12 @@ export default function NightOwl() {
       <ErrorBanner error={error} />
 
       <div
-        className="min-h-[300px] max-h-[500px] overflow-y-auto mb-4 p-4"
         style={{
+          minHeight: "300px",
+          maxHeight: "500px",
+          overflowY: "auto",
+          marginBottom: "16px",
+          padding: "16px",
           border: "1px solid var(--aai-surface-light)",
           borderRadius: "var(--aai-radius)",
           background: "var(--aai-surface)",
@@ -83,11 +121,15 @@ export default function NightOwl() {
         <div ref={bottom} />
       </div>
 
-      <div className="flex gap-2">
+      <div style={{ display: "flex", gap: "8px" }}>
         <button
           type="button"
-          className="px-5 py-2.5 border-none font-medium text-[13px] cursor-pointer"
           style={{
+            padding: "10px 20px",
+            border: "none",
+            fontWeight: 500,
+            fontSize: "13px",
+            cursor: "pointer",
             borderRadius: "var(--aai-radius)",
             color: "var(--aai-bg)",
             background: running.value
@@ -100,8 +142,12 @@ export default function NightOwl() {
         </button>
         <button
           type="button"
-          className="px-5 py-2.5 bg-transparent font-medium text-[13px] cursor-pointer"
           style={{
+            padding: "10px 20px",
+            background: "transparent",
+            fontWeight: 500,
+            fontSize: "13px",
+            cursor: "pointer",
             borderRadius: "var(--aai-radius)",
             border: "1px solid var(--aai-surface-light)",
             color: "var(--aai-text-muted)",
@@ -114,3 +160,5 @@ export default function NightOwl() {
     </div>
   );
 }
+
+mount(NightOwl);

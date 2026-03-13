@@ -1,4 +1,4 @@
-import { ErrorBanner, useSession } from "@jsr/aai__ui";
+import { ErrorBanner, mount, useSession } from "@jsr/aai__ui";
 import type { Message } from "@jsr/aai__ui";
 import { useEffect, useRef } from "preact/hooks";
 
@@ -72,7 +72,7 @@ const ASCII_LOGO = `
 /_/   \\___/|_| \\_\\_|\\_\\
 `;
 
-export default function InfocomAdventure() {
+function InfocomAdventure() {
   const {
     state,
     messages,
@@ -123,55 +123,102 @@ export default function InfocomAdventure() {
     : "#003300";
   const dotShadow = dotClass ? `0 0 6px ${dotColor}` : "none";
 
+  const crtStyle = {
+    position: "fixed" as const,
+    inset: 0,
+    background: "#000800",
+    color: "#00ff41",
+    fontFamily: "monospace",
+    fontSize: "15px",
+    lineHeight: 1.6,
+    overflow: "hidden",
+    animation: "ic-flicker 4s infinite",
+  };
+
+  const vignette = {
+    position: "fixed" as const,
+    inset: 0,
+    pointerEvents: "none" as const,
+    zIndex: 12,
+    background:
+      "radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%)",
+  };
+
+  const btnBase = {
+    padding: "4px 16px",
+    background: "transparent",
+    color: "#00aa2a",
+    border: "1px solid #003300",
+    fontFamily: "monospace",
+    fontSize: "11px",
+    cursor: "pointer",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.05em",
+  };
+
   if (!started.value) {
     return (
       <>
         <style>{CSS}</style>
-        <div
-          className="ic-crt fixed inset-0 bg-[#000800] text-[#00ff41] font-mono text-[15px] leading-relaxed overflow-hidden"
-          style={{ animation: "ic-flicker 4s infinite" }}
-        >
+        <div className="ic-crt" style={crtStyle}>
           <div
-            className="flex flex-col items-center justify-center h-full text-center p-10"
-            style={{ animation: "ic-boot 1.5s ease-out" }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              textAlign: "center",
+              padding: "40px",
+              animation: "ic-boot 1.5s ease-out",
+            }}
           >
             <div
-              className="text-[11px] whitespace-pre mb-8"
-              style={{ textShadow: "0 0 10px rgba(0, 255, 65, 0.5)" }}
+              style={{
+                fontSize: "11px",
+                whiteSpace: "pre",
+                marginBottom: "32px",
+                textShadow: "0 0 10px rgba(0, 255, 65, 0.5)",
+              }}
             >
               {ASCII_LOGO}
             </div>
-            <div className="text-[#00aa2a] text-[13px] mb-2">
+            <div style={{ color: "#00aa2a", fontSize: "13px", marginBottom: "8px" }}>
               INFOCOM INTERACTIVE FICTION
             </div>
-            <div className="text-[#00aa2a] text-[13px] mb-2">
+            <div style={{ color: "#00aa2a", fontSize: "13px", marginBottom: "8px" }}>
               Copyright (c) 1980 Infocom, Inc.
             </div>
-            <div className="text-[#00aa2a] text-[13px] mb-2">
+            <div style={{ color: "#00aa2a", fontSize: "13px", marginBottom: "8px" }}>
               All rights reserved.
             </div>
-            <div className="text-[#00ff41] text-[13px] mt-4">
+            <div style={{ color: "#00ff41", fontSize: "13px", marginTop: "16px" }}>
               VOICE-ENABLED EDITION
             </div>
-            <div className="text-[#00aa2a] text-[13px] mt-6">
+            <div style={{ color: "#00aa2a", fontSize: "13px", marginTop: "24px" }}>
               Release 88 / Serial No. 840726
             </div>
             <button
               type="button"
-              className="mt-10 px-12 py-3.5 bg-transparent text-[#00ff41] border border-[#00ff41] font-mono text-base cursor-pointer uppercase tracking-[3px] transition-all hover:bg-[#00ff41] hover:text-[#000800]"
-              style={{ animation: "ic-pulse 2s ease-in-out infinite" }}
+              style={{
+                marginTop: "40px",
+                padding: "14px 48px",
+                background: "transparent",
+                color: "#00ff41",
+                border: "1px solid #00ff41",
+                fontFamily: "monospace",
+                fontSize: "1rem",
+                cursor: "pointer",
+                textTransform: "uppercase",
+                letterSpacing: "3px",
+                animation: "ic-pulse 2s ease-in-out infinite",
+              }}
               onClick={start}
             >
               Begin Adventure
             </button>
           </div>
-          <div
-            className="fixed inset-0 pointer-events-none z-[12]"
-            style={{
-              background:
-                "radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%)",
-            }}
-          />
+          <div style={vignette} />
         </div>
       </>
     );
@@ -180,13 +227,23 @@ export default function InfocomAdventure() {
   return (
     <>
       <style>{CSS}</style>
-      <div
-        className="ic-crt fixed inset-0 bg-[#000800] text-[#00ff41] font-mono text-[15px] leading-relaxed overflow-hidden"
-        style={{ animation: "ic-flicker 4s infinite" }}
-      >
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between px-5 py-2 bg-[#00ff41] text-[#000800] text-[13px] font-bold tracking-wide shrink-0">
-            <div className="flex gap-6">
+      <div className="ic-crt" style={crtStyle}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "8px 20px",
+              background: "#00ff41",
+              color: "#000800",
+              fontSize: "13px",
+              fontWeight: "bold",
+              letterSpacing: "0.05em",
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "flex", gap: "24px" }}>
               <span>ZORK I</span>
               <span>Moves: {msgCount}</span>
             </div>
@@ -196,8 +253,11 @@ export default function InfocomAdventure() {
           <ErrorBanner error={error} />
 
           <div
-            className="ic-messages flex-1 overflow-y-auto p-5"
+            className="ic-messages"
             style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "20px",
               scrollbarWidth: "thin",
               scrollbarColor: "#00ff41 #001a00",
             }}
@@ -205,8 +265,9 @@ export default function InfocomAdventure() {
             {messages.value.map((msg: Message, i: number) => (
               <div
                 key={i}
-                className={`mb-4 ${msg.role === "user" ? "ic-user-msg" : ""}`}
+                className={msg.role === "user" ? "ic-user-msg" : ""}
                 style={{
+                  marginBottom: "16px",
                   textShadow: msg.role === "user"
                     ? "0 0 5px rgba(0, 204, 255, 0.3)"
                     : "0 0 5px rgba(0, 255, 65, 0.3)",
@@ -218,8 +279,9 @@ export default function InfocomAdventure() {
             ))}
             {transcript.value && (
               <div
-                className="ic-transcript italic"
+                className="ic-transcript"
                 style={{
+                  fontStyle: "italic",
                   color: "#007a1e",
                   textShadow: "0 0 5px rgba(0, 255, 65, 0.15)",
                 }}
@@ -230,40 +292,54 @@ export default function InfocomAdventure() {
             <div ref={bottom} />
           </div>
 
-          <div className="flex items-center justify-between px-5 py-2 border-t border-[#003300] bg-[#001100] shrink-0 gap-3">
-            <div className="flex items-center gap-2.5 text-xs text-[#00aa2a] uppercase tracking-wide">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "8px 20px",
+              borderTop: "1px solid #003300",
+              background: "#001100",
+              flexShrink: 0,
+              gap: "12px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                fontSize: "12px",
+                color: "#00aa2a",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
               <div
-                className="w-2 h-2 rounded-full"
-                style={{ background: dotColor, boxShadow: dotShadow }}
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  background: dotColor,
+                  boxShadow: dotShadow,
+                }}
               />
               <span>{stateLabel}</span>
             </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="px-4 py-1 bg-transparent text-[#00aa2a] border border-[#003300] font-mono text-[11px] cursor-pointer uppercase tracking-wide hover:border-[#00ff41] hover:text-[#00ff41]"
-                onClick={toggle}
-              >
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button type="button" style={btnBase} onClick={toggle}>
                 {running.value ? "[P]ause" : "[R]esume"}
               </button>
-              <button
-                type="button"
-                className="px-4 py-1 bg-transparent text-[#00aa2a] border border-[#003300] font-mono text-[11px] cursor-pointer uppercase tracking-wide hover:border-[#00ff41] hover:text-[#00ff41]"
-                onClick={reset}
-              >
+              <button type="button" style={btnBase} onClick={reset}>
                 [Q]uit
               </button>
             </div>
           </div>
         </div>
-        <div
-          className="fixed inset-0 pointer-events-none z-[12]"
-          style={{
-            background:
-              "radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%)",
-          }}
-        />
+        <div style={vignette} />
       </div>
     </>
   );
 }
+
+mount(InfocomAdventure);

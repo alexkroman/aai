@@ -113,13 +113,13 @@ export function createOrchestrator(opts: {
       handler: () => text(INSTALL_SCRIPT),
     },
 
-    // --- Trailing-slash redirect ---
+    // --- Trailing-slash redirect (ensures relative URLs in static HTML resolve correctly) ---
     {
-      pattern: p("/:slug/"),
+      pattern: p("/:slug"),
       method: "GET",
       handler: (req) => {
         const url = new URL(req.url);
-        url.pathname = url.pathname.replace(/\/+$/, "");
+        url.pathname += "/";
         return Response.redirect(url.toString(), 301);
       },
     },
@@ -248,7 +248,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug"),
+      pattern: p("/:slug/"),
       method: "GET",
       handler: (req, match, info) => {
         const c = ctx(req, match, info, state);

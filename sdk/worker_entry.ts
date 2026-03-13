@@ -5,7 +5,6 @@
  * @module
  */
 
-import * as log from "@std/log";
 import { z } from "zod";
 import type { Message, ToolContext, ToolDef } from "./types.ts";
 import type { Kv } from "./kv.ts";
@@ -93,10 +92,10 @@ export async function executeToolCall(
     return typeof result === "string" ? result : JSON.stringify(result);
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === "TimeoutError") {
-      log.warn(`[tool-executor] Tool execution timed out: ${name}`);
+      console.warn(`[tool-executor] Tool execution timed out: ${name}`);
       return `Error: Tool "${name}" timed out after ${TOOL_HANDLER_TIMEOUT}ms`;
     }
-    log.warn(`[tool-executor] Tool execution failed: ${name}`, err);
+    console.warn(`[tool-executor] Tool execution failed: ${name}`, err);
     return `Error: ${err instanceof Error ? err.message : String(err)}`;
   }
 }

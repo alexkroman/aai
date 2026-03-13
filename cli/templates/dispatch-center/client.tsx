@@ -1,4 +1,4 @@
-import { useSession } from "@jsr/aai__ui";
+import { mount, useSession } from "@jsr/aai__ui";
 import type { Message } from "@jsr/aai__ui";
 import { useEffect, useRef } from "preact/hooks";
 
@@ -134,7 +134,7 @@ function stateColor(state: string): string {
     : "#6b7280";
 }
 
-export default function App() {
+function App() {
   const session = useSession();
   const msgs = session.messages.value;
   const tx = session.transcript.value;
@@ -157,18 +157,82 @@ export default function App() {
   const alertBg = alertColors[alertLevel] || "#6b7280";
   const alertTextColor = alertLevel === "yellow" ? "#000" : "#fff";
 
+  const panelStyle = {
+    background: "#1a1a2e",
+    border: "1px solid #1e293b",
+    borderRadius: "8px",
+    padding: "12px",
+  };
+
+  const panelTitle = {
+    fontSize: "10px",
+    fontWeight: "bold" as const,
+    textTransform: "uppercase" as const,
+    letterSpacing: "1.5px",
+    color: "#64748b",
+    marginBottom: "10px",
+  };
+
+  const btnBase = {
+    padding: "8px 16px",
+    border: "none",
+    borderRadius: "6px",
+    fontFamily: "monospace",
+    fontSize: "12px",
+    fontWeight: 600,
+    cursor: "pointer",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.05em",
+  };
+
   return (
     <>
       <style>{CSS}</style>
-      <div className="font-mono bg-[#0a0a0f] text-slate-200 min-h-screen p-0 m-0 flex flex-col">
+      <div
+        style={{
+          fontFamily: "monospace",
+          background: "#0a0a0f",
+          color: "#e2e8f0",
+          minHeight: "100vh",
+          padding: 0,
+          margin: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {/* Header */}
-        <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border-b border-slate-800 px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="text-lg font-bold text-slate-100 tracking-wide uppercase flex items-center gap-2.5">
-            <span className="text-blue-500">&#9670;</span>
+        <div
+          style={{
+            background: "linear-gradient(135deg, #1a1a2e, #16213e)",
+            borderBottom: "1px solid #1e293b",
+            padding: "16px 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "16px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "18px",
+              fontWeight: "bold",
+              color: "#f1f5f9",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <span style={{ color: "#3b82f6" }}>&#9670;</span>
             Dispatch Command Center
             <span
-              className="w-2.5 h-2.5 rounded-full inline-block"
               style={{
+                width: "10px",
+                height: "10px",
+                borderRadius: "50%",
+                display: "inline-block",
                 background: stateColor(state),
                 animation: state === "listening"
                   ? "dc-pulse 1.5s ease-in-out infinite"
@@ -178,7 +242,14 @@ export default function App() {
               }}
               title={state}
             />
-            <span className="text-[11px] text-slate-500 font-normal normal-case">
+            <span
+              style={{
+                fontSize: "11px",
+                color: "#64748b",
+                fontWeight: "normal",
+                textTransform: "none",
+              }}
+            >
               {state === "listening"
                 ? "LISTENING"
                 : state === "thinking"
@@ -188,13 +259,24 @@ export default function App() {
                 : state.toUpperCase()}
             </span>
           </div>
-          <div className="flex gap-2 items-center">
-            <span className="text-[10px] text-slate-500 tracking-wide">
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <span
+              style={{
+                fontSize: "10px",
+                color: "#64748b",
+                letterSpacing: "0.05em",
+              }}
+            >
               SYSTEM ALERT:
             </span>
             <span
-              className="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide"
               style={{
+                padding: "4px 12px",
+                borderRadius: "4px",
+                fontSize: "11px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
                 background: alertBg,
                 color: alertTextColor,
                 animation: alertLevel === "red"
@@ -208,12 +290,45 @@ export default function App() {
         </div>
 
         {/* Main content */}
-        <div className="dc-main grid grid-cols-[1fr_320px] grid-rows-[1fr] flex-1 overflow-hidden">
+        <div
+          className="dc-main"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 320px",
+            gridTemplateRows: "1fr",
+            flex: 1,
+            overflow: "hidden",
+          }}
+        >
           {/* Left: conversation feed */}
-          <div className="flex flex-col overflow-hidden border-r border-slate-800">
-            <div className="dc-messages flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              borderRight: "1px solid #1e293b",
+            }}
+          >
+            <div
+              className="dc-messages"
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
               {msgs.length === 0 && (
-                <div className="text-center text-slate-600 py-10 px-5 text-[13px]">
+                <div
+                  style={{
+                    textAlign: "center",
+                    color: "#475569",
+                    padding: "40px 20px",
+                    fontSize: "13px",
+                  }}
+                >
                   Dispatch Command Center standing by. Click START to begin
                   operations.
                 </div>
@@ -221,12 +336,14 @@ export default function App() {
               {msgs.map((m: Message, i: number) => (
                 <div
                   key={i}
-                  className={`px-3.5 py-2.5 rounded-lg text-[13px] leading-relaxed max-w-[85%] ${
-                    m.role === "assistant"
-                      ? "self-start bg-slate-800"
-                      : "self-end bg-[#172554]"
-                  }`}
                   style={{
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    lineHeight: 1.6,
+                    maxWidth: "85%",
+                    alignSelf: m.role === "assistant" ? "flex-start" : "flex-end",
+                    background: m.role === "assistant" ? "#1e293b" : "#172554",
                     animation: "dc-slide-in 0.2s ease-out",
                     borderLeft: m.role === "assistant"
                       ? "3px solid #3b82f6"
@@ -236,7 +353,15 @@ export default function App() {
                       : "none",
                   }}
                 >
-                  <div className="text-[10px] text-slate-500 mb-1 uppercase tracking-wide">
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      color: "#64748b",
+                      marginBottom: "4px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
                     {m.role === "assistant" ? "DISPATCH" : "OPERATOR"}
                   </div>
                   {m.text}
@@ -246,10 +371,27 @@ export default function App() {
             </div>
 
             {tx && (
-              <div className="px-4 py-2 bg-gray-900 border-t border-slate-800 text-xs text-slate-500 italic min-h-[32px] flex items-center">
+              <div
+                style={{
+                  padding: "8px 16px",
+                  background: "#111827",
+                  borderTop: "1px solid #1e293b",
+                  fontSize: "12px",
+                  color: "#64748b",
+                  fontStyle: "italic",
+                  minHeight: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
                 <span
-                  className="w-2.5 h-2.5 rounded-full inline-block mr-2 bg-green-500"
                   style={{
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
+                    display: "inline-block",
+                    marginRight: "8px",
+                    background: "#22c55e",
                     animation: "dc-pulse 1.5s ease-in-out infinite",
                   }}
                 />
@@ -257,17 +399,38 @@ export default function App() {
               </div>
             )}
             {error && (
-              <div className="px-4 py-2 bg-red-950 text-red-300 text-xs border-t border-red-800">
+              <div
+                style={{
+                  padding: "8px 16px",
+                  background: "#450a0a",
+                  color: "#fca5a5",
+                  fontSize: "12px",
+                  borderTop: "1px solid #991b1b",
+                }}
+              >
                 ERROR: {error.message} ({error.code})
               </div>
             )}
 
-            <div className="px-4 py-3 bg-gray-900 border-t border-slate-800 flex items-center gap-2.5">
+            <div
+              style={{
+                padding: "12px 16px",
+                background: "#111827",
+                borderTop: "1px solid #1e293b",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
               {!session.started.value
                 ? (
                   <button
                     type="button"
-                    className="px-4 py-2 border-none rounded-md font-mono text-xs font-semibold cursor-pointer uppercase tracking-wide bg-blue-600 text-white hover:bg-blue-700 transition-all"
+                    style={{
+                      ...btnBase,
+                      background: "#2563eb",
+                      color: "white",
+                    }}
                     onClick={() => session.start()}
                   >
                     Start Dispatch
@@ -277,26 +440,32 @@ export default function App() {
                   <>
                     <button
                       type="button"
-                      className={`px-4 py-2 border-none rounded-md font-mono text-xs font-semibold cursor-pointer uppercase tracking-wide transition-all ${
-                        session.running.value
-                          ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
-                          : "bg-blue-600 text-white hover:bg-blue-700"
-                      }`}
+                      style={{
+                        ...btnBase,
+                        background: session.running.value
+                          ? "#334155"
+                          : "#2563eb",
+                        color: session.running.value ? "#e2e8f0" : "white",
+                      }}
                       onClick={() => session.toggle()}
                     >
                       {session.running.value ? "Pause" : "Resume"}
                     </button>
                     <button
                       type="button"
-                      className="px-4 py-2 border-none rounded-md font-mono text-xs font-semibold cursor-pointer uppercase tracking-wide bg-red-600 text-white hover:bg-red-700 transition-all"
+                      style={{
+                        ...btnBase,
+                        background: "#dc2626",
+                        color: "white",
+                      }}
                       onClick={() => session.reset()}
                     >
                       Reset
                     </button>
                   </>
                 )}
-              <div className="flex-1" />
-              <span className="text-[10px] text-slate-600">
+              <div style={{ flex: 1 }} />
+              <span style={{ fontSize: "10px", color: "#475569" }}>
                 {incidentList.length} incident
                 {incidentList.length !== 1 ? "s" : ""} logged
               </span>
@@ -304,52 +473,91 @@ export default function App() {
           </div>
 
           {/* Right: sidebar dashboard */}
-          <div className="dc-sidebar bg-gray-900 overflow-y-auto p-4 flex flex-col gap-4">
+          <div
+            className="dc-sidebar"
+            style={{
+              background: "#111827",
+              overflowY: "auto",
+              padding: "16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+            }}
+          >
             {/* Quick stats */}
-            <div className="bg-[#1a1a2e] border border-slate-800 rounded-lg p-3">
-              <div className="text-[10px] font-bold uppercase tracking-[1.5px] text-slate-500 mb-2.5">
-                Operations Summary
-              </div>
-              <div className="flex justify-between items-center py-1 text-xs">
-                <span className="text-slate-400">Active Incidents</span>
+            <div style={panelStyle}>
+              <div style={panelTitle}>Operations Summary</div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "4px 0",
+                  fontSize: "12px",
+                }}
+              >
+                <span style={{ color: "#94a3b8" }}>Active Incidents</span>
                 <span
-                  className={`font-bold ${
-                    activeIncidents.length > 3
-                      ? "text-red-500"
-                      : "text-slate-200"
-                  }`}
+                  style={{
+                    fontWeight: "bold",
+                    color: activeIncidents.length > 3 ? "#ef4444" : "#e2e8f0",
+                  }}
                 >
                   {activeIncidents.length}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-1 text-xs">
-                <span className="text-slate-400">Resolved</span>
-                <span className="font-bold text-green-500">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "4px 0",
+                  fontSize: "12px",
+                }}
+              >
+                <span style={{ color: "#94a3b8" }}>Resolved</span>
+                <span style={{ fontWeight: "bold", color: "#22c55e" }}>
                   {resolvedCount}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-1 text-xs">
-                <span className="text-slate-400">Total Logged</span>
-                <span className="font-bold">{incidentList.length}</span>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "4px 0",
+                  fontSize: "12px",
+                }}
+              >
+                <span style={{ color: "#94a3b8" }}>Total Logged</span>
+                <span style={{ fontWeight: "bold" }}>{incidentList.length}</span>
               </div>
             </div>
 
             {/* Active incidents */}
-            <div className="bg-[#1a1a2e] border border-slate-800 rounded-lg p-3">
-              <div className="text-[10px] font-bold uppercase tracking-[1.5px] text-slate-500 mb-2.5">
-                Active Incidents
-              </div>
+            <div style={panelStyle}>
+              <div style={panelTitle}>Active Incidents</div>
               {activeIncidents.length === 0
                 ? (
-                  <div className="text-xs text-slate-600 text-center py-2">
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#475569",
+                      textAlign: "center",
+                      padding: "8px 0",
+                    }}
+                  >
                     No active incidents
                   </div>
                 )
                 : activeIncidents.map((inc) => (
                   <div
                     key={inc.id}
-                    className="bg-slate-900 rounded-md p-2.5 mb-2"
                     style={{
+                      background: "#0f172a",
+                      borderRadius: "6px",
+                      padding: "10px",
+                      marginBottom: "8px",
                       animation: "dc-slide-in 0.3s ease-out",
                       border: `1px solid ${
                         severityColors[inc.severity ?? ""] || "#334155"
@@ -359,14 +567,31 @@ export default function App() {
                       }`,
                     }}
                   >
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-bold text-slate-100">
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          color: "#f1f5f9",
+                        }}
+                      >
                         {inc.id}
                       </span>
                       {inc.severity && (
                         <span
-                          className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase"
                           style={{
+                            fontSize: "9px",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            fontWeight: "bold",
+                            textTransform: "uppercase",
                             background: `${
                               severityColors[inc.severity ?? ""]
                             }30`,
@@ -378,14 +603,22 @@ export default function App() {
                       )}
                     </div>
                     {inc.location && (
-                      <div className="text-[11px] text-slate-400 mb-0.5">
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          color: "#94a3b8",
+                          marginBottom: "2px",
+                        }}
+                      >
                         {inc.location}
                       </div>
                     )}
                     {inc.status && (
                       <div
-                        className="text-[10px] uppercase tracking-wide"
                         style={{
+                          fontSize: "10px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
                           color: statusColors[inc.status] || "#6b7280",
                         }}
                       >
@@ -397,20 +630,33 @@ export default function App() {
             </div>
 
             {/* Legend */}
-            <div className="bg-[#1a1a2e] border border-slate-800 rounded-lg p-3">
-              <div className="text-[10px] font-bold uppercase tracking-[1.5px] text-slate-500 mb-2.5">
-                Severity Legend
-              </div>
+            <div style={panelStyle}>
+              <div style={panelTitle}>Severity Legend</div>
               {Object.entries(severityColors).map(([sev, color]) => (
                 <div
                   key={sev}
-                  className="flex items-center gap-2 py-0.5"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "2px 0",
+                  }}
                 >
                   <span
-                    className="w-2.5 h-2.5 rounded-sm"
-                    style={{ background: color }}
+                    style={{
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "2px",
+                      background: color,
+                    }}
                   />
-                  <span className="text-[11px] capitalize text-slate-400">
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      textTransform: "capitalize",
+                      color: "#94a3b8",
+                    }}
+                  >
                     {sev}
                   </span>
                 </div>
@@ -418,11 +664,15 @@ export default function App() {
             </div>
 
             {/* Scenario shortcuts */}
-            <div className="bg-[#1a1a2e] border border-slate-800 rounded-lg p-3">
-              <div className="text-[10px] font-bold uppercase tracking-[1.5px] text-slate-500 mb-2.5">
-                Training Scenarios
-              </div>
-              <div className="text-[11px] text-slate-500 leading-relaxed">
+            <div style={panelStyle}>
+              <div style={panelTitle}>Training Scenarios</div>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "#64748b",
+                  lineHeight: 1.6,
+                }}
+              >
                 Say "run mass casualty scenario" or "simulate active shooter" to
                 test dispatch operations with complex multi-incident drills.
               </div>
@@ -433,3 +683,5 @@ export default function App() {
     </>
   );
 }
+
+mount(App);

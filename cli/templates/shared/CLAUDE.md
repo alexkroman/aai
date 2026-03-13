@@ -424,13 +424,13 @@ resolves from `node_modules`.
 
 ## Custom UI (`client.tsx`)
 
-Add `client.tsx` alongside `agent.ts`. Export a default Preact component — the
-framework auto-mounts it. Use JSX syntax:
+Add `client.tsx` alongside `agent.ts`. Define a Preact component and call
+`mount()` to render it. Use JSX syntax:
 
 ```tsx
-import { useSession } from "@jsr/aai__ui";
+import { mount, useSession } from "@jsr/aai__ui";
 
-export default function App() {
+function App() {
   const session = useSession();
   const msgs = session.messages.value;
   const tx = session.transcript.value;
@@ -443,11 +443,13 @@ export default function App() {
     </div>
   );
 }
+
+mount(App);
 ```
 
 **Rules:**
 
-- Export a default function component — do not call `mount()` yourself
+- Call `mount(YourComponent)` at the end of the file
 - Use `.tsx` file extension for JSX syntax
 - Import hooks from `preact/hooks` (`useEffect`, `useRef`, `useState`, etc.)
 - Style with `style={{ color: "red" }}` or inject `<style>` for selectors,
@@ -477,8 +479,9 @@ After scaffolding, your project directory looks like:
 ```text
 my-agent/
   agent.ts          # Agent definition
-  layout.tsx        # HTML shell (Preact component, rendered at build time)
-  client.tsx        # UI component (mounted into layout's #app)
+  _worker.ts        # Worker entry point (imports agent.ts, calls initWorker)
+  index.html        # Static HTML shell
+  client.tsx        # UI component (calls mount() to render into #app)
   package.json      # Dependencies + scripts (dev, build, deploy)
   tsconfig.json     # TypeScript config (strict, path aliases)
   .npmrc            # JSR registry config

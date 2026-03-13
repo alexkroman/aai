@@ -27,17 +27,20 @@ import {
   type RpcClient,
   type RpcHandlers,
 } from "./_rpc.ts";
-import { deadline } from "@std/async/deadline";
-
 const FETCH_TIMEOUT_MS = 30_000;
 const KV_TIMEOUT_MS = 10_000;
 const EMPTY_PARAMS = z.object({});
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return deadline(promise, timeoutMs).catch((err) => {
-    throw err.name === "TimeoutError"
-      ? new Error(`RPC timed out after ${timeoutMs}ms`)
-      : err;
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`RPC timed out after ${timeoutMs}ms`)),
+      timeoutMs,
+    );
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
   });
 }
 

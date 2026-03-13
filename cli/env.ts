@@ -1,8 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { parseArgs } from "@std/cli/parse-args";
 import { promptSecret } from "@std/cli/prompt-secret";
-import * as log from "@std/log";
-import { step, stepInfo } from "./_output.ts";
+import { detail, step, stepInfo } from "./_output.ts";
 import { DEFAULT_SERVER, getApiKey, readProjectConfig } from "./_discover.ts";
 import type { SubcommandDef } from "./_help.ts";
 import { subcommandHelp } from "./_help.ts";
@@ -52,7 +51,7 @@ export async function runEnvCommand(
   });
 
   if (parsed.help || parsed._.length === 0) {
-    log.info(subcommandHelp(envCommandDef, version));
+    console.log(subcommandHelp(envCommandDef, version));
     return;
   }
 
@@ -147,7 +146,7 @@ async function envList(cwd: string): Promise<void> {
     stepInfo("Env", "No environment variables set");
   } else {
     for (const name of vars) {
-      log.info(`  ${name}`);
+      detail(name);
     }
   }
 }
