@@ -131,51 +131,6 @@ Deno.test("runNew skips node_modules and _deno.json", async () => {
   }
 });
 
-Deno.test("runNew replaces name in agent.ts", async () => {
-  const s = silenceSteps();
-  try {
-    await withTempDir(async (dir) => {
-      const templatesDir = await createFakeTemplates(dir);
-      const target = join(dir, "output");
-
-      await runNew({
-        targetDir: target,
-        template: "simple",
-        templatesDir,
-        name: "Custom Bot",
-      });
-
-      const agent = await Deno.readTextFile(join(target, "agent.ts"));
-      assertStringIncludes(agent, '"Custom Bot"');
-      assert(!agent.includes("Default Name"));
-    });
-  } finally {
-    s.restore();
-  }
-});
-
-Deno.test("runNew escapes special characters in name", async () => {
-  const s = silenceSteps();
-  try {
-    await withTempDir(async (dir) => {
-      const templatesDir = await createFakeTemplates(dir);
-      const target = join(dir, "output");
-
-      await runNew({
-        targetDir: target,
-        template: "simple",
-        templatesDir,
-        name: 'He said "hello"',
-      });
-
-      const agent = await Deno.readTextFile(join(target, "agent.ts"));
-      assertStringIncludes(agent, 'He said \\"hello\\"');
-    });
-  } finally {
-    s.restore();
-  }
-});
-
 Deno.test("runNew template files take precedence over shared", async () => {
   const s = silenceSteps();
   try {

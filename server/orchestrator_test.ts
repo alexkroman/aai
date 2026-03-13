@@ -306,16 +306,11 @@ Deno.test("websocket upgrades for deployed agent", async () => {
         getWorkerApi: () => Promise.resolve({} as never),
       })) as never,
   );
-  try {
-    const res = await handler(
-      req("/my-agent/websocket", { headers: { upgrade: "websocket" } }),
-      DUMMY_INFO,
-    );
-    assertEquals(res.status, 101);
-  } finally {
-    upgradeStub.restore();
-    prepareStub.restore();
-  }
+  const res = await handler(
+    req("/my-agent/websocket", { headers: { upgrade: "websocket" } }),
+    DUMMY_INFO,
+  );
+  assertEquals(res.status, 101);
 });
 
 // =============================================================================
