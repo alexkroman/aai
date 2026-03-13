@@ -1,21 +1,36 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --color-aai-bg: var(--aai-bg);
-  --color-aai-surface: var(--aai-surface);
-  --color-aai-surface-light: var(--aai-surface-light);
-  --color-aai-primary: var(--aai-primary);
-  --color-aai-text: var(--aai-text);
-  --color-aai-text-muted: var(--aai-text-muted);
-  --color-aai-error: var(--aai-error);
-  --color-aai-state-connecting: var(--aai-state-connecting);
-  --color-aai-state-ready: var(--aai-state-ready);
-  --color-aai-state-listening: var(--aai-state-listening);
-  --color-aai-state-thinking: var(--aai-state-thinking);
-  --color-aai-state-speaking: var(--aai-state-speaking);
-  --color-aai-state-error: var(--aai-state-error);
-  --radius-aai: var(--aai-radius);
-  --font-aai: var(--aai-font);
+  --color-aai-bg: #101010;
+  --color-aai-surface: #151515;
+  --color-aai-surface-faint: rgba(255, 255, 255, 0.031);
+  --color-aai-surface-hover: rgba(255, 255, 255, 0.059);
+  --color-aai-border: #282828;
+  --color-aai-primary: #034cff;
+  --color-aai-text: rgba(255, 255, 255, 0.936);
+  --color-aai-text-secondary: rgba(255, 255, 255, 0.618);
+  --color-aai-text-muted: rgba(255, 255, 255, 0.284);
+  --color-aai-text-dim: rgba(255, 255, 255, 0.422);
+  --color-aai-error: #fc533a;
+  --color-aai-ring: #9dbefe;
+  --color-aai-state-connecting: rgba(255, 255, 255, 0.422);
+  --color-aai-state-ready: #12c905;
+  --color-aai-state-listening: #9dbefe;
+  --color-aai-state-thinking: #fcd53a;
+  --color-aai-state-speaking: #fc533a;
+  --color-aai-state-error: #fc533a;
+  --radius-aai: 6px;
+  --font-aai: "Inter", system-ui, -apple-system, sans-serif;
+  --font-aai-mono: "IBM Plex Mono", monospace;
+}
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-aai-bg);
+  }
 }
 
 @keyframes aai-bounce {

@@ -4,14 +4,12 @@ import { render } from "preact";
 import { signal } from "@preact/signals";
 import { createMockSignals, withDOM } from "./_test_utils.ts";
 import { SessionProvider, type SessionSignals } from "./signals.ts";
-import {
-  App,
-  ChatView,
-  ErrorBanner,
-  MessageBubble,
-  StateIndicator,
-  Transcript,
-} from "./_components.tsx";
+import { StateIndicator } from "./_components/state_indicator.tsx";
+import { ErrorBanner } from "./_components/error_banner.tsx";
+import { MessageBubble } from "./_components/message_bubble.tsx";
+import { Transcript } from "./_components/transcript.tsx";
+import { ChatView } from "./_components/chat_view.tsx";
+import { App } from "./_components/app.tsx";
 import type { AgentState, Message } from "./types.ts";
 
 function renderWithProvider(
