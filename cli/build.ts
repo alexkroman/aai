@@ -16,8 +16,6 @@ export type BuildResult = {
 export type BuildOpts = {
   /** Absolute path to the directory containing `agent.ts`. */
   agentDir: string;
-  /** Resolve `@jsr/aai__sdk` and `@jsr/aai__ui` from local monorepo source. */
-  dev?: boolean;
 };
 
 /**
@@ -38,6 +36,32 @@ async function writeBuildOutput(
 }
 
 /**
+ * Run `deno check`, `deno lint`, and `deno fmt --check` on the agent project.
+ * Fails the build on any errors.
+ */
+async function checkAgent(agentDir: string): Promise<void> {
+  const checks = [
+    { args: ["check", "agent.ts"], label: "Type-check" },
+    { args: ["lint"], label: "Lint" },
+    { args: ["fmt", "--check"], label: "Format" },
+  ];
+  for (const { args, label } of checks) {
+    const cmd = new Deno.Command(Deno.execPath(), {
+      args,
+      cwd: agentDir,
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const { code, stderr } = await cmd.output();
+    if (code !== 0) {
+      const msg = new TextDecoder().decode(stderr).trim();
+      logError(`${label}: ${msg}`);
+      throw new Error(`${label} failed — fix the errors above`);
+    }
+  }
+}
+
+/**
  * Discovers the agent in the given directory and bundles it into deployable
  * JavaScript artifacts (worker + client).
  *
@@ -51,10 +75,13 @@ export async function runBuild(opts: BuildOpts): Promise<BuildResult> {
     throw new Error("No agent found — run `aai new` first");
   }
 
+  step("Check", agent.slug);
+  await checkAgent(opts.agentDir);
+
   step("Bundle", agent.slug);
   let bundle: BundleOutput;
   try {
-    bundle = await bundleAgent(agent, { dev: opts.dev ?? false });
+    bundle = await bundleAgent(agent);
   } catch (err) {
     if (err instanceof BundleError) {
       logError(err.message);

@@ -1,6 +1,6 @@
-import { defineAgent } from "@jsr/aai__sdk";
+import { defineAgent } from "@aai/sdk";
 import { z } from "zod";
-import type { HookContext, ToolContext } from "@jsr/aai__sdk";
+import type { HookContext, ToolContext } from "@aai/sdk";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

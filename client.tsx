@@ -1,5 +1,5 @@
-import { useSession } from "@jsr/aai__ui";
-import type { Message } from "@jsr/aai__ui";
+import { useSession } from "@aai/ui";
+import type { Message } from "@aai/ui";
 import { useEffect, useRef } from "preact/hooks";
 
 const CSS = `

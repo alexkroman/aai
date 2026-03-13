@@ -1,5 +1,5 @@
 {
-  "workspace": ["server", "ui", "cli", "sdk", "scripts"],
+  "workspace": ["server", "ui", "cli", "sdk", "scripts", "cli/templates"],
   "exclude": ["**/node_modules/"],
   "tasks": {
     "setup": "git config core.hooksPath .githooks",
@@ -7,7 +7,7 @@
     "new": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run cli/cli.ts new",
     "serve": "deno run --allow-net --allow-env --allow-read --allow-write --unstable-worker-options server/main.ts",
     "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options",
-    "check": "deno check server/**/*.ts server/**/*.tsx ui/**/*.ts ui/**/*.tsx cli/*.ts sdk/**/*.ts scripts/**/*.ts && deno lint && deno fmt --check && deno run -A npm:markdownlint-cli CLAUDE.md README.md cli/templates/shared/CLAUDE.md && deno task check:boundaries && deno task check:exports && deno task publish && deno test --quiet --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options",
+    "check": "deno check server/**/*.ts server/**/*.tsx ui/**/*.ts ui/**/*.tsx cli/*.ts sdk/**/*.ts scripts/**/*.ts && deno lint && deno fmt --check && deno run -A npm:markdownlint-cli CLAUDE.md README.md cli/templates/_shared/CLAUDE.md && deno task check:boundaries && deno task check:exports && deno task publish && deno test --quiet --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-worker-options && deno task test:templates",
     "check:boundaries": "deno run --allow-read scripts/check_boundaries.ts",
     "check:exports": "deno run --allow-read scripts/check_export_names.ts",
     "bump": "deno run --allow-read --allow-write --allow-run scripts/bump_versions.ts",
@@ -43,8 +43,9 @@
     "tailwindcss": "npm:tailwindcss@^4",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0",
     "turndown": "npm:turndown@^7.2.2",
-    "@jsr/aai__sdk": "./sdk/mod.ts",
-    "@jsr/aai__ui": "./ui/mod.ts"
+    "human-id": "npm:human-id@^4.1.3",
+    "@aai/sdk": "./sdk/mod.ts",
+    "@aai/ui": "./ui/mod.ts"
   },
   "nodeModulesDir": "auto",
   "compilerOptions": {
@@ -78,7 +79,8 @@
       "server/",
       "ui/",
       "cli/",
-      "sdk/"
+      "sdk/",
+      "scripts/"
     ],
     "exclude": ["**/node_modules/"],
     "rules": {

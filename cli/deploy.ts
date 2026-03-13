@@ -51,7 +51,7 @@ export async function runDeployCommand(
 ): Promise<void> {
   const parsed = parseArgs(args, {
     string: ["server", "local"],
-    boolean: ["dry-run", "help", "yes", "dev"],
+    boolean: ["dry-run", "help", "yes"],
     alias: { s: "server", h: "help", y: "yes" },
   });
 
@@ -83,9 +83,7 @@ export async function runDeployCommand(
   // Slug: from project config, or generate a new human-readable one
   const slug = projectConfig?.slug ?? generateSlug();
 
-  // Auto-enable dev mode when running via `deno run` (aai-dev) vs compiled binary
-  const isDevCli = Deno.execPath().endsWith("deno");
-  const result = await runBuild({ agentDir: cwd, dev: parsed.dev || isDevCli });
+  const result = await runBuild({ agentDir: cwd });
   const deployed = await runDeploy({
     url: serverUrl,
     bundle: result.bundle,

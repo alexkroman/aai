@@ -58,8 +58,8 @@ never on each other.
 - `cli.ts` — arg parsing, subcommands: new, build, deploy, types
 - `new.ts` / `deploy.ts` — Cliffy command definitions for subcommands
 - `_new.ts` / `_deploy.ts` — internal logic for new/deploy
-- `_bundler.ts` — Vite bundling of `agent.ts`/`client.tsx` into
-  `worker.js`/`index.html`
+- `_bundler.ts` — generates Vite config at build time, bundles
+  `agent.ts`/`client.tsx` into `worker.js`/`index.html`
 - `_discover.ts` — imports `agent.ts` to extract config from `defineAgent()`
 - `_validate.ts` — build-time agent config validation
 
@@ -124,11 +124,11 @@ The host side (`server/_worker_entry.ts`) uses `createWorkerApi()` to produce a
 - **Testing**: `Deno.test()` with `t.step()` + `@std/assert`. Test files
   are co-located: `foo.ts` → `foo_test.ts`
 - **Browser behavior**: CLI opens the browser only when scaffolding a new agent
-- **Agent API docs**: `cli/templates/shared/CLAUDE.md` is copied into user
+- **Agent API docs**: `cli/templates/_shared/CLAUDE.md` is copied into user
   agent directories. When modifying the agent API surface (`sdk/types.ts`),
   update it to match.
 - **Templates**: `cli/templates/` contains agent scaffolding templates.
-  `cli/templates/shared/` has files common to all templates (copied without
+  `cli/templates/_shared/` has files common to all templates (copied without
   overwriting template-specific files).
 - **Scripts**: `scripts/check_boundaries.ts` enforces the workspace dependency
   rule; `scripts/bump_versions.ts` handles version bumps

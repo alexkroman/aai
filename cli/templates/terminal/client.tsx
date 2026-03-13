@@ -1,5 +1,5 @@
-import { mount, useSession } from "@jsr/aai__ui";
-import type { Message } from "@jsr/aai__ui";
+import { mount, useSession } from "@aai/ui";
+import type { Message } from "@aai/ui";
 import { useEffect, useRef } from "preact/hooks";
 import { signal } from "@preact/signals";
 

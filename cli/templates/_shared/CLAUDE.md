@@ -66,7 +66,7 @@ Templates are in `templates/` relative to the CLI source:
 Every agent lives in `agent.ts` and exports a default `defineAgent()` call:
 
 ```ts
-import { defineAgent } from "@jsr/aai__sdk";
+import { defineAgent } from "@aai/sdk";
 
 export default defineAgent({
   name: "My Agent",
@@ -79,10 +79,10 @@ export default defineAgent({
 ### Imports
 
 ```ts
-import { defineAgent } from "@jsr/aai__sdk"; // Always needed
-import { defineAgent, kvTools } from "@jsr/aai__sdk"; // Persistent memory helpers
-import type { BeforeStepResult, HookContext, ToolContext } from "@jsr/aai__sdk"; // Type annotations
-import { z } from "zod"; // Tools with typed params (add "zod" to package.json)
+import { defineAgent } from "@aai/sdk"; // Always needed
+import { defineAgent, kvTools } from "@aai/sdk"; // Persistent memory helpers
+import type { BeforeStepResult, HookContext, ToolContext } from "@aai/sdk"; // Type annotations
+import { z } from "zod"; // Tools with typed params (included in deno.json)
 ```
 
 ## Agent configuration
@@ -174,7 +174,7 @@ aai env rm MY_API_KEY
 Access secrets in tool code via `ctx.env`:
 
 ```ts
-import { defineAgent } from "@jsr/aai__sdk";
+import { defineAgent } from "@aai/sdk";
 import { z } from "zod";
 
 export default defineAgent({
@@ -202,7 +202,7 @@ Define tools as plain objects in the `tools` record. The `parameters` field
 takes a Zod schema for type-safe argument inference:
 
 ```ts
-import { defineAgent } from "@jsr/aai__sdk";
+import { defineAgent } from "@aai/sdk";
 import { z } from "zod";
 
 export default defineAgent({
@@ -331,7 +331,7 @@ Spreads four tools: `save_memory`, `recall_memory`, `list_memories`,
 `forget_memory`:
 
 ```ts
-import { defineAgent, kvTools } from "@jsr/aai__sdk";
+import { defineAgent, kvTools } from "@aai/sdk";
 
 export default defineAgent({
   name: "Memory Agent",
@@ -414,13 +414,18 @@ export default defineAgent({
 
 ### Using npm/jsr packages
 
-```sh
-npm install some-package
+Add packages to `deno.json` imports:
+
+```json
+{
+  "imports": {
+    "some-package": "npm:some-package@^1",
+    "@scope/pkg": "jsr:@scope/pkg@^1"
+  }
+}
 ```
 
-For JSR packages, add `.npmrc` with `@jsr:registry=https://npm.jsr.io`, then
-`npm install @jsr/scope__package-name`. Import as bare specifiers — the bundler
-resolves from `node_modules`.
+Then run `deno install` to update `node_modules`.
 
 ## Custom UI (`client.tsx`)
 
@@ -428,7 +433,7 @@ Add `client.tsx` alongside `agent.ts`. Define a Preact component and call
 `mount()` to render it. Use JSX syntax:
 
 ```tsx
-import { mount, useSession } from "@jsr/aai__ui";
+import { mount, useSession } from "@aai/ui";
 
 function App() {
   const session = useSession();
@@ -455,7 +460,7 @@ mount(App);
 - Style with `style={{ color: "red" }}` or inject `<style>` for selectors,
   keyframes, media queries
 
-**Built-in components from `@jsr/aai__ui`:** `ErrorBanner`, `StateIndicator`,
+**Built-in components from `@aai/ui`:** `ErrorBanner`, `StateIndicator`,
 `Transcript`, `ChatView`, `MessageBubble`, `ThinkingIndicator`
 
 **Session signals (`useSession()`):**
@@ -481,20 +486,15 @@ my-agent/
   agent.ts          # Agent definition
   client.tsx        # UI component (calls mount() to render into #app)
   styles.css        # Tailwind CSS entry point
-  package.json      # Dependencies + scripts (dev, build, deploy)
-  vite.config.ts    # Vite build config (singlefile output)
-  tsconfig.json     # TypeScript config (strict, path aliases)
-  .npmrc            # JSR registry config
+  deno.json         # Dependencies, tasks, and config
   .env.example      # Reference for env var names
   .env              # Local dev secrets (gitignored)
-  .gitignore        # Ignores node_modules/, .aai/build/, .env, etc.
+  .gitignore        # Ignores node_modules/, .aai/, .env, etc.
   README.md         # Getting started guide
   CLAUDE.md         # Agent API reference (auto-generated)
-  .aai/             # Build plumbing
-    _worker.ts      # Worker entry point (imports agent.ts, calls initWorker)
-    index.html      # HTML shell (Vite entry point)
-    project.json    # Deploy target (slug, server URL) — gitignored
-    build/          # Bundle output — gitignored
+  .aai/             # Build output (managed by CLI, gitignored)
+    project.json    # Deploy target (slug, server URL)
+    build/          # Bundle output
 ```
 
 ## Common pitfalls

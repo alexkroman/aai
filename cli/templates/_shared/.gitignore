@@ -1,9 +1,8 @@
 # dependencies
 node_modules/
 
-# build output
-.aai/build/
-.aai/project.json
+# build output (managed by CLI)
+.aai/
 
 # env files
 .env

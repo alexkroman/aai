@@ -160,13 +160,13 @@ export async function loadAgent(dir: string): Promise<AgentEntry | null> {
 }
 
 /**
- * Copies `cli/templates/shared/CLAUDE.md` into the agent directory as `CLAUDE.md`.
+ * Copies `cli/templates/_shared/CLAUDE.md` into the agent directory as `CLAUDE.md`.
  * Creates the file if missing or updates it if the content has changed.
  */
 export async function ensureClaudeMd(targetDir: string): Promise<void> {
   const claudePath = join(targetDir, "CLAUDE.md");
   const cliDir = dirname(fromFileUrl(import.meta.url));
-  const srcPath = join(cliDir, "templates", "shared", "CLAUDE.md");
+  const srcPath = join(cliDir, "templates", "_shared", "CLAUDE.md");
   const srcContent = await Deno.readTextFile(srcPath);
   let existing = "";
   try {
@@ -182,28 +182,23 @@ export async function ensureClaudeMd(targetDir: string): Promise<void> {
 }
 
 /**
- * Install npm dependencies if `node_modules/` doesn't exist.
- * Templates already include `package.json`, `.npmrc`, `tsconfig.json`,
- * and `.gitignore`.
+ * Install dependencies if `node_modules/` doesn't exist.
+ * Uses `deno install` which reads package.json and installs from npm.
  */
 export async function ensureDependencies(
   targetDir: string,
 ): Promise<void> {
   if (!await exists(join(targetDir, "node_modules"))) {
-    try {
-      step("Install", "dependencies");
-      const cmd = new Deno.Command("npm", {
-        args: ["install"],
-        cwd: targetDir,
-        stdout: "inherit",
-        stderr: "inherit",
-      });
-      const { code } = await cmd.output();
-      if (code !== 0) {
-        step("Skip", "npm install failed");
-      }
-    } catch {
-      // npm not found — skip silently
+    step("Install", "dependencies");
+    const cmd = new Deno.Command(Deno.execPath(), {
+      args: ["install"],
+      cwd: targetDir,
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await cmd.output();
+    if (code !== 0) {
+      step("Skip", "deno install failed");
     }
   }
 }

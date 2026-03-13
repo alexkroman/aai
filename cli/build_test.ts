@@ -6,7 +6,7 @@
 // const CLI_DIR = dirname(fromFileUrl(import.meta.url));
 // const TEMPLATES_DIR = join(CLI_DIR, "templates");
 
-// TODO: Re-enable after @jsr/aai__sdk/worker-entry is published to JSR/npm.
+// TODO: Re-enable after @aai/sdk/worker-entry is published to JSR/npm.
 // Vite can't resolve the new export path until the package is live.
 //
 // Deno.test(

@@ -14,7 +14,7 @@ async function createFakeTemplates(dir: string): Promise<string> {
   const templatesDir = join(dir, "templates");
 
   // shared files
-  const shared = join(templatesDir, "shared");
+  const shared = join(templatesDir, "_shared");
   await Deno.mkdir(shared, { recursive: true });
   await Deno.writeTextFile(join(shared, "shared.txt"), "from shared");
   await Deno.writeTextFile(join(shared, ".env.example"), "MY_KEY=");
@@ -38,7 +38,7 @@ async function createFakeTemplates(dir: string): Promise<string> {
   );
   await Deno.writeTextFile(join(sub, "helper.ts"), "// helper");
 
-  await Deno.writeTextFile(join(simple, "_deno.json"), "{}");
+  await Deno.writeTextFile(join(simple, "deno.json"), "{}");
 
   // template with .env.example that overrides shared
   const withEnv = join(templatesDir, "with-env");
@@ -99,7 +99,7 @@ Deno.test("runNew copies template and shared files to target", async () => {
   }
 });
 
-Deno.test("runNew skips node_modules and _deno.json", async () => {
+Deno.test("runNew skips node_modules", async () => {
   const s = silenceSteps();
   try {
     await withTempDir(async (dir) => {
@@ -119,12 +119,8 @@ Deno.test("runNew skips node_modules and _deno.json", async () => {
       } catch { /* expected */ }
       assertStrictEquals(hasNodeModules, false);
 
-      let hasDenoJson = false;
-      try {
-        await Deno.stat(join(target, "_deno.json"));
-        hasDenoJson = true;
-      } catch { /* expected */ }
-      assertStrictEquals(hasDenoJson, false);
+      // deno.json should be copied (used for deps + config)
+      assert(await exists(join(target, "deno.json")));
     });
   } finally {
     s.restore();

@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@source "../node_modules/@jsr/aai__ui";
+@source "../node_modules/@aai/ui";
 
 @theme {
   --color-aai-bg: var(--aai-bg);

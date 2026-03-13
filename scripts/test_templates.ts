@@ -14,7 +14,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 
 const ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const CLI = join(ROOT, "cli", "cli.ts");
-const TEMPLATES_DIR = join(ROOT, "templates");
+const TEMPLATES_DIR = join(ROOT, "cli", "templates");
 const DENO_RUN = [
   Deno.execPath(),
   "run",
@@ -26,7 +26,9 @@ const DENO_RUN = [
 // Discover templates
 const templates: string[] = [];
 for await (const entry of Deno.readDir(TEMPLATES_DIR)) {
-  if (entry.isDirectory) templates.push(entry.name);
+  if (entry.isDirectory && !entry.name.startsWith("_")) {
+    templates.push(entry.name);
+  }
 }
 templates.sort();
 
@@ -66,19 +68,19 @@ for (const template of templates) {
       throw new Error(`Scaffold failed: ${stderr}`);
     }
 
-    // Install npm dependencies
-    const npm = new Deno.Command("npm", {
-      args: ["install", "--silent"],
+    // Install dependencies
+    const install = new Deno.Command(Deno.execPath(), {
+      args: ["install"],
       cwd: tmpDir,
       stdout: "piped",
       stderr: "piped",
     });
-    const npmResult = await npm.output();
-    if (!npmResult.success) {
-      throw new Error("Npm install failed");
+    const installResult = await install.output();
+    if (!installResult.success) {
+      throw new Error("Deno install failed");
     }
 
-    // Dry-run deploy (bundle + validate, no network)
+    // Dry-run deploy (includes typecheck, lint, fmt via cli/build.ts)
     const deploy = new Deno.Command(DENO_RUN[0]!, {
       args: [...DENO_RUN.slice(1), "deploy", "--dry-run", "-y"],
       cwd: tmpDir,

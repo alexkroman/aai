@@ -1,6 +1,6 @@
-import { defineAgent } from "@jsr/aai__sdk";
+import { defineAgent } from "@aai/sdk";
 import { z } from "zod";
-import type { HookContext, StepInfo } from "@jsr/aai__sdk/types";
+import type { HookContext, StepInfo } from "@aai/sdk/types";
 
 /**
  * Smart Research Agent — demonstrates all 5 advanced features:

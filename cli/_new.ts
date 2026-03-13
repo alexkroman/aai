@@ -1,6 +1,8 @@
 // Copyright 2025 the AAI authors. MIT license.
+import { copy } from "@std/fs/copy";
 import { exists } from "@std/fs/exists";
-import { basename, join, resolve } from "@std/path";
+import { walk } from "@std/fs/walk";
+import { basename, dirname, join, relative, resolve } from "@std/path";
 import { step } from "./_output.ts";
 
 export const _internals = {
@@ -13,37 +15,14 @@ export type NewOptions = {
   templatesDir: string;
 };
 
-/** Names to skip when copying template directories. */
-const SKIP = new Set(["node_modules", "_deno.json"]);
-
 export async function listTemplates(dir: string): Promise<string[]> {
   const templates: string[] = [];
   for await (const entry of Deno.readDir(dir)) {
-    if (entry.isDirectory && entry.name !== "shared") {
+    if (entry.isDirectory && !entry.name.startsWith("_")) {
       templates.push(entry.name);
     }
   }
   return templates.sort();
-}
-
-/** Strip `.tmpl` suffix so `foo.ts.tmpl` becomes `foo.ts` in the target. */
-function destName(name: string): string {
-  return name.endsWith(".tmpl") ? name.slice(0, -5) : name;
-}
-
-/** Recursively copy `src` into `dest`, skipping names in SKIP. */
-async function copyDir(src: string, dest: string): Promise<void> {
-  await Deno.mkdir(dest, { recursive: true });
-  for await (const entry of Deno.readDir(src)) {
-    if (SKIP.has(entry.name)) continue;
-    const srcPath = join(src, entry.name);
-    const destPath = join(dest, destName(entry.name));
-    if (entry.isDirectory) {
-      await copyDir(srcPath, destPath);
-    } else {
-      await Deno.copyFile(srcPath, destPath);
-    }
-  }
 }
 
 /**
@@ -51,15 +30,11 @@ async function copyDir(src: string, dest: string): Promise<void> {
  * in `dest` so that template-specific files take precedence over shared ones.
  */
 async function copyDirNoOverwrite(src: string, dest: string): Promise<void> {
-  await Deno.mkdir(dest, { recursive: true });
-  for await (const entry of Deno.readDir(src)) {
-    if (SKIP.has(entry.name)) continue;
-    const srcPath = join(src, entry.name);
-    const destPath = join(dest, destName(entry.name));
-    if (entry.isDirectory) {
-      await copyDirNoOverwrite(srcPath, destPath);
-    } else if (!await exists(destPath)) {
-      await Deno.copyFile(srcPath, destPath);
+  for await (const entry of walk(src, { includeDirs: false })) {
+    const destPath = join(dest, relative(src, entry.path));
+    if (!await exists(destPath)) {
+      await Deno.mkdir(dirname(destPath), { recursive: true });
+      await Deno.copyFile(entry.path, destPath);
     }
   }
 }
@@ -76,11 +51,11 @@ export async function runNew(opts: NewOptions): Promise<string> {
 
   _internals.step("Create", `from template '${template}'`);
 
-  // 1. Copy template-specific files first (skip node_modules, _deno.json)
-  await copyDir(join(templatesDir, template), targetDir);
+  // 1. Copy template-specific files first
+  await copy(join(templatesDir, template), targetDir, { overwrite: true });
 
   // 2. Layer shared files underneath (don't overwrite template files)
-  await copyDirNoOverwrite(join(templatesDir, "shared"), targetDir);
+  await copyDirNoOverwrite(join(templatesDir, "_shared"), targetDir);
 
   try {
     await Deno.copyFile(
@@ -98,9 +73,9 @@ A voice agent built with [aai](https://github.com/anthropics/aai).
 ## Getting started
 
 \`\`\`sh
-npm install        # Install dependencies
-npm run dev        # Run locally (opens browser)
-npm run deploy     # Deploy to production
+deno install       # Install dependencies
+deno task dev      # Run locally (opens browser)
+deno task deploy   # Deploy to production
 \`\`\`
 
 ## Environment variables
