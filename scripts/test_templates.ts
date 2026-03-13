@@ -14,7 +14,6 @@
 import { bold, brightMagenta, red } from "@std/fmt/colors";
 import * as log from "@std/log";
 import { dirname, fromFileUrl, join } from "@std/path";
-import { deadline } from "@std/async/deadline";
 
 const ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const CLI = join(ROOT, "cli", "cli.ts");
@@ -83,24 +82,39 @@ if (!serverReady) {
 }
 log.info(`Server ready on port ${PORT}\n`);
 
-/** Run a command with a timeout. Returns { success, stderr }. */
+/** Run a command with a timeout. Kills the process on timeout. */
 async function run(
   args: string[],
   cwd: string,
   timeoutMs = STEP_TIMEOUT_MS,
 ): Promise<{ success: boolean; stderr: string }> {
-  const cmd = new Deno.Command(args[0]!, {
+  const child = new Deno.Command(args[0]!, {
     args: args.slice(1),
     cwd,
     env: { ...Deno.env.toObject(), INIT_CWD: cwd },
     stdout: "piped",
     stderr: "piped",
-  });
-  const result = await deadline(cmd.output(), timeoutMs);
-  return {
-    success: result.success,
-    stderr: new TextDecoder().decode(result.stderr),
-  };
+  }).spawn();
+
+  const timer = setTimeout(() => {
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      // Already exited
+    }
+  }, timeoutMs);
+
+  try {
+    const result = await child.output();
+    clearTimeout(timer);
+    return {
+      success: result.success,
+      stderr: new TextDecoder().decode(result.stderr),
+    };
+  } catch {
+    clearTimeout(timer);
+    return { success: false, stderr: `Timed out after ${timeoutMs / 1000}s` };
+  }
 }
 
 // --- Warm up: scaffold + deploy "simple" to populate all caches ---
