@@ -11,8 +11,16 @@
  * modules, so it can't accidentally be bundled into the compiled CLI.
  */
 
-import { bold, brightMagenta, red } from "@std/fmt/colors";
 import * as log from "@std/log";
+
+// Skip in CI — this test boots a server and deploys 15 templates, which is
+// too slow / resource-heavy for GitHub Actions. Run locally via `deno task test:templates`.
+if (Deno.env.get("CI") === "true") {
+  log.info("Skipping template integration test in CI");
+  Deno.exit(0);
+}
+
+import { bold, brightMagenta, red } from "@std/fmt/colors";
 import { dirname, fromFileUrl, join } from "@std/path";
 
 const ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
