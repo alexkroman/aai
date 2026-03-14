@@ -269,6 +269,12 @@ export function withSignalsEnv(
         signals,
         async connect() {
           session.connect();
+          // PartySocket uses setTimeout(0) + promise chain before creating
+          // the underlying WebSocket, so we need to wait for both timer
+          // and microtask queues to drain.
+          await delay(0);
+          await flush();
+          await delay(0);
           await flush();
         },
         send(msg) {

@@ -473,6 +473,12 @@ export function agentToolsToSchemas(
   }));
 }
 
+/** Configuration + tool schemas bundle returned by the worker's getConfig RPC. */
+export type WorkerConfig = {
+  config: AgentConfig;
+  toolSchemas: ToolSchema[];
+};
+
 /**
  * Agent definition with all defaults applied, returned by
  * {@linkcode defineAgent}.

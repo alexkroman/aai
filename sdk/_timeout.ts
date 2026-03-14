@@ -18,8 +18,11 @@ export function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs?: number,
 ): Promise<T> {
-  if (!timeoutMs) return promise;
-  return deadline(promise, timeoutMs).catch((err) => {
+  // Wrap in Promise.resolve to normalize capnweb RpcPromise proxies
+  // into real Promises that work with @std/async deadline (Promise.race).
+  const normalized = Promise.resolve(promise);
+  if (!timeoutMs) return normalized;
+  return deadline(normalized, timeoutMs).catch((err) => {
     if (err instanceof DOMException && err.name === "TimeoutError") {
       throw new Error(`RPC timed out after ${timeoutMs}ms`);
     }

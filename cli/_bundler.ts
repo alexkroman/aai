@@ -200,6 +200,7 @@ function buildClient() {
           outDir: resolve(root, ".aai/build"),
           emptyOutDir: false,
           minify: true,
+          target: "es2022",
         },
       });
     },
