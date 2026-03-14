@@ -94,9 +94,9 @@ export default defineAgent({
 
 ```ts
 import { defineAgent } from "@aai/sdk"; // Always needed
+import { defineAgent, z } from "@aai/sdk"; // z for tools with typed params
 import { defineAgent, kvTools } from "@aai/sdk"; // Persistent memory helpers
 import type { BeforeStepResult, HookContext, ToolContext } from "@aai/sdk"; // Type annotations
-import { z } from "zod"; // Tools with typed params (included in deno.json)
 ```
 
 ## Agent configuration
@@ -188,8 +188,7 @@ aai env rm MY_API_KEY
 Access secrets in tool code via `ctx.env`:
 
 ```ts
-import { defineAgent } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, z } from "@aai/sdk";
 
 export default defineAgent({
   name: "API Agent",
@@ -216,8 +215,7 @@ Define tools as plain objects in the `tools` record. The `parameters` field
 takes a Zod schema for type-safe argument inference:
 
 ```ts
-import { defineAgent } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, z } from "@aai/sdk";
 
 export default defineAgent({
   name: "Weather Agent",

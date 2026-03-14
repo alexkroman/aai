@@ -4,8 +4,7 @@
  *
  * @example
  * ```ts
- * import { defineAgent } from "@aai/sdk";
- * import { z } from "zod";
+ * import { defineAgent, z } from "@aai/sdk";
  *
  * export default defineAgent({
  *   name: "my-agent",
@@ -23,6 +22,7 @@
  * @module
  */
 
+export { z } from "zod";
 export { defineAgent } from "./define_agent.ts";
 export { initWorker } from "./_worker_shim.ts";
 export { createMemoryKv } from "./kv.ts";

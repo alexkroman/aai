@@ -1,5 +1,4 @@
-import { defineAgent } from "@aai/sdk";
-import { z } from "zod";
+import { defineAgent, z } from "@aai/sdk";
 import knowledge from "./knowledge.json" with { type: "json" };
 
 type FaqEntry = { question: string; answer: string };
