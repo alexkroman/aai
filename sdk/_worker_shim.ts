@@ -8,15 +8,7 @@
  * @module
  */
 
-import { z } from "zod";
-import type {
-  AgentConfig,
-  AgentDef,
-  HookContext,
-  Message,
-  ToolSchema,
-  WorkerConfig,
-} from "./types.ts";
+import type { AgentDef, HookContext, Message } from "./types.ts";
 import type { Kv, KvEntry } from "./kv.ts";
 import type { KvRequest } from "./protocol.ts";
 import { executeToolCall } from "./worker_entry.ts";
@@ -31,8 +23,6 @@ import { withTimeout } from "./_timeout.ts";
 
 const FETCH_TIMEOUT_MS = 30_000;
 const KV_TIMEOUT_MS = 10_000;
-const EMPTY_PARAMS = z.object({});
-
 function headersToRecord(h?: HeadersInit): Record<string, string> {
   return Object.fromEntries(new Headers(h).entries());
 }
@@ -148,7 +138,7 @@ function installFetchProxy(rpcClient: RpcClient): void {
  * Initialize the worker-side RPC endpoint for an agent.
  *
  * Sets up bidirectional postMessage RPC: the host can call agent methods
- * (getConfig, executeTool, hooks), and the worker can call host methods
+ * (executeTool, hooks), and the worker can call host methods
  * (fetch, kv).
  *
  * @param agent - The agent definition returned by `defineAgent()`.
@@ -191,32 +181,6 @@ export function initWorker(agent: AgentDef): void {
   const handlers: RpcHandlers = {
     setEnv(env: unknown): void {
       mergedEnv = { ...mergedEnv, ...(env as Record<string, string>) };
-    },
-
-    getConfig(): WorkerConfig {
-      const toolSchemas: ToolSchema[] = Object.entries(agent.tools).map(
-        ([name, def]) => ({
-          name,
-          description: def.description,
-          parameters: z.toJSONSchema(
-            def.parameters ?? EMPTY_PARAMS,
-          ) as ToolSchema["parameters"],
-        }),
-      );
-      const config: AgentConfig = {
-        name: agent.name,
-        mode: agent.mode,
-        instructions: agent.instructions,
-        greeting: agent.greeting,
-        voice: agent.voice,
-      };
-      if (agent.sttPrompt !== undefined) config.sttPrompt = agent.sttPrompt;
-      if (typeof agent.maxSteps !== "function") {
-        config.maxSteps = agent.maxSteps;
-      }
-      if (agent.toolChoice !== undefined) config.toolChoice = agent.toolChoice;
-      if (agent.builtinTools) config.builtinTools = [...agent.builtinTools];
-      return { config, toolSchemas };
     },
 
     async executeTool(

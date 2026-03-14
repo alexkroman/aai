@@ -64,6 +64,8 @@ export async function handleDeploy(
     worker: body.worker,
     html: body.html,
     credential_hashes: [keyHash],
+    config: body.config,
+    toolSchemas: body.toolSchemas,
   });
 
   const slot: AgentSlot = {
@@ -71,6 +73,10 @@ export async function handleDeploy(
     env,
     transport,
     keyHash,
+    config: body.config,
+    name: body.config.name,
+    toolSchemas: body.toolSchemas,
+    configLoaded: true,
   };
   state.slots.set(slug, slot);
 

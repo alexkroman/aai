@@ -1,6 +1,9 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assertEquals, assertStrictEquals } from "@std/assert";
-import { createTestStore, VALID_ENV } from "./_test_utils.ts";
+import { createTestStore, makeConfig, VALID_ENV } from "./_test_utils.ts";
+
+const TEST_CONFIG = makeConfig();
+const TEST_TOOL_SCHEMAS: [] = [];
 
 Deno.test("TigrisBundleStore", async (t) => {
   await t.step("put + get round-trip", async () => {
@@ -12,6 +15,8 @@ Deno.test("TigrisBundleStore", async (t) => {
       worker: "console.log('worker');",
       html: "<html></html>",
       credential_hashes: ["hash1"],
+      config: TEST_CONFIG,
+      toolSchemas: TEST_TOOL_SCHEMAS,
     });
 
     const manifest = await store.getManifest("hello");
@@ -20,6 +25,8 @@ Deno.test("TigrisBundleStore", async (t) => {
       env: VALID_ENV,
       transport: ["websocket"],
       credential_hashes: ["hash1"],
+      config: TEST_CONFIG,
+      toolSchemas: TEST_TOOL_SCHEMAS,
     });
 
     const worker = await store.getFile("hello", "worker");
@@ -38,6 +45,8 @@ Deno.test("TigrisBundleStore", async (t) => {
       worker: "w",
       html: "<html></html>",
       credential_hashes: [],
+      config: TEST_CONFIG,
+      toolSchemas: TEST_TOOL_SCHEMAS,
     });
     await store.deleteAgent("gone");
 
@@ -55,6 +64,8 @@ Deno.test("TigrisBundleStore", async (t) => {
       worker: "old",
       html: "<html></html>",
       credential_hashes: [],
+      config: TEST_CONFIG,
+      toolSchemas: TEST_TOOL_SCHEMAS,
     });
     await store.putAgent({
       slug: "x",
@@ -63,6 +74,8 @@ Deno.test("TigrisBundleStore", async (t) => {
       worker: "new",
       html: "<html></html>",
       credential_hashes: [],
+      config: TEST_CONFIG,
+      toolSchemas: TEST_TOOL_SCHEMAS,
     });
 
     const manifest = await store.getManifest("x");
@@ -80,6 +93,8 @@ Deno.test("TigrisBundleStore", async (t) => {
       worker: big,
       html: "<html></html>",
       credential_hashes: [],
+      config: TEST_CONFIG,
+      toolSchemas: TEST_TOOL_SCHEMAS,
     });
 
     const result = await store.getFile("big", "worker");

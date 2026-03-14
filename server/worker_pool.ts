@@ -93,14 +93,6 @@ async function spawnAgent(
 
   const api = createWorkerApi(worker, createHostApi(kvCtx));
   slot.worker = { handle: worker, api };
-
-  if (!slot.configLoaded) {
-    const { config, toolSchemas } = await api.getConfig();
-    slot.config = config;
-    slot.name = config.name;
-    slot.toolSchemas = toolSchemas;
-    slot.configLoaded = true;
-  }
 }
 
 function createHostApi(
@@ -113,7 +105,7 @@ function createHostApi(
         method: req.method,
         headers: req.headers,
         body: req.body,
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(5_000),
       });
       const body = await resp.text();
       const headers: Record<string, string> = {};
@@ -244,6 +236,10 @@ export function registerSlot(
     env: metadata.env,
     transport: metadata.transport,
     keyHash: metadata.credential_hashes[0] ?? "",
+    config: metadata.config,
+    name: metadata.config.name,
+    toolSchemas: metadata.toolSchemas,
+    configLoaded: true,
   });
   return true;
 }
@@ -290,7 +286,7 @@ export async function prepareSession(
   };
   const executeTool: ExecuteTool = async (name, args, sessionId, messages) => {
     const api = await getWorkerApi();
-    return api.executeTool(name, args, sessionId, 30_000, slot.env, messages);
+    return api.executeTool(name, args, sessionId, 5_000, slot.env, messages);
   };
 
   // Boot worker and extract config from agent definition

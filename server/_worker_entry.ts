@@ -70,7 +70,6 @@ export type HostApi = {
  * All methods support optional RPC timeouts.
  */
 export type WorkerApi = {
-  getConfig(): Promise<import("@aai/sdk/types").WorkerConfig>;
   executeTool(
     name: string,
     args: Readonly<Record<string, unknown>>,
@@ -175,14 +174,6 @@ export function createWorkerApi(
   }
 
   return {
-    async getConfig() {
-      return await withTimeout(
-        rpcClient.call("getConfig") as Promise<
-          import("@aai/sdk/types").WorkerConfig
-        >,
-        5_000,
-      );
-    },
     async executeTool(name, args, sessionId, timeoutMs, env, messages) {
       sendEnv(env);
       const raw = await withTimeout(

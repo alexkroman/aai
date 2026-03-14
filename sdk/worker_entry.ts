@@ -15,7 +15,7 @@ import type { Kv } from "./kv.ts";
  * If a tool's `execute` function exceeds this duration, it is cancelled via
  * `AbortSignal.timeout` and an error message is returned to the LLM.
  */
-export const TOOL_HANDLER_TIMEOUT = 30_000;
+export const TOOL_HANDLER_TIMEOUT = 5_000;
 
 /**
  * Function signature for executing a tool by name.
@@ -99,5 +99,3 @@ export async function executeToolCall(
     return `Error: ${err instanceof Error ? err.message : String(err)}`;
   }
 }
-
-export type { WorkerConfig } from "./types.ts";

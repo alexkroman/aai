@@ -84,12 +84,21 @@ Deno.test("ToolSchemaSchema", async (t) => {
   });
 });
 
+const VALID_CONFIG = {
+  name: "Test",
+  instructions: "Help",
+  greeting: "Hi",
+  voice: "luna",
+};
+
 Deno.test("DeployBodySchema", async (t) => {
   await t.step("accepts valid deploy body", () => {
     const result = DeployBodySchema.safeParse({
       env: { ASSEMBLYAI_API_KEY: "test" },
       worker: "code",
       html: "<html></html>",
+      config: VALID_CONFIG,
+      toolSchemas: [],
     });
     assertStrictEquals(result.success, true);
   });
@@ -99,6 +108,8 @@ Deno.test("DeployBodySchema", async (t) => {
       env: {},
       worker: "",
       html: "<html></html>",
+      config: VALID_CONFIG,
+      toolSchemas: [],
     });
     assertStrictEquals(result.success, false);
   });
@@ -109,6 +120,8 @@ Deno.test("DeployBodySchema", async (t) => {
       worker: "code",
       html: "<html></html>",
       transport: ["websocket", "twilio"],
+      config: VALID_CONFIG,
+      toolSchemas: [],
     });
     assertStrictEquals(result.success, true);
   });
@@ -119,6 +132,8 @@ Deno.test("DeployBodySchema", async (t) => {
       worker: "code",
       html: "<html></html>",
       transport: "twilio",
+      config: VALID_CONFIG,
+      toolSchemas: [],
     });
     assertStrictEquals(result.success, false);
   });
@@ -216,7 +231,11 @@ Deno.test("ClientMessageSchema", async (t) => {
 
 Deno.test("AgentMetadataSchema", async (t) => {
   await t.step("accepts minimal metadata", () => {
-    const result = AgentMetadataSchema.safeParse({ slug: "test" });
+    const result = AgentMetadataSchema.safeParse({
+      slug: "test",
+      config: VALID_CONFIG,
+      toolSchemas: [],
+    });
     assertStrictEquals(result.success, true);
     if (result.success) {
       assertEquals(result.data.env, {});
@@ -230,6 +249,8 @@ Deno.test("AgentMetadataSchema", async (t) => {
       env: { KEY: "val" },
       transport: ["websocket", "twilio"],
       credential_hashes: ["abc123"],
+      config: VALID_CONFIG,
+      toolSchemas: [],
     });
     assertStrictEquals(result.success, true);
   });

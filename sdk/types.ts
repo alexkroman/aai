@@ -131,6 +131,10 @@ export type DeployBody = {
   worker: string;
   html: string;
   transport?: readonly Transport[] | undefined;
+  /** Agent configuration extracted at build time. */
+  config: AgentConfig;
+  /** Tool schemas extracted at build time. */
+  toolSchemas: ToolSchema[];
 };
 
 /** Environment variables required by the agent runtime. */
@@ -138,12 +142,6 @@ export type AgentEnv = {
   ASSEMBLYAI_API_KEY: string;
   LLM_MODEL?: string | undefined;
   [key: string]: string | undefined;
-};
-
-/** Config returned by the worker via RPC. */
-export type WorkerConfig = {
-  config: AgentConfig;
-  toolSchemas: ToolSchema[];
 };
 
 /**

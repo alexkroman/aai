@@ -75,24 +75,20 @@ export const ToolSchemaSchema = z.object({
 });
 
 /** Zod schema for validating the deploy request body. */
-export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
+export const DeployBodySchema = z.object({
   env: z.record(z.string(), z.string()).optional(),
   worker: z.string().min(1).max(10_000_000),
   html: z.string().min(1).max(10_000_000),
   transport: z.array(TransportSchema).min(1).optional(),
-});
+  config: AgentConfigSchema,
+  toolSchemas: z.array(ToolSchemaSchema),
+}) as unknown as z.ZodType<DeployBody>;
 
 /** Zod schema for validating agent environment variables (requires `ASSEMBLYAI_API_KEY`). */
 export const EnvSchema: z.ZodType<AgentEnv> = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
   LLM_MODEL: z.string().optional(),
 }).catchall(z.string());
-
-/** Zod schema for validating the config payload returned by agent workers. */
-export const WorkerConfigSchema = z.object({
-  config: AgentConfigSchema,
-  toolSchemas: z.array(ToolSchemaSchema),
-});
 
 /** Metadata stored alongside an agent bundle in the bundle store. */
 export type AgentMetadata = {
@@ -104,15 +100,21 @@ export type AgentMetadata = {
   transport: readonly Transport[];
   /** SHA-256 hashes of API keys authorized to manage this agent. */
   "credential_hashes": string[];
+  /** Agent configuration extracted at build time. */
+  config: AgentConfig;
+  /** Tool schemas extracted at build time. */
+  toolSchemas: import("@aai/sdk/types").ToolSchema[];
 };
 
 /** Zod schema for validating agent metadata from the bundle store. */
-export const AgentMetadataSchema: z.ZodType<AgentMetadata> = z.object({
+export const AgentMetadataSchema = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
   transport: z.array(TransportSchema).default(["websocket"]),
   credential_hashes: z.array(z.string()).default([]),
-});
+  config: AgentConfigSchema,
+  toolSchemas: z.array(ToolSchemaSchema),
+}) as unknown as z.ZodType<AgentMetadata>;
 
 /**
  * KV HTTP request type extending the core KV operations with the

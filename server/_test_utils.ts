@@ -57,6 +57,8 @@ export function createTestStore(): BundleStore {
         env: bundle.env,
         transport: bundle.transport,
         "credential_hashes": bundle.credential_hashes,
+        config: bundle.config,
+        toolSchemas: bundle.toolSchemas,
       };
       objects.set(
         objectKey(bundle.slug, "manifest.json"),
@@ -153,6 +155,8 @@ export function deployBody(
     worker: "console.log('w');",
     html:
       '<!DOCTYPE html><html><body><script>console.log("c");</script></body></html>',
+    config: makeConfig(),
+    toolSchemas: [],
     ...overrides,
   });
 }
