@@ -1,5 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { bold, brightBlue, brightMagenta, dim } from "@std/fmt/colors";
+import { bold, dim } from "@std/fmt/colors";
+import { interactive, primary } from "./_colors.ts";
 
 /** Definition of a CLI option flag for help text rendering. */
 export interface OptionDef {
@@ -35,21 +36,19 @@ export function rootHelp(version: string): string {
 
   lines.push("");
   lines.push(
-    `  ${brightMagenta(bold(" ▄▀█ ▄▀█ █"))}   ${
-      dim("Voice agent development kit")
-    }`,
+    `  ${primary(bold(" ▄▀█ ▄▀█ █"))}   ${dim("Voice agent development kit")}`,
   );
   lines.push(
-    `  ${brightMagenta(bold(" █▀█ █▀█ █"))}   ${brightMagenta(`v${version}`)}`,
+    `  ${primary(bold(" █▀█ █▀█ █"))}   ${primary(`v${version}`)}`,
   );
   lines.push("");
   lines.push(
-    `  ${bold(brightBlue("Usage"))}   ${brightMagenta("aai")} ${
+    `  ${bold(interactive("Usage"))}   ${primary("aai")} ${
       dim("<command> [options]")
     }`,
   );
   lines.push("");
-  lines.push(`  ${bold(brightBlue("Commands"))}`);
+  lines.push(`  ${bold(interactive("Commands"))}`);
   lines.push("");
 
   const cmds: [string, string, string][] = [
@@ -59,35 +58,35 @@ export function rootHelp(version: string): string {
   ];
 
   for (const [name, args, desc] of cmds) {
-    const nameStr = brightBlue(name.padEnd(8));
-    const argsStr = args ? brightMagenta(args.padEnd(6)) : "      ";
+    const nameStr = interactive(name.padEnd(8));
+    const argsStr = args ? primary(args.padEnd(6)) : "      ";
     lines.push(`    ${nameStr} ${argsStr} ${dim(desc)}`);
   }
 
   lines.push("");
-  lines.push(`  ${bold(brightBlue("Options"))}`);
+  lines.push(`  ${bold(interactive("Options"))}`);
   lines.push("");
   lines.push(
-    `    ${brightBlue("-h")}${dim(",")} ${brightBlue("--help")}      ${
+    `    ${interactive("-h")}${dim(",")} ${interactive("--help")}      ${
       dim("Show this help")
     }`,
   );
   lines.push(
-    `    ${brightBlue("-V")}${dim(",")} ${brightBlue("--version")}   ${
+    `    ${interactive("-V")}${dim(",")} ${interactive("--version")}   ${
       dim("Show the version number")
     }`,
   );
   lines.push("");
-  lines.push(`  ${bold(brightBlue("Getting started"))}`);
+  lines.push(`  ${bold(interactive("Getting started"))}`);
   lines.push("");
   lines.push(
-    `    ${dim("$")} ${brightMagenta("aai new")} ${brightBlue("my-agent")}    ${
+    `    ${dim("$")} ${primary("aai new")} ${interactive("my-agent")}    ${
       dim("Create a new agent")
     }`,
   );
-  lines.push(`    ${dim("$")} ${brightMagenta("cd my-agent")}`);
+  lines.push(`    ${dim("$")} ${primary("cd my-agent")}`);
   lines.push(
-    `    ${dim("$")} ${brightMagenta("aai deploy")}          ${
+    `    ${dim("$")} ${primary("aai deploy")}          ${
       dim("Deploy to production")
     }`,
   );
@@ -112,7 +111,7 @@ export function subcommandHelp(
 
   lines.push("");
   lines.push(
-    `  ${brightMagenta(bold("aai"))} ${brightBlue(bold(cmd.name))}${
+    `  ${primary(bold("aai"))} ${interactive(bold(cmd.name))}${
       version ? dim(`  v${version}`) : ""
     }`,
   );
@@ -120,12 +119,12 @@ export function subcommandHelp(
   lines.push("");
 
   if (cmd.args && cmd.args.length > 0) {
-    lines.push(`  ${bold(brightBlue("Arguments"))}`);
+    lines.push(`  ${bold(interactive("Arguments"))}`);
     lines.push("");
     for (const arg of cmd.args) {
       const label = arg.optional
-        ? brightMagenta(`[${arg.name}]`)
-        : brightMagenta(`<${arg.name}>`);
+        ? primary(`[${arg.name}]`)
+        : primary(`<${arg.name}>`);
       lines.push(`    ${label}`);
     }
     lines.push("");
@@ -133,14 +132,14 @@ export function subcommandHelp(
 
   const visibleOptions = (cmd.options ?? []).filter((o) => !o.hidden);
   if (visibleOptions.length > 0) {
-    lines.push(`  ${bold(brightBlue("Options"))}`);
+    lines.push(`  ${bold(interactive("Options"))}`);
     lines.push("");
     for (const opt of visibleOptions) {
-      lines.push(`    ${brightBlue(opt.flags)}`);
+      lines.push(`    ${interactive(opt.flags)}`);
       lines.push(`      ${dim(opt.description)}`);
     }
 
-    lines.push(`    ${brightBlue("-h")}${dim(",")} ${brightBlue("--help")}`);
+    lines.push(`    ${interactive("-h")}${dim(",")} ${interactive("--help")}`);
     lines.push(`      ${dim("Show this help")}`);
     lines.push("");
   }

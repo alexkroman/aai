@@ -1,8 +1,8 @@
 {
   "nodeModulesDir": "auto",
   "imports": {
-    "@aai/sdk": "jsr:@aai/sdk",
-    "@aai/ui": "jsr:@aai/ui",
+    "@aai/sdk": "jsr:@aai/sdk@^0",
+    "@aai/ui": "jsr:@aai/ui@^0",
     "zod": "jsr:@zod/zod@^4",
     "preact": "npm:preact@^10",
     "preact/hooks": "npm:preact@^10/hooks",

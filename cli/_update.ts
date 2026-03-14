@@ -1,6 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { deadline } from "@std/async/deadline";
-import { bold, brightBlue, dim, yellow } from "@std/fmt/colors";
+import { bold, dim } from "@std/fmt/colors";
+import { interactive, warning } from "./_colors.ts";
 import { error as logError, info, step } from "./_output.ts";
 import { greaterThan, parse } from "@std/semver";
 
@@ -88,8 +89,8 @@ export async function promptUpgradeIfAvailable(
   if (!newVersion) return;
 
   console.log(
-    `\n${yellow("Update available:")} ${dim(currentVersion)} → ${
-      bold(brightBlue(newVersion))
+    `\n${warning("Update available:")} ${dim(currentVersion)} → ${
+      bold(interactive(newVersion))
     }`,
   );
   const confirmed = confirm("Upgrade now?");
