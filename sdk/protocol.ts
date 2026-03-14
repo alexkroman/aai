@@ -234,8 +234,10 @@ export interface ClientSink {
   readonly open: boolean;
   /** Push a session event to the client. */
   event(e: ClientEvent): void;
-  /** Stream TTS audio to the client as a ReadableStream. */
-  playAudioStream(stream: ReadableStream<Uint8Array>): void;
+  /** Send a single TTS audio chunk to the client. */
+  playAudioChunk(chunk: Uint8Array): void;
+  /** Signal that TTS audio is complete. */
+  playAudioDone(): void;
 }
 
 // ─── WebSocket RPC interfaces ──────────────────────────────────────────────
@@ -255,7 +257,8 @@ export type ReadyConfig = {
 /** Server→client RPC interface (capnweb). */
 export interface ClientRpcApi {
   event(e: ClientEvent): void;
-  playAudioStream(stream: ReadableStream<Uint8Array>): void;
+  playAudioChunk(chunk: Uint8Array): void;
+  playAudioDone(): void;
 }
 
 /** Gate interface — the initial capability exposed by the server. */
@@ -272,7 +275,7 @@ export interface SessionRpcApi {
   sendHistory(
     messages: readonly { role: "user" | "assistant"; text: string }[],
   ): void;
-  sendAudioStream(stream: ReadableStream<Uint8Array>): void;
+  sendAudioChunk(chunk: Uint8Array): void;
 }
 
 // ─── Worker RPC interfaces ─────────────────────────────────────────────────

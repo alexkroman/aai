@@ -221,6 +221,15 @@ Deno.test("SttConnection", async (t) => {
     assertSpyCalls(onTranscript, 0);
   });
 
+  await t.step("fires onSpeechStarted on speechStarted event", async () => {
+    using _sdk = installMockSDK();
+    const onSpeechStarted = spy(() => {});
+    const conn = await createConnected();
+    conn.onSpeechStarted = onSpeechStarted;
+    lastMock!.listeners["speechStarted"]?.();
+    assertSpyCalls(onSpeechStarted, 1);
+  });
+
   await t.step("fires onError on SDK error", async () => {
     using _sdk = installMockSDK();
     const onError = spy((_err: Error) => {});

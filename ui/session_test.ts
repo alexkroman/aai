@@ -187,8 +187,8 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
   );
 
   await t.step(
-    "playAudioStream delivers audio and transitions to listening",
-    async () => {
+    "playAudioChunk delivers audio while speaking",
+    () => {
       const { state } = createTarget();
       state.value = "speaking";
 
@@ -211,18 +211,38 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
         }),
       });
 
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(new Uint8Array([1, 2, 3, 4]));
-          controller.close();
-        },
+      target.playAudioChunk(new Uint8Array([1, 2, 3, 4]));
+      assertStrictEquals(chunks.length, 1);
+    },
+  );
+
+  await t.step(
+    "playAudioDone transitions to listening",
+    () => {
+      const { state } = createTarget();
+      state.value = "speaking";
+
+      let doneCalled = false;
+      const target = new ClientRpcTarget({
+        state,
+        messages: signal<Message[]>([]),
+        transcript: signal(""),
+        error: signal<SessionError | null>(null),
+        voiceIO: () => ({
+          enqueue() {},
+          done() {
+            doneCalled = true;
+          },
+          flush() {},
+          close() {
+            return Promise.resolve();
+          },
+          async [Symbol.asyncDispose]() {},
+        }),
       });
 
-      target.playAudioStream(stream);
-      // Wait for async reader to complete
-      await new Promise((r) => setTimeout(r, 10));
-
-      assertStrictEquals(chunks.length, 1);
+      target.playAudioDone();
+      assertStrictEquals(doneCalled, true);
       assertStrictEquals(state.value, "listening");
     },
   );

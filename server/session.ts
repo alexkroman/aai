@@ -206,31 +206,20 @@ export function createSession(opts: SessionOptions): Session {
     } catch { /* connection closed between check and send */ }
   }
 
-  /** Stream text through TTS and send audio to the client via ReadableStream. */
+  /** Stream text through TTS and send audio chunks to the client. */
   async function streamTts(
     ttsConn: TtsConnection,
     text: string,
     signal: AbortSignal,
   ): Promise<void> {
-    let controller: ReadableStreamDefaultController<Uint8Array>;
-    const audioStream = new ReadableStream<Uint8Array>({
-      start(c) {
-        controller = c;
-      },
-    });
-    trySend(() => client.playAudioStream(audioStream));
     await ttsConn.synthesizeStream(
       text,
       (chunk) => {
-        try {
-          controller.enqueue(chunk);
-        } catch { /* stream may be closed */ }
+        trySend(() => client.playAudioChunk(chunk));
       },
       signal,
     );
-    try {
-      controller!.close();
-    } catch { /* already closed */ }
+    trySend(() => client.playAudioDone());
   }
 
   async function callHook(
@@ -250,6 +239,16 @@ export function createSession(opts: SessionOptions): Session {
     try {
       const handle = doCreateStt(config.apiKey, config.sttConfig);
       await handle.connect();
+
+      handle.onSpeechStarted = () => {
+        if (turnAbort) {
+          log.info("cancelling TTS — user started speaking");
+          cancelInflight();
+          if (agent === AgentState.Processing) {
+            agent = AgentState.Listening;
+          }
+        }
+      };
 
       handle.onTranscript = ({ text, isFinal, turnOrder }) => {
         log.info("transcript", { text, isFinal, turnOrder });

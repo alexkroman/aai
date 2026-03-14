@@ -67,26 +67,15 @@ class SessionTarget extends RpcTarget {
     this.#session.onHistory(parsed.data);
   }
 
-  sendAudioStream(stream: ReadableStream<Uint8Array>): void {
-    void (async () => {
-      const reader = stream.getReader();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (!isValidAudioChunk(value)) {
-            log.warn("Invalid audio chunk, dropping", {
-              bytes: value.byteLength,
-              aligned: value.byteLength % 2 === 0,
-            });
-            continue;
-          }
-          this.#session.onAudio(value);
-        }
-      } finally {
-        reader.releaseLock();
-      }
-    })();
+  sendAudioChunk(chunk: Uint8Array): void {
+    if (!isValidAudioChunk(chunk)) {
+      log.warn("Invalid audio chunk, dropping", {
+        bytes: chunk.byteLength,
+        aligned: chunk.byteLength % 2 === 0,
+      });
+      return;
+    }
+    this.#session.onAudio(chunk);
   }
 }
 
@@ -176,8 +165,11 @@ function createClientSink(
     event(e) {
       fire(() => stub.event(e));
     },
-    playAudioStream(stream) {
-      fire(() => stub.playAudioStream(stream));
+    playAudioChunk(chunk) {
+      fire(() => stub.playAudioChunk(chunk));
+    },
+    playAudioDone() {
+      fire(() => stub.playAudioDone());
     },
   };
 }

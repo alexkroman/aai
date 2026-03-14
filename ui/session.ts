@@ -145,26 +145,15 @@ export class ClientRpcTarget extends RpcTarget {
     }
   }
 
-  playAudioStream(stream: ReadableStream<Uint8Array>): void {
-    const state = this.#state;
-    const voiceIO = this.#voiceIO;
-    void (async () => {
-      const reader = stream.getReader();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (state.value === "speaking") {
-            voiceIO()?.enqueue(value.buffer as ArrayBuffer);
-          }
-        }
-        // Stream ended — all TTS audio has been delivered
-        voiceIO()?.done();
-        state.value = "listening";
-      } finally {
-        reader.releaseLock();
-      }
-    })();
+  playAudioChunk(chunk: Uint8Array): void {
+    if (this.#state.value === "speaking") {
+      this.#voiceIO()?.enqueue(chunk.buffer as ArrayBuffer);
+    }
+  }
+
+  playAudioDone(): void {
+    this.#voiceIO()?.done();
+    this.#state.value = "listening";
   }
 }
 
@@ -191,16 +180,8 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   let connectionController: AbortController | null = null;
   let hasConnected = false;
   let audioSetupInFlight = false;
-  /** Controller for the mic audio ReadableStream sent to the server. */
-  let micStreamController: ReadableStreamDefaultController<Uint8Array> | null =
-    null;
-
   function cleanupAudio(): void {
     audioSetupInFlight = false;
-    try {
-      micStreamController?.close();
-    } catch { /* already closed */ }
-    micStreamController = null;
     void voiceIO?.close();
     voiceIO = null;
   }
@@ -251,8 +232,8 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
         playbackWorkletSrc: playbackWorklet,
         onMicData: (pcm16: ArrayBuffer) => {
           try {
-            micStreamController?.enqueue(new Uint8Array(pcm16));
-          } catch { /* stream may be closed */ }
+            sessionStub?.sendAudioChunk(new Uint8Array(pcm16));
+          } catch { /* connection may be closed */ }
         },
       });
       if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -260,16 +241,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
         return;
       }
       voiceIO = io;
-      // Create mic audio stream and send it to the server
       if (sessionStub) {
-        const micStream = new ReadableStream<Uint8Array>({
-          start(c) {
-            micStreamController = c;
-          },
-        });
-        void (sessionStub.sendAudioStream(micStream) as Promise<void>).catch(
-          () => {},
-        );
         void (sessionStub.audioReady() as Promise<void>).catch(() => {});
       }
       state.value = "listening";

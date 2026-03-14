@@ -167,23 +167,15 @@ Deno.test("createTwilioClientSink", async (t) => {
   });
 
   await t.step(
-    "playAudioStream converts PCM16 to mulaw media event",
-    async () => {
+    "playAudioChunk converts PCM16 to mulaw media event",
+    () => {
       const { ws, sent } = mockWs();
       const streamSidRef = { current: "stream-123" as string | null };
       const sink = createTwilioClientSink(ws, streamSidRef);
 
-      // Send 4 bytes of PCM16 (2 samples) via a ReadableStream
+      // Send 4 bytes of PCM16 (2 samples)
       const pcm = new Int16Array([1000, -1000]);
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(new Uint8Array(pcm.buffer));
-          controller.close();
-        },
-      });
-      sink.playAudioStream(stream);
-      // Allow the async reader to consume
-      await new Promise((r) => setTimeout(r, 10));
+      sink.playAudioChunk(new Uint8Array(pcm.buffer));
 
       assertStrictEquals(sent.length, 1);
       const msg = JSON.parse(sent[0]!);
@@ -193,34 +185,20 @@ Deno.test("createTwilioClientSink", async (t) => {
     },
   );
 
-  await t.step("playAudioStream skips when no streamSid", async () => {
+  await t.step("playAudioChunk skips when no streamSid", () => {
     const { ws, sent } = mockWs();
     const streamSidRef = { current: null as string | null };
     const sink = createTwilioClientSink(ws, streamSidRef);
-    const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new Uint8Array([0, 0, 0, 0]));
-        controller.close();
-      },
-    });
-    sink.playAudioStream(stream);
-    await new Promise((r) => setTimeout(r, 10));
+    sink.playAudioChunk(new Uint8Array([0, 0, 0, 0]));
     assertStrictEquals(sent.length, 0);
   });
 
-  await t.step("playAudioStream skips when socket not open", async () => {
+  await t.step("playAudioChunk skips when socket not open", () => {
     const mock = mockWs();
     mock.setReady(3);
     const streamSidRef = { current: "stream-1" as string | null };
     const sink = createTwilioClientSink(mock.ws, streamSidRef);
-    const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new Uint8Array([0, 0, 0, 0]));
-        controller.close();
-      },
-    });
-    sink.playAudioStream(stream);
-    await new Promise((r) => setTimeout(r, 10));
+    sink.playAudioChunk(new Uint8Array([0, 0, 0, 0]));
     assertStrictEquals(mock.sent.length, 0);
   });
 

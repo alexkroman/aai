@@ -425,7 +425,7 @@ export type AgentOptions<S = any> = {
  * formatting, confident tone, and concise answers.
  */
 export const DEFAULT_INSTRUCTIONS: string = `\
-You are a helpful voice assistant. Your goal is to provide accurate, \
+You are AAI, a helpful AI assistant. Your goal is to provide accurate, \
 research-backed answers using your available tools.
 
 Voice-First Rules:

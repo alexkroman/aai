@@ -2,6 +2,7 @@
 import { join } from "@std/path";
 import { denoExec } from "./_discover.ts";
 import type { AgentEntry } from "./_discover.ts";
+import { extractStaticConfig } from "./_static_config.ts";
 
 /**
  * Error thrown when bundling fails.
@@ -228,40 +229,6 @@ await build({
 });
 `;
 
-/**
- * Script that imports agent.ts, extracts the serializable config and tool
- * schemas, and writes them to .aai/config.json. Runs under Deno with full
- * permissions at build time (not inside the sandbox).
- */
-/**
- * Template for the config extraction script. The `{{AGENT_PATH}}` placeholder
- * is replaced with the absolute path to agent.ts at build time.
- */
-const EXTRACT_CONFIG_TEMPLATE = `\
-import agent from "{{AGENT_PATH}}";
-import { agentToolsToSchemas } from "@aai/sdk/types";
-
-const config = {
-  name: agent.name,
-  mode: agent.mode,
-  instructions: agent.instructions,
-  greeting: agent.greeting,
-  voice: agent.voice,
-};
-if (agent.sttPrompt !== undefined) config.sttPrompt = agent.sttPrompt;
-if (typeof agent.maxSteps !== "function") config.maxSteps = agent.maxSteps;
-if (agent.toolChoice !== undefined) config.toolChoice = agent.toolChoice;
-if (agent.builtinTools) config.builtinTools = [...agent.builtinTools];
-if (agent.activeTools) config.activeTools = [...agent.activeTools];
-
-const toolSchemas = agentToolsToSchemas(agent.tools);
-
-await Deno.writeTextFile(
-  "{{OUTPUT_PATH}}",
-  JSON.stringify({ config, toolSchemas }),
-);
-`;
-
 /** Fallback HTML shell generated when no client.tsx exists. */
 const INDEX_HTML = `\
 <!DOCTYPE html>
@@ -301,27 +268,10 @@ export async function bundleAgent(
   const aaiDir = join(agent.dir, ".aai");
   await Deno.mkdir(aaiDir, { recursive: true });
 
-  // Extract agent config and tool schemas at build time
-  const extractScript = join(aaiDir, "_extract_config.ts");
-  const configOutputPath = join(aaiDir, "config.json");
-  const script = EXTRACT_CONFIG_TEMPLATE
-    .replace("{{AGENT_PATH}}", agent.entryPoint.replaceAll("\\", "/"))
-    .replace("{{OUTPUT_PATH}}", configOutputPath.replaceAll("\\", "/"));
-  await Deno.writeTextFile(extractScript, script);
-  const extractCmd = new Deno.Command(denoExec(), {
-    args: ["run", "--allow-all", extractScript],
-    cwd: agent.dir,
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const extractResult = await extractCmd.output();
-  if (extractResult.code !== 0) {
-    throw new BundleError(
-      "Config extraction failed:\n" +
-        (new TextDecoder().decode(extractResult.stderr) ||
-          new TextDecoder().decode(extractResult.stdout)),
-    );
-  }
+  // Extract agent config and tool schemas via static AST analysis (no eval)
+  const { config: agentConfig, toolSchemas } = await extractStaticConfig(
+    agent.entryPoint,
+  );
 
   // Generate build script and HTML shell into .aai/
   const buildScript = join(aaiDir, "_build.mts");
@@ -359,15 +309,11 @@ export async function bundleAgent(
     : join(aaiDir, "build", "index.html");
   const html = await Deno.readTextFile(htmlPath);
 
-  const configJson = JSON.parse(
-    await Deno.readTextFile(configOutputPath),
-  );
-
   const manifest = JSON.stringify(
     {
-      transport: agent.transport,
-      config: configJson.config,
-      toolSchemas: configJson.toolSchemas,
+      transport: agentConfig.transport ?? agent.transport,
+      config: agentConfig,
+      toolSchemas,
     },
     null,
     2,

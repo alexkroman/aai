@@ -18,8 +18,11 @@ function createMockClientSink(): ClientSink & {
     event(e: ClientEvent) {
       calls.push({ method: "event", args: [e] });
     },
-    playAudioStream(...args) {
-      calls.push({ method: "playAudioStream", args });
+    playAudioChunk(...args) {
+      calls.push({ method: "playAudioChunk", args });
+    },
+    playAudioDone(...args) {
+      calls.push({ method: "playAudioDone", args });
     },
   };
 }
@@ -45,6 +48,7 @@ function createMockSttHandle(): MockSttHandle {
   return {
     connected: true,
     closed: false,
+    onSpeechStarted: null,
     onTranscript: null,
     onTurn: null,
     onError: null,
@@ -155,6 +159,7 @@ function setupWithSttHandle(options?: SetupOptions) {
   const handle: SttConnection = {
     connected: true,
     closed: false,
+    onSpeechStarted: null,
     onTranscript: null,
     onTurn: null,
     onError: null,
@@ -223,6 +228,7 @@ Deno.test("start sends error on STT connection failure", async () => {
     createStt: (): SttConnection => ({
       connected: false,
       closed: false,
+      onSpeechStarted: null,
       onTranscript: null,
       onTurn: null,
       onError: null,
@@ -267,6 +273,7 @@ Deno.test("onAudio does not throw before STT is connected", () => {
     createStt: (): SttConnection => ({
       connected: false,
       closed: false,
+      onSpeechStarted: null,
       onTranscript: null,
       onTurn: null,
       onError: null,
