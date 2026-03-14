@@ -152,7 +152,8 @@ Deno.test("createTwilioClientSink", async (t) => {
 
   await t.step("event method does not send to ws for text events", () => {
     const { ws, sent } = mockWs();
-    const sink = createTwilioClientSink(ws);
+    const streamSidRef = { current: null as string | null };
+    const sink = createTwilioClientSink(ws, streamSidRef);
     sink.event({ type: "transcript", text: "hello", isFinal: false });
     sink.event({ type: "transcript", text: "hello", isFinal: true });
     sink.event({ type: "turn", text: "hello" });
@@ -161,7 +162,7 @@ Deno.test("createTwilioClientSink", async (t) => {
     sink.event({ type: "reset" });
     // chat and error just log, no ws send
     sink.event({ type: "chat", text: "hi" });
-    sink.event({ type: "error", message: "oops" });
+    sink.event({ type: "error", code: "internal", message: "oops" });
     assertStrictEquals(sent.length, 0);
   });
 
@@ -169,8 +170,8 @@ Deno.test("createTwilioClientSink", async (t) => {
     "playAudioStream converts PCM16 to mulaw media event",
     async () => {
       const { ws, sent } = mockWs();
-      const sink = createTwilioClientSink(ws);
-      sink.streamSid = "stream-123";
+      const streamSidRef = { current: "stream-123" as string | null };
+      const sink = createTwilioClientSink(ws, streamSidRef);
 
       // Send 4 bytes of PCM16 (2 samples) via a ReadableStream
       const pcm = new Int16Array([1000, -1000]);
@@ -194,7 +195,8 @@ Deno.test("createTwilioClientSink", async (t) => {
 
   await t.step("playAudioStream skips when no streamSid", async () => {
     const { ws, sent } = mockWs();
-    const sink = createTwilioClientSink(ws);
+    const streamSidRef = { current: null as string | null };
+    const sink = createTwilioClientSink(ws, streamSidRef);
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new Uint8Array([0, 0, 0, 0]));
@@ -209,8 +211,8 @@ Deno.test("createTwilioClientSink", async (t) => {
   await t.step("playAudioStream skips when socket not open", async () => {
     const mock = mockWs();
     mock.setReady(3);
-    const sink = createTwilioClientSink(mock.ws);
-    sink.streamSid = "stream-1";
+    const streamSidRef = { current: "stream-1" as string | null };
+    const sink = createTwilioClientSink(mock.ws, streamSidRef);
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new Uint8Array([0, 0, 0, 0]));
@@ -224,7 +226,8 @@ Deno.test("createTwilioClientSink", async (t) => {
 
   await t.step("open reflects WebSocket readyState", () => {
     const mock = mockWs();
-    const sink = createTwilioClientSink(mock.ws);
+    const streamSidRef = { current: null as string | null };
+    const sink = createTwilioClientSink(mock.ws, streamSidRef);
     assertStrictEquals(sink.open, true);
     mock.setReady(3);
     assertStrictEquals(sink.open, false);

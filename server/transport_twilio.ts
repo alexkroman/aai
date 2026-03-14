@@ -6,7 +6,8 @@ import { HttpError, type RouteContext } from "./context.ts";
 import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { type AgentSlot, prepareSession } from "./worker_pool.ts";
-import { type ClientSink, createSession } from "./session.ts";
+import { createSession } from "./session.ts";
+import type { ClientSink } from "@aai/sdk/protocol";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
@@ -30,20 +31,13 @@ export type WsSink = {
  * Text events (chat, error) are logged. Audio is converted from PCM16
  * to mu-law and sent as Twilio media frames.
  */
-export function createTwilioClientSink(ws: WsSink): ClientSink & {
-  streamSid: string | null;
-} {
-  let streamSid: string | null = null;
-
+export function createTwilioClientSink(
+  ws: WsSink,
+  streamSidRef: { current: string | null },
+): ClientSink {
   return {
     get open() {
       return ws.readyState === WebSocket.OPEN;
-    },
-    get streamSid() {
-      return streamSid;
-    },
-    set streamSid(sid: string | null) {
-      streamSid = sid;
     },
 
     // Text events — log only, Twilio doesn't display text
@@ -64,7 +58,7 @@ export function createTwilioClientSink(ws: WsSink): ClientSink & {
             const { done, value } = await reader.read();
             if (done) break;
             if (ws.readyState !== WebSocket.OPEN) break;
-            if (!streamSid || value.length < 2) continue;
+            if (!streamSidRef.current || value.length < 2) continue;
 
             const pcm16 = new Int16Array(
               value.buffer,
@@ -79,7 +73,7 @@ export function createTwilioClientSink(ws: WsSink): ClientSink & {
             );
             ws.send(JSON.stringify({
               event: "media",
-              streamSid,
+              streamSid: streamSidRef.current,
               media: { payload: encodeBase64(mulaw) },
             }));
           }
@@ -192,13 +186,13 @@ export async function handleTwilioStream(
 
   const { socket, response } = Deno.upgradeWebSocket(ctx.req);
 
-  type TwilioSink = ClientSink & { streamSid: string | null };
-  let client: TwilioSink;
+  const streamSidRef = { current: null as string | null };
+  let client: ClientSink;
   let session: ReturnType<typeof createSession>;
   let audioBuf: ReturnType<typeof createAudioBuffer>;
 
   socket.addEventListener("open", () => {
-    client = createTwilioClientSink(socket);
+    client = createTwilioClientSink(socket, streamSidRef);
     session = createSession({
       id: `twilio-${crypto.randomUUID().slice(0, 8)}`,
       agent: slug,
@@ -227,10 +221,10 @@ export async function handleTwilioStream(
 
     switch (msg.event) {
       case "start":
-        client.streamSid = msg.start.streamSid;
+        streamSidRef.current = msg.start.streamSid;
         log.info("Twilio stream started", {
           slug,
-          streamSid: client.streamSid,
+          streamSid: streamSidRef.current,
         });
         session.onAudioReady();
         break;

@@ -301,7 +301,10 @@ export type StepInfo = {
   /** 1-based step index within the current turn. */
   stepNumber: number;
   /** Tool calls made during this step. */
-  toolCalls: readonly { toolName: string; args: Record<string, unknown> }[];
+  toolCalls: readonly {
+    toolName: string;
+    args: Readonly<Record<string, unknown>>;
+  }[];
   /** LLM text output for this step. */
   text: string;
 };

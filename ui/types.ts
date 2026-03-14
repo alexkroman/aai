@@ -19,8 +19,8 @@ export type Message = {
   text: string;
 };
 
-/** Category of session error. */
-export type SessionErrorCode = "connection" | "audio" | "protocol";
+import type { SessionErrorCode } from "@aai/sdk/protocol";
+export type { SessionErrorCode };
 
 /** Error reported by the voice session. */
 export type SessionError = {

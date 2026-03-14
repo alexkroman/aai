@@ -1,12 +1,8 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assert, assertStrictEquals } from "@std/assert";
 import { assertSpyCalls, spy } from "@std/testing/mock";
-import {
-  type ClientEvent,
-  type ClientSink,
-  createSession,
-  type SessionOptions,
-} from "./session.ts";
+import type { ClientEvent, ClientSink } from "@aai/sdk/protocol";
+import { createSession, type SessionOptions } from "./session.ts";
 import type { AgentConfig } from "@aai/sdk/types";
 import type { SttConnection } from "./stt.ts";
 import { DEFAULT_STT_CONFIG, DEFAULT_TTS_CONFIG } from "./types.ts";

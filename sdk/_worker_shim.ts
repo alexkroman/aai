@@ -18,6 +18,7 @@ import type {
 } from "./types.ts";
 import type { Kv, KvEntry } from "./kv.ts";
 import type { KvRequest } from "./protocol.ts";
+import type { HostApi } from "./protocol.ts";
 import { executeToolCall } from "./worker_entry.ts";
 import { newMessagePortRpcSession, RpcTarget } from "capnweb";
 import { asMessagePort } from "./_capnweb_transport.ts";
@@ -27,27 +28,6 @@ import { z } from "zod";
 const FETCH_TIMEOUT_MS = 30_000;
 const KV_TIMEOUT_MS = 10_000;
 const EMPTY_PARAMS = z.object({});
-
-/**
- * Type for the host API exposed to the worker via capnweb RPC.
- *
- * The host passes its {@linkcode RpcTarget} when creating the RPC session,
- * and the worker receives a stub for this interface as the return value.
- */
-interface HostApiRpc {
-  fetch(req: {
-    url: string;
-    method: string;
-    headers: Record<string, string>;
-    body: string | null;
-  }): Promise<{
-    status: number;
-    statusText: string;
-    headers: Record<string, string>;
-    body: string;
-  }>;
-  kv(req: KvRequest): Promise<{ result: unknown }>;
-}
 function headersToRecord(h?: HeadersInit): Record<string, string> {
   return Object.fromEntries(new Headers(h).entries());
 }
@@ -66,7 +46,7 @@ async function serializeBody(body: BodyInit | null): Promise<string | null> {
   return String(body);
 }
 
-function createProxyKv(hostStub: HostApiRpc): Kv {
+function createProxyKv(hostStub: HostApi): Kv {
   async function kvCall(req: KvRequest): Promise<unknown> {
     const resp = await withTimeout(
       hostStub.kv(req),
@@ -115,7 +95,7 @@ function createProxyKv(hostStub: HostApiRpc): Kv {
   };
 }
 
-function installFetchProxy(hostStub: HostApiRpc): void {
+function installFetchProxy(hostStub: HostApi): void {
   globalThis.fetch = async (
     input: string | URL | Request,
     init?: RequestInit,
@@ -174,7 +154,7 @@ class AgentWorkerTarget extends RpcTarget {
   }
 
   /** Install the fetch and KV proxies backed by the host stub. */
-  setHostApi(hostStub: HostApiRpc): void {
+  setHostApi(hostStub: HostApi): void {
     this.#proxyKv = createProxyKv(hostStub);
     installFetchProxy(hostStub);
   }
@@ -329,7 +309,7 @@ export function initWorker(
   const workerTarget = new AgentWorkerTarget(agent);
 
   // Both sides pass their target — worker gets host stub, host gets worker stub
-  const hostStub = newMessagePortRpcSession<HostApiRpc>(
+  const hostStub = newMessagePortRpcSession<HostApi>(
     endpoint,
     workerTarget,
   );

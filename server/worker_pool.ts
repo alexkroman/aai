@@ -4,18 +4,17 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
 import type { AgentConfig } from "@aai/sdk/types";
 import type { ToolSchema } from "@aai/sdk/types";
-import {
-  createWorkerApi,
-  type HostApi,
-  type WorkerApi,
-} from "./_worker_entry.ts";
+import { createWorkerApi, type WorkerApi } from "./_worker_entry.ts";
 import type { ExecuteTool } from "./_worker_entry.ts";
+import type { HostApi, KvRequest } from "@aai/sdk/protocol";
+import { TOOL_EXECUTION_TIMEOUT_MS } from "@aai/sdk/protocol";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "./_schemas.ts";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";
 import { assertPublicUrl, getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
 import type { AgentScope } from "./scope_token.ts";
+import { KvRequestBaseSchema, WorkerFetchRequestSchema } from "./_schemas.ts";
 export type { AgentMetadata } from "./_schemas.ts";
 
 const IDLE_MS = 5 * 60 * 1000;
@@ -99,12 +98,13 @@ function createHostApi(
   kvCtx?: { kvStore: KvStore; scope: AgentScope },
 ): HostApi {
   return {
-    async fetch(req) {
-      await assertPublicUrl(req.url);
-      const resp = await fetch(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: req.body,
+    async fetch(req: Parameters<HostApi["fetch"]>[0]) {
+      const parsed = WorkerFetchRequestSchema.parse(req);
+      await assertPublicUrl(parsed.url);
+      const resp = await fetch(parsed.url, {
+        method: parsed.method,
+        headers: parsed.headers,
+        body: parsed.body,
         signal: AbortSignal.timeout(5_000),
       });
       const body = await resp.text();
@@ -120,28 +120,38 @@ function createHostApi(
       };
     },
 
-    async kv(req): Promise<{ result: unknown }> {
+    async kv(req: KvRequest): Promise<{ result: unknown }> {
       if (!kvCtx) throw new Error("KV not configured for this agent");
+      const validated = KvRequestBaseSchema.parse(req);
       const { kvStore, scope } = kvCtx;
-      switch (req.op) {
+      switch (validated.op) {
         case "get":
-          return { result: await kvStore.get(scope, req.key) };
+          return { result: await kvStore.get(scope, validated.key) };
         case "set":
-          await kvStore.set(scope, req.key, req.value, req.ttl);
+          await kvStore.set(
+            scope,
+            validated.key,
+            validated.value,
+            validated.ttl,
+          );
           return { result: "OK" };
         case "del":
-          await kvStore.del(scope, req.key);
+          await kvStore.del(scope, validated.key);
           return { result: "OK" };
         case "list":
           return {
-            result: await kvStore.list(scope, req.prefix, {
-              ...(req.limit !== undefined && { limit: req.limit }),
-              ...(req.reverse !== undefined && { reverse: req.reverse }),
+            result: await kvStore.list(scope, validated.prefix, {
+              ...(validated.limit !== undefined && {
+                limit: validated.limit,
+              }),
+              ...(validated.reverse !== undefined && {
+                reverse: validated.reverse,
+              }),
             }),
           };
         default:
           throw new Error(
-            `Unknown KV operation: ${(req as { op: string }).op}`,
+            `Unknown KV operation: ${(validated as { op: string }).op}`,
           );
       }
     },
@@ -286,7 +296,13 @@ export async function prepareSession(
   };
   const executeTool: ExecuteTool = async (name, args, sessionId, messages) => {
     const api = await getWorkerApi();
-    return api.executeTool(name, args, sessionId, 30_000, messages);
+    return api.executeTool(
+      name,
+      args,
+      sessionId,
+      TOOL_EXECUTION_TIMEOUT_MS,
+      messages,
+    );
   };
 
   // Boot worker and extract config from agent definition

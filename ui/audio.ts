@@ -145,7 +145,9 @@ export async function createVoiceIO(
 
   function ensurePlayNode(): AudioWorkletNode {
     if (playNode) return playNode;
-    const node = new AudioWorkletNode(ctx, "playback-processor");
+    const node = new AudioWorkletNode(ctx, "playback-processor", {
+      processorOptions: { sampleRate: contextRate },
+    });
     node.connect(ctx.destination);
     node.port.onmessage = (e: MessageEvent) => {
       if (e.data.event === "stop") {

@@ -14,7 +14,7 @@ import type {
   Transport,
 } from "@aai/sdk/types";
 
-export { TwilioMessageSchema } from "@aai/sdk/protocol";
+export { KvRequestBaseSchema, TwilioMessageSchema } from "@aai/sdk/protocol";
 import type { KvRequest } from "@aai/sdk/protocol";
 
 /** Zod schema for validating transport type values. */
@@ -111,6 +111,38 @@ export const AgentMetadataSchema = z.object({
   config: AgentConfigSchema,
   toolSchemas: z.array(ToolSchemaSchema),
 }) as unknown as z.ZodType<AgentMetadata>;
+
+// ─── Browser input validation ───────────────────────────────────────────────
+
+/** Zod schema for a single history message from the browser (sendHistory RPC). */
+export const HistoryMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  text: z.string().max(100_000),
+});
+
+/** Zod schema for the full sendHistory payload from the browser. */
+export const SendHistorySchema = z.array(HistoryMessageSchema).max(200);
+
+/** Max size for a single audio chunk from the browser (1 MB). */
+export const MAX_AUDIO_CHUNK_BYTES = 1_048_576;
+
+// ─── Worker input validation ────────────────────────────────────────────────
+
+/** Zod schema for TurnConfig returned by the worker's resolveTurnConfig hook. */
+export const TurnConfigSchema = z.object({
+  maxSteps: z.number().int().positive().max(50).optional(),
+  activeTools: z.array(z.string().min(1)).optional(),
+}).nullable();
+
+/** Zod schema for worker fetch proxy requests. */
+export const WorkerFetchRequestSchema = z.object({
+  url: z.string().max(8_192),
+  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]),
+  headers: z.record(z.string(), z.string()),
+  body: z.string().max(10_000_000).nullable(),
+});
+
+// ─── KV schemas ─────────────────────────────────────────────────────────────
 
 /**
  * KV HTTP request type extending the core KV operations with the

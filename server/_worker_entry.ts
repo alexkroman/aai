@@ -6,9 +6,16 @@
  * @module
  */
 
-import type { Message } from "@aai/sdk/types";
-import type { KvRequest } from "@aai/sdk/protocol";
+import type { Message, StepInfo } from "@aai/sdk/types";
+import { HOOK_TIMEOUT_MS } from "@aai/sdk/protocol";
+import type {
+  HostApi,
+  KvRequest,
+  TurnConfig,
+  WorkerRpcApi,
+} from "@aai/sdk/protocol";
 import { withTimeout } from "@aai/sdk/timeout";
+import { TurnConfigSchema } from "./_schemas.ts";
 import { newMessagePortRpcSession, RpcTarget } from "capnweb";
 import { asMessagePort } from "@aai/sdk/capnweb-transport";
 
@@ -17,47 +24,6 @@ export {
   executeToolCall,
   TOOL_HANDLER_TIMEOUT,
 } from "@aai/sdk/worker-entry";
-
-/**
- * Step info payload for RPC transport between host and worker.
- *
- * Represents one iteration of the agentic loop, including which tools were
- * called and any text the LLM produced.
- */
-export type StepInfoRpc = {
-  /** The 1-based step number within the current turn. */
-  stepNumber: number;
-  /** Tools invoked during this step, with their arguments. */
-  toolCalls: readonly {
-    toolName: string;
-    args: Readonly<Record<string, unknown>>;
-  }[];
-  /** The LLM's text output for this step. */
-  text: string;
-};
-
-export type { KvRequest } from "@aai/sdk/protocol";
-
-/**
- * API shape the host process exposes to the sandboxed worker.
- *
- * Since workers run with all permissions denied, they use this interface
- * to proxy network requests and KV operations back to the host.
- */
-export type HostApi = {
-  fetch(req: {
-    url: string;
-    method: string;
-    headers: Readonly<Record<string, string>>;
-    body: string | null;
-  }): Promise<{
-    status: number;
-    statusText: string;
-    headers: Record<string, string>;
-    body: string;
-  }>;
-  kv(req: KvRequest): Promise<{ result: unknown }>;
-};
 
 /**
  * Cap'n Web RPC target that exposes host-side APIs (fetch, kv) to the worker.
@@ -122,7 +88,7 @@ export type WorkerApi = {
   ): Promise<void>;
   onStep(
     sessionId: string,
-    step: StepInfoRpc,
+    step: StepInfo,
     timeoutMs?: number,
   ): Promise<void>;
   resolveTurnConfig(
@@ -131,33 +97,6 @@ export type WorkerApi = {
   ): Promise<TurnConfig | null>;
   dispose?: () => void;
 };
-
-/** Combined turn configuration resolved from the worker before a turn starts. */
-export type TurnConfig = {
-  maxSteps?: number;
-  activeTools?: string[];
-};
-
-/**
- * Type representing the worker-side RPC target interface.
- * This matches the methods exposed by AgentWorkerTarget in the worker.
- */
-interface WorkerRpcApi {
-  withEnv(env: Record<string, string>): WorkerRpcApi;
-  getConfig(): Promise<import("@aai/sdk/types").WorkerConfig>;
-  executeTool(
-    name: string,
-    args: Readonly<Record<string, unknown>>,
-    sessionId: string | undefined,
-    messages: readonly Message[] | undefined,
-  ): Promise<string>;
-  onConnect(sessionId: string): Promise<void>;
-  onDisconnect(sessionId: string): Promise<void>;
-  onTurn(sessionId: string, text: string): Promise<void>;
-  onError(sessionId: string, error: string): void;
-  onStep(sessionId: string, step: StepInfoRpc): Promise<void>;
-  resolveTurnConfig(sessionId: string): Promise<TurnConfig | null>;
-}
 
 /**
  * Create a {@linkcode WorkerApi} backed by Cap'n Web RPC over a Worker.
@@ -247,10 +186,13 @@ export function createWorkerApi(
       );
     },
     async resolveTurnConfig(sessionId, timeoutMs) {
-      return await withTimeout(
+      const raw = await withTimeout(
         scoped.resolveTurnConfig(sessionId) as Promise<TurnConfig | null>,
-        timeoutMs ?? 5_000,
+        timeoutMs ?? HOOK_TIMEOUT_MS,
       );
+      const parsed = TurnConfigSchema.safeParse(raw);
+      if (!parsed.success) return null;
+      return parsed.data as TurnConfig | null;
     },
     dispose() {
       stub[Symbol.dispose]();

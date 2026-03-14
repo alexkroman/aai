@@ -137,3 +137,140 @@ export const TwilioMessageSchema: z.ZodType<TwilioMessage> = z
       mark: z.object({ name: z.string() }).optional(),
     }),
   ]);
+
+// ─── Timeout constants ─────────────────────────────────────────────────────
+
+/** Default timeout for agent lifecycle hooks (onConnect, onTurn, etc). */
+export const HOOK_TIMEOUT_MS = 5_000;
+
+/** Default timeout for tool execution in the worker. */
+export const TOOL_EXECUTION_TIMEOUT_MS = 30_000;
+
+// ─── Error codes ───────────────────────────────────────────────────────────
+
+/** Error codes for categorizing session errors on the wire. */
+export type SessionErrorCode =
+  | "stt"
+  | "llm"
+  | "tts"
+  | "tool"
+  | "protocol"
+  | "connection"
+  | "audio"
+  | "internal";
+
+// ─── Client events ─────────────────────────────────────────────────────────
+
+/**
+ * Discriminated union of all server→client session events.
+ *
+ * Sent via a single `event()` RPC method instead of one method per type.
+ */
+export type ClientEvent =
+  | { type: "transcript"; text: string; isFinal: false }
+  | { type: "transcript"; text: string; isFinal: true; turnOrder?: number }
+  | { type: "turn"; text: string; turnOrder?: number }
+  | { type: "chat"; text: string }
+  | { type: "tts_done" }
+  | { type: "cancelled" }
+  | { type: "reset" }
+  | { type: "error"; code: SessionErrorCode; message: string };
+
+/**
+ * Typed interface for pushing session events to a connected client.
+ *
+ * For WebSocket sessions this is backed by a capnweb RPC stub;
+ * for Twilio it's a custom implementation that converts audio formats.
+ */
+export interface ClientSink {
+  /** Whether the underlying connection is open and accepting calls. */
+  readonly open: boolean;
+  /** Push a session event to the client. */
+  event(e: ClientEvent): void;
+  /** Stream TTS audio to the client as a ReadableStream. */
+  playAudioStream(stream: ReadableStream<Uint8Array>): void;
+}
+
+// ─── WebSocket RPC interfaces ──────────────────────────────────────────────
+
+/** Protocol-level session config returned to the client on connect. */
+export type ReadyConfig = {
+  "protocol_version": number;
+  "audio_format": string;
+  "sample_rate": number;
+  "tts_sample_rate": number;
+  mode?: string;
+};
+
+/** Server→client RPC interface (capnweb). */
+export interface ClientRpcApi {
+  event(e: ClientEvent): void;
+  playAudioStream(stream: ReadableStream<Uint8Array>): void;
+}
+
+/** Gate interface — the initial capability exposed by the server. */
+export interface GateRpcApi {
+  authenticate(): SessionRpcApi;
+}
+
+/** Session interface — returned by authenticate(). */
+export interface SessionRpcApi {
+  getConfig(): Promise<ReadyConfig>;
+  audioReady(): void;
+  cancel(): void;
+  resetSession(): void;
+  sendHistory(
+    messages: readonly { role: "user" | "assistant"; text: string }[],
+  ): void;
+  sendAudioStream(stream: ReadableStream<Uint8Array>): void;
+}
+
+// ─── Worker RPC interfaces ─────────────────────────────────────────────────
+
+/**
+ * API shape the host process exposes to the sandboxed worker.
+ *
+ * Since workers run with all permissions denied, they use this interface
+ * to proxy network requests and KV operations back to the host.
+ */
+export type HostApi = {
+  fetch(req: {
+    url: string;
+    method: string;
+    headers: Readonly<Record<string, string>>;
+    body: string | null;
+  }): Promise<{
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: string;
+  }>;
+  kv(req: KvRequest): Promise<{ result: unknown }>;
+};
+
+/** Combined turn configuration resolved from the worker before a turn starts. */
+export type TurnConfig = {
+  maxSteps?: number;
+  activeTools?: string[];
+};
+
+/** Worker-side RPC target interface (host calls these methods). */
+export interface WorkerRpcApi {
+  withEnv(env: Record<string, string>): WorkerRpcApi;
+  getConfig(): Promise<import("./types.ts").WorkerConfig>;
+  executeTool(
+    name: string,
+    args: Readonly<Record<string, unknown>>,
+    sessionId: string | undefined,
+    messages: readonly import("./types.ts").Message[] | undefined,
+  ): Promise<string>;
+  onConnect(sessionId: string): Promise<void>;
+  onDisconnect(sessionId: string): Promise<void>;
+  onTurn(sessionId: string, text: string): Promise<void>;
+  onError(sessionId: string, error: string): void;
+  onStep(
+    sessionId: string,
+    step: import("./types.ts").StepInfo,
+  ): Promise<void>;
+  resolveTurnConfig(sessionId: string): Promise<TurnConfig | null>;
+}

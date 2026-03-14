@@ -11,6 +11,8 @@ import type { STTConfig, TTSConfig } from "./types.ts";
 import type { AgentConfig } from "@aai/sdk/types";
 import type { ToolSchema } from "@aai/sdk/types";
 import type { WorkerApi } from "./_worker_entry.ts";
+import { HOOK_TIMEOUT_MS } from "@aai/sdk/protocol";
+import type { ClientSink, TurnConfig } from "@aai/sdk/protocol";
 import { buildSystemPrompt } from "./system_prompt.ts";
 import {
   type CoreAssistantMessage,
@@ -23,38 +25,7 @@ import {
   type ToolSet,
 } from "ai";
 import type { Message } from "@aai/sdk/types";
-import type { TurnConfig } from "./_worker_entry.ts";
 import * as metrics from "./metrics.ts";
-
-/**
- * Discriminated union of all server→client session events.
- *
- * Sent via a single `event()` RPC method instead of one method per type.
- */
-export type ClientEvent =
-  | { type: "transcript"; text: string; isFinal: false }
-  | { type: "transcript"; text: string; isFinal: true; turnOrder?: number }
-  | { type: "turn"; text: string; turnOrder?: number }
-  | { type: "chat"; text: string }
-  | { type: "tts_done" }
-  | { type: "cancelled" }
-  | { type: "reset" }
-  | { type: "error"; message: string };
-
-/**
- * Typed interface for pushing session events to a connected client.
- *
- * For WebSocket sessions this is backed by a capnweb RPC stub;
- * for Twilio it's a custom implementation that converts audio formats.
- */
-export interface ClientSink {
-  /** Whether the underlying connection is open and accepting calls. */
-  readonly open: boolean;
-  /** Push a session event to the client. */
-  event(e: ClientEvent): void;
-  /** Stream TTS audio to the client as a ReadableStream. */
-  playAudioStream(stream: ReadableStream<Uint8Array>): void;
-}
 
 /** Configuration options for creating a new session. */
 export type SessionOptions = {
@@ -226,6 +197,33 @@ export function createSession(opts: SessionOptions): Session {
     } catch { /* connection closed between check and send */ }
   }
 
+  /** Stream text through TTS and send audio to the client via ReadableStream. */
+  async function streamTts(
+    ttsConn: TtsConnection,
+    text: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    let controller: ReadableStreamDefaultController<Uint8Array>;
+    const audioStream = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c;
+      },
+    });
+    trySend(() => client.playAudioStream(audioStream));
+    await ttsConn.synthesizeStream(
+      text,
+      (chunk) => {
+        try {
+          controller.enqueue(chunk);
+        } catch { /* stream may be closed */ }
+      },
+      signal,
+    );
+    try {
+      controller!.close();
+    } catch { /* already closed */ }
+  }
+
   async function callHook(
     name: string,
     fn: (api: WorkerApi) => Promise<void>,
@@ -279,7 +277,13 @@ export function createSession(opts: SessionOptions): Session {
 
       handle.onError = (err) => {
         log.error("STT error:", err.message);
-        trySend(() => client.event({ type: "error", message: err.message }));
+        trySend(() =>
+          client.event({
+            type: "error",
+            code: "stt" as const,
+            message: err.message,
+          })
+        );
       };
 
       handle.onClose = async () => {
@@ -292,7 +296,13 @@ export function createSession(opts: SessionOptions): Session {
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             log.error("STT reconnect failed:", msg);
-            trySend(() => client.event({ type: "error", message: msg }));
+            trySend(() =>
+              client.event({
+                type: "error",
+                code: "stt" as const,
+                message: msg,
+              })
+            );
           }
         }
       };
@@ -301,7 +311,9 @@ export function createSession(opts: SessionOptions): Session {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       log.error("STT connect failed:", msg);
-      trySend(() => client.event({ type: "error", message: msg }));
+      trySend(() =>
+        client.event({ type: "error", code: "stt" as const, message: msg })
+      );
     }
   }
 
@@ -325,7 +337,7 @@ export function createSession(opts: SessionOptions): Session {
       )
     );
 
-    callHook("onTurn", (api) => api.onTurn(id, text, 5_000));
+    callHook("onTurn", (api) => api.onTurn(id, text, HOOK_TIMEOUT_MS));
 
     if (isSttOnly) {
       trySend(() => client.event({ type: "tts_done" }));
@@ -380,36 +392,18 @@ export function createSession(opts: SessionOptions): Session {
               text: step.text ?? "",
             };
             // Fire-and-forget — onStep is informational, don't block the turn
-            callHook("onStep", (api) => api.onStep(id, stepInfo, 5_000));
+            callHook("onStep", (api) =>
+              api.onStep(id, stepInfo, HOOK_TIMEOUT_MS));
           }
           : undefined,
       });
       if (signal.aborted) return;
 
-      if (result) {
+      if (result && tts) {
         trySend(() => client.event({ type: "chat", text: result }));
-        // Wrap TTS callback-based output as a ReadableStream
-        let controller: ReadableStreamDefaultController<Uint8Array>;
-        const audioStream = new ReadableStream<Uint8Array>({
-          start(c) {
-            controller = c;
-          },
-        });
-        trySend(() => client.playAudioStream(audioStream));
-        await tts!.synthesizeStream(
-          result,
-          (chunk) => {
-            try {
-              controller.enqueue(chunk);
-            } catch { /* stream may be closed */ }
-          },
-          signal,
-        );
-        try {
-          controller!.close();
-        } catch { /* already closed */ }
-        if (!signal.aborted) trySend(() => client.event({ type: "tts_done" }));
+        await streamTts(tts, result, signal);
       } else {
+        // No audio to stream — signal turn completion via event
         trySend(() => client.event({ type: "tts_done" }));
       }
     } catch (err: unknown) {
@@ -428,7 +422,9 @@ export function createSession(opts: SessionOptions): Session {
         log.error("Turn failed:", msg);
       }
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
-      trySend(() => client.event({ type: "error", message: msg }));
+      trySend(() =>
+        client.event({ type: "error", code: "llm" as const, message: msg })
+      );
     } finally {
       if (turnAbort === abort) turnAbort = null;
       metrics.turnDuration.observe(
@@ -443,36 +439,20 @@ export function createSession(opts: SessionOptions): Session {
 
   function speakText(text: string): void {
     if (!tts) return;
+    const ttsConn = tts;
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
     const p: Promise<void> = (async () => {
       try {
-        let controller: ReadableStreamDefaultController<Uint8Array>;
-        const audioStream = new ReadableStream<Uint8Array>({
-          start(c) {
-            controller = c;
-          },
-        });
-        trySend(() => client.playAudioStream(audioStream));
-        await tts.synthesizeStream(
-          text,
-          (chunk) => {
-            try {
-              controller.enqueue(chunk);
-            } catch { /* stream may be closed */ }
-          },
-          signal,
-        );
-        try {
-          controller!.close();
-        } catch { /* already closed */ }
-        if (!signal.aborted) trySend(() => client.event({ type: "tts_done" }));
+        await streamTts(ttsConn, text, signal);
       } catch (err: unknown) {
         if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : String(err);
         log.error("TTS failed:", msg);
-        trySend(() => client.event({ type: "error", message: msg }));
+        trySend(() =>
+          client.event({ type: "error", code: "tts" as const, message: msg })
+        );
       } finally {
         if (turnAbort === abort) turnAbort = null;
       }
@@ -494,14 +474,14 @@ export function createSession(opts: SessionOptions): Session {
         pendingGreeting = agentConfig.greeting;
       }
 
-      callHook("onConnect", (api) => api.onConnect(id, 5_000));
+      callHook("onConnect", (api) => api.onConnect(id, HOOK_TIMEOUT_MS));
 
       // Prefetch turn config (maxSteps + activeTools) so it's ready before the first turn
       if (getWorkerApi) {
         prefetchedTurnConfig = (async () => {
           try {
             cachedWorkerApi ??= await getWorkerApi!();
-            return await cachedWorkerApi.resolveTurnConfig(id, 5_000);
+            return await cachedWorkerApi.resolveTurnConfig(id, HOOK_TIMEOUT_MS);
           } catch (err: unknown) {
             log.warn("resolveTurnConfig prefetch failed", { err });
             return null;
@@ -526,7 +506,7 @@ export function createSession(opts: SessionOptions): Session {
       stt?.close();
       tts?.close();
 
-      callHook("onDisconnect", (api) => api.onDisconnect(id, 5_000));
+      callHook("onDisconnect", (api) => api.onDisconnect(id, HOOK_TIMEOUT_MS));
     },
 
     onAudio(data: Uint8Array): void {

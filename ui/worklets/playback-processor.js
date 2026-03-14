@@ -3,18 +3,19 @@
 
 const PlaybackProcessorWorklet = `
 class PlaybackProcessor extends AudioWorkletProcessor {
-  constructor() {
+  constructor(options) {
     super();
     this.interrupted = false;
     this.isDone = false;
     this.playing = false;
-    // Wait for ~400ms of audio (9600 samples @ 24kHz) before starting.
+    const rate = options.processorOptions?.sampleRate ?? 24000;
+    // Wait for ~400ms of audio before starting.
     // If 'done' arrives first (short utterance), start immediately.
-    this.jitterSamples = 9600;
+    this.jitterSamples = Math.floor(rate * 0.4);
     // Carry-over byte for split samples across chunks
     this.carry = null;
-    // Float32 sample buffer — 60s at 24kHz (~5.5MB)
-    this.samples = new Float32Array(24000 * 60);
+    // Float32 sample buffer — 60s at the context sample rate
+    this.samples = new Float32Array(rate * 60);
     this.writePos = 0;
     this.readPos = 0;
 

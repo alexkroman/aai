@@ -6,7 +6,8 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { z } from "zod";
-import { createWorkerApi, type HostApi } from "./_worker_entry.ts";
+import { createWorkerApi } from "./_worker_entry.ts";
+import type { HostApi } from "@aai/sdk/protocol";
 import { executeToolCall, TOOL_HANDLER_TIMEOUT } from "@aai/sdk/worker-entry";
 import type { ToolDef } from "@aai/sdk/types";
 import { initWorker } from "@aai/sdk/worker-shim";

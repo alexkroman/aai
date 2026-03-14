@@ -1,16 +1,9 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import { newWebSocketRpcSession, RpcTarget } from "capnweb";
-import type { ClientEvent, ClientSink, Session } from "./session.ts";
-
-/** Protocol-level session config returned to the client on connect. */
-export type ReadyConfig = {
-  "protocol_version": number;
-  "audio_format": string;
-  "sample_rate": number;
-  "tts_sample_rate": number;
-  mode?: string;
-};
+import type { Session } from "./session.ts";
+import type { ClientRpcApi, ClientSink, ReadyConfig } from "@aai/sdk/protocol";
+import { MAX_AUDIO_CHUNK_BYTES, SendHistorySchema } from "./_schemas.ts";
 
 /** Options for wiring a WebSocket to a session. */
 export type WsSessionOptions = {
@@ -27,17 +20,6 @@ export type WsSessionOptions = {
   /** Callback invoked when the WebSocket connection closes. */
   onClose?: () => void;
 };
-
-/**
- * Interface for server→client RPC calls.
- *
- * Uses a single discriminated-union `event()` method instead of one
- * method per event type. Audio is streamed via `playAudioStream()`.
- */
-export interface ClientRpcApi {
-  event(e: ClientEvent): void;
-  playAudioStream(stream: ReadableStream<Uint8Array>): void;
-}
 
 /**
  * Cap'n Web RPC target for the session API surface.
@@ -75,7 +57,14 @@ class SessionTarget extends RpcTarget {
   sendHistory(
     messages: readonly { role: "user" | "assistant"; text: string }[],
   ): void {
-    this.#session.onHistory(messages);
+    const parsed = SendHistorySchema.safeParse(messages);
+    if (!parsed.success) {
+      log.warn("Invalid sendHistory payload", {
+        error: parsed.error.message,
+      });
+      return;
+    }
+    this.#session.onHistory(parsed.data);
   }
 
   sendAudioStream(stream: ReadableStream<Uint8Array>): void {
@@ -85,6 +74,12 @@ class SessionTarget extends RpcTarget {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          if (value.byteLength > MAX_AUDIO_CHUNK_BYTES) {
+            log.warn("Audio chunk too large, dropping", {
+              bytes: value.byteLength,
+            });
+            continue;
+          }
           this.#session.onAudio(value);
         }
       } finally {

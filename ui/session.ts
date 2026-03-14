@@ -1,6 +1,12 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { batch, type Signal, signal } from "@preact/signals";
 import { PROTOCOL_VERSION } from "@aai/sdk/protocol";
+import type {
+  ClientEvent,
+  GateRpcApi,
+  ReadyConfig,
+  SessionRpcApi,
+} from "@aai/sdk/protocol";
 import { newWebSocketRpcSession, RpcTarget } from "capnweb";
 import { WebSocket as PartySocket } from "partysocket";
 
@@ -15,35 +21,6 @@ import type {
 } from "./types.ts";
 
 import type { VoiceIO } from "./audio.ts";
-
-/**
- * Gate interface — the initial capability exposed by the server.
- * The client must call `authenticate()` to obtain a session capability.
- */
-interface GateRpcApi {
-  authenticate(): SessionRpcApi;
-}
-
-/**
- * Session interface — returned by `authenticate()`.
- * Provides the actual session control methods (audio, cancel, reset, etc.).
- */
-interface SessionRpcApi {
-  getConfig(): Promise<{
-    protocol_version: number;
-    audio_format: string;
-    sample_rate: number;
-    tts_sample_rate: number;
-    mode?: string;
-  }>;
-  audioReady(): void;
-  cancel(): void;
-  resetSession(): void;
-  sendHistory(
-    messages: readonly { role: "user" | "assistant"; text: string }[],
-  ): void;
-  sendAudioStream(stream: ReadableStream<Uint8Array>): void;
-}
 
 /**
  * A reactive voice session that manages WebSocket communication,
@@ -112,23 +89,17 @@ class ClientRpcTarget extends RpcTarget {
   }
 
   /** Single entry point for all server→client session events. */
-  event(e: {
-    type: string;
-    text?: string;
-    isFinal?: boolean;
-    turnOrder?: number;
-    message?: string;
-  }): void {
+  event(e: ClientEvent): void {
     switch (e.type) {
       case "transcript":
-        this.#transcript.value = e.text!;
+        this.#transcript.value = e.text;
         break;
       case "turn":
         batch(() => {
           this.#transcript.value = "";
           this.#messages.value = [
             ...this.#messages.value,
-            { role: "user", text: e.text! },
+            { role: "user", text: e.text },
           ];
           this.#state.value = "thinking";
         });
@@ -137,13 +108,14 @@ class ClientRpcTarget extends RpcTarget {
         batch(() => {
           this.#messages.value = [
             ...this.#messages.value,
-            { role: "assistant", text: e.text! },
+            { role: "assistant", text: e.text },
           ];
           this.#state.value = "speaking";
         });
         break;
       case "tts_done":
-        this.#voiceIO()?.done();
+        // No-audio turns (stt-only, empty LLM result) still use this event
+        // to transition back to listening. Audio turns signal via stream end.
         this.#state.value = "listening";
         break;
       case "cancelled":
@@ -162,7 +134,10 @@ class ClientRpcTarget extends RpcTarget {
       case "error":
         console.error("Agent error:", e.message);
         batch(() => {
-          this.#error.value = { code: "protocol", message: e.message! };
+          this.#error.value = {
+            code: e.code ?? "protocol",
+            message: e.message,
+          };
           this.#state.value = "error";
         });
         break;
@@ -182,6 +157,9 @@ class ClientRpcTarget extends RpcTarget {
             voiceIO()?.enqueue(value.buffer as ArrayBuffer);
           }
         }
+        // Stream ended — all TTS audio has been delivered
+        voiceIO()?.done();
+        state.value = "listening";
       } finally {
         reader.releaseLock();
       }
@@ -234,13 +212,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     });
   }
 
-  async function handleReady(msg: {
-    protocol_version: number;
-    audio_format: string;
-    sample_rate: number;
-    tts_sample_rate: number;
-    mode?: string;
-  }): Promise<void> {
+  async function handleReady(msg: ReadyConfig): Promise<void> {
     if (audioSetupInFlight) return;
 
     // Protocol version check
@@ -380,16 +352,12 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
       >;
 
       // Pull config from server — pipelined with authenticate (same round trip)
-      void (sessionStub.getConfig() as Promise<{
-        protocol_version: number;
-        audio_format: string;
-        sample_rate: number;
-        tts_sample_rate: number;
-        mode?: string;
-      }>).then(async (config) => {
-        hasConnected = true;
-        await handleReady(config);
-      }).catch(() => {});
+      void (sessionStub.getConfig() as Promise<ReadyConfig>).then(
+        async (config) => {
+          hasConnected = true;
+          await handleReady(config);
+        },
+      ).catch(() => {});
 
       // Send history if reconnecting (pipelined with authenticate)
       if (hasConnected && messages.value.length > 0) {
