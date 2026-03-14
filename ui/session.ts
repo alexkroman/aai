@@ -11,7 +11,6 @@ import { newWebSocketRpcSession, RpcTarget } from "capnweb";
 import { WebSocket as PartySocket } from "partysocket";
 
 const SUPPORTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
-const SUPPORTED_AUDIO_FORMATS = new Set(["pcm16"]);
 
 import type {
   AgentState,
@@ -67,7 +66,8 @@ export type VoiceSession = {
  * Receives server→client RPC calls and updates reactive Preact signals
  * accordingly (state transitions, transcripts, messages, audio playback).
  */
-class ClientRpcTarget extends RpcTarget {
+/** @internal Exported for testing only. */
+export class ClientRpcTarget extends RpcTarget {
   #state: Signal<AgentState>;
   #messages: Signal<Message[]>;
   #transcript: Signal<string>;
@@ -128,6 +128,7 @@ class ClientRpcTarget extends RpcTarget {
           this.#messages.value = [];
           this.#transcript.value = "";
           this.#error.value = null;
+          this.#state.value = "listening";
         });
         break;
       }
@@ -135,7 +136,7 @@ class ClientRpcTarget extends RpcTarget {
         console.error("Agent error:", e.message);
         batch(() => {
           this.#error.value = {
-            code: e.code ?? "protocol",
+            code: e.code,
             message: e.message,
           };
           this.#state.value = "error";
@@ -216,30 +217,12 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     if (audioSetupInFlight) return;
 
     // Protocol version check
-    const serverVersion = msg.protocol_version;
-    if (
-      serverVersion !== undefined &&
-      serverVersion !== SUPPORTED_PROTOCOL_VERSION
-    ) {
+    if (msg.protocolVersion !== SUPPORTED_PROTOCOL_VERSION) {
       batch(() => {
         error.value = {
           code: "protocol",
           message:
-            `Server protocol v${serverVersion} is not compatible with client v${SUPPORTED_PROTOCOL_VERSION}. Please redeploy your agent.`,
-        };
-        state.value = "error";
-      });
-      return;
-    }
-
-    // Audio format check
-    const audioFormat = msg.audio_format ?? "pcm16";
-    if (!SUPPORTED_AUDIO_FORMATS.has(audioFormat)) {
-      batch(() => {
-        error.value = {
-          code: "protocol",
-          message:
-            `Unsupported audio format "${audioFormat}". Please redeploy your agent.`,
+            `Server protocol v${msg.protocolVersion} is not compatible with client v${SUPPORTED_PROTOCOL_VERSION}. Please redeploy your agent.`,
         };
         state.value = "error";
       });
@@ -262,8 +245,8 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
         ),
       ]);
       const io = await createVoiceIO({
-        sttSampleRate: msg.sample_rate,
-        ttsSampleRate: msg.tts_sample_rate,
+        sttSampleRate: msg.sampleRate,
+        ttsSampleRate: msg.ttsSampleRate,
         captureWorkletSrc: captureWorklet,
         playbackWorkletSrc: playbackWorklet,
         onMicData: (pcm16: ArrayBuffer) => {

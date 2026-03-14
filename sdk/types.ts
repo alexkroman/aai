@@ -107,6 +107,8 @@ export type AgentConfig = {
   toolChoice?: ToolChoice | undefined;
   transport?: readonly Transport[] | undefined;
   builtinTools?: readonly BuiltinTool[] | undefined;
+  /** Default set of active tools. Can be overridden per-turn via `onBeforeStep`. */
+  activeTools?: readonly string[] | undefined;
 };
 
 /**
@@ -382,6 +384,13 @@ export type AgentOptions<S = any> = {
   toolChoice?: ToolChoice;
   /** Built-in tools to enable (e.g. `"web_search"`, `"run_code"`). */
   builtinTools?: readonly BuiltinTool[];
+  /**
+   * Default set of active tools per turn.
+   *
+   * When set, only these tools are available to the LLM each turn.
+   * Can be overridden dynamically per-turn via `onBeforeStep`.
+   */
+  activeTools?: readonly string[];
   /** Custom tools the agent can invoke. */
   // deno-lint-ignore no-explicit-any
   tools?: Readonly<Record<string, ToolDef<any, NoInfer<S>>>>;
@@ -501,6 +510,7 @@ export type AgentDef = {
   maxSteps: number | ((ctx: HookContext) => number);
   toolChoice?: ToolChoice;
   builtinTools?: readonly BuiltinTool[];
+  activeTools?: readonly string[];
   tools: Readonly<Record<string, ToolDef>>;
   state?: () => unknown;
   onConnect?: AgentOptions["onConnect"];

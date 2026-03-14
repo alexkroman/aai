@@ -84,7 +84,7 @@ function createProxyKv(hostStub: HostApi): Kv {
       options?: { limit?: number; reverse?: boolean },
     ): Promise<KvEntry<T>[]> {
       const listReq: KvRequest = {
-        op: "list" as const,
+        op: "list",
         prefix,
         ...(options?.limit !== undefined ? { limit: options.limit } : {}),
         ...(options?.reverse !== undefined ? { reverse: options.reverse } : {}),
@@ -199,6 +199,9 @@ class AgentWorkerTarget extends RpcTarget {
     }
     if (this.#agent.builtinTools) {
       config.builtinTools = [...this.#agent.builtinTools];
+    }
+    if (this.#agent.activeTools) {
+      config.activeTools = [...this.#agent.activeTools];
     }
     return { config, toolSchemas };
   }

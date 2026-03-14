@@ -185,13 +185,6 @@ function findCall(
   return client.calls.find((c) => c.method === method);
 }
 
-function _filterCalls(
-  client: ReturnType<typeof createMockClientSink>,
-  method: string,
-) {
-  return client.calls.filter((c) => c.method === method);
-}
-
 /** Find the first event() call with the given type. */
 function findEvent(
   client: ReturnType<typeof createMockClientSink>,
@@ -389,6 +382,33 @@ Deno.test("onHistory restores conversation messages", async () => {
     { role: "assistant", text: "Hi there" },
   ]);
   // Verify no errors thrown — history is stored internally
+});
+
+Deno.test("resolveTurnConfig is called each turn", async () => {
+  let turnConfigCalls = 0;
+  const ctx = setupWithSttHandle();
+  const mockWorkerApi = {
+    onConnect: () => Promise.resolve(),
+    onDisconnect: () => Promise.resolve(),
+    onTurn: () => Promise.resolve(),
+    onError: () => Promise.resolve(),
+    onStep: () => Promise.resolve(),
+    executeTool: () => Promise.resolve("ok"),
+    resolveTurnConfig: () => {
+      turnConfigCalls++;
+      return Promise.resolve({ maxSteps: 3 });
+    },
+  };
+  ctx.opts.getWorkerApi = () => Promise.resolve(mockWorkerApi);
+  const session = createSession(ctx.opts);
+  await session.start();
+  ctx.handle.onTurn!({ text: "turn 1" });
+  await session.waitForTurn();
+  ctx.handle.onTurn!({ text: "turn 2" });
+  await session.waitForTurn();
+  // resolveTurnConfig should have been called twice (once per turn)
+  assertStrictEquals(turnConfigCalls, 2);
+  await session.stop();
 });
 
 Deno.test("skipGreeting suppresses greeting on start", async () => {

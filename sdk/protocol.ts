@@ -159,6 +159,18 @@ export type SessionErrorCode =
   | "audio"
   | "internal";
 
+/** Zod schema for {@linkcode SessionErrorCode}. */
+export const SessionErrorCodeSchema: z.ZodType<SessionErrorCode> = z.enum([
+  "stt",
+  "llm",
+  "tts",
+  "tool",
+  "protocol",
+  "connection",
+  "audio",
+  "internal",
+]);
+
 // ─── Client events ─────────────────────────────────────────────────────────
 
 /**
@@ -168,13 +180,48 @@ export type SessionErrorCode =
  */
 export type ClientEvent =
   | { type: "transcript"; text: string; isFinal: false }
-  | { type: "transcript"; text: string; isFinal: true; turnOrder?: number }
-  | { type: "turn"; text: string; turnOrder?: number }
+  | {
+    type: "transcript";
+    text: string;
+    isFinal: true;
+    turnOrder?: number | undefined;
+  }
+  | { type: "turn"; text: string; turnOrder?: number | undefined }
   | { type: "chat"; text: string }
   | { type: "tts_done" }
   | { type: "cancelled" }
   | { type: "reset" }
   | { type: "error"; code: SessionErrorCode; message: string };
+
+/** Zod schema for a transcript event (partial or final). */
+const TranscriptEventSchema = z.object({
+  type: z.literal("transcript"),
+  text: z.string(),
+  isFinal: z.boolean(),
+  turnOrder: z.number().int().nonnegative().optional(),
+});
+
+/** Zod schema for {@linkcode ClientEvent}. */
+export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
+  "type",
+  [
+    TranscriptEventSchema,
+    z.object({
+      type: z.literal("turn"),
+      text: z.string(),
+      turnOrder: z.number().int().nonnegative().optional(),
+    }),
+    z.object({ type: z.literal("chat"), text: z.string() }),
+    z.object({ type: z.literal("tts_done") }),
+    z.object({ type: z.literal("cancelled") }),
+    z.object({ type: z.literal("reset") }),
+    z.object({
+      type: z.literal("error"),
+      code: SessionErrorCodeSchema,
+      message: z.string(),
+    }),
+  ],
+);
 
 /**
  * Typed interface for pushing session events to a connected client.
@@ -193,13 +240,16 @@ export interface ClientSink {
 
 // ─── WebSocket RPC interfaces ──────────────────────────────────────────────
 
+/** Supported audio formats for the wire protocol. */
+export type AudioFormatId = "pcm16";
+
 /** Protocol-level session config returned to the client on connect. */
 export type ReadyConfig = {
-  "protocol_version": number;
-  "audio_format": string;
-  "sample_rate": number;
-  "tts_sample_rate": number;
-  mode?: string;
+  protocolVersion: number;
+  audioFormat: AudioFormatId;
+  sampleRate: number;
+  ttsSampleRate: number;
+  mode?: "stt-only" | undefined;
 };
 
 /** Server→client RPC interface (capnweb). */

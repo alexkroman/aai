@@ -3,7 +3,7 @@ import * as log from "@std/log";
 import { newWebSocketRpcSession, RpcTarget } from "capnweb";
 import type { Session } from "./session.ts";
 import type { ClientRpcApi, ClientSink, ReadyConfig } from "@aai/sdk/protocol";
-import { MAX_AUDIO_CHUNK_BYTES, SendHistorySchema } from "./_schemas.ts";
+import { isValidAudioChunk, SendHistorySchema } from "./_schemas.ts";
 
 /** Options for wiring a WebSocket to a session. */
 export type WsSessionOptions = {
@@ -74,9 +74,10 @@ class SessionTarget extends RpcTarget {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          if (value.byteLength > MAX_AUDIO_CHUNK_BYTES) {
-            log.warn("Audio chunk too large, dropping", {
+          if (!isValidAudioChunk(value)) {
+            log.warn("Invalid audio chunk, dropping", {
               bytes: value.byteLength,
+              aligned: value.byteLength % 2 === 0,
             });
             continue;
           }

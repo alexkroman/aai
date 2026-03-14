@@ -15,7 +15,7 @@ import type {
   WorkerRpcApi,
 } from "@aai/sdk/protocol";
 import { withTimeout } from "@aai/sdk/timeout";
-import { TurnConfigSchema } from "./_schemas.ts";
+import { MAX_TOOL_RESULT_LENGTH, TurnConfigSchema } from "./_schemas.ts";
 import { newMessagePortRpcSession, RpcTarget } from "capnweb";
 import { asMessagePort } from "@aai/sdk/capnweb-transport";
 
@@ -66,7 +66,6 @@ class HostApiTarget extends RpcTarget {
  * set once at creation via the `withEnv` capability — no per-call env.
  */
 export type WorkerApi = {
-  getConfig(): Promise<import("@aai/sdk/types").WorkerConfig>;
   executeTool(
     name: string,
     args: Readonly<Record<string, unknown>>,
@@ -128,32 +127,21 @@ export function createWorkerApi(
   const stub = newMessagePortRpcSession<WorkerRpcApi>(port, hostTarget);
 
   // Set env once via capability pattern — returns a scoped stub.
-  // Both withEnv and getConfig are issued in the same microtask,
-  // so capnweb batches them in a single postMessage round trip.
   const scoped = env
     ? stub.withEnv(env) as unknown as import("capnweb").RpcStub<WorkerRpcApi>
     : stub;
 
-  // Lazily fetch config on first call — avoids blocking the RPC session
-  // when config is already available from build-time extraction.
-  let configPromise: Promise<import("@aai/sdk/types").WorkerConfig> | undefined;
-
   return {
-    async getConfig() {
-      if (!configPromise) {
-        configPromise = withTimeout(
-          scoped.getConfig() as Promise<import("@aai/sdk/types").WorkerConfig>,
-          5_000,
-        );
-      }
-      return await configPromise;
-    },
     async executeTool(name, args, sessionId, timeoutMs, messages) {
-      const raw = await withTimeout(
+      const result = await withTimeout(
         scoped.executeTool(name, args, sessionId, messages) as Promise<string>,
         timeoutMs,
       );
-      return typeof raw === "string" ? raw : String(raw ?? "");
+      if (result.length > MAX_TOOL_RESULT_LENGTH) {
+        return result.slice(0, MAX_TOOL_RESULT_LENGTH) +
+          "\n[truncated — result exceeded 1 MB]";
+      }
+      return result;
     },
     async onConnect(sessionId, timeoutMs) {
       await withTimeout(

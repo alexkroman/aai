@@ -144,7 +144,7 @@ Deno.test("executeToolCall", async (t) => {
 });
 
 Deno.test("TOOL_HANDLER_TIMEOUT", () => {
-  assertStrictEquals(TOOL_HANDLER_TIMEOUT, 5_000);
+  assertStrictEquals(TOOL_HANDLER_TIMEOUT, 30_000);
 });
 
 Deno.test("postMessage RPC worker", async (t) => {

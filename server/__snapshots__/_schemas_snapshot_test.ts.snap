@@ -16,6 +16,13 @@ snapshot[`AgentConfigSchema snapshot 1`] = `
   "\$schema": "https://json-schema.org/draft/2020-12/schema",
   additionalProperties: false,
   properties: {
+    activeTools: {
+      items: {
+        minLength: 1,
+        type: "string",
+      },
+      type: "array",
+    },
     builtinTools: {
       items: {
         enum: [
@@ -168,6 +175,13 @@ snapshot[`DeployBodySchema snapshot 1`] = `
     config: {
       additionalProperties: false,
       properties: {
+        activeTools: {
+          items: {
+            minLength: 1,
+            type: "string",
+          },
+          type: "array",
+        },
         builtinTools: {
           items: {
             enum: [
@@ -371,4 +385,3 @@ snapshot[`EnvSchema snapshot 1`] = `
   type: "object",
 }
 `;
-

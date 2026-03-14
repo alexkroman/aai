@@ -30,20 +30,18 @@ export type AgentSlot = {
   env: Record<string, string>;
   /** Supported transport types for this agent. */
   transport: readonly ("websocket" | "twilio")[];
-  /** Cached agent configuration extracted from the worker. */
-  config?: AgentConfig;
+  /** Agent configuration extracted at build time. */
+  config: AgentConfig;
   /** Human-readable agent name from the configuration. */
-  name?: string;
-  /** Cached tool schemas extracted from the worker. */
-  toolSchemas?: ToolSchema[];
+  name: string;
+  /** Tool schemas extracted at build time. */
+  toolSchemas: ToolSchema[];
   /** Credential hash of the agent owner (for KV scoping). */
   keyHash: string;
   /** Active worker handle and RPC API proxy. */
   worker?: { handle: { terminate(): void }; api: WorkerApi };
   /** Promise that resolves when the worker is done initializing. */
   initializing?: Promise<void>;
-  /** Whether the agent config has been loaded from the worker. */
-  configLoaded?: boolean;
   /** Timer handle for idle worker eviction. */
   idleTimer?: ReturnType<typeof setTimeout>;
 };
@@ -249,7 +247,6 @@ export function registerSlot(
     config: metadata.config,
     name: metadata.config.name,
     toolSchemas: metadata.toolSchemas,
-    configLoaded: true,
   });
   return true;
 }
@@ -307,10 +304,10 @@ export async function prepareSession(
 
   // Boot worker and extract config from agent definition
   await getWorkerApi();
-  const config = slot.config!;
+  const config = slot.config;
 
   const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
-  const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
+  const toolSchemas = [...slot.toolSchemas, ...builtinTools];
 
   return {
     agentConfig: config,

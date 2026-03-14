@@ -252,6 +252,7 @@ if (agent.sttPrompt !== undefined) config.sttPrompt = agent.sttPrompt;
 if (typeof agent.maxSteps !== "function") config.maxSteps = agent.maxSteps;
 if (agent.toolChoice !== undefined) config.toolChoice = agent.toolChoice;
 if (agent.builtinTools) config.builtinTools = [...agent.builtinTools];
+if (agent.activeTools) config.activeTools = [...agent.activeTools];
 
 const toolSchemas = agentToolsToSchemas(agent.tools);
 

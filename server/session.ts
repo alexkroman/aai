@@ -113,8 +113,17 @@ export function createSession(opts: SessionOptions): Session {
   let pendingGreeting: string | null = null;
   let messages: CoreMessage[] = [];
   let cachedWorkerApi: WorkerApi | undefined;
-  /** Pre-resolved turn config (maxSteps + activeTools, prefetched at connect time). */
-  let prefetchedTurnConfig: Promise<TurnConfig | null> | null = null;
+  /** Resolves turn config from the worker (maxSteps + activeTools) per turn. */
+  async function resolveTurnConfigFromWorker(): Promise<TurnConfig | null> {
+    if (!getWorkerApi) return null;
+    try {
+      cachedWorkerApi ??= await getWorkerApi();
+      return await cachedWorkerApi.resolveTurnConfig(id, HOOK_TIMEOUT_MS);
+    } catch (err: unknown) {
+      log.warn("resolveTurnConfig failed, using defaults", { err });
+      return null;
+    }
+  }
 
   const sessionAbort = new AbortController();
 
@@ -280,7 +289,7 @@ export function createSession(opts: SessionOptions): Session {
         trySend(() =>
           client.event({
             type: "error",
-            code: "stt" as const,
+            code: "stt",
             message: err.message,
           })
         );
@@ -299,7 +308,7 @@ export function createSession(opts: SessionOptions): Session {
             trySend(() =>
               client.event({
                 type: "error",
-                code: "stt" as const,
+                code: "stt",
                 message: msg,
               })
             );
@@ -311,9 +320,7 @@ export function createSession(opts: SessionOptions): Session {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       log.error("STT connect failed:", msg);
-      trySend(() =>
-        client.event({ type: "error", code: "stt" as const, message: msg })
-      );
+      trySend(() => client.event({ type: "error", code: "stt", message: msg }));
     }
   }
 
@@ -355,19 +362,17 @@ export function createSession(opts: SessionOptions): Session {
 
     try {
       let maxSteps = agentConfig.maxSteps;
-      let activeTools: string[] | undefined;
+      let activeTools: string[] | undefined = agentConfig.activeTools
+        ? [...agentConfig.activeTools]
+        : undefined;
 
-      if (prefetchedTurnConfig) {
-        try {
-          const resolved = await prefetchedTurnConfig;
-          if (resolved) {
-            if (maxSteps === undefined && resolved.maxSteps !== undefined) {
-              maxSteps = resolved.maxSteps;
-            }
-            activeTools = resolved.activeTools;
-          }
-        } catch (err: unknown) {
-          log.warn("resolveTurnConfig failed, using defaults", { err });
+      const resolved = await resolveTurnConfigFromWorker();
+      if (resolved) {
+        if (maxSteps === undefined && resolved.maxSteps !== undefined) {
+          maxSteps = resolved.maxSteps;
+        }
+        if (resolved.activeTools !== undefined) {
+          activeTools = resolved.activeTools;
         }
       }
 
@@ -422,9 +427,7 @@ export function createSession(opts: SessionOptions): Session {
         log.error("Turn failed:", msg);
       }
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
-      trySend(() =>
-        client.event({ type: "error", code: "llm" as const, message: msg })
-      );
+      trySend(() => client.event({ type: "error", code: "llm", message: msg }));
     } finally {
       if (turnAbort === abort) turnAbort = null;
       metrics.turnDuration.observe(
@@ -451,7 +454,7 @@ export function createSession(opts: SessionOptions): Session {
         const msg = err instanceof Error ? err.message : String(err);
         log.error("TTS failed:", msg);
         trySend(() =>
-          client.event({ type: "error", code: "tts" as const, message: msg })
+          client.event({ type: "error", code: "tts", message: msg })
         );
       } finally {
         if (turnAbort === abort) turnAbort = null;
@@ -475,19 +478,6 @@ export function createSession(opts: SessionOptions): Session {
       }
 
       callHook("onConnect", (api) => api.onConnect(id, HOOK_TIMEOUT_MS));
-
-      // Prefetch turn config (maxSteps + activeTools) so it's ready before the first turn
-      if (getWorkerApi) {
-        prefetchedTurnConfig = (async () => {
-          try {
-            cachedWorkerApi ??= await getWorkerApi!();
-            return await cachedWorkerApi.resolveTurnConfig(id, HOOK_TIMEOUT_MS);
-          } catch (err: unknown) {
-            log.warn("resolveTurnConfig prefetch failed", { err });
-            return null;
-          }
-        })();
-      }
 
       await connectStt();
 

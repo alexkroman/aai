@@ -1,7 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 // Zod validation schemas for server-side use.
 // These validate untrusted input at HTTP/WebSocket boundaries.
-// Protocol schemas (ClientMessage, Twilio) live in @aai/sdk/protocol.
+// Protocol schemas (ClientEvent, Twilio, KV) live in @aai/sdk/protocol.
 
 import { z } from "zod";
 import type {
@@ -14,7 +14,12 @@ import type {
   Transport,
 } from "@aai/sdk/types";
 
-export { KvRequestBaseSchema, TwilioMessageSchema } from "@aai/sdk/protocol";
+export {
+  ClientEventSchema,
+  KvRequestBaseSchema,
+  SessionErrorCodeSchema,
+  TwilioMessageSchema,
+} from "@aai/sdk/protocol";
 import type { KvRequest } from "@aai/sdk/protocol";
 
 /** Zod schema for validating transport type values. */
@@ -57,6 +62,7 @@ export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
   toolChoice: ToolChoiceSchema.optional(),
   transport: z.array(TransportSchema).min(1).optional(),
   builtinTools: z.array(BuiltinToolSchema).optional(),
+  activeTools: z.array(z.string().min(1)).optional(),
 });
 
 /** Zod schema for validating a tool's JSON schema definition. */
@@ -126,6 +132,18 @@ export const SendHistorySchema = z.array(HistoryMessageSchema).max(200);
 /** Max size for a single audio chunk from the browser (1 MB). */
 export const MAX_AUDIO_CHUNK_BYTES = 1_048_576;
 
+/**
+ * Validate a PCM16 audio chunk from the browser.
+ *
+ * Checks size bounds and byte alignment (PCM16 = 2 bytes per sample).
+ * Returns `true` if the chunk is valid and should be forwarded to STT.
+ */
+export function isValidAudioChunk(data: Uint8Array): boolean {
+  return data.byteLength > 0 &&
+    data.byteLength <= MAX_AUDIO_CHUNK_BYTES &&
+    data.byteLength % 2 === 0;
+}
+
 // ─── Worker input validation ────────────────────────────────────────────────
 
 /** Zod schema for TurnConfig returned by the worker's resolveTurnConfig hook. */
@@ -133,6 +151,9 @@ export const TurnConfigSchema = z.object({
   maxSteps: z.number().int().positive().max(50).optional(),
   activeTools: z.array(z.string().min(1)).optional(),
 }).nullable();
+
+/** Max length for a tool execution result string from the worker (1 MB). */
+export const MAX_TOOL_RESULT_LENGTH = 1_048_576;
 
 /** Zod schema for worker fetch proxy requests. */
 export const WorkerFetchRequestSchema = z.object({

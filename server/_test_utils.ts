@@ -142,6 +142,9 @@ export function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
     env: VALID_ENV,
     transport: ["websocket"],
     keyHash: "test-key-hash",
+    config: makeConfig(),
+    name: "Test",
+    toolSchemas: [],
     ...overrides,
   };
 }
