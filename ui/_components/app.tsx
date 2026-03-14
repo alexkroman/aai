@@ -10,7 +10,7 @@ export function App(): preact.JSX.Element {
     return (
       <div class="flex items-center justify-center h-screen bg-aai-bg font-aai">
         <div class="flex flex-col items-center gap-6 bg-aai-surface border border-aai-border rounded-lg px-12 py-10">
-          <span class="font-aai-mono text-lg leading-[1.1] font-bold text-aai-ring whitespace-pre">
+          <span class="font-aai-mono text-lg leading-[1.1] font-bold text-aai-primary whitespace-pre">
             {`▄▀█ ▄▀█ █\n█▀█ █▀█ █`}
           </span>
           <button

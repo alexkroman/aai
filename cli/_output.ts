@@ -1,12 +1,11 @@
 // Copyright 2025 the AAI authors. MIT license.
+import { bold, dim } from "@std/fmt/colors";
 import {
-  bold,
-  brightBlue,
-  brightMagenta,
-  dim,
-  red,
-  yellow,
-} from "@std/fmt/colors";
+  error as errorColor,
+  interactive,
+  primary,
+  warning,
+} from "./_colors.ts";
 
 // Deno-style right-aligned action prefix width
 const PAD = 9;
@@ -26,7 +25,7 @@ function fmt(
  * @param msg Descriptive message printed after the action label.
  */
 export function step(action: string, msg: string): void {
-  console.log(fmt(action, brightMagenta, msg));
+  console.log(fmt(action, primary, msg));
 }
 
 /**
@@ -36,7 +35,7 @@ export function step(action: string, msg: string): void {
  * @param msg Descriptive message printed after the action label.
  */
 export function stepInfo(action: string, msg: string): void {
-  console.log(fmt(action, brightBlue, msg));
+  console.log(fmt(action, interactive, msg));
 }
 
 /**
@@ -59,7 +58,7 @@ export function detail(msg: string): void {
  * @param msg The warning message.
  */
 export function warn(msg: string): void {
-  console.error(fmt("warning", yellow, msg));
+  console.error(fmt("warning", warning, msg));
 }
 
 /**
@@ -68,5 +67,5 @@ export function warn(msg: string): void {
  * @param msg The error message.
  */
 export function error(msg: string): void {
-  console.error(`${red(bold("error"))}: ${msg}`);
+  console.error(`${errorColor(bold("error"))}: ${msg}`);
 }

@@ -14,7 +14,7 @@ export function Controls() {
         class={`${btnBase} ${
           running.value
             ? "bg-aai-surface-hover text-aai-text-secondary border-aai-border"
-            : "bg-aai-primary text-white border-aai-primary"
+            : "bg-aai-surface-hover text-aai-text-secondary border-aai-border"
         }`}
         onClick={toggle}
       >

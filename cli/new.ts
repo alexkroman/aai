@@ -3,7 +3,8 @@ import { parseArgs } from "@std/cli/parse-args";
 import { promptSelect } from "@std/cli/unstable-prompt-select";
 import { exists } from "@std/fs/exists";
 import { dirname, fromFileUrl, join } from "@std/path";
-import { brightBlue, brightMagenta, dim } from "@std/fmt/colors";
+import { dim } from "@std/fmt/colors";
+import { interactive, primary } from "./_colors.ts";
 import { ensureClaudeMd, ensureDependencies } from "./_discover.ts";
 import type { SubcommandDef } from "./_help.ts";
 import { subcommandHelp } from "./_help.ts";
@@ -48,7 +49,7 @@ function selectTemplate(available: string[]): string {
   const sorted = ["simple", ...available.filter((t) => t !== "simple")];
   const maxLen = Math.max(...sorted.map((t) => t.length));
   const labels = sorted.map((name) =>
-    `${brightMagenta(name.padEnd(maxLen + 2))}${
+    `${primary(name.padEnd(maxLen + 2))}${
       dim(TEMPLATE_DESCRIPTIONS[name] ?? "")
     }`
   );
@@ -88,7 +89,7 @@ export async function runNewCommand(
   if (!parsed.force && await exists(join(cwd, "agent.ts"))) {
     console.log(
       `agent.ts already exists in this directory. Use ${
-        brightBlue("--force")
+        interactive("--force")
       } to overwrite.`,
     );
     Deno.exit(1);
