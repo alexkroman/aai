@@ -1,14 +1,13 @@
 {
   "name": "@aai/ui",
-  "version": "0.1.129",
+  "version": "0.1.131",
   "exports": "./mod.ts",
   "publish": {
     "exclude": [
       "*_test.ts",
       "*_test.tsx",
       "_test_utils.ts",
-      "_dom_shim.ts",
-      "styles.css"
+      "_dom_shim.ts"
     ]
   },
   "tasks": {

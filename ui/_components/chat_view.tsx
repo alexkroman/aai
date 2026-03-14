@@ -14,7 +14,7 @@ export function ChatView(): preact.JSX.Element {
       {/* Header */}
       <div class="flex items-center gap-3 px-4 py-3 border-b border-aai-border shrink-0">
         <span class="font-aai-mono text-[10px] leading-[1.1] font-bold text-aai-ring whitespace-pre">
-          ▄▀█ ▄▀█ █ █▀█ █▀█ █
+          {`▄▀█ ▄▀█ █\n█▀█ █▀█ █`}
         </span>
         <div class="ml-auto">
           <StateIndicator state={state} />
