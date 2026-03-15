@@ -1,25 +1,43 @@
-// Capture worklet: accumulates mic Float32 samples, converts to Int16 PCM,
-// and sends chunks back to the main thread via postMessage.
-// Modeled after pipecat's audio_processor worklet.
+// Capture worklet: captures mic Float32 samples, resamples to STT rate if
+// needed, converts to Int16 PCM, and sends chunks to the main thread.
 
 const CaptureProcessorWorklet = `
 class CaptureProcessor extends AudioWorkletProcessor {
-  constructor() {
+  constructor(options) {
     super();
     this.recording = false;
-    this.chunks = [];
+    const opts = options.processorOptions || {};
+    this.fromRate = opts.contextRate || sampleRate;
+    this.toRate = opts.sttSampleRate || sampleRate;
+    this.ratio = this.fromRate / this.toRate;
+    this.needsResample = this.fromRate !== this.toRate;
     this.port.onmessage = (e) => {
       if (e.data.event === 'start') this.recording = true;
       else if (e.data.event === 'stop') this.recording = false;
     };
   }
 
+  resample(input) {
+    const ratio = this.ratio;
+    const outLen = Math.ceil(input.length / ratio);
+    const out = new Float32Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      const srcIdx = i * ratio;
+      const idx = srcIdx | 0;
+      const frac = srcIdx - idx;
+      const a = input[idx];
+      const b = idx + 1 < input.length ? input[idx + 1] : a;
+      out[i] = a + frac * (b - a);
+    }
+    return out;
+  }
+
   process(inputs) {
     const input = inputs[0];
     if (!input || !input[0] || !this.recording) return true;
 
-    // Mono: use first channel
-    const samples = input[0];
+    const raw = input[0];
+    const samples = this.needsResample ? this.resample(raw) : raw;
 
     // Convert Float32 -> Int16
     const buffer = new ArrayBuffer(samples.length * 2);

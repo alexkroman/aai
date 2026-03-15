@@ -3,7 +3,6 @@ import * as log from "@std/log";
 import { escape } from "@std/html";
 import { STATUS_CODE } from "@std/http/status";
 import { HttpError, type RouteContext } from "./context.ts";
-import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { type AgentSlot, prepareSession } from "./worker_pool.ts";
 import { createSession } from "./session.ts";
@@ -82,23 +81,28 @@ const MIN_AUDIO_BYTES = 3200;
 /**
  * Creates a buffer that accumulates small audio chunks and flushes them
  * in larger batches to reduce per-frame overhead.
+ *
+ * Uses a pre-allocated buffer to avoid per-push allocations.
  */
 export function createAudioBuffer(
   flush: (chunk: Uint8Array) => void,
 ): { push(data: Uint8Array): void; drain(): void } {
-  let buf = new Uint8Array(0);
+  // Pre-allocate 2x the flush threshold to avoid reallocation.
+  const buf = new Uint8Array(MIN_AUDIO_BYTES * 2);
+  let offset = 0;
   return {
     push(data: Uint8Array) {
-      buf = concat([buf, data]);
-      if (buf.length >= MIN_AUDIO_BYTES) {
-        flush(buf);
-        buf = new Uint8Array(0);
+      buf.set(data, offset);
+      offset += data.byteLength;
+      if (offset >= MIN_AUDIO_BYTES) {
+        flush(buf.slice(0, offset));
+        offset = 0;
       }
     },
     drain() {
-      if (buf.length > 0) {
-        flush(buf);
-        buf = new Uint8Array(0);
+      if (offset > 0) {
+        flush(buf.slice(0, offset));
+        offset = 0;
       }
     },
   };
