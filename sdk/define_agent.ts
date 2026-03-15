@@ -67,7 +67,7 @@ export function defineAgent<S>(options: AgentOptions<S>): AgentDef {
     greeting: isSttOnly
       ? (options.greeting ?? "")
       : (options.greeting ?? DEFAULT_GREETING),
-    voice: isSttOnly ? (options.voice ?? "") : (options.voice ?? "luna"),
+    voice: options.voice ?? "",
     ...(options.sttPrompt !== undefined && { sttPrompt: options.sttPrompt }),
     maxSteps: options.maxSteps ?? 5,
     ...(options.toolChoice !== undefined && { toolChoice: options.toolChoice }),

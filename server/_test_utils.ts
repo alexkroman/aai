@@ -127,7 +127,7 @@ export function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
     name: "Test",
     instructions: "Test",
     greeting: "Hi",
-    voice: "luna",
+    voice: "",
     ...overrides,
   };
 }

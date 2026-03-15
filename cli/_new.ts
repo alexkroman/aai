@@ -64,9 +64,11 @@ export async function runNew(opts: NewOptions): Promise<string> {
     );
   } catch { /* no .env.example in template */ }
 
-  // Generate README.md with getting-started instructions
-  const slug = basename(resolve(targetDir));
-  const readme = `# ${slug}
+  // Generate README.md with getting-started instructions (skip if template provides one)
+  const readmePath = join(targetDir, "README.md");
+  if (!await exists(readmePath)) {
+    const slug = basename(resolve(targetDir));
+    const readme = `# ${slug}
 
 A voice agent built with [aai](https://github.com/anthropics/aai).
 
@@ -95,7 +97,8 @@ Access secrets in your agent via \`ctx.env.MY_KEY\`.
 
 See \`CLAUDE.md\` for the full agent API reference.
 `;
-  await Deno.writeTextFile(join(targetDir, "README.md"), readme);
+    await Deno.writeTextFile(readmePath, readme);
+  }
 
   _internals.step("Done", targetDir);
   return targetDir;
