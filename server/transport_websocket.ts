@@ -90,6 +90,7 @@ export async function handleWebSocket(
     slug,
     store: ctx.state.store,
     kvStore: ctx.state.kvStore,
+    vectorStore: ctx.state.vectorStore ?? undefined,
   });
   const resume = new URL(ctx.req.url).searchParams.has("resume");
 

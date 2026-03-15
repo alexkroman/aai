@@ -13,6 +13,7 @@ import type { AgentMetadata } from "./_schemas.ts";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";
 import { assertPublicUrl, getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
+import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
 import { KvRequestBaseSchema, WorkerFetchRequestSchema } from "./_schemas.ts";
 export type { AgentMetadata } from "./_schemas.ts";
@@ -79,12 +80,14 @@ async function spawnAgent(
       }
       lastCrash = now;
       log.info("Respawning worker", { slug });
-      spawnAgent(slot, getWorkerCode, kvCtx).catch((err: unknown) => {
-        log.error("Worker respawn failed", {
-          slug,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
+      spawnAgent(slot, getWorkerCode, kvCtx).catch(
+        (err: unknown) => {
+          log.error("Worker respawn failed", {
+            slug,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        },
+      );
     }) as EventListener,
   );
 
@@ -185,8 +188,8 @@ function resetIdleTimer(slot: AgentSlot): void {
 export function ensureAgent(
   slot: AgentSlot,
   opts?: {
-    getWorkerCode?: (slug: string) => Promise<string | null>;
-    kvCtx?: { kvStore: KvStore; scope: AgentScope };
+    getWorkerCode?: ((slug: string) => Promise<string | null>) | undefined;
+    kvCtx?: { kvStore: KvStore; scope: AgentScope } | undefined;
   },
 ): Promise<void> {
   const getWorkerCode = opts?.getWorkerCode;
@@ -199,15 +202,17 @@ export function ensureAgent(
   }
   if (slot.initializing) return slot.initializing;
 
-  slot.initializing = spawnAgent(slot, getWorkerCode, kvCtx).then(() => {
-    delete slot.initializing;
-    resetIdleTimer(slot);
-    log.info("Agent ready", {
-      slug: slot.slug,
-      name: slot.name,
-      durationMs: Math.round(performance.now() - t0),
-    });
-  }).catch((err) => {
+  slot.initializing = spawnAgent(slot, getWorkerCode, kvCtx).then(
+    () => {
+      delete slot.initializing;
+      resetIdleTimer(slot);
+      log.info("Agent ready", {
+        slug: slot.slug,
+        name: slot.name,
+        durationMs: Math.round(performance.now() - t0),
+      });
+    },
+  ).catch((err) => {
     delete slot.initializing;
     throw err;
   });
@@ -265,6 +270,10 @@ export type SessionSetup = {
   getWorkerApi: () => Promise<WorkerApi>;
   /** Environment variables available to the agent. */
   env?: Record<string, string | undefined>;
+  /** Vector store context for the built-in vector_search tool. */
+  vectorCtx?:
+    | { vectorStore: ServerVectorStore; scope: AgentScope }
+    | undefined;
 };
 
 /**
@@ -282,10 +291,16 @@ export type SessionSetup = {
  */
 export async function prepareSession(
   slot: AgentSlot,
-  opts: { slug: string; store: BundleStore; kvStore: KvStore },
+  opts: {
+    slug: string;
+    store: BundleStore;
+    kvStore: KvStore;
+    vectorStore?: ServerVectorStore | undefined;
+  },
 ): Promise<SessionSetup> {
-  const { slug, store, kvStore } = opts;
-  const kvCtx = { kvStore, scope: { keyHash: slot.keyHash, slug } };
+  const { slug, store, kvStore, vectorStore } = opts;
+  const scope = { keyHash: slot.keyHash, slug };
+  const kvCtx = { kvStore, scope };
   const getWorkerCode = (s: string) => store.getFile(s, "worker");
   const getWorkerApi = async () => {
     await ensureAgent(slot, { getWorkerCode, kvCtx });
@@ -316,5 +331,6 @@ export async function prepareSession(
     executeTool,
     getWorkerApi,
     env: slot.env,
+    vectorCtx: vectorStore ? { vectorStore, scope } : undefined,
   };
 }

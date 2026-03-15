@@ -34,6 +34,7 @@ export const BuiltinToolSchema: z.ZodType<BuiltinTool> = z.enum([
   "visit_webpage",
   "fetch_json",
   "run_code",
+  "vector_search",
 ]);
 
 /** Zod schema for validating tool choice configuration values. */
@@ -189,4 +190,41 @@ export const KvHttpRequestSchema: z.ZodType<KvHttpRequest> = z
       reverse: z.boolean().optional(),
     }),
     z.object({ op: z.literal("keys"), pattern: z.string().optional() }),
+  ]);
+
+// ─── Vector schemas ──────────────────────────────────────────────────────────
+
+/**
+ * Vector HTTP request type for the external `POST /:slug/vector` endpoint.
+ * Supports upsert (used by `aai crawl`) and query.
+ */
+export type VectorHttpRequest =
+  | {
+    op: "upsert";
+    id: string;
+    data: string;
+    metadata?: Record<string, unknown> | undefined;
+  }
+  | {
+    op: "query";
+    text: string;
+    topK?: number | undefined;
+    filter?: string | undefined;
+  };
+
+/** Zod schema for validating Vector HTTP request bodies (upsert, query). */
+export const VectorHttpRequestSchema: z.ZodType<VectorHttpRequest> = z
+  .discriminatedUnion("op", [
+    z.object({
+      op: z.literal("upsert"),
+      id: z.string().min(1),
+      data: z.string().min(1),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }),
+    z.object({
+      op: z.literal("query"),
+      text: z.string().min(1),
+      topK: z.number().int().positive().max(100).optional(),
+      filter: z.string().optional(),
+    }),
   ]);

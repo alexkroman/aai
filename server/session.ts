@@ -5,7 +5,7 @@ import { createModel } from "./model.ts";
 import type { ExecuteTool } from "./_worker_entry.ts";
 import { createSttConnection, type SttConnection } from "./stt.ts";
 import { createTtsConnection, type TtsConnection } from "./tts.ts";
-import { getBuiltinVercelTools } from "./builtin_tools.ts";
+import { getBuiltinVercelTools, type VectorCtx } from "./builtin_tools.ts";
 import { executeTurn, type TurnResult } from "./turn_handler.ts";
 import type { STTConfig, TTSConfig } from "./types.ts";
 import type { AgentConfig } from "@aai/sdk/types";
@@ -54,6 +54,8 @@ export type SessionOptions = {
   createTts?: (config: TTSConfig) => TtsConnection;
   /** Override the LLM model (used in tests). */
   model?: LanguageModelV1 | undefined;
+  /** Vector store context for the built-in vector_search tool. */
+  vectorCtx?: VectorCtx | undefined;
 };
 
 const ConnState = {
@@ -175,7 +177,10 @@ export function createSession(opts: SessionOptions): Session {
   if (isSttOnly) {
     tools = {};
   } else {
-    tools = getBuiltinVercelTools(agentConfig.builtinTools ?? [], env);
+    tools = getBuiltinVercelTools(agentConfig.builtinTools ?? [], {
+      env,
+      vectorCtx: opts.vectorCtx,
+    });
     for (const schema of opts.toolSchemas) {
       // Skip schemas for builtin tools — they already have host-side execute
       if (schema.name in tools) continue;

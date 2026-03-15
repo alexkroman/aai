@@ -265,6 +265,7 @@ Enable via `builtinTools`.
 | `visit_webpage` | Fetch URL → Markdown                           | `url`                               |
 | `fetch_json`    | HTTP GET a JSON API                            | `url`, `headers?`                   |
 | `run_code`      | Execute JS in sandbox (no net/fs, 30s timeout) | `code`                              |
+| `vector_search` | Search the agent's RAG knowledge base          | `query`, `topK?` (default 5)        |
 
 The agentic loop runs up to `maxSteps` iterations (default 5) and stops when the
 LLM produces a text response.

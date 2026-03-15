@@ -5,6 +5,7 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { Session } from "./session.ts";
 import type { ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
+import type { ServerVectorStore } from "./vector.ts";
 
 /** HTTP error with a status code, thrown by handlers and middleware helpers. */
 export class HttpError extends Error {
@@ -22,6 +23,7 @@ export type AppState = {
   store: BundleStore;
   scopeKey: ScopeKey;
   kvStore: KvStore;
+  vectorStore?: ServerVectorStore | undefined;
 };
 
 /** Context passed to route handler functions. */

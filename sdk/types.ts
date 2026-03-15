@@ -62,7 +62,8 @@ export type BuiltinTool =
   | "web_search"
   | "visit_webpage"
   | "fetch_json"
-  | "run_code";
+  | "run_code"
+  | "vector_search";
 
 /**
  * How the LLM should select tools during a turn.

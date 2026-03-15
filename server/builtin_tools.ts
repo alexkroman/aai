@@ -13,6 +13,8 @@ import type {
   BuiltinTool as BuiltinToolName,
   ToolSchema,
 } from "@aai/sdk/types";
+import type { ServerVectorStore } from "./vector.ts";
+import type { AgentScope } from "./scope_token.ts";
 import { htmlToMarkdown } from "mdream";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";
 import { matchSubnets } from "@std/net/unstable-ip";
@@ -302,11 +304,26 @@ const fetchJson = defineTool({
   },
 });
 
+const vectorSearchParams = z.object({
+  query: z.string().describe(
+    "Natural language search query to find relevant information",
+  ),
+  topK: z.number().describe("Maximum results to return (default: 5)")
+    .optional(),
+});
+
 const BUILTIN_TOOLS: Partial<Record<BuiltinToolName, BuiltinTool>> = {
   "web_search": webSearch,
   "visit_webpage": visitWebpage,
   "run_code": runCode,
   "fetch_json": fetchJson,
+  // vector_search is handled separately — requires vector store context
+};
+
+/** Vector context passed to built-in tools that need vector store access. */
+export type VectorCtx = {
+  vectorStore: ServerVectorStore;
+  scope: AgentScope;
 };
 
 /**
@@ -319,6 +336,16 @@ export function getBuiltinToolSchemas(
   names: readonly BuiltinToolName[],
 ): ToolSchema[] {
   return names.flatMap((name) => {
+    if (name === "vector_search") {
+      return [{
+        name: "vector_search",
+        description:
+          "Search the agent's vector knowledge base using natural language.",
+        parameters: z.toJSONSchema(
+          vectorSearchParams,
+        ) as ToolSchema["parameters"],
+      }];
+    }
     const tool = BUILTIN_TOOLS[name];
     if (!tool) return [];
     return [{
@@ -335,10 +362,45 @@ export function getBuiltinToolSchemas(
  */
 export function getBuiltinVercelTools(
   names: readonly BuiltinToolName[],
-  env: Record<string, string | undefined> = {},
+  opts: {
+    env?: Record<string, string | undefined>;
+    vectorCtx?: VectorCtx | undefined;
+  } = {},
 ): ToolSet {
+  const { env = {}, vectorCtx } = opts;
   const tools: ToolSet = {};
   for (const name of names) {
+    // vector_search is special — needs vector store context
+    if (name === "vector_search") {
+      if (!vectorCtx) continue;
+      const { vectorStore, scope } = vectorCtx;
+      const params = jsonSchema(
+        z.toJSONSchema(vectorSearchParams) as ToolSchema["parameters"],
+      );
+      tools.vector_search = vercelTool({
+        description:
+          "Search the agent's vector knowledge base using natural language. Returns the most relevant stored entries. Use this to find information that was previously ingested via `aai crawl`.",
+        parameters: params,
+        execute: async (args: unknown) => {
+          const { query, topK = 5 } = args as {
+            query: string;
+            topK?: number;
+          };
+          log.info("vector_search", { query, topK });
+          const results = await vectorStore.query(scope, query, topK);
+          if (results.length === 0) return "No relevant results found.";
+          return JSON.stringify(
+            results.map((r) => ({
+              score: r.score,
+              text: r.data,
+              metadata: r.metadata,
+            })),
+          );
+        },
+      });
+      continue;
+    }
+
     const bt = BUILTIN_TOOLS[name];
     if (!bt) continue;
     const params = jsonSchema(

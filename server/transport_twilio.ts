@@ -178,6 +178,7 @@ export async function handleTwilioStream(
     slug,
     store: ctx.state.store,
     kvStore: ctx.state.kvStore,
+    vectorStore: ctx.state.vectorStore ?? undefined,
   });
 
   const { socket, response } = Deno.upgradeWebSocket(ctx.req);
