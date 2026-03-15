@@ -54,9 +54,9 @@ if (isDev) {
   const vectorToken = Deno.env.get("UPSTASH_VECTOR_REST_TOKEN") ??
     Deno.env.get("VECTOR_TOKEN");
   if (vectorUrl && vectorToken) {
-    // Fly's VECTOR_ENDPOINT omits the scheme — normalize to https://
+    // Fly's VECTOR_ENDPOINT omits the scheme — add http:// (Fly private network)
     if (!vectorUrl.startsWith("http")) {
-      vectorUrl = `https://${vectorUrl}`;
+      vectorUrl = `http://${vectorUrl}`;
     }
     vectorStore = createVectorStore(vectorUrl, vectorToken);
   }
