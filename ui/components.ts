@@ -44,9 +44,9 @@ export const ToolCallBlock: (
   props: { toolCall: ToolCallInfo },
 ) => preact.JSX.Element = _ToolCallBlock;
 
-/** Displays the live partial transcript from STT. */
+/** Displays the live user utterance from STT/VAD. */
 export const Transcript: (
-  props: { text: Signal<string> },
+  props: { userUtterance: Signal<string | null> },
 ) => preact.JSX.Element | null = _Transcript;
 
 /** Animated indicator shown while the agent is processing. */

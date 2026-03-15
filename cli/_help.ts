@@ -55,7 +55,7 @@ export function rootHelp(version: string): string {
     ["new", "[dir]", "Scaffold a new agent project"],
     ["deploy", "", "Bundle and deploy to production"],
     ["env", "<cmd>", "Manage environment variables"],
-    ["crawl", "<url>", "Crawl a site into the vector store"],
+    ["rag", "<url>", "Ingest a site into the vector store"],
   ];
 
   for (const [name, args, desc] of cmds) {

@@ -167,9 +167,10 @@ function StatRow(
 }
 
 function App() {
-  const session = useSession();
+  const ctrl = useSession();
+  const { session } = ctrl;
   const msgs = session.messages.value;
-  const tx = session.transcript.value;
+  const tx = session.userUtterance.value;
   const state = session.state.value;
   const error = session.error.value;
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -308,7 +309,7 @@ function App() {
               <div ref={messagesEndRef} />
             </div>
 
-            {tx && (
+            {tx !== null && (
               <div
                 class="flex items-center px-4 py-2 text-xs italic min-h-8"
                 style={{
@@ -324,7 +325,7 @@ function App() {
                     animation: "dc-pulse 1.5s ease-in-out infinite",
                   }}
                 />
-                {tx}
+                {tx || "..."}
               </div>
             )}
             {error && (
@@ -344,13 +345,13 @@ function App() {
               class="flex items-center gap-2.5 px-4 py-3"
               style={{ background: "#111827", borderTop: "1px solid #1e293b" }}
             >
-              {!session.started.value
+              {!ctrl.started.value
                 ? (
                   <button
                     type="button"
                     class="px-4 py-2 border-none rounded-md font-mono text-xs font-semibold uppercase tracking-wider cursor-pointer text-white"
                     style={{ background: "#2563eb" }}
-                    onClick={() => session.start()}
+                    onClick={() => ctrl.start()}
                   >
                     Start Dispatch
                   </button>
@@ -361,20 +362,18 @@ function App() {
                       type="button"
                       class="px-4 py-2 border-none rounded-md font-mono text-xs font-semibold uppercase tracking-wider cursor-pointer"
                       style={{
-                        background: session.running.value
-                          ? "#334155"
-                          : "#2563eb",
-                        color: session.running.value ? "#e2e8f0" : "white",
+                        background: ctrl.running.value ? "#334155" : "#2563eb",
+                        color: ctrl.running.value ? "#e2e8f0" : "white",
                       }}
-                      onClick={() => session.toggle()}
+                      onClick={() => ctrl.toggle()}
                     >
-                      {session.running.value ? "Pause" : "Resume"}
+                      {ctrl.running.value ? "Pause" : "Resume"}
                     </button>
                     <button
                       type="button"
                       class="px-4 py-2 border-none rounded-md font-mono text-xs font-semibold uppercase tracking-wider cursor-pointer text-white"
                       style={{ background: "#dc2626" }}
-                      onClick={() => session.reset()}
+                      onClick={() => ctrl.reset()}
                     >
                       Reset
                     </button>

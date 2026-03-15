@@ -214,7 +214,6 @@ export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
       turnOrder: z.number().int().nonnegative().optional(),
     }),
     z.object({ type: z.literal("chat"), text: z.string() }),
-    z.object({ type: z.literal("chat_delta"), delta: z.string() }),
     z.object({
       type: z.literal("words"),
       words: z.array(z.object({

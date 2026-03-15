@@ -6,30 +6,16 @@ import type { ComponentChildren } from "preact";
 import { batch, effect, type Signal, signal } from "@preact/signals";
 import type { VoiceSession } from "./session.ts";
 
-import type {
-  AgentState,
-  Message,
-  SessionError,
-  ToolCallInfo,
-} from "./types.ts";
-
 /**
  * Reactive session controls wrapping a {@linkcode VoiceSession} with Preact signals.
  *
- * Provides higher-level start/toggle/reset controls suitable for binding
- * to UI components, plus a `dispose` method for cleanup.
+ * Components access reactive data via `session` (e.g. `session.state`,
+ * `session.messages`). UI-only state (`started`, `running`) and actions
+ * (`start`, `toggle`, `reset`) live directly on this object.
  */
 export type SessionSignals = {
-  /** Current agent state signal. */
-  state: Signal<AgentState>;
-  /** Chat message history signal. */
-  messages: Signal<Message[]>;
-  /** Active tool calls signal. */
-  toolCalls: Signal<ToolCallInfo[]>;
-  /** Live partial transcript signal. */
-  transcript: Signal<string>;
-  /** Current error signal, or `null` if no error. */
-  error: Signal<SessionError | null>;
+  /** The underlying voice session — all reactive data lives here. */
+  session: VoiceSession;
   /** Whether the session has been started by the user. */
   started: Signal<boolean>;
   /** Whether the session is currently running (connected or connecting). */
@@ -65,11 +51,7 @@ export function createSessionControls(session: VoiceSession): SessionSignals {
   });
 
   return {
-    state: session.state,
-    messages: session.messages,
-    toolCalls: session.toolCalls,
-    transcript: session.transcript,
-    error: session.error,
+    session,
     started,
     running,
     dispose,

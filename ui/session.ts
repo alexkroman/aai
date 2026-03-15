@@ -36,8 +36,12 @@ export type VoiceSession = {
   readonly messages: Signal<Message[]>;
   /** Active tool calls for the current turn. */
   readonly toolCalls: Signal<ToolCallInfo[]>;
-  /** Live partial transcript from the STT engine. */
-  readonly transcript: Signal<string>;
+  /**
+   * Live user utterance from STT/VAD.
+   * `null` = not speaking, `""` = speech detected but no text yet,
+   * non-empty string = partial/final transcript text.
+   */
+  readonly userUtterance: Signal<string | null>;
   /** Current session error, or `null` if no error. */
   readonly error: Signal<SessionError | null>;
   /** Disconnection info, or `null` if connected. */
@@ -70,7 +74,7 @@ export class ClientHandler {
   #state: Signal<AgentState>;
   #messages: Signal<Message[]>;
   #toolCalls: Signal<ToolCallInfo[]>;
-  #transcript: Signal<string>;
+  #userUtterance: Signal<string | null>;
   #error: Signal<SessionError | null>;
   #voiceIO: () => VoiceIO | null;
   #streaming = false;
@@ -86,7 +90,7 @@ export class ClientHandler {
     state: Signal<AgentState>;
     messages: Signal<Message[]>;
     toolCalls: Signal<ToolCallInfo[]>;
-    transcript: Signal<string>;
+    userUtterance: Signal<string | null>;
     error: Signal<SessionError | null>;
     voiceIO: () => VoiceIO | null;
     ttsSampleRate?: number;
@@ -94,7 +98,7 @@ export class ClientHandler {
     this.#state = opts.state;
     this.#messages = opts.messages;
     this.#toolCalls = opts.toolCalls;
-    this.#transcript = opts.transcript;
+    this.#userUtterance = opts.userUtterance;
     this.#error = opts.error;
     this.#voiceIO = opts.voiceIO;
     if (opts.ttsSampleRate) this.#ttsSampleRate = opts.ttsSampleRate;
@@ -107,12 +111,10 @@ export class ClientHandler {
   event(e: ClientEvent): void {
     switch (e.type) {
       case "speech_started":
-        if (!this.#transcript.value) {
-          this.#transcript.value = ClientHandler.speechActive;
-        }
+        this.#userUtterance.value = "";
         break;
       case "transcript":
-        this.#transcript.value = e.text;
+        this.#userUtterance.value = e.text;
         break;
       case "turn":
         this.#generation++;
@@ -120,7 +122,7 @@ export class ClientHandler {
         this.#wordQueue = [];
         this.#wordsRevealed = 0;
         batch(() => {
-          this.#transcript.value = "";
+          this.#userUtterance.value = null;
           this.#messages.value = [
             ...this.#messages.value,
             { role: "user", text: e.text },
@@ -184,6 +186,7 @@ export class ClientHandler {
         this.#voiceIO()?.flush();
         this.#wordQueue = [];
         this.#wordsRevealed = 0;
+        this.#userUtterance.value = null;
         this.#state.value = "listening";
         break;
       case "reset": {
@@ -194,7 +197,7 @@ export class ClientHandler {
         batch(() => {
           this.#messages.value = [];
           this.#toolCalls.value = [];
-          this.#transcript.value = "";
+          this.#userUtterance.value = null;
           this.#error.value = null;
           this.#state.value = "listening";
         });
@@ -326,7 +329,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   const state = signal<AgentState>("disconnected");
   const messages = signal<Message[]>([]);
   const toolCalls = signal<ToolCallInfo[]>([]);
-  const transcript = signal<string>("");
+  const userUtterance = signal<string | null>(null);
   const error = signal<SessionError | null>(null);
   const disconnected = signal<{ intentional: boolean } | null>(null);
 
@@ -346,7 +349,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     batch(() => {
       messages.value = [];
       toolCalls.value = [];
-      transcript.value = "";
+      userUtterance.value = null;
       error.value = null;
     });
   }
@@ -459,7 +462,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
       state,
       messages,
       toolCalls,
-      transcript,
+      userUtterance,
       error,
       voiceIO: () => voiceIO,
     });
@@ -531,7 +534,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     state,
     messages,
     toolCalls,
-    transcript,
+    userUtterance,
     error,
     disconnected,
     connect,

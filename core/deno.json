@@ -1,6 +1,6 @@
 {
   "name": "@aai/core",
-  "version": "0.1.71",
+  "version": "0.1.72",
   "exports": {
     "./types": "./types.ts",
     "./protocol": "./protocol.ts",

@@ -19,25 +19,7 @@ export type BeforeStepResult = { activeTools?: string[] } | void;
  */
 export type Transport = "websocket" | "twilio";
 
-/**
- * Normalize a transport value to an array of transports.
- *
- * Converts a single transport string, an array, or `undefined` into a
- * consistent `Transport[]` format.
- *
- * @param value A single transport, array of transports, or `undefined`.
- * @returns An array of transports. Defaults to `["websocket"]` when
- *   `undefined` is provided.
- *
- * @example
- * ```ts
- * import { normalizeTransport } from "@aai/sdk/types";
- *
- * normalizeTransport(undefined);      // ["websocket"]
- * normalizeTransport("twilio");       // ["twilio"]
- * normalizeTransport(["websocket", "twilio"]); // ["websocket", "twilio"]
- * ```
- */
+/** @internal Normalize a transport value to an array of transports. */
 export function normalizeTransport(
   value: Transport | readonly Transport[] | undefined,
 ): readonly Transport[] {

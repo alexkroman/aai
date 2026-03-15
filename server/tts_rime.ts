@@ -2,9 +2,8 @@
 import * as log from "@std/log";
 import { debounce } from "@std/async/debounce";
 import type { RimeTtsConfig } from "./types.ts";
-import { createWebSocketWithHeaders } from "./_deno_ws.ts";
 import * as metrics from "./metrics.ts";
-import type { TtsConnection } from "./tts.ts";
+import type { SynthesizeCallbacks, TtsConnection } from "./tts.ts";
 
 const IDLE_MS = 300;
 const NO_AUDIO_TIMEOUT_MS = 5000;
@@ -99,8 +98,12 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
     if (config.speedAlpha != null) {
       params.set("speedAlpha", String(config.speedAlpha));
     }
-    const newWs = createWebSocketWithHeaders(`${config.wssUrl}?${params}`, {
-      Authorization: `Bearer ${config.apiKey}`,
+    // Deno supports { headers } in the WebSocket constructor, but TS types don't
+    const newWs = new (WebSocket as unknown as new (
+      url: string | URL,
+      options: { headers: Record<string, string> },
+    ) => WebSocket)(`${config.wssUrl}?${params}`, {
+      headers: { Authorization: `Bearer ${config.apiKey}` },
     });
     newWs.binaryType = "arraybuffer";
     ws = newWs;
@@ -166,7 +169,7 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
       chunks: string | AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
-      callbacks?: import("./tts.ts").SynthesizeCallbacks,
+      callbacks?: SynthesizeCallbacks,
     ): Promise<void> {
       if (lifecycle.signal.aborted || signal?.aborted) return;
 

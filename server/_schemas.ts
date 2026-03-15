@@ -194,7 +194,7 @@ export const KvHttpRequestSchema: z.ZodType<KvHttpRequest> = z
 
 /**
  * Vector HTTP request type for the external `POST /:slug/vector` endpoint.
- * Supports upsert (used by `aai crawl`) and query.
+ * Supports upsert (used by `aai rag`) and query.
  */
 export type VectorHttpRequest =
   | {

@@ -9,7 +9,7 @@ import type { AgentScope } from "./scope_token.ts";
  * Handler for the vector operations endpoint (`POST /:slug/vector`).
  *
  * Dispatches `upsert` and `query` operations to the vector store,
- * scoped to the requesting agent. Used by `aai crawl` to populate
+ * scoped to the requesting agent. Used by `aai rag` to populate
  * the vector store and by external clients to query it.
  */
 export async function handleVector(
