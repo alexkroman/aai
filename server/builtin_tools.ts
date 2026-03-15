@@ -13,20 +13,12 @@ import type {
   BuiltinTool as BuiltinToolName,
   ToolSchema,
 } from "@aai/sdk/types";
-import TurndownService from "turndown";
+import { htmlToMarkdown } from "mdream";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";
 import { matchSubnets } from "@std/net/unstable-ip";
 
-const turndown = new TurndownService({ headingStyle: "atx" });
-turndown.remove(["script", "style", "head"]);
-
-function htmlToMarkdown(html: string): string {
-  return turndown.turndown(html);
-}
-
 export const _internals = {
   fetch: globalThis.fetch,
-  htmlToMarkdown,
 };
 
 const BLOCKED_CIDRS = [
