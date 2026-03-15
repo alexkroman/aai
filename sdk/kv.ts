@@ -121,7 +121,7 @@ export function sortAndPaginate<T extends { key: string }>(
  *
  * @example
  * ```ts
- * import { createMemoryKv } from "@aai/sdk";
+ * import { createMemoryKv } from "./kv.ts";
  *
  * const kv = createMemoryKv();
  * await kv.set("greeting", "hello");
@@ -130,7 +130,7 @@ export function sortAndPaginate<T extends { key: string }>(
  *
  * @example With TTL
  * ```ts
- * import { createMemoryKv } from "@aai/sdk";
+ * import { createMemoryKv } from "./kv.ts";
  *
  * const kv = createMemoryKv();
  * await kv.set("temp", "expires soon", { expireIn: 5000 });

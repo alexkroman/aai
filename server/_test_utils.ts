@@ -11,10 +11,6 @@ import { sortAndPaginate } from "@aai/sdk/kv";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { createOrchestrator } from "./orchestrator.ts";
 
-export function flush(): Promise<void> {
-  return delay(0);
-}
-
 /** Poll `predicate` every tick until it returns true, or throw after `ms`. */
 export async function waitFor(
   predicate: () => boolean,
@@ -22,7 +18,7 @@ export async function waitFor(
 ): Promise<void> {
   await deadline(
     (async () => {
-      while (!predicate()) await flush();
+      while (!predicate()) await delay(0);
     })(),
     ms,
   );

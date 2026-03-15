@@ -30,10 +30,6 @@ import {
   validateSlug,
 } from "./middleware.ts";
 
-function p(pathname: string): URLPattern {
-  return new URLPattern({ pathname });
-}
-
 /** Extract named groups from a URLPatternResult as a flat record. */
 function params(match: URLPatternResult): Record<string, string> {
   const out: Record<string, string> = {};
@@ -90,17 +86,17 @@ export function createOrchestrator(opts: {
   const routes: Route[] = [
     // --- Public routes ---
     {
-      pattern: p("/"),
+      pattern: new URLPattern({ pathname: "/" }),
       method: "GET",
       handler: () => html(renderLandingPage()),
     },
     {
-      pattern: p("/health"),
+      pattern: new URLPattern({ pathname: "/health" }),
       method: "GET",
       handler: () => json({ status: "ok" }),
     },
     {
-      pattern: p("/metrics"),
+      pattern: new URLPattern({ pathname: "/metrics" }),
       method: "GET",
       handler: (req, _match, info) => {
         requireInternal(req, info!);
@@ -109,17 +105,25 @@ export function createOrchestrator(opts: {
         });
       },
     },
-    { pattern: p("/favicon.ico"), method: "GET", handler: serveFavicon },
-    { pattern: p("/favicon.svg"), method: "GET", handler: serveFavicon },
     {
-      pattern: p("/install"),
+      pattern: new URLPattern({ pathname: "/favicon.ico" }),
+      method: "GET",
+      handler: serveFavicon,
+    },
+    {
+      pattern: new URLPattern({ pathname: "/favicon.svg" }),
+      method: "GET",
+      handler: serveFavicon,
+    },
+    {
+      pattern: new URLPattern({ pathname: "/install" }),
       method: "GET",
       handler: () => text(INSTALL_SCRIPT),
     },
 
     // --- Agent page (trailing slash is canonical for relative URL resolution) ---
     {
-      pattern: p("/:slug"),
+      pattern: new URLPattern({ pathname: "/:slug" }),
       method: "GET",
       handler: (req) => {
         const url = new URL(req.url);
@@ -130,7 +134,7 @@ export function createOrchestrator(opts: {
 
     // --- Agent routes ---
     {
-      pattern: p("/:slug/deploy"),
+      pattern: new URLPattern({ pathname: "/:slug/deploy" }),
       method: "POST",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -144,7 +148,7 @@ export function createOrchestrator(opts: {
     },
     // --- Env management (like `vercel env`) ---
     {
-      pattern: p("/:slug/env"),
+      pattern: new URLPattern({ pathname: "/:slug/env" }),
       method: "GET",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -154,7 +158,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug/env"),
+      pattern: new URLPattern({ pathname: "/:slug/env" }),
       method: "PUT",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -164,7 +168,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug/env/:key"),
+      pattern: new URLPattern({ pathname: "/:slug/env/:key" }),
       method: "DELETE",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -175,7 +179,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug/kv"),
+      pattern: new URLPattern({ pathname: "/:slug/kv" }),
       method: "POST",
       handler: async (req, match, info) => {
         requireInternal(req, info!);
@@ -186,7 +190,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug/vector"),
+      pattern: new URLPattern({ pathname: "/:slug/vector" }),
       method: "POST",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -199,7 +203,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug/twilio/voice"),
+      pattern: new URLPattern({ pathname: "/:slug/twilio/voice" }),
       method: "POST",
       handler: (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -208,7 +212,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug/twilio/stream"),
+      pattern: new URLPattern({ pathname: "/:slug/twilio/stream" }),
       handler: (req, match, info) => {
         requireUpgrade(req);
         const c = ctx(req, match, info, state);
@@ -217,7 +221,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug/metrics"),
+      pattern: new URLPattern({ pathname: "/:slug/metrics" }),
       method: "GET",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -229,7 +233,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug/health"),
+      pattern: new URLPattern({ pathname: "/:slug/health" }),
       method: "GET",
       handler: (req, match, info) => {
         const c = ctx(req, match, info, state);
@@ -238,7 +242,7 @@ export function createOrchestrator(opts: {
       },
     },
     {
-      pattern: p("/:slug/websocket"),
+      pattern: new URLPattern({ pathname: "/:slug/websocket" }),
       handler: (req, match, info) => {
         requireUpgrade(req);
         const c = ctx(req, match, info, state);
@@ -248,7 +252,7 @@ export function createOrchestrator(opts: {
     },
     // --- Agent page (served at trailing-slash so relative URLs resolve correctly) ---
     {
-      pattern: p("/:slug/"),
+      pattern: new URLPattern({ pathname: "/:slug/" }),
       method: "GET",
       handler: (req, match, info) => {
         const c = ctx(req, match, info, state);

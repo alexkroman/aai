@@ -2,7 +2,6 @@
 import * as log from "@std/log";
 import { debounce } from "@std/async/debounce";
 import type { RimeTtsConfig } from "./types.ts";
-import { createWebSocketWithHeaders } from "./_deno_ws.ts";
 import * as metrics from "./metrics.ts";
 import type { SynthesizeCallbacks, TtsConnection } from "./tts.ts";
 
@@ -99,8 +98,12 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
     if (config.speedAlpha != null) {
       params.set("speedAlpha", String(config.speedAlpha));
     }
-    const newWs = createWebSocketWithHeaders(`${config.wssUrl}?${params}`, {
-      Authorization: `Bearer ${config.apiKey}`,
+    // Deno supports { headers } in the WebSocket constructor, but TS types don't
+    const newWs = new (WebSocket as unknown as new (
+      url: string | URL,
+      options: { headers: Record<string, string> },
+    ) => WebSocket)(`${config.wssUrl}?${params}`, {
+      headers: { Authorization: `Bearer ${config.apiKey}` },
     });
     newWs.binaryType = "arraybuffer";
     ws = newWs;

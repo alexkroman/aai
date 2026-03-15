@@ -1,6 +1,6 @@
 {
   "name": "@aai/ui",
-  "version": "0.1.169",
+  "version": "0.1.170",
   "exports": {
     ".": "./mod.ts",
     "./session": "./session_mod.ts",

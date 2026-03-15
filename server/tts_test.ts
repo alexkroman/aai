@@ -3,7 +3,7 @@ import { assert, assertEquals, assertStrictEquals } from "@std/assert";
 import { createRimeTtsConnection } from "./tts_rime.ts";
 import { DEFAULT_RIME_TTS_CONFIG } from "./types.ts";
 import { installMockWebSocket } from "@aai/sdk/testing";
-import { flush } from "./_test_utils.ts";
+import { delay } from "@std/async/delay";
 
 const config = { ...DEFAULT_RIME_TTS_CONFIG, apiKey: "test-tts-key" };
 
@@ -30,7 +30,7 @@ Deno.test("TtsConnection", async (t) => {
         (chunk) => chunks.push(chunk),
       );
 
-      await flush();
+      await delay(0);
       const ws = mockWs.created[0]!;
 
       // Server sends audio
@@ -83,7 +83,7 @@ Deno.test("TtsConnection", async (t) => {
       controller.signal,
     );
 
-    await flush();
+    await delay(0);
     controller.abort();
     await promise;
 
@@ -96,7 +96,7 @@ Deno.test("TtsConnection", async (t) => {
     const conn = createRimeTtsConnection(config);
 
     const p = conn.synthesizeStream(textStream("Hello"), () => {});
-    await flush();
+    await delay(0);
     mockWs.created[0]!.close();
     await p;
 

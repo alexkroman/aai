@@ -1,10 +1,13 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import type { PlatformConfig } from "./config.ts";
-import { createModel } from "./model.ts";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import type { ExecuteTool } from "./_worker_entry.ts";
 import { createSttConnection, type SttConnection } from "./stt.ts";
-import { createTtsConnection, type TtsConnection } from "./tts.ts";
+import type { TtsConnection } from "./tts.ts";
+import { createRimeTtsConnection } from "./tts_rime.ts";
+import { createCartesiaTtsConnection } from "./tts_cartesia.ts";
+import { createGatewayModel } from "./provider_gateway.ts";
 import { getBuiltinVercelTools, type VectorCtx } from "./builtin_tools.ts";
 import { executeTurn, type TurnResult } from "./turn_handler.ts";
 import type { STTConfig, TTSConfig } from "./types.ts";
@@ -155,17 +158,34 @@ export function createSession(opts: SessionOptions): Session {
   const isSttOnly = agentConfig.mode === "stt-only";
   const doCreateStt = opts.createStt ?? createSttConnection;
 
-  const tts = isSttOnly
-    ? null
-    : (opts.createTts ?? createTtsConnection)(config.ttsConfig);
+  const tts = isSttOnly ? null : (() => {
+    if (opts.createTts) return opts.createTts(config.ttsConfig);
+    switch (config.ttsConfig.provider) {
+      case "rime":
+        return createRimeTtsConnection(config.ttsConfig);
+      case "cartesia":
+        return createCartesiaTtsConnection(config.ttsConfig);
+      default:
+        throw new Error(
+          `Unknown TTS provider: ${
+            (config.ttsConfig as { provider: string }).provider
+          }`,
+        );
+    }
+  })();
   tts?.warmup();
 
-  const model = isSttOnly ? null : (opts.model ?? createModel({
-    apiKey: config.apiKey,
-    anthropicApiKey: config.anthropicApiKey,
-    model: config.model,
-    gatewayBase: config.llmGatewayBase,
-  }));
+  const model = isSttOnly ? null : (opts.model ?? (() => {
+    if (config.anthropicApiKey) {
+      const anthropic = createAnthropic({ apiKey: config.anthropicApiKey });
+      return anthropic(config.model);
+    }
+    return createGatewayModel({
+      apiKey: config.apiKey,
+      model: config.model,
+      gatewayBase: config.llmGatewayBase,
+    });
+  })());
 
   const hasTools = opts.toolSchemas.length > 0 ||
     (agentConfig.builtinTools?.length ?? 0) > 0;

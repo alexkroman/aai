@@ -379,7 +379,7 @@ export function getBuiltinVercelTools(
       );
       tools.vector_search = vercelTool({
         description:
-          "Search the agent's vector knowledge base using natural language. Returns the most relevant stored entries. Use this to find information that was previously ingested via `aai crawl`.",
+          "Search the agent's vector knowledge base using natural language. Returns the most relevant stored entries. Use this to find information that was previously ingested via `aai rag`.",
         parameters: params,
         execute: async (args: unknown) => {
           const { query, topK = 5 } = args as {
