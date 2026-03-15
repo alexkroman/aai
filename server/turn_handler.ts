@@ -6,11 +6,9 @@ import {
   type LanguageModelV1,
   type StepResult,
   streamText,
-  type ToolCallUnion,
   type ToolSet,
 } from "ai";
 import type { ToolChoice } from "@aai/sdk/types";
-import { USER_INPUT_TOOL } from "./builtin_tools.ts";
 import * as metrics from "./metrics.ts";
 
 const DEFAULT_STOP_WHEN = 5;
@@ -23,8 +21,8 @@ export type ExecuteTurnOptions = {
   model: LanguageModelV1;
   /** System prompt for the LLM. */
   system: string;
-  /** Conversation history (mutated in place with new messages). */
-  messages: CoreMessage[];
+  /** Conversation history (read-only, not mutated). */
+  messages: readonly CoreMessage[];
   /** Available tools (both builtin and agent-defined). */
   tools: ToolSet;
   /** Abort signal to cancel the turn. */
@@ -41,12 +39,10 @@ export type ExecuteTurnOptions = {
   activeTools?: string[] | undefined;
 };
 
-/** Result of executing a turn: a stream of text deltas and final text. */
+/** Result of executing a turn: a stream of text deltas. */
 export type TurnResult = {
   /** Async iterable of text deltas for streaming to TTS. */
   textStream: AsyncIterable<string>;
-  /** Resolves to the full response text. Call after textStream is drained. */
-  text(): Promise<string>;
   /** Silently drain all internal promises to prevent dangling. Call on abort/error. */
   consume(): Promise<void>;
 };
@@ -101,31 +97,6 @@ export function executeTurn(
         result.response,
         result.toolCalls,
       ]);
-    },
-    async text(): Promise<string> {
-      const finalText = await result.text;
-      messages.push(userMessage);
-      messages.push(...(await result.response).messages);
-
-      const lastToolCalls = await result.toolCalls;
-      if (lastToolCalls?.length) {
-        const questionCall = lastToolCalls.find(
-          (tc: ToolCallUnion<ToolSet>) => tc.toolName === USER_INPUT_TOOL,
-        );
-        if (questionCall) {
-          const question =
-            (questionCall.args as { question?: string }).question ?? "";
-          log.info("turn complete (user_input)", {
-            questionLength: question.length,
-          });
-          return question;
-        }
-      }
-
-      const responseText = finalText ||
-        "Sorry, I couldn't generate a response.";
-      log.info("turn complete", { responseLength: responseText.length });
-      return responseText;
     },
   };
 }

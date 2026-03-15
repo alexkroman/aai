@@ -37,7 +37,6 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
       safetyTimer = null;
     }
     if (completionResolve) {
-      log.info("TTS synthesis done", { chunkCount, totalBytes });
       completionResolve();
       completionResolve = null;
     }
@@ -167,10 +166,10 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
       chunks: string | AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
+      onText?: (text: string) => void,
     ): Promise<void> {
       if (lifecycle.signal.aborted || signal?.aborted) return;
 
-      log.info("synthesizeStream start (Rime)", { voice: config.voice });
       const ttsStart = performance.now();
 
       try {
@@ -180,10 +179,12 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
         onAudioCb = onAudio;
 
         if (typeof chunks === "string") {
+          onText?.(chunks);
           conn.send(chunks);
         } else {
           for await (const text of chunks) {
             if (signal?.aborted) return;
+            if (text) onText?.(text);
             conn.send(text);
           }
         }

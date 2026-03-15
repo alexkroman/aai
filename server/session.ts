@@ -15,9 +15,7 @@ import { HOOK_TIMEOUT_MS } from "@aai/sdk/protocol";
 import type { ClientSink, TurnConfig } from "@aai/sdk/protocol";
 import { buildSystemPrompt } from "./system_prompt.ts";
 import {
-  type CoreAssistantMessage,
   type CoreMessage,
-  type CoreUserMessage,
   jsonSchema,
   type LanguageModelV1,
   type StepResult,
@@ -215,6 +213,7 @@ export function createSession(opts: SessionOptions): Session {
     ttsConn: TtsConnection,
     text: string | AsyncIterable<string>,
     signal: AbortSignal,
+    onText?: (text: string) => void,
   ): Promise<void> {
     await ttsConn.synthesizeStream(
       text,
@@ -222,6 +221,7 @@ export function createSession(opts: SessionOptions): Session {
         trySend(() => client.playAudioChunk(chunk));
       },
       signal,
+      onText,
     );
     trySend(() => client.playAudioDone());
   }
@@ -245,8 +245,10 @@ export function createSession(opts: SessionOptions): Session {
       await handle.connect();
 
       handle.onSpeechStarted = () => {
+        // Always tell the client to flush playback — audio may still be
+        // buffered in the browser even after the server-side turn is done.
+        trySend(() => client.event({ type: "cancelled" }));
         if (turnAbort) {
-          log.info("cancelling TTS — user started speaking");
           cancelInflight();
           if (agent === AgentState.Processing) {
             agent = AgentState.Listening;
@@ -407,27 +409,29 @@ export function createSession(opts: SessionOptions): Session {
           : undefined,
       });
 
-      // Wrap the text stream to send chat_delta events to the client
-      const stream = turn.textStream;
-      const textStreamWithDeltas: AsyncIterable<string> = {
-        async *[Symbol.asyncIterator]() {
-          for await (const delta of stream) {
-            if (delta) {
-              trySend(() => client.event({ type: "chat_delta", delta }));
-            }
-            yield delta;
-          }
-        },
+      // TTS onText callback: send chat_delta to client and accumulate spoken text
+      let spokenText = "";
+      const onText = (chunk: string) => {
+        spokenText += chunk;
+        trySend(() => client.event({ type: "chat_delta", delta: chunk }));
       };
 
       if (tts) {
-        await streamTts(tts, textStreamWithDeltas, signal);
+        await streamTts(tts, turn.textStream, signal, onText);
       } else {
-        for await (const _ of textStreamWithDeltas) { /* consume */ }
+        for await (const chunk of turn.textStream) {
+          if (chunk) onText(chunk);
+        }
       }
 
-      await turn.text();
       if (signal.aborted) return;
+
+      // Push conversation history using the text that was actually spoken
+      messages.push({ role: "user", content: text });
+      messages.push({
+        role: "assistant",
+        content: spokenText || "Sorry, I couldn't generate a response.",
+      });
 
       if (!tts) {
         trySend(() => client.event({ type: "tts_done" }));
@@ -462,15 +466,19 @@ export function createSession(opts: SessionOptions): Session {
     }
   }
 
-  function speakText(text: string): void {
+  /** Stream text through TTS with chat_delta events — used for greetings. */
+  function streamGreeting(text: string): void {
     if (!tts) return;
     const ttsConn = tts;
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
+    const onText = (chunk: string) => {
+      trySend(() => client.event({ type: "chat_delta", delta: chunk }));
+    };
     const p: Promise<void> = (async () => {
       try {
-        await streamTts(ttsConn, text, signal);
+        await streamTts(ttsConn, text, signal, onText);
       } catch (err: unknown) {
         if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : String(err);
@@ -537,8 +545,7 @@ export function createSession(opts: SessionOptions): Session {
       agent = AgentState.Listening;
 
       if (pendingGreeting) {
-        trySend(() => client.event({ type: "chat", text: pendingGreeting! }));
-        speakText(pendingGreeting);
+        streamGreeting(pendingGreeting);
         pendingGreeting = null;
       }
     },
@@ -561,10 +568,7 @@ export function createSession(opts: SessionOptions): Session {
       trySend(() => client.event({ type: "reset" }));
 
       if (agentConfig.greeting) {
-        trySend(() =>
-          client.event({ type: "chat", text: agentConfig.greeting })
-        );
-        speakText(agentConfig.greeting);
+        streamGreeting(agentConfig.greeting);
       }
     },
 
@@ -572,11 +576,7 @@ export function createSession(opts: SessionOptions): Session {
       incoming: readonly { role: "user" | "assistant"; text: string }[],
     ): void {
       for (const msg of incoming) {
-        const coreMsg: CoreUserMessage | CoreAssistantMessage = {
-          role: msg.role,
-          content: msg.text,
-        };
-        messages.push(coreMsg);
+        messages.push({ role: msg.role, content: msg.text });
       }
       log.info("Restored conversation history", {
         count: incoming.length,

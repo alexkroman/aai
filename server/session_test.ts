@@ -97,12 +97,15 @@ function createMockSessionOptions() {
         chunks: string | AsyncIterable<string>,
         _onAudio: (chunk: Uint8Array) => void,
         _signal?: AbortSignal,
+        onText?: (text: string) => void,
       ): Promise<void> => {
         if (typeof chunks === "string") {
           streamedText.push(chunks);
+          onText?.(chunks);
         } else {
           for await (const text of chunks) {
             streamedText.push(text);
+            if (text) onText?.(text);
           }
         }
       },
@@ -246,7 +249,7 @@ Deno.test("start connects STT without sending ready", async () => {
 Deno.test("start defers greeting until onAudioReady", () => {
   const ctx = setup();
   ctx.session.start();
-  assertStrictEquals(filterEvents(ctx.client, "chat").length, 0);
+  assertStrictEquals(filterEvents(ctx.client, "chat_delta").length, 0);
 });
 
 Deno.test("start sends error on STT connection failure", async () => {
@@ -269,12 +272,18 @@ Deno.test("start sends error on STT connection failure", async () => {
   assert(findEvent(ctx.client, "error") !== undefined);
 });
 
-Deno.test("onAudioReady sends greeting and starts TTS", async () => {
+Deno.test("onAudioReady streams greeting via TTS with chat_delta", async () => {
   const ctx = setup();
   await ctx.session.start();
   ctx.session.onAudioReady();
-  const call = findEvent(ctx.client, "chat");
-  assertStrictEquals((call!.args[0] as { text: string }).text, "Hi there!");
+  // Wait for the async TTS greeting to complete
+  await ctx.session.waitForTurn();
+  const deltas = filterEvents(ctx.client, "chat_delta");
+  assert(deltas.length > 0);
+  assertStrictEquals(
+    (deltas[0]!.args[0] as { delta: string }).delta,
+    "Hi there!",
+  );
   assert(ctx.ttsClient.synthesizeStream.calls.length > 0);
 });
 
@@ -322,13 +331,17 @@ Deno.test("onCancel clears STT and sends cancelled", async () => {
   assert(findEvent(ctx.client, "cancelled") !== undefined);
 });
 
-Deno.test("onReset sends reset and re-sends greeting", async () => {
+Deno.test("onReset sends reset and re-streams greeting", async () => {
   const ctx = setup();
   await ctx.session.start();
+  ctx.session.onAudioReady();
+  await ctx.session.waitForTurn();
   ctx.session.onReset();
   assertSpyCalls(ctx.sttHandle.clear, 1);
   assert(findEvent(ctx.client, "reset") !== undefined);
-  assert(filterEvents(ctx.client, "chat").length > 0);
+  // Wait for the re-streamed greeting
+  await ctx.session.waitForTurn();
+  assert(filterEvents(ctx.client, "chat_delta").length > 0);
 });
 
 Deno.test("relays STT partial transcript to client", async () => {
@@ -452,5 +465,5 @@ Deno.test("skipGreeting suppresses greeting on start", async () => {
   await session.start();
   session.onAudioReady();
   const client = mocks.opts.client as ReturnType<typeof createMockClientSink>;
-  assertStrictEquals(filterEvents(client, "chat").length, 0);
+  assertStrictEquals(filterEvents(client, "chat_delta").length, 0);
 });

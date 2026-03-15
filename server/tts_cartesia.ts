@@ -56,15 +56,8 @@ export function createCartesiaTtsConnection(
     // Only handle messages for the current context
     if (msg.context_id && msg.context_id !== contextId) return;
 
-    log.info(
-      `TTS msg type=${msg.type} done=${msg.done} hasData=${!!msg.data} bytes=${
-        msg.data ? msg.data.length : 0
-      }`,
-    );
-
     // The SDK checks `message.done` (boolean), not `message.type`
     if (msg.done) {
-      log.info("TTS synthesis done (Cartesia)", { audioChunks: chunkCount });
       finishSynthesis();
     } else if (msg.type === "chunk" && msg.data) {
       chunkCount++;
@@ -196,12 +189,10 @@ export function createCartesiaTtsConnection(
       chunks: string | AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
+      onText?: (text: string) => void,
     ): Promise<void> {
       if (lifecycle.signal.aborted || signal?.aborted) return;
 
-      log.info("synthesizeStream start (Cartesia)", {
-        voice: config.voice,
-      });
       const ttsStart = performance.now();
 
       try {
@@ -217,6 +208,7 @@ export function createCartesiaTtsConnection(
             finishSynthesis();
             return;
           }
+          onText?.(chunks);
           // Single string: send without continue flag
           conn.send(buildMessage(chunks, contextId));
         } else {
@@ -227,23 +219,14 @@ export function createCartesiaTtsConnection(
           for await (const text of chunks) {
             if (signal?.aborted) return;
             if (!text) continue;
-            // All chunks use continue:true to signal more input is coming
-            log.info("TTS sending chunk", {
-              len: text.length,
-              text: text.slice(0, 50),
-            });
+            onText?.(text);
             conn.send(buildMessage(text, contextId, true));
             started = true;
           }
           if (!started) {
-            log.info("TTS no text deltas received");
             finishSynthesis();
             return;
           }
-          // Close the context: empty transcript, continue:false
-          log.info("TTS closing context", {
-            textChunks: started ? "yes" : "no",
-          });
           conn.send(buildMessage("", contextId, false));
         }
         await waitForCompletion(signal);

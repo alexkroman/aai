@@ -1,5 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { assert, assertEquals, assertStrictEquals } from "@std/assert";
+import { assertEquals, assertStrictEquals } from "@std/assert";
 import {
   type CoreMessage,
   jsonSchema,
@@ -67,17 +67,20 @@ function makeTools(): ToolSet {
   };
 }
 
-/** Helper to consume a TurnResult and return the final text. */
+/** Helper to consume a TurnResult's text stream and return the accumulated text. */
 async function consumeTurn(
   text: string,
   opts: Parameters<typeof executeTurn>[1],
 ): Promise<string> {
   const turn = executeTurn(text, opts);
-  for await (const _chunk of turn.textStream) { /* drain */ }
-  return await turn.text();
+  let result = "";
+  for await (const chunk of turn.textStream) {
+    result += chunk;
+  }
+  return result;
 }
 
-Deno.test("returns text response when no tools called", async () => {
+Deno.test("streams text response when no tools called", async () => {
   const model = makeModel([{ text: "Hello from LLM" }]);
   const messages: CoreMessage[] = [];
   const result = await consumeTurn("Hello", {
@@ -89,11 +92,11 @@ Deno.test("returns text response when no tools called", async () => {
     signal: new AbortController().signal,
   });
   assertStrictEquals(result, "Hello from LLM");
-  assertEquals(messages[0], { role: "user", content: "Hello" });
-  assert(messages.length >= 2);
+  // Messages are not mutated by turn_handler — caller manages history
+  assertEquals(messages.length, 0);
 });
 
-Deno.test("extracts question from user_input tool call", async () => {
+Deno.test("streams empty text when only tool calls present", async () => {
   const model = makeModel([{
     toolCalls: [{
       toolName: "user_input",
@@ -108,10 +111,10 @@ Deno.test("extracts question from user_input tool call", async () => {
     tools: makeTools(),
     signal: new AbortController().signal,
   });
-  assertStrictEquals(result, "What color?");
+  assertStrictEquals(result, "");
 });
 
-Deno.test("returns fallback text when LLM content is null", async () => {
+Deno.test("streams empty text when LLM content is null", async () => {
   const model = makeModel([{}]);
   const result = await consumeTurn("Hi", {
     agent: "test/agent",
@@ -121,5 +124,5 @@ Deno.test("returns fallback text when LLM content is null", async () => {
     tools: {},
     signal: new AbortController().signal,
   });
-  assertStrictEquals(result, "Sorry, I couldn't generate a response.");
+  assertStrictEquals(result, "");
 });

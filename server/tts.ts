@@ -20,6 +20,7 @@ export type TtsConnection = {
     chunks: string | AsyncIterable<string>,
     onAudio: (chunk: Uint8Array) => void,
     signal?: AbortSignal,
+    onText?: (text: string) => void,
   ): Promise<void>;
   /** Permanently closes the TTS connection and releases resources. */
   close(): void;
