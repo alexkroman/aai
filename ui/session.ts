@@ -36,8 +36,12 @@ export type VoiceSession = {
   readonly messages: Signal<Message[]>;
   /** Active tool calls for the current turn. */
   readonly toolCalls: Signal<ToolCallInfo[]>;
-  /** Live partial transcript from the STT engine. */
-  readonly transcript: Signal<string>;
+  /**
+   * Live user utterance from STT/VAD.
+   * `null` = not speaking, `""` = speech detected but no text yet,
+   * non-empty string = partial/final transcript text.
+   */
+  readonly userUtterance: Signal<string | null>;
   /** Current session error, or `null` if no error. */
   readonly error: Signal<SessionError | null>;
   /** Disconnection info, or `null` if connected. */
@@ -70,36 +74,52 @@ export class ClientHandler {
   #state: Signal<AgentState>;
   #messages: Signal<Message[]>;
   #toolCalls: Signal<ToolCallInfo[]>;
-  #transcript: Signal<string>;
+  #userUtterance: Signal<string | null>;
   #error: Signal<SessionError | null>;
   #voiceIO: () => VoiceIO | null;
   #streaming = false;
+  /** Incremented on each turn boundary — stale async callbacks compare against this. */
+  #generation = 0;
+  /** Buffered words with their audio start times (seconds). */
+  #wordQueue: { text: string; start: number }[] = [];
+  /** Number of words from #wordQueue already revealed in the UI. */
+  #wordsRevealed = 0;
+  /** TTS sample rate for converting samples → seconds. */
+  #ttsSampleRate = 24_000;
   constructor(opts: {
     state: Signal<AgentState>;
     messages: Signal<Message[]>;
     toolCalls: Signal<ToolCallInfo[]>;
-    transcript: Signal<string>;
+    userUtterance: Signal<string | null>;
     error: Signal<SessionError | null>;
     voiceIO: () => VoiceIO | null;
+    ttsSampleRate?: number;
   }) {
     this.#state = opts.state;
     this.#messages = opts.messages;
     this.#toolCalls = opts.toolCalls;
-    this.#transcript = opts.transcript;
+    this.#userUtterance = opts.userUtterance;
     this.#error = opts.error;
     this.#voiceIO = opts.voiceIO;
+    if (opts.ttsSampleRate) this.#ttsSampleRate = opts.ttsSampleRate;
   }
 
   /** Single entry point for all server→client session events. */
   event(e: ClientEvent): void {
     switch (e.type) {
+      case "speech_started":
+        this.#userUtterance.value = "";
+        break;
       case "transcript":
-        this.#transcript.value = e.text;
+        this.#userUtterance.value = e.text;
         break;
       case "turn":
+        this.#generation++;
         this.#streaming = false;
+        this.#wordQueue = [];
+        this.#wordsRevealed = 0;
         batch(() => {
-          this.#transcript.value = "";
+          this.#userUtterance.value = null;
           this.#messages.value = [
             ...this.#messages.value,
             { role: "user", text: e.text },
@@ -114,21 +134,17 @@ export class ClientHandler {
           { role: "assistant", text: e.text },
         ];
         break;
-      case "chat_delta": {
-        const msgs = this.#messages.value;
-        if (this.#streaming) {
-          // Append delta to the current streaming message
-          const last = msgs[msgs.length - 1]!;
-          this.#messages.value = [
-            ...msgs.slice(0, -1),
-            { role: "assistant", text: last.text + e.delta },
-          ];
-        } else {
-          // First delta of a new turn — start a new message
+      case "words": {
+        // Buffer words for playback-synced reveal
+        for (const w of e.words) {
+          this.#wordQueue.push(w);
+        }
+        if (!this.#streaming) {
+          // First words of a new turn — start an empty assistant message
           this.#streaming = true;
           this.#messages.value = [
-            ...msgs,
-            { role: "assistant", text: e.delta },
+            ...this.#messages.value,
+            { role: "assistant", text: "" },
           ];
         }
         break;
@@ -163,15 +179,22 @@ export class ClientHandler {
         this.#state.value = "listening";
         break;
       case "cancelled":
+        this.#generation++;
         this.#voiceIO()?.flush();
+        this.#wordQueue = [];
+        this.#wordsRevealed = 0;
+        this.#userUtterance.value = null;
         this.#state.value = "listening";
         break;
       case "reset": {
+        this.#generation++;
         this.#voiceIO()?.flush();
+        this.#wordQueue = [];
+        this.#wordsRevealed = 0;
         batch(() => {
           this.#messages.value = [];
           this.#toolCalls.value = [];
-          this.#transcript.value = "";
+          this.#userUtterance.value = null;
           this.#error.value = null;
           this.#state.value = "listening";
         });
@@ -199,14 +222,59 @@ export class ClientHandler {
   }
 
   playAudioDone(): void {
+    const gen = this.#generation;
     const io = this.#voiceIO();
     if (io) {
       void io.done().then(() => {
+        if (this.#generation !== gen) return;
+        this.#revealAllWords();
         this.#state.value = "listening";
       });
     } else {
+      this.#revealAllWords();
       this.#state.value = "listening";
     }
+  }
+
+  /** Called by VoiceIO when playback advances — reveals words whose start time has been reached. */
+  onPlaybackProgress(samplesPlayed: number): void {
+    if (!this.#streaming || this.#wordQueue.length === 0) return;
+    const playbackTime = samplesPlayed / this.#ttsSampleRate;
+    let newRevealed = this.#wordsRevealed;
+    while (
+      newRevealed < this.#wordQueue.length &&
+      this.#wordQueue[newRevealed]!.start <= playbackTime
+    ) {
+      newRevealed++;
+    }
+    if (newRevealed > this.#wordsRevealed) {
+      this.#wordsRevealed = newRevealed;
+      this.#updateMessageText();
+    }
+  }
+
+  /** Reveal all remaining buffered words. */
+  #revealAllWords(): void {
+    if (this.#wordsRevealed < this.#wordQueue.length) {
+      this.#wordsRevealed = this.#wordQueue.length;
+      this.#updateMessageText();
+    }
+    this.#wordQueue = [];
+    this.#wordsRevealed = 0;
+  }
+
+  /** Update the last assistant message with revealed words. */
+  #updateMessageText(): void {
+    const text = this.#wordQueue
+      .slice(0, this.#wordsRevealed)
+      .map((w) => w.text)
+      .join(" ");
+    const msgs = this.#messages.value;
+    if (msgs.length === 0) return;
+    this.#messages.value = [
+      ...msgs.slice(0, -1),
+      { role: "assistant", text },
+    ];
   }
 
   /**
@@ -258,7 +326,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   const state = signal<AgentState>("disconnected");
   const messages = signal<Message[]>([]);
   const toolCalls = signal<ToolCallInfo[]>([]);
-  const transcript = signal<string>("");
+  const userUtterance = signal<string | null>(null);
   const error = signal<SessionError | null>(null);
   const disconnected = signal<{ intentional: boolean } | null>(null);
 
@@ -267,6 +335,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   let connectionController: AbortController | null = null;
   let hasConnected = false;
   let audioSetupInFlight = false;
+  let activeHandler: ClientHandler | null = null;
   function cleanupAudio(): void {
     audioSetupInFlight = false;
     void voiceIO?.close();
@@ -277,7 +346,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     batch(() => {
       messages.value = [];
       toolCalls.value = [];
-      transcript.value = "";
+      userUtterance.value = null;
       error.value = null;
     });
   }
@@ -336,6 +405,9 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
             sendBinary(pcm16);
           } catch { /* connection may be closed */ }
         },
+        onPlaybackProgress: (samplesPlayed: number) => {
+          activeHandler?.onPlaybackProgress(samplesPlayed);
+        },
       });
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         io.close();
@@ -387,10 +459,11 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
       state,
       messages,
       toolCalls,
-      transcript,
+      userUtterance,
       error,
       voiceIO: () => voiceIO,
     });
+    activeHandler = handler;
 
     socket.addEventListener("open", () => {
       state.value = "ready";
@@ -458,7 +531,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     state,
     messages,
     toolCalls,
-    transcript,
+    userUtterance,
     error,
     disconnected,
     connect,

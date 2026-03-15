@@ -73,24 +73,14 @@ const ASCII_LOGO = `
 `;
 
 function InfocomAdventure() {
-  const {
-    state,
-    messages,
-    transcript,
-    error,
-    started,
-    running,
-    start,
-    toggle,
-    reset,
-  } = useSession();
+  const { session, started, running, start, toggle, reset } = useSession();
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.value.length, transcript.value]);
+  }, [session.messages.value.length, session.userUtterance.value]);
 
-  const stateVal = state.value;
+  const stateVal = session.state.value;
   const stateLabel = stateVal === "listening"
     ? "Listening"
     : stateVal === "speaking"
@@ -104,7 +94,7 @@ function InfocomAdventure() {
     : "Idle";
 
   const msgCount =
-    messages.value.filter((m: Message) => m.role === "user").length;
+    session.messages.value.filter((m: Message) => m.role === "user").length;
 
   const dotColor = stateVal === "listening"
     ? "#00ff41"
@@ -206,12 +196,12 @@ function InfocomAdventure() {
             <span>Voice Adventure</span>
           </div>
 
-          {error.value && (
+          {session.error.value && (
             <div
               class="px-5 py-2 text-xs"
               style={{ background: "#3a0000", color: "#ff4141" }}
             >
-              ERROR: {error.value.message}
+              ERROR: {session.error.value.message}
             </div>
           )}
 
@@ -223,7 +213,7 @@ function InfocomAdventure() {
               scrollbarColor: "#00ff41 #001a00",
             }}
           >
-            {messages.value.map((msg: Message, i: number) => (
+            {session.messages.value.map((msg: Message, i: number) => (
               <div
                 key={i}
                 class={`mb-4 ${msg.role === "user" ? "ic-user-msg" : ""}`}
@@ -237,7 +227,7 @@ function InfocomAdventure() {
                 {msg.text}
               </div>
             ))}
-            {transcript.value && (
+            {session.userUtterance.value !== null && (
               <div
                 class="ic-transcript italic"
                 style={{
@@ -245,7 +235,7 @@ function InfocomAdventure() {
                   textShadow: "0 0 5px rgba(0, 255, 65, 0.15)",
                 }}
               >
-                {transcript.value}
+                {session.userUtterance.value || "..."}
               </div>
             )}
             <div ref={bottom} />

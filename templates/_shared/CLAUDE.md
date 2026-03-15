@@ -449,15 +449,19 @@ Add `client.tsx` alongside `agent.ts`. Define a Preact component and call
 import { mount, useSession } from "@aai/ui";
 
 function App() {
-  const session = useSession();
+  const { session, started, running, start, toggle, reset } = useSession();
   const msgs = session.messages.value;
-  const tx = session.transcript.value;
+  const tx = session.userUtterance.value;
   return (
     <div>
       {msgs.map((m, i) => <p key={i}>{m.text}</p>)}
-      {tx && <p>{tx}</p>}
-      <button onClick={() => session.toggle()}>Toggle</button>
-      <button onClick={() => session.reset()}>Reset</button>
+      {tx !== null && <p>{tx || "..."}</p>}
+      {!started.value ? <button onClick={start}>Start</button> : (
+        <>
+          <button onClick={toggle}>{running.value ? "Stop" : "Resume"}</button>
+          <button onClick={reset}>Reset</button>
+        </>
+      )}
     </div>
   );
 }
@@ -478,17 +482,20 @@ mount(App);
 
 **Session signals (`useSession()`):**
 
-| Signal                     | Type                   | Description                                                         |
-| -------------------------- | ---------------------- | ------------------------------------------------------------------- |
-| `session.state.value`      | `AgentState`           | "connecting", "ready", "listening", "thinking", "speaking", "error" |
-| `session.messages.value`   | `Message[]`            | `{ role, text }` objects                                            |
-| `session.transcript.value` | `string`               | Live speech-to-text                                                 |
-| `session.error.value`      | `SessionError \| null` | `{ code, message }`                                                 |
-| `session.started.value`    | `boolean`              | Whether session has started                                         |
-| `session.running.value`    | `boolean`              | Whether session is active                                           |
+`useSession()` returns
+`{ session, started, running, start, toggle, reset, dispose }`. Reactive agent
+data lives on `session` (a `VoiceSession`); UI-only controls are top-level.
 
-**Methods:** `session.start()`, `session.toggle()`, `session.reset()`,
-`session.dispose()`
+| Signal / field                | Type                   | Description                                                         |
+| ----------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| `session.state.value`         | `AgentState`           | "connecting", "ready", "listening", "thinking", "speaking", "error" |
+| `session.messages.value`      | `Message[]`            | `{ role, text }` objects                                            |
+| `session.userUtterance.value` | `string \| null`       | `null` = not speaking, `""` = speech detected, string = transcript  |
+| `session.error.value`         | `SessionError \| null` | `{ code, message }`                                                 |
+| `started.value`               | `boolean`              | Whether session has started                                         |
+| `running.value`               | `boolean`              | Whether session is active                                           |
+
+**Methods:** `start()`, `toggle()`, `reset()`, `dispose()`
 
 ## Project structure
 

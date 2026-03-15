@@ -4,7 +4,7 @@ import { debounce } from "@std/async/debounce";
 import type { RimeTtsConfig } from "./types.ts";
 import { createWebSocketWithHeaders } from "./_deno_ws.ts";
 import * as metrics from "./metrics.ts";
-import type { TtsConnection } from "./tts.ts";
+import type { SynthesizeCallbacks, TtsConnection } from "./tts.ts";
 
 const IDLE_MS = 300;
 const NO_AUDIO_TIMEOUT_MS = 5000;
@@ -166,7 +166,7 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
       chunks: string | AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
-      onText?: (text: string) => void,
+      callbacks?: SynthesizeCallbacks,
     ): Promise<void> {
       if (lifecycle.signal.aborted || signal?.aborted) return;
 
@@ -179,12 +179,12 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
         onAudioCb = onAudio;
 
         if (typeof chunks === "string") {
-          onText?.(chunks);
+          callbacks?.onText?.(chunks);
           conn.send(chunks);
         } else {
           for await (const text of chunks) {
             if (signal?.aborted) return;
-            if (text) onText?.(text);
+            if (text) callbacks?.onText?.(text);
             conn.send(text);
           }
         }

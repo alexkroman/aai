@@ -7,7 +7,7 @@ import { MessageList } from "./message_list.tsx";
 import { Controls } from "./controls.tsx";
 
 export function ChatView(): preact.JSX.Element {
-  const { state, error } = useSession();
+  const { session } = useSession();
 
   return (
     <div class="flex flex-col h-screen max-w-130 mx-auto bg-aai-bg text-aai-text font-aai text-sm">
@@ -17,10 +17,10 @@ export function ChatView(): preact.JSX.Element {
           {`▄▀█ ▄▀█ █\n█▀█ █▀█ █`}
         </span>
         <div class="ml-auto">
-          <StateIndicator state={state} />
+          <StateIndicator state={session.state} />
         </div>
       </div>
-      <ErrorBanner error={error} />
+      <ErrorBanner error={session.error} />
       <MessageList />
       <Controls />
     </div>

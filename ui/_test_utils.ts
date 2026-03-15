@@ -291,18 +291,29 @@ export function createMockSignals(
   overrides?: Partial<{
     state: AgentState;
     messages: Message[];
-    transcript: string;
+    userUtterance: string | null;
     error: SessionError | null;
     started: boolean;
     running: boolean;
   }>,
 ): SessionSignals {
-  const signals: SessionSignals = {
+  const mockSession = {
     state: signal<AgentState>(overrides?.state ?? "disconnected"),
     messages: signal<Message[]>(overrides?.messages ?? []),
     toolCalls: signal<ToolCallInfo[]>([]),
-    transcript: signal<string>(overrides?.transcript ?? ""),
+    userUtterance: signal<string | null>(overrides?.userUtterance ?? null),
     error: signal<SessionError | null>(overrides?.error ?? null),
+    disconnected: signal<{ intentional: boolean } | null>(null),
+    connect() {},
+    cancel() {},
+    resetState() {},
+    reset() {},
+    disconnect() {},
+    [Symbol.dispose]() {},
+  } satisfies VoiceSession;
+
+  const signals: SessionSignals = {
+    session: mockSession,
     started: signal<boolean>(overrides?.started ?? false),
     running: signal<boolean>(overrides?.running ?? true),
     dispose() {},

@@ -13,7 +13,7 @@ function createTarget() {
   const state = signal<AgentState>("connecting");
   const messages = signal<Message[]>([]);
   const toolCalls = signal<ToolCallInfo[]>([]);
-  const transcript = signal<string>("");
+  const userUtterance = signal<string | null>(null);
   const error = signal<SessionError | null>(null);
   let flushed = false;
 
@@ -21,7 +21,7 @@ function createTarget() {
     state,
     messages,
     toolCalls,
-    transcript,
+    userUtterance,
     error,
     voiceIO: () => ({
       enqueue() {},
@@ -43,38 +43,44 @@ function createTarget() {
     state,
     messages,
     toolCalls,
-    transcript,
+    userUtterance,
     error,
     wasFlushed: () => flushed,
   };
 }
 
 Deno.test("ClientHandler event handling", async (t) => {
-  await t.step("transcript partial updates transcript signal", () => {
-    const { target, transcript, state } = createTarget();
+  await t.step("speech_started sets userUtterance to empty string", () => {
+    const { target, userUtterance } = createTarget();
+    target.event({ type: "speech_started" });
+    assertStrictEquals(userUtterance.value, "");
+  });
+
+  await t.step("transcript partial updates userUtterance signal", () => {
+    const { target, userUtterance, state } = createTarget();
     state.value = "listening";
     target.event({ type: "transcript", text: "hello wor", isFinal: false });
-    assertStrictEquals(transcript.value, "hello wor");
+    assertStrictEquals(userUtterance.value, "hello wor");
     assertStrictEquals(state.value, "listening");
   });
 
-  await t.step("transcript final updates transcript signal", () => {
-    const { target, transcript } = createTarget();
+  await t.step("transcript final updates userUtterance signal", () => {
+    const { target, userUtterance } = createTarget();
     target.event({
       type: "transcript",
       text: "hello world",
       isFinal: true,
       turnOrder: 1,
     });
-    assertStrictEquals(transcript.value, "hello world");
+    assertStrictEquals(userUtterance.value, "hello world");
   });
 
   await t.step("turn adds user message and sets thinking", () => {
-    const { target, state, messages, transcript } = createTarget();
-    transcript.value = "partial text";
+    const { target, state, messages, userUtterance } = createTarget();
+    userUtterance.value = "partial text";
     target.event({ type: "turn", text: "What is the weather?" });
     assertStrictEquals(state.value, "thinking");
-    assertStrictEquals(transcript.value, "");
+    assertStrictEquals(userUtterance.value, null);
     assertEquals(messages.value, [{
       role: "user",
       text: "What is the weather?",
@@ -99,29 +105,31 @@ Deno.test("ClientHandler event handling", async (t) => {
   });
 
   await t.step("cancelled flushes audio and sets listening", () => {
-    const { target, state, wasFlushed } = createTarget();
+    const { target, state, userUtterance, wasFlushed } = createTarget();
     state.value = "speaking";
+    userUtterance.value = "partial";
     target.event({ type: "cancelled" });
     assertStrictEquals(state.value, "listening");
+    assertStrictEquals(userUtterance.value, null);
     assertStrictEquals(wasFlushed(), true);
   });
 
   await t.step("reset clears all state and sets listening", () => {
-    const { target, state, messages, transcript, error } = createTarget();
+    const { target, state, messages, userUtterance, error } = createTarget();
     // Simulate a mid-conversation state
     state.value = "thinking";
     messages.value = [
       { role: "user", text: "Hi" },
       { role: "assistant", text: "Hello!" },
     ];
-    transcript.value = "some partial";
+    userUtterance.value = "some partial";
     error.value = { code: "stt", message: "old error" };
 
     target.event({ type: "reset" });
 
     assertStrictEquals(state.value, "listening");
     assertEquals(messages.value, []);
-    assertStrictEquals(transcript.value, "");
+    assertStrictEquals(userUtterance.value, null);
     assertStrictEquals(error.value, null);
   });
 
@@ -162,18 +170,18 @@ Deno.test("ClientHandler event handling", async (t) => {
   });
 
   await t.step(
-    "full turn lifecycle: transcript → turn → chat_delta → audio → listening",
+    "full turn lifecycle: transcript → turn → words → audio → listening",
     async () => {
-      const { target, state, messages, transcript } = createTarget();
+      const { target, state, messages, userUtterance } = createTarget();
       state.value = "listening";
 
       // User starts speaking — partial transcripts arrive
       target.event({ type: "transcript", text: "What", isFinal: false });
-      assertStrictEquals(transcript.value, "What");
+      assertStrictEquals(userUtterance.value, "What");
       assertStrictEquals(state.value, "listening");
 
       target.event({ type: "transcript", text: "What is", isFinal: false });
-      assertStrictEquals(transcript.value, "What is");
+      assertStrictEquals(userUtterance.value, "What is");
 
       // STT finalizes the turn
       target.event({
@@ -182,25 +190,39 @@ Deno.test("ClientHandler event handling", async (t) => {
         turnOrder: 1,
       });
       assertStrictEquals(state.value, "thinking");
-      assertStrictEquals(transcript.value, "");
+      assertStrictEquals(userUtterance.value, null);
       assertStrictEquals(messages.value.length, 1);
 
-      // LLM streams text deltas
-      target.event({ type: "chat_delta", delta: "It's " });
+      // Word timestamps arrive — buffered, empty message created
+      target.event({
+        type: "words",
+        words: [
+          { text: "It's", start: 0.0 },
+          { text: "72°F", start: 0.3 },
+          { text: "and", start: 0.6 },
+          { text: "sunny.", start: 0.8 },
+        ],
+      });
       assertStrictEquals(state.value, "thinking");
       assertStrictEquals(messages.value.length, 2);
-      assertStrictEquals(messages.value[1]!.text, "It's ");
-
-      target.event({ type: "chat_delta", delta: "72°F and sunny." });
-      assertStrictEquals(messages.value[1]!.text, "It's 72°F and sunny.");
+      // Words are buffered — message text is empty until audio plays
+      assertStrictEquals(messages.value[1]!.text, "");
 
       // Audio arrives — transitions to speaking
       target.playAudioChunk(new Uint8Array([1, 2]));
       assertStrictEquals(state.value, "speaking");
 
-      // TTS finishes — state transitions after playback microtask resolves
+      // Simulate playback progress — reveals words as audio plays
+      target.onPlaybackProgress(2400); // 0.1s at 24kHz → reveals "It's" (start: 0.0)
+      assertStrictEquals(messages.value[1]!.text, "It's");
+
+      target.onPlaybackProgress(16800); // 0.7s → reveals up to "and" (start: 0.6)
+      assertStrictEquals(messages.value[1]!.text, "It's 72°F and");
+
+      // TTS finishes — reveals all remaining words
       target.playAudioDone();
       await new Promise((r) => setTimeout(r, 0));
+      assertStrictEquals(messages.value[1]!.text, "It's 72°F and sunny.");
       assertStrictEquals(state.value, "listening");
     },
   );
@@ -216,7 +238,7 @@ Deno.test("ClientHandler event handling", async (t) => {
         state,
         messages: signal<Message[]>([]),
         toolCalls: signal<ToolCallInfo[]>([]),
-        transcript: signal(""),
+        userUtterance: signal<string | null>(null),
         error: signal<SessionError | null>(null),
         voiceIO: () => ({
           enqueue(buf: ArrayBuffer) {
@@ -249,7 +271,7 @@ Deno.test("ClientHandler event handling", async (t) => {
         state,
         messages: signal<Message[]>([]),
         toolCalls: signal<ToolCallInfo[]>([]),
-        transcript: signal(""),
+        userUtterance: signal<string | null>(null),
         error: signal<SessionError | null>(null),
         voiceIO: () => ({
           enqueue() {},

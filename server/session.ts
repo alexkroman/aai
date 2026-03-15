@@ -220,7 +220,7 @@ export function createSession(opts: SessionOptions): Session {
     ttsConn: TtsConnection,
     text: string | AsyncIterable<string>,
     signal: AbortSignal,
-    onText?: (text: string) => void,
+    callbacks?: import("./tts.ts").SynthesizeCallbacks,
   ): Promise<void> {
     await ttsConn.synthesizeStream(
       text,
@@ -228,7 +228,7 @@ export function createSession(opts: SessionOptions): Session {
         trySend(() => client.playAudioChunk(chunk));
       },
       signal,
-      onText,
+      callbacks,
     );
     trySend(() => client.playAudioDone());
   }
@@ -250,6 +250,10 @@ export function createSession(opts: SessionOptions): Session {
     try {
       const handle = doCreateStt(config.apiKey, config.sttConfig);
       await handle.connect();
+
+      handle.onSpeechStarted = () => {
+        trySend(() => client.event({ type: "speech_started" }));
+      };
 
       handle.onTranscript = ({ text, isFinal, turnOrder }) => {
         log.info("transcript", { text, isFinal, turnOrder });
@@ -431,18 +435,22 @@ export function createSession(opts: SessionOptions): Session {
         }
       })();
 
-      // TTS onText callback: send chat_delta to client and accumulate spoken text
+      // TTS callbacks: accumulate spoken text and forward word timestamps
       let spokenText = "";
-      const onText = (chunk: string) => {
-        spokenText += chunk;
-        trySend(() => client.event({ type: "chat_delta", delta: chunk }));
+      const ttsCallbacks: import("./tts.ts").SynthesizeCallbacks = {
+        onText: (chunk: string) => {
+          spokenText += chunk;
+        },
+        onWords: (words) => {
+          trySend(() => client.event({ type: "words", words }));
+        },
       };
 
       if (tts) {
-        await streamTts(tts, turn.textStream, signal, onText);
+        await streamTts(tts, turn.textStream, signal, ttsCallbacks);
       } else {
         for await (const chunk of turn.textStream) {
-          if (chunk) onText(chunk);
+          if (chunk) spokenText += chunk;
         }
       }
 
@@ -488,19 +496,21 @@ export function createSession(opts: SessionOptions): Session {
     }
   }
 
-  /** Stream text through TTS with chat_delta events — used for greetings. */
+  /** Stream text through TTS with word timing events — used for greetings. */
   function streamGreeting(text: string): void {
     if (!tts) return;
     const ttsConn = tts;
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
-    const onText = (chunk: string) => {
-      trySend(() => client.event({ type: "chat_delta", delta: chunk }));
+    const callbacks: import("./tts.ts").SynthesizeCallbacks = {
+      onWords: (words) => {
+        trySend(() => client.event({ type: "words", words }));
+      },
     };
     const p: Promise<void> = (async () => {
       try {
-        await streamTts(ttsConn, text, signal, onText);
+        await streamTts(ttsConn, text, signal, callbacks);
       } catch (err: unknown) {
         if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : String(err);

@@ -2,7 +2,7 @@
 import * as log from "@std/log";
 import type { CartesiaTtsConfig } from "./types.ts";
 import * as metrics from "./metrics.ts";
-import type { TtsConnection } from "./tts.ts";
+import type { SynthesizeCallbacks, TtsConnection, WordTiming } from "./tts.ts";
 
 const CARTESIA_WSS_URL = "wss://api.cartesia.ai/tts/websocket";
 const API_VERSION = "2025-04-16";
@@ -27,6 +27,7 @@ export function createCartesiaTtsConnection(
   // Per-synthesis state
   let chunkCount = 0;
   let onAudioCb: ((chunk: Uint8Array) => void) | null = null;
+  let onWordsCb: ((words: WordTiming[]) => void) | null = null;
   let completionResolve: (() => void) | null = null;
   let completionReject: ((err: Error) => void) | null = null;
   let contextId = "";
@@ -42,6 +43,7 @@ export function createCartesiaTtsConnection(
       completionReject = null;
     }
     onAudioCb = null;
+    onWordsCb = null;
     contextId = "";
   }
 
@@ -59,6 +61,15 @@ export function createCartesiaTtsConnection(
     // The SDK checks `message.done` (boolean), not `message.type`
     if (msg.done) {
       finishSynthesis();
+    } else if (msg.type === "timestamps" && msg.word_timestamps) {
+      const wt = msg.word_timestamps;
+      if (onWordsCb && Array.isArray(wt.words) && Array.isArray(wt.start)) {
+        const words: WordTiming[] = [];
+        for (let i = 0; i < wt.words.length; i++) {
+          words.push({ text: wt.words[i], start: wt.start[i] });
+        }
+        onWordsCb(words);
+      }
     } else if (msg.type === "chunk" && msg.data) {
       chunkCount++;
       const bytes = base64ToUint8Array(msg.data);
@@ -150,6 +161,7 @@ export function createCartesiaTtsConnection(
         "sample_rate": config.sampleRate,
       },
       "context_id": ctxId,
+      "add_timestamps": true,
       ...(continuation !== undefined ? { continue: continuation } : {}),
     });
   }
@@ -189,7 +201,7 @@ export function createCartesiaTtsConnection(
       chunks: string | AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
-      onText?: (text: string) => void,
+      callbacks?: SynthesizeCallbacks,
     ): Promise<void> {
       if (lifecycle.signal.aborted || signal?.aborted) return;
 
@@ -202,13 +214,14 @@ export function createCartesiaTtsConnection(
         contextId = crypto.randomUUID();
         chunkCount = 0;
         onAudioCb = onAudio;
+        onWordsCb = callbacks?.onWords ?? null;
 
         if (typeof chunks === "string") {
           if (!chunks.trim()) {
             finishSynthesis();
             return;
           }
-          onText?.(chunks);
+          callbacks?.onText?.(chunks);
           // Single string: send without continue flag
           conn.send(buildMessage(chunks, contextId));
         } else {
@@ -219,7 +232,7 @@ export function createCartesiaTtsConnection(
           for await (const text of chunks) {
             if (signal?.aborted) return;
             if (!text) continue;
-            onText?.(text);
+            callbacks?.onText?.(text);
             conn.send(buildMessage(text, contextId, true));
             started = true;
           }

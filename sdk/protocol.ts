@@ -179,6 +179,7 @@ export const SessionErrorCodeSchema: z.ZodType<SessionErrorCode> = z.enum([
  * Sent via a single `event()` RPC method instead of one method per type.
  */
 export type ClientEvent =
+  | { type: "speech_started" }
   | { type: "transcript"; text: string; isFinal: false }
   | {
     type: "transcript";
@@ -188,7 +189,7 @@ export type ClientEvent =
   }
   | { type: "turn"; text: string; turnOrder?: number | undefined }
   | { type: "chat"; text: string }
-  | { type: "chat_delta"; delta: string }
+  | { type: "words"; words: { text: string; start: number }[] }
   | {
     type: "tool_call_start";
     toolCallId: string;
@@ -213,6 +214,7 @@ const TranscriptEventSchema = z.object({
 export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
   "type",
   [
+    z.object({ type: z.literal("speech_started") }),
     TranscriptEventSchema,
     z.object({
       type: z.literal("turn"),
@@ -220,7 +222,13 @@ export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
       turnOrder: z.number().int().nonnegative().optional(),
     }),
     z.object({ type: z.literal("chat"), text: z.string() }),
-    z.object({ type: z.literal("chat_delta"), delta: z.string() }),
+    z.object({
+      type: z.literal("words"),
+      words: z.array(z.object({
+        text: z.string(),
+        start: z.number(),
+      })),
+    }),
     z.object({
       type: z.literal("tool_call_start"),
       toolCallId: z.string(),
