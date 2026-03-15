@@ -10,7 +10,7 @@ import {
 } from "./mulaw.ts";
 import {
   createAudioBuffer,
-  createTwilioTransport,
+  createTwilioClientSink,
   decodeTwilioFrame,
   type WsSink,
 } from "./transport_twilio.ts";
@@ -128,7 +128,7 @@ Deno.test("decodeTwilioFrame produces PCM16 bytes at 16kHz", () => {
 
 // --- twilio transport adapter ---
 
-Deno.test("createTwilioTransport", async (t) => {
+Deno.test("createTwilioClientSink", async (t) => {
   function mockWs(): {
     ws: WsSink;
     sent: string[];
@@ -150,42 +150,64 @@ Deno.test("createTwilioTransport", async (t) => {
     };
   }
 
-  await t.step("drops string messages (UI-only)", () => {
+  await t.step("event method does not send to ws for text events", () => {
     const { ws, sent } = mockWs();
-    const t = createTwilioTransport(ws);
-    t.send(JSON.stringify({ type: "ready" }));
+    const streamSidRef = { current: null as string | null };
+    const sink = createTwilioClientSink(ws, streamSidRef);
+    sink.event({ type: "transcript", text: "hello", isFinal: false });
+    sink.event({ type: "transcript", text: "hello", isFinal: true });
+    sink.event({ type: "turn", text: "hello" });
+    sink.event({ type: "tts_done" });
+    sink.event({ type: "cancelled" });
+    sink.event({ type: "reset" });
+    // chat and error just log, no ws send
+    sink.event({ type: "chat", text: "hi" });
+    sink.event({ type: "error", code: "internal", message: "oops" });
     assertStrictEquals(sent.length, 0);
   });
 
-  await t.step("converts PCM16 binary to mulaw media event", () => {
+  await t.step(
+    "playAudioChunk converts PCM16 to mulaw media event",
+    () => {
+      const { ws, sent } = mockWs();
+      const streamSidRef = { current: "stream-123" as string | null };
+      const sink = createTwilioClientSink(ws, streamSidRef);
+
+      // Send 4 bytes of PCM16 (2 samples)
+      const pcm = new Int16Array([1000, -1000]);
+      sink.playAudioChunk(new Uint8Array(pcm.buffer));
+
+      assertStrictEquals(sent.length, 1);
+      const msg = JSON.parse(sent[0]!);
+      assertStrictEquals(msg.event, "media");
+      assertStrictEquals(msg.streamSid, "stream-123");
+      assertStrictEquals(typeof msg.media.payload, "string");
+    },
+  );
+
+  await t.step("playAudioChunk skips when no streamSid", () => {
     const { ws, sent } = mockWs();
-    const transport = createTwilioTransport(ws);
-    transport.streamSid = "stream-123";
-
-    // Send 4 bytes of PCM16 (2 samples)
-    const pcm = new Int16Array([1000, -1000]);
-    transport.send(new Uint8Array(pcm.buffer));
-
-    assertStrictEquals(sent.length, 1);
-    const msg = JSON.parse(sent[0]!);
-    assertStrictEquals(msg.event, "media");
-    assertStrictEquals(msg.streamSid, "stream-123");
-    assertStrictEquals(typeof msg.media.payload, "string");
-  });
-
-  await t.step("skips binary when no streamSid", () => {
-    const { ws, sent } = mockWs();
-    const transport = createTwilioTransport(ws);
-    transport.send(new Uint8Array([0, 0, 0, 0]));
+    const streamSidRef = { current: null as string | null };
+    const sink = createTwilioClientSink(ws, streamSidRef);
+    sink.playAudioChunk(new Uint8Array([0, 0, 0, 0]));
     assertStrictEquals(sent.length, 0);
   });
 
-  await t.step("skips when socket not open", () => {
+  await t.step("playAudioChunk skips when socket not open", () => {
     const mock = mockWs();
     mock.setReady(3);
-    const transport = createTwilioTransport(mock.ws);
-    transport.streamSid = "stream-1";
-    transport.send(new Uint8Array([0, 0, 0, 0]));
+    const streamSidRef = { current: "stream-1" as string | null };
+    const sink = createTwilioClientSink(mock.ws, streamSidRef);
+    sink.playAudioChunk(new Uint8Array([0, 0, 0, 0]));
     assertStrictEquals(mock.sent.length, 0);
+  });
+
+  await t.step("open reflects WebSocket readyState", () => {
+    const mock = mockWs();
+    const streamSidRef = { current: null as string | null };
+    const sink = createTwilioClientSink(mock.ws, streamSidRef);
+    assertStrictEquals(sink.open, true);
+    mock.setReady(3);
+    assertStrictEquals(sink.open, false);
   });
 });

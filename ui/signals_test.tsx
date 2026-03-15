@@ -19,7 +19,7 @@ Deno.test("createSessionControls", async (t) => {
   await t.step(
     "has correct defaults",
     withSignalsEnv(({ signals }) => {
-      assertStrictEquals(signals.state.value, "connecting");
+      assertStrictEquals(signals.state.value, "disconnected");
       assertEquals(signals.messages.value, []);
       assertStrictEquals(signals.transcript.value, "");
       assertStrictEquals(signals.error.value, null);
@@ -33,7 +33,7 @@ Deno.test("createSessionControls", async (t) => {
     withSignalsEnv(async ({ signals, connect, send, session }) => {
       await connect();
       assertStrictEquals(signals.running.value, true);
-      send({ type: "error", message: "fatal" });
+      send({ type: "error", code: "internal", message: "fatal" });
       assertStrictEquals(signals.running.value, false);
       session.disconnect();
     }),

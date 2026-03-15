@@ -17,6 +17,7 @@
   --color-aai-text-dim: rgba(255, 255, 255, 0.422);
   --color-aai-error: #fc533a;
   --color-aai-ring: #9dbefe;
+  --color-aai-state-disconnected: rgba(255, 255, 255, 0.422);
   --color-aai-state-connecting: rgba(255, 255, 255, 0.422);
   --color-aai-state-ready: #12c905;
   --color-aai-state-listening: #9dbefe;
@@ -45,4 +46,27 @@
     opacity: 1;
     transform: scale(1);
   }
+}
+
+@keyframes aai-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.tool-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-aai-text) 25%,
+    var(--color-aai-text-dim) 50%,
+    var(--color-aai-text) 75%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: aai-shimmer 2s ease-in-out infinite;
 }

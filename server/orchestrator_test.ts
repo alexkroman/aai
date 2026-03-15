@@ -8,6 +8,7 @@ import {
   createTestOrchestrator,
   deployBody,
   DUMMY_INFO,
+  makeConfig,
 } from "./_test_utils.ts";
 import { MockWebSocket } from "@aai/sdk/testing";
 
@@ -104,6 +105,8 @@ Deno.test("deploy rejects different owner for claimed slug", async () => {
     worker: "w",
     html: "<html></html>",
     credential_hashes: [await hashApiKey("key1")],
+    config: makeConfig(),
+    toolSchemas: [],
   });
 
   const res = await handler(
@@ -276,7 +279,10 @@ Deno.test("websocket upgrades for deployed agent", async () => {
           voice: "",
         },
         toolSchemas: [],
-        platformConfig: {} as never,
+        platformConfig: {
+          sttConfig: { sampleRate: 16000 },
+          ttsConfig: { sampleRate: 24000 },
+        } as never,
         executeTool: () => Promise.resolve("ok"),
         getWorkerApi: () => Promise.resolve({} as never),
       })) as never,

@@ -3,7 +3,10 @@
  * Browser client library for AAI voice agents.
  *
  * Provides WebSocket session management, audio capture/playback,
- * and Preact UI components.
+ * and Preact UI components. For narrower imports, use the sub-path exports:
+ *
+ * - `@aai/ui/session` — WebSocket session only (no Preact dependency)
+ * - `@aai/ui/components` — Preact components, mount helpers, and signals
  *
  * @example
  * ```tsx
@@ -15,32 +18,29 @@
  * @module
  */
 
-export { createVoiceSession } from "./session.ts";
-export type { VoiceSession } from "./session.ts";
-export type {
-  AgentState,
-  Message,
-  SessionError,
-  SessionErrorCode,
-  SessionOptions,
-} from "./types.ts";
-
 export {
-  createSessionControls,
-  SessionProvider,
-  useSession,
-} from "./signals.ts";
-export type { SessionSignals } from "./signals.ts";
-
-export { mount } from "./mount.tsx";
-export type { MountHandle, MountOptions } from "./mount.tsx";
+  type AgentState,
+  createVoiceSession,
+  type Message,
+  type SessionError,
+  type SessionErrorCode,
+  type SessionOptions,
+  type VoiceSession,
+} from "./session_mod.ts";
 
 export {
   App,
   ChatView,
+  createSessionControls,
   ErrorBanner,
   MessageBubble,
+  mount,
+  type MountHandle,
+  type MountOptions,
+  SessionProvider,
+  type SessionSignals,
   StateIndicator,
   ThinkingIndicator,
   Transcript,
-} from "./components.ts";
+  useSession,
+} from "./components_mod.ts";

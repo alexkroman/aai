@@ -1,7 +1,11 @@
 {
   "name": "@aai/ui",
-  "version": "0.1.134",
-  "exports": "./mod.ts",
+  "version": "0.1.167",
+  "exports": {
+    ".": "./mod.ts",
+    "./session": "./session_mod.ts",
+    "./components": "./components_mod.ts"
+  },
   "publish": {
     "exclude": [
       "*_test.ts",

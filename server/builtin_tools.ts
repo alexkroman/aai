@@ -7,25 +7,20 @@ import {
   type ToolExecutionOptions,
   type ToolSet,
 } from "ai";
-import { createRpcClient, isRpcMessage } from "@aai/sdk/rpc";
+import { newMessagePortRpcSession } from "capnweb";
+import { asMessagePort } from "@aai/sdk/capnweb-transport";
 import type {
   BuiltinTool as BuiltinToolName,
   ToolSchema,
 } from "@aai/sdk/types";
-import TurndownService from "turndown";
+import type { ServerVectorStore } from "./vector.ts";
+import type { AgentScope } from "./scope_token.ts";
+import { htmlToMarkdown } from "mdream";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";
 import { matchSubnets } from "@std/net/unstable-ip";
 
-const turndown = new TurndownService({ headingStyle: "atx" });
-turndown.remove(["script", "style", "head"]);
-
-function htmlToMarkdown(html: string): string {
-  return turndown.turndown(html);
-}
-
 export const _internals = {
   fetch: globalThis.fetch,
-  htmlToMarkdown,
 };
 
 const BLOCKED_CIDRS = [
@@ -133,6 +128,7 @@ const webSearch = defineTool({
     const url = `${BRAVE_SEARCH_URL}?${new URLSearchParams({
       q: query,
       count: String(maxResults),
+      text_decorations: "false",
     })}`;
 
     const resp = await _internals.fetch(url, {
@@ -249,16 +245,10 @@ const runCode = defineTool({
     );
 
     try {
-      const rpcClient = createRpcClient((msg) => worker.postMessage(msg));
-      worker.onmessage = (e: MessageEvent) => {
-        if (isRpcMessage(e.data) && e.data.type === "rpc-response") {
-          rpcClient.handleResponse(e.data);
-        }
-      };
-      const result = await rpcClient.call("execute", code) as {
-        output: string;
-        error?: string;
-      };
+      const stub = newMessagePortRpcSession<{
+        execute(code: string): Promise<{ output: string; error?: string }>;
+      }>(asMessagePort(worker));
+      const result = await stub.execute(code);
 
       if (result.error) {
         return JSON.stringify({ error: result.error });
@@ -314,61 +304,30 @@ const fetchJson = defineTool({
   },
 });
 
-const userInputParams = z.object({
-  question: z.string().describe("The question to ask the user"),
-});
-
-const userInput = defineTool({
-  name: "user_input",
-  description:
-    "Ask the user a follow-up question and wait for their spoken response. Use this when you need clarification, a preference, or any additional input from the user before proceeding.",
-  parameters: userInputParams,
-  execute: () => {
-    throw new Error("Tool user_input is handled by the turn handler");
-  },
-});
-
-const finalAnswerParams = z.object({
-  answer: z.string().describe(
-    "Your final response to the user. This will be spoken aloud.",
+const vectorSearchParams = z.object({
+  query: z.string().describe(
+    "Natural language search query to find relevant information",
   ),
+  topK: z.number().describe("Maximum results to return (default: 5)")
+    .optional(),
 });
 
-const finalAnswer = defineTool({
-  name: "final_answer",
-  description:
-    "Provide your final answer to the user. You MUST call this tool to deliver every response — it is the only way to complete the task, otherwise you will be stuck in a loop.",
-  parameters: finalAnswerParams,
-  execute: (args) => {
-    return args.answer;
-  },
-});
-
-/** Name of the built-in tool that terminates the agentic loop with a response. */
-export const FINAL_ANSWER_TOOL: BuiltinToolName = "final_answer";
-
-/** Name of the built-in tool that asks the user a follow-up question. */
-export const USER_INPUT_TOOL: BuiltinToolName = "user_input";
-
-const REQUIRED_BUILTIN_TOOLS: readonly BuiltinToolName[] = [
-  FINAL_ANSWER_TOOL,
-  USER_INPUT_TOOL,
-];
-
-const BUILTIN_TOOLS: Record<BuiltinToolName, BuiltinTool> = {
+const BUILTIN_TOOLS: Partial<Record<BuiltinToolName, BuiltinTool>> = {
   "web_search": webSearch,
   "visit_webpage": visitWebpage,
   "run_code": runCode,
   "fetch_json": fetchJson,
-  "user_input": userInput,
-  "final_answer": finalAnswer,
+  // vector_search is handled separately — requires vector store context
+};
+
+/** Vector context passed to built-in tools that need vector store access. */
+export type VectorCtx = {
+  vectorStore: ServerVectorStore;
+  scope: AgentScope;
 };
 
 /**
  * Returns JSON tool schemas for the specified builtin tools.
- *
- * Always includes `final_answer` and `user_input` in addition to any
- * tools explicitly requested by the agent.
  *
  * @param names - Builtin tool names requested by the agent configuration.
  * @returns An array of {@linkcode ToolSchema} objects for use in LLM calls.
@@ -376,8 +335,17 @@ const BUILTIN_TOOLS: Record<BuiltinToolName, BuiltinTool> = {
 export function getBuiltinToolSchemas(
   names: readonly BuiltinToolName[],
 ): ToolSchema[] {
-  const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
-  return allNames.flatMap((name) => {
+  return names.flatMap((name) => {
+    if (name === "vector_search") {
+      return [{
+        name: "vector_search",
+        description:
+          "Search the agent's vector knowledge base using natural language.",
+        parameters: z.toJSONSchema(
+          vectorSearchParams,
+        ) as ToolSchema["parameters"],
+      }];
+    }
     const tool = BUILTIN_TOOLS[name];
     if (!tool) return [];
     return [{
@@ -390,38 +358,62 @@ export function getBuiltinToolSchemas(
 
 /**
  * Build Vercel AI SDK tool objects for builtin tools.
- * `final_answer` and `user_input` have no `execute` — this makes
- * `generateText` stop the loop when the LLM calls them.
- * Other builtins have `execute` and run on the host.
+ * All builtins have `execute` and run on the host.
  */
 export function getBuiltinVercelTools(
   names: readonly BuiltinToolName[],
-  env: Record<string, string | undefined> = {},
+  opts: {
+    env?: Record<string, string | undefined>;
+    vectorCtx?: VectorCtx | undefined;
+  } = {},
 ): ToolSet {
-  const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
+  const { env = {}, vectorCtx } = opts;
   const tools: ToolSet = {};
-  for (const name of allNames) {
+  for (const name of names) {
+    // vector_search is special — needs vector store context
+    if (name === "vector_search") {
+      if (!vectorCtx) continue;
+      const { vectorStore, scope } = vectorCtx;
+      const params = jsonSchema(
+        z.toJSONSchema(vectorSearchParams) as ToolSchema["parameters"],
+      );
+      tools.vector_search = vercelTool({
+        description:
+          "Search the agent's vector knowledge base using natural language. Returns the most relevant stored entries. Use this to find information that was previously ingested via `aai crawl`.",
+        parameters: params,
+        execute: async (args: unknown) => {
+          const { query, topK = 5 } = args as {
+            query: string;
+            topK?: number;
+          };
+          log.info("vector_search", { query, topK });
+          const results = await vectorStore.query(scope, query, topK);
+          if (results.length === 0) return "No relevant results found.";
+          return JSON.stringify(
+            results.map((r) => ({
+              score: r.score,
+              text: r.data,
+              metadata: r.metadata,
+            })),
+          );
+        },
+      });
+      continue;
+    }
+
     const bt = BUILTIN_TOOLS[name];
     if (!bt) continue;
     const params = jsonSchema(
       z.toJSONSchema(bt.parameters) as ToolSchema["parameters"],
     );
-    if (name === FINAL_ANSWER_TOOL || name === USER_INPUT_TOOL) {
-      // No execute → generateText stops the loop when LLM calls these
-      tools[name] = vercelTool({
-        description: bt.description,
-        parameters: params,
-      }) as unknown as ToolSet[string];
-    } else {
-      tools[name] = vercelTool({
-        description: bt.description,
-        parameters: params,
-        execute: async (args: unknown, _options: ToolExecutionOptions) => {
-          const result = await bt.execute(args as Record<string, unknown>, env);
-          return result;
-        },
-      });
-    }
+    tools[name] = vercelTool({
+      description: bt.description,
+      parameters: params,
+      execute: async (args: unknown, _options: ToolExecutionOptions) => {
+        const result = await bt.execute(args as Record<string, unknown>, env);
+        return result;
+      },
+    });
   }
   return tools;
 }

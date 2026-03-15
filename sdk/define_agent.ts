@@ -73,6 +73,8 @@ export function defineAgent<S>(options: AgentOptions<S>): AgentDef {
     ...(options.toolChoice !== undefined && { toolChoice: options.toolChoice }),
     ...(options.builtinTools !== undefined &&
       { builtinTools: options.builtinTools }),
+    ...(options.activeTools !== undefined &&
+      { activeTools: options.activeTools }),
     tools: options.tools ?? {},
     ...(options.state !== undefined && { state: options.state }),
     ...(options.onConnect !== undefined && { onConnect: options.onConnect }),

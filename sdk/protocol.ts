@@ -36,117 +36,6 @@ export const DEFAULT_TTS_SAMPLE_RATE = 24_000;
 export const AUDIO_FORMAT = "pcm16" as const;
 
 /**
- * Message sent from the server to the client over WebSocket.
- *
- * This is a discriminated union on the `type` field. The server sends these
- * messages to communicate session state, transcripts, agent responses, and
- * audio lifecycle events to the client.
- *
- * Message types:
- * - `ready` — Session initialized, includes audio format and sample rates
- * - `partial_transcript` — Interim STT result (may change)
- * - `final_transcript` — Finalized STT result
- * - `turn` — Agent response text for a completed turn
- * - `chat` — Streamed chat text (e.g. for text-only mode)
- * - `tts_done` — All TTS audio for the current turn has been sent
- * - `cancelled` — The current turn was cancelled (e.g. by user interruption)
- * - `reset` — Session state has been reset
- * - `error` — An error occurred
- * - `pong` — Response to a client `ping`
- */
-export type ServerMessage =
-  | {
-    type: "ready";
-    protocol_version: number;
-    audio_format: "pcm16";
-    sample_rate: number;
-    tts_sample_rate: number;
-    mode?: "full" | "stt-only" | undefined;
-  }
-  | { type: "partial_transcript"; text: string }
-  | { type: "final_transcript"; text: string; turn_order?: number | undefined }
-  | { type: "turn"; text: string; turn_order?: number | undefined }
-  | { type: "chat"; text: string }
-  | { type: "tts_done" }
-  | { type: "cancelled" }
-  | { type: "reset" }
-  | { type: "error"; message: string; details?: readonly string[] | undefined }
-  | { type: "pong" };
-
-/** Zod schema for {@linkcode ServerMessage}. */
-export const ServerMessageSchema: z.ZodType<ServerMessage> = z
-  .discriminatedUnion("type", [
-    z.object({
-      type: z.literal("ready"),
-      protocol_version: z.number().int().positive(),
-      audio_format: z.literal("pcm16"),
-      sample_rate: z.number().int().positive(),
-      tts_sample_rate: z.number().int().positive(),
-      mode: z.enum(["full", "stt-only"]).optional(),
-    }),
-    z.object({ type: z.literal("partial_transcript"), text: z.string() }),
-    z.object({
-      type: z.literal("final_transcript"),
-      text: z.string(),
-      turn_order: z.number().int().nonnegative().optional(),
-    }),
-    z.object({
-      type: z.literal("turn"),
-      text: z.string(),
-      turn_order: z.number().int().nonnegative().optional(),
-    }),
-    z.object({ type: z.literal("chat"), text: z.string() }),
-    z.object({ type: z.literal("tts_done") }),
-    z.object({ type: z.literal("cancelled") }),
-    z.object({ type: z.literal("reset") }),
-    z.object({
-      type: z.literal("error"),
-      message: z.string(),
-      details: z.array(z.string()).optional(),
-    }),
-    z.object({ type: z.literal("pong") }),
-  ]);
-
-/**
- * Message sent from the client to the server over WebSocket.
- *
- * This is a discriminated union on the `type` field. The client sends these
- * messages to control the session and provide context.
- *
- * Message types:
- * - `audio_ready` — Client is ready to send/receive audio
- * - `cancel` — Cancel the current in-flight turn
- * - `reset` — Reset the session state
- * - `ping` — Keepalive ping (server responds with `pong`)
- * - `history` — Restore conversation history from a previous session
- */
-export type ClientMessage =
-  | { type: "audio_ready" }
-  | { type: "cancel" }
-  | { type: "reset" }
-  | { type: "ping" }
-  | {
-    type: "history";
-    messages: readonly { role: "user" | "assistant"; text: string }[];
-  };
-
-/** Zod schema for {@linkcode ClientMessage}. */
-export const ClientMessageSchema: z.ZodType<ClientMessage> = z
-  .discriminatedUnion("type", [
-    z.object({ type: z.literal("audio_ready") }),
-    z.object({ type: z.literal("cancel") }),
-    z.object({ type: z.literal("reset") }),
-    z.object({ type: z.literal("ping") }),
-    z.object({
-      type: z.literal("history"),
-      messages: z.array(z.object({
-        role: z.enum(["user", "assistant"]),
-        text: z.string().min(1),
-      })).min(1),
-    }),
-  ]);
-
-/**
  * Binary audio frame specification. All audio exchanged over the WebSocket as
  * binary frames MUST conform to this spec. Any change here is a breaking
  * protocol change.
@@ -248,3 +137,220 @@ export const TwilioMessageSchema: z.ZodType<TwilioMessage> = z
       mark: z.object({ name: z.string() }).optional(),
     }),
   ]);
+
+// ─── Timeout constants ─────────────────────────────────────────────────────
+
+/** Default timeout for agent lifecycle hooks (onConnect, onTurn, etc). */
+export const HOOK_TIMEOUT_MS = 5_000;
+
+/** Default timeout for tool execution in the worker. */
+export const TOOL_EXECUTION_TIMEOUT_MS = 30_000;
+
+// ─── Error codes ───────────────────────────────────────────────────────────
+
+/** Error codes for categorizing session errors on the wire. */
+export type SessionErrorCode =
+  | "stt"
+  | "llm"
+  | "tts"
+  | "tool"
+  | "protocol"
+  | "connection"
+  | "audio"
+  | "internal";
+
+/** Zod schema for {@linkcode SessionErrorCode}. */
+export const SessionErrorCodeSchema: z.ZodType<SessionErrorCode> = z.enum([
+  "stt",
+  "llm",
+  "tts",
+  "tool",
+  "protocol",
+  "connection",
+  "audio",
+  "internal",
+]);
+
+// ─── Client events ─────────────────────────────────────────────────────────
+
+/**
+ * Discriminated union of all server→client session events.
+ *
+ * Sent via a single `event()` RPC method instead of one method per type.
+ */
+export type ClientEvent =
+  | { type: "transcript"; text: string; isFinal: false }
+  | {
+    type: "transcript";
+    text: string;
+    isFinal: true;
+    turnOrder?: number | undefined;
+  }
+  | { type: "turn"; text: string; turnOrder?: number | undefined }
+  | { type: "chat"; text: string }
+  | { type: "chat_delta"; delta: string }
+  | {
+    type: "tool_call_start";
+    toolCallId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+  }
+  | { type: "tool_call_done"; toolCallId: string; result: string }
+  | { type: "tts_done" }
+  | { type: "cancelled" }
+  | { type: "reset" }
+  | { type: "error"; code: SessionErrorCode; message: string };
+
+/** Zod schema for a transcript event (partial or final). */
+const TranscriptEventSchema = z.object({
+  type: z.literal("transcript"),
+  text: z.string(),
+  isFinal: z.boolean(),
+  turnOrder: z.number().int().nonnegative().optional(),
+});
+
+/** Zod schema for {@linkcode ClientEvent}. */
+export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
+  "type",
+  [
+    TranscriptEventSchema,
+    z.object({
+      type: z.literal("turn"),
+      text: z.string(),
+      turnOrder: z.number().int().nonnegative().optional(),
+    }),
+    z.object({ type: z.literal("chat"), text: z.string() }),
+    z.object({ type: z.literal("chat_delta"), delta: z.string() }),
+    z.object({
+      type: z.literal("tool_call_start"),
+      toolCallId: z.string(),
+      toolName: z.string(),
+      args: z.record(z.string(), z.unknown()),
+    }),
+    z.object({
+      type: z.literal("tool_call_done"),
+      toolCallId: z.string(),
+      result: z.string().max(4000),
+    }),
+    z.object({ type: z.literal("tts_done") }),
+    z.object({ type: z.literal("cancelled") }),
+    z.object({ type: z.literal("reset") }),
+    z.object({
+      type: z.literal("error"),
+      code: SessionErrorCodeSchema,
+      message: z.string(),
+    }),
+  ],
+);
+
+/**
+ * Typed interface for pushing session events to a connected client.
+ *
+ * For WebSocket sessions this sends JSON text frames and binary audio frames;
+ * for Twilio it's a custom implementation that converts audio formats.
+ */
+export interface ClientSink {
+  /** Whether the underlying connection is open and accepting calls. */
+  readonly open: boolean;
+  /** Push a session event to the client. */
+  event(e: ClientEvent): void;
+  /** Send a single TTS audio chunk to the client. */
+  playAudioChunk(chunk: Uint8Array): void;
+  /** Signal that TTS audio is complete. */
+  playAudioDone(): void;
+}
+
+// ─── WebSocket message types ────────────────────────────────────────────────
+
+/** Supported audio formats for the wire protocol. */
+export type AudioFormatId = "pcm16";
+
+/** Protocol-level session config returned to the client on connect. */
+export type ReadyConfig = {
+  protocolVersion: number;
+  audioFormat: AudioFormatId;
+  sampleRate: number;
+  ttsSampleRate: number;
+  mode?: "stt-only" | undefined;
+};
+
+/** Client→server text messages (binary frames carry raw PCM16 audio). */
+export type ClientMessage =
+  | { type: "audio_ready" }
+  | { type: "cancel" }
+  | { type: "reset" }
+  | {
+    type: "history";
+    messages: readonly { role: "user" | "assistant"; text: string }[];
+  };
+
+/** Server→client text messages (binary frames carry raw PCM16 audio). */
+export type ServerMessage =
+  | ({ type: "config" } & ReadyConfig)
+  | { type: "audio_done" }
+  | ClientEvent;
+
+/** Zod schema for {@linkcode ClientMessage}. */
+export const ClientMessageSchema: z.ZodType<ClientMessage> = z
+  .discriminatedUnion("type", [
+    z.object({ type: z.literal("audio_ready") }),
+    z.object({ type: z.literal("cancel") }),
+    z.object({ type: z.literal("reset") }),
+    z.object({
+      type: z.literal("history"),
+      messages: z.array(z.object({
+        role: z.enum(["user", "assistant"]),
+        text: z.string().max(100_000),
+      })).max(200),
+    }),
+  ]);
+
+// ─── Worker RPC interfaces ─────────────────────────────────────────────────
+
+/**
+ * API shape the host process exposes to the sandboxed worker.
+ *
+ * Since workers run with all permissions denied, they use this interface
+ * to proxy network requests and KV operations back to the host.
+ */
+export type HostApi = {
+  fetch(req: {
+    url: string;
+    method: string;
+    headers: Readonly<Record<string, string>>;
+    body: string | null;
+  }): Promise<{
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: string;
+  }>;
+  kv(req: KvRequest): Promise<{ result: unknown }>;
+};
+
+/** Combined turn configuration resolved from the worker before a turn starts. */
+export type TurnConfig = {
+  maxSteps?: number;
+  activeTools?: string[];
+};
+
+/** Worker-side RPC target interface (host calls these methods). */
+export interface WorkerRpcApi {
+  withEnv(env: Record<string, string>): WorkerRpcApi;
+  getConfig(): Promise<import("./types.ts").WorkerConfig>;
+  executeTool(
+    name: string,
+    args: Readonly<Record<string, unknown>>,
+    sessionId: string | undefined,
+    messages: readonly import("./types.ts").Message[] | undefined,
+  ): Promise<string>;
+  onConnect(sessionId: string): Promise<void>;
+  onDisconnect(sessionId: string): Promise<void>;
+  onTurn(sessionId: string, text: string): Promise<void>;
+  onError(sessionId: string, error: string): void;
+  onStep(
+    sessionId: string,
+    step: import("./types.ts").StepInfo,
+  ): Promise<void>;
+  resolveTurnConfig(sessionId: string): Promise<TurnConfig | null>;
+}

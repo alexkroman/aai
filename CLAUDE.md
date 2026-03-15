@@ -83,13 +83,11 @@ never on each other.
   page routes
 - `session.ts` — per-connection session: wires STT → turn handler → TTS,
   manages interruptions
-- `turn_handler.ts` — agentic loop: LLM + tool calls (up to 5 iterations),
-  forces `final_answer` on last
+- `turn_handler.ts` — agentic loop: LLM + tool calls (up to 5 iterations)
 - `worker_pool.ts` — spawns agent code in sandboxed Deno Workers (all
   permissions false), idle eviction, hosts fetch proxy handler
 - `_sandbox_worker.ts` — sandboxed Deno Worker for `run_code` tool
-- `builtin_tools.ts` — web_search, visit_webpage, fetch_json, run_code,
-  user_input, final_answer
+- `builtin_tools.ts` — web_search, visit_webpage, fetch_json, run_code
 - `llm.ts` — Claude API calls (OpenAI-compatible format)
 - `stt.ts` — AssemblyAI streaming STT
 - `tts.ts` — Rime streaming TTS

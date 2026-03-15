@@ -6,7 +6,12 @@ import type { ComponentChildren } from "preact";
 import { batch, effect, type Signal, signal } from "@preact/signals";
 import type { VoiceSession } from "./session.ts";
 
-import type { AgentState, Message, SessionError } from "./types.ts";
+import type {
+  AgentState,
+  Message,
+  SessionError,
+  ToolCallInfo,
+} from "./types.ts";
 
 /**
  * Reactive session controls wrapping a {@linkcode VoiceSession} with Preact signals.
@@ -19,6 +24,8 @@ export type SessionSignals = {
   state: Signal<AgentState>;
   /** Chat message history signal. */
   messages: Signal<Message[]>;
+  /** Active tool calls signal. */
+  toolCalls: Signal<ToolCallInfo[]>;
   /** Live partial transcript signal. */
   transcript: Signal<string>;
   /** Current error signal, or `null` if no error. */
@@ -60,6 +67,7 @@ export function createSessionControls(session: VoiceSession): SessionSignals {
   return {
     state: session.state,
     messages: session.messages,
+    toolCalls: session.toolCalls,
     transcript: session.transcript,
     error: session.error,
     started,

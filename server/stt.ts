@@ -37,6 +37,8 @@ export type SttConnection = {
   clear(): void;
   /** Closes the STT connection. */
   close(): void | Promise<void>;
+  /** Callback invoked when VAD detects the user started speaking. */
+  onSpeechStarted: (() => void) | null;
   /** Callback invoked when a transcript (partial or final) is received. */
   onTranscript: ((detail: SttTranscriptDetail) => void) | null;
   /** Callback invoked when a complete turn is detected. */
@@ -66,6 +68,7 @@ export function createSttConnection(
   let msgCount = 0;
 
   const conn: SttConnection = {
+    onSpeechStarted: null,
     onTranscript: null,
     onTurn: null,
     onError: null,
@@ -162,6 +165,15 @@ export function createSttConnection(
   };
 
   function wireTranscriber(t: StreamingTranscriber): void {
+    // speechStarted exists at runtime but is missing from the SDK's type overloads
+    (t as unknown as { on(e: string, l: () => void): void }).on(
+      "speechStarted",
+      () => {
+        log.info("STT speech started");
+        conn.onSpeechStarted?.();
+      },
+    );
+
     t.on("turn", (turn: TurnEvent) => {
       msgCount++;
       const text = (turn.transcript ?? "").trim();

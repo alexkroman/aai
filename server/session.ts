@@ -5,18 +5,19 @@ import { createModel } from "./model.ts";
 import type { ExecuteTool } from "./_worker_entry.ts";
 import { createSttConnection, type SttConnection } from "./stt.ts";
 import { createTtsConnection, type TtsConnection } from "./tts.ts";
-import { getBuiltinVercelTools } from "./builtin_tools.ts";
-import { executeTurn } from "./turn_handler.ts";
+import { getBuiltinVercelTools, type VectorCtx } from "./builtin_tools.ts";
+import { executeTurn, type TurnResult } from "./turn_handler.ts";
 import type { STTConfig, TTSConfig } from "./types.ts";
 import type { AgentConfig } from "@aai/sdk/types";
 import type { ToolSchema } from "@aai/sdk/types";
 import type { WorkerApi } from "./_worker_entry.ts";
+import { HOOK_TIMEOUT_MS } from "@aai/sdk/protocol";
+import type { ClientSink, TurnConfig } from "@aai/sdk/protocol";
 import { buildSystemPrompt } from "./system_prompt.ts";
 import {
-  type CoreAssistantMessage,
   type CoreMessage,
-  type CoreUserMessage,
   jsonSchema,
+  type LanguageModelV1,
   type StepResult,
   tool as vercelTool,
   type ToolExecutionOptions,
@@ -24,15 +25,6 @@ import {
 } from "ai";
 import type { Message } from "@aai/sdk/types";
 import * as metrics from "./metrics.ts";
-import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/sdk/protocol";
-
-/** Transport abstraction for sending data to a connected client. */
-export type SessionTransport = {
-  /** Sends a message (text or binary) to the client. */
-  send(data: string | ArrayBuffer | Uint8Array): void;
-  /** The current WebSocket ready state. */
-  readonly readyState: 0 | 1 | 2 | 3;
-};
 
 /** Configuration options for creating a new session. */
 export type SessionOptions = {
@@ -40,8 +32,8 @@ export type SessionOptions = {
   id: string;
   /** Agent slug this session belongs to. */
   agent: string;
-  /** Transport used to communicate with the client. */
-  transport: SessionTransport;
+  /** Typed sink for pushing events to the client. */
+  client: ClientSink;
   /** The agent's configuration from `defineAgent()`. */
   agentConfig: AgentConfig;
   /** JSON schemas for agent-defined tools. */
@@ -60,6 +52,10 @@ export type SessionOptions = {
   createStt?: (apiKey: string, config: STTConfig) => SttConnection;
   /** Override the default TTS connection factory (used in tests). */
   createTts?: (config: TTSConfig) => TtsConnection;
+  /** Override the LLM model (used in tests). */
+  model?: LanguageModelV1 | undefined;
+  /** Vector store context for the built-in vector_search tool. */
+  vectorCtx?: VectorCtx | undefined;
 };
 
 const ConnState = {
@@ -79,7 +75,7 @@ type AgentState = (typeof AgentState)[keyof typeof AgentState];
 
 /** A voice session managing the STT -> LLM -> TTS pipeline for one connection. */
 export type Session = {
-  /** Initializes the session, connects to STT, and sends the ready message. */
+  /** Initializes the session and connects to STT. */
   start(): Promise<void>;
   /** Gracefully stops the session, aborting any in-flight turn and closing STT/TTS. */
   stop(): Promise<void>;
@@ -120,23 +116,26 @@ export function createSession(opts: SessionOptions): Session {
   let pendingGreeting: string | null = null;
   let messages: CoreMessage[] = [];
   let cachedWorkerApi: WorkerApi | undefined;
+  /** Resolves turn config from the worker (maxSteps + activeTools) per turn. */
+  async function resolveTurnConfigFromWorker(): Promise<TurnConfig | null> {
+    if (!getWorkerApi) return null;
+    try {
+      cachedWorkerApi ??= await getWorkerApi();
+      return await cachedWorkerApi.resolveTurnConfig(id, HOOK_TIMEOUT_MS);
+    } catch (err: unknown) {
+      log.warn("resolveTurnConfig failed, using defaults", { err });
+      return null;
+    }
+  }
 
   const sessionAbort = new AbortController();
 
   const id = opts.id;
   const agentSlug = opts.agent;
-  const ws = opts.transport;
+  const client = opts.client;
   const agentLabel = { agent: opts.agent };
   const env = { ...opts.env };
   const getWorkerApi = opts.getWorkerApi;
-  const slotEnv = opts.env
-    ? Object.fromEntries(
-      Object.entries(opts.env).filter((e): e is [string, string] =>
-        e[1] !== undefined
-      ),
-    )
-    : undefined;
-
   const agentConfig = opts.skipGreeting
     ? { ...opts.agentConfig, greeting: "" }
     : opts.agentConfig;
@@ -161,11 +160,12 @@ export function createSession(opts: SessionOptions): Session {
     : (opts.createTts ?? createTtsConnection)(config.ttsConfig);
   tts?.warmup();
 
-  const model = isSttOnly ? null : createModel({
+  const model = isSttOnly ? null : (opts.model ?? createModel({
     apiKey: config.apiKey,
+    anthropicApiKey: config.anthropicApiKey,
     model: config.model,
     gatewayBase: config.llmGatewayBase,
-  });
+  }));
 
   const hasTools = opts.toolSchemas.length > 0 ||
     (agentConfig.builtinTools?.length ?? 0) > 0;
@@ -177,8 +177,13 @@ export function createSession(opts: SessionOptions): Session {
   if (isSttOnly) {
     tools = {};
   } else {
-    tools = getBuiltinVercelTools(agentConfig.builtinTools ?? [], env);
+    tools = getBuiltinVercelTools(agentConfig.builtinTools ?? [], {
+      env,
+      vectorCtx: opts.vectorCtx,
+    });
     for (const schema of opts.toolSchemas) {
+      // Skip schemas for builtin tools — they already have host-side execute
+      if (schema.name in tools) continue;
       tools[schema.name] = vercelTool({
         description: schema.description,
         parameters: jsonSchema(schema.parameters),
@@ -203,14 +208,29 @@ export function createSession(opts: SessionOptions): Session {
     }
   }
 
-  function trySend(data: string | Uint8Array): void {
+  /** Safely call a method on the client sink, ignoring errors if closed. */
+  function trySend(fn: () => void): void {
     try {
-      if (ws.readyState === WebSocket.OPEN) ws.send(data);
-    } catch { /* ws closed between check and send */ }
+      if (client.open) fn();
+    } catch { /* connection closed between check and send */ }
   }
 
-  function trySendJson(data: Record<string, unknown>): void {
-    trySend(JSON.stringify(data));
+  /** Stream text through TTS and send audio chunks to the client. */
+  async function streamTts(
+    ttsConn: TtsConnection,
+    text: string | AsyncIterable<string>,
+    signal: AbortSignal,
+    onText?: (text: string) => void,
+  ): Promise<void> {
+    await ttsConn.synthesizeStream(
+      text,
+      (chunk) => {
+        trySend(() => client.playAudioChunk(chunk));
+      },
+      signal,
+      onText,
+    );
+    trySend(() => client.playAudioDone());
   }
 
   async function callHook(
@@ -234,13 +254,17 @@ export function createSession(opts: SessionOptions): Session {
       handle.onTranscript = ({ text, isFinal, turnOrder }) => {
         log.info("transcript", { text, isFinal, turnOrder });
         if (isFinal) {
-          trySendJson({
-            type: "final_transcript",
-            text,
-            ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
-          });
+          trySend(() =>
+            client.event(
+              turnOrder !== undefined
+                ? { type: "transcript", text, isFinal: true, turnOrder }
+                : { type: "transcript", text, isFinal: true },
+            )
+          );
         } else {
-          trySendJson({ type: "partial_transcript", text });
+          trySend(() =>
+            client.event({ type: "transcript", text, isFinal: false })
+          );
         }
       };
 
@@ -262,7 +286,13 @@ export function createSession(opts: SessionOptions): Session {
 
       handle.onError = (err) => {
         log.error("STT error:", err.message);
-        trySendJson({ type: "error", message: err.message });
+        trySend(() =>
+          client.event({
+            type: "error",
+            code: "stt",
+            message: err.message,
+          })
+        );
       };
 
       handle.onClose = async () => {
@@ -275,7 +305,13 @@ export function createSession(opts: SessionOptions): Session {
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             log.error("STT reconnect failed:", msg);
-            trySendJson({ type: "error", message: msg });
+            trySend(() =>
+              client.event({
+                type: "error",
+                code: "stt",
+                message: msg,
+              })
+            );
           }
         }
       };
@@ -284,7 +320,7 @@ export function createSession(opts: SessionOptions): Session {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       log.error("STT connect failed:", msg);
-      trySendJson({ type: "error", message: msg });
+      trySend(() => client.event({ type: "error", code: "stt", message: msg }));
     }
   }
 
@@ -294,22 +330,27 @@ export function createSession(opts: SessionOptions): Session {
   }
 
   async function handleTurn(text: string, turnOrder?: number): Promise<void> {
+    // Start config resolution immediately — overlaps with previous-turn drain
+    const configPromise = isSttOnly ? null : resolveTurnConfigFromWorker();
+
     cancelInflight();
     agent = AgentState.Processing;
 
     metrics.turnsTotal.inc(agentLabel);
     const turnStart = performance.now();
 
-    trySendJson({
-      type: "turn",
-      text,
-      ...(turnOrder !== undefined ? { turn_order: turnOrder } : {}),
-    });
+    trySend(() =>
+      client.event(
+        turnOrder !== undefined
+          ? { type: "turn", text, turnOrder }
+          : { type: "turn", text },
+      )
+    );
 
-    callHook("onTurn", (api) => api.onTurn(id, text, 5_000, slotEnv));
+    callHook("onTurn", (api) => api.onTurn(id, text, HOOK_TIMEOUT_MS));
 
     if (isSttOnly) {
-      trySendJson({ type: "tts_done" });
+      trySend(() => client.event({ type: "tts_done" }));
       metrics.turnDuration.observe(
         (performance.now() - turnStart) / 1000,
         agentLabel,
@@ -321,24 +362,26 @@ export function createSession(opts: SessionOptions): Session {
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
+    let turn: TurnResult | null = null;
+    let toolForward: Promise<void> | null = null;
 
     try {
       let maxSteps = agentConfig.maxSteps;
-      if (maxSteps === undefined && getWorkerApi) {
-        try {
-          cachedWorkerApi ??= await getWorkerApi();
-          const resolved = await cachedWorkerApi.resolveMaxSteps(
-            id,
-            5_000,
-            slotEnv,
-          );
-          if (resolved !== null) maxSteps = resolved;
-        } catch (err: unknown) {
-          log.warn("resolveMaxSteps failed, using default", { err });
+      let activeTools: string[] | undefined = agentConfig.activeTools
+        ? [...agentConfig.activeTools]
+        : undefined;
+
+      const resolved = await configPromise;
+      if (resolved) {
+        if (maxSteps === undefined && resolved.maxSteps !== undefined) {
+          maxSteps = resolved.maxSteps;
+        }
+        if (resolved.activeTools !== undefined) {
+          activeTools = resolved.activeTools;
         }
       }
 
-      const result = await executeTurn(text, {
+      turn = executeTurn(text, {
         agent: agentSlug,
         model: model!,
         system: systemPrompt,
@@ -347,8 +390,9 @@ export function createSession(opts: SessionOptions): Session {
         signal,
         maxSteps,
         toolChoice: agentConfig.toolChoice,
+        activeTools,
         onStep: getWorkerApi
-          ? async (step: StepResult<ToolSet>) => {
+          ? (step: StepResult<ToolSet>) => {
             const stepInfo = {
               stepNumber: step.stepType === "initial" ? 0 : -1,
               toolCalls: (step.toolCalls ?? []).map((tc) => ({
@@ -357,39 +401,61 @@ export function createSession(opts: SessionOptions): Session {
               })),
               text: step.text ?? "",
             };
-            await callHook("onStep", (api) =>
-              api.onStep(id, stepInfo, 5_000, slotEnv));
-          }
-          : undefined,
-        resolveBeforeStep: getWorkerApi
-          ? async (stepNumber: number) => {
-            try {
-              cachedWorkerApi ??= await getWorkerApi!();
-              return await cachedWorkerApi.resolveBeforeStep(
-                id,
-                stepNumber,
-                5_000,
-                slotEnv,
-              );
-            } catch (err: unknown) {
-              log.warn("resolveBeforeStep failed", { err });
-              return null;
-            }
+            // Fire-and-forget — onStep is informational, don't block the turn
+            callHook("onStep", (api) =>
+              api.onStep(id, stepInfo, HOOK_TIMEOUT_MS));
           }
           : undefined,
       });
+
+      // Forward tool events to client in parallel with TTS streaming
+      toolForward = (async () => {
+        for await (const evt of turn.toolEvents) {
+          if (signal.aborted) break;
+          trySend(() =>
+            client.event(
+              evt.kind === "start"
+                ? {
+                  type: "tool_call_start",
+                  toolCallId: evt.toolCallId,
+                  toolName: evt.toolName,
+                  args: evt.args,
+                }
+                : {
+                  type: "tool_call_done",
+                  toolCallId: evt.toolCallId,
+                  result: evt.result,
+                },
+            )
+          );
+        }
+      })();
+
+      // TTS onText callback: send chat_delta to client and accumulate spoken text
+      let spokenText = "";
+      const onText = (chunk: string) => {
+        spokenText += chunk;
+        trySend(() => client.event({ type: "chat_delta", delta: chunk }));
+      };
+
+      if (tts) {
+        await streamTts(tts, turn.textStream, signal, onText);
+      } else {
+        for await (const chunk of turn.textStream) {
+          if (chunk) onText(chunk);
+        }
+      }
+
       if (signal.aborted) return;
 
-      if (result) {
-        trySendJson({ type: "chat", text: result });
-        await tts!.synthesizeStream(
-          result,
-          (chunk) => trySend(chunk),
-          signal,
-        );
-        if (!signal.aborted) trySendJson({ type: "tts_done" });
-      } else {
-        trySendJson({ type: "tts_done" });
+      messages.push({ role: "user", content: text });
+      messages.push({
+        role: "assistant",
+        content: spokenText || "Sorry, I couldn't generate a response.",
+      });
+
+      if (!tts) {
+        trySend(() => client.event({ type: "tts_done" }));
       }
     } catch (err: unknown) {
       if (signal.aborted) return;
@@ -407,8 +473,10 @@ export function createSession(opts: SessionOptions): Session {
         log.error("Turn failed:", msg);
       }
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
-      trySendJson({ type: "error", message: msg });
+      trySend(() => client.event({ type: "error", code: "llm", message: msg }));
     } finally {
+      const settled = [turn?.consume(), toolForward].filter(Boolean);
+      if (settled.length) await Promise.allSettled(settled);
       if (turnAbort === abort) turnAbort = null;
       metrics.turnDuration.observe(
         (performance.now() - turnStart) / 1000,
@@ -420,20 +488,26 @@ export function createSession(opts: SessionOptions): Session {
     }
   }
 
-  function speakText(text: string): void {
+  /** Stream text through TTS with chat_delta events — used for greetings. */
+  function streamGreeting(text: string): void {
     if (!tts) return;
+    const ttsConn = tts;
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
+    const onText = (chunk: string) => {
+      trySend(() => client.event({ type: "chat_delta", delta: chunk }));
+    };
     const p: Promise<void> = (async () => {
       try {
-        await tts.synthesizeStream(text, (chunk) => trySend(chunk), signal);
-        if (!signal.aborted) trySendJson({ type: "tts_done" });
+        await streamTts(ttsConn, text, signal, onText);
       } catch (err: unknown) {
         if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : String(err);
         log.error("TTS failed:", msg);
-        trySendJson({ type: "error", message: msg });
+        trySend(() =>
+          client.event({ type: "error", code: "tts", message: msg })
+        );
       } finally {
         if (turnAbort === abort) turnAbort = null;
       }
@@ -455,18 +529,19 @@ export function createSession(opts: SessionOptions): Session {
         pendingGreeting = agentConfig.greeting;
       }
 
-      callHook("onConnect", (api) => api.onConnect(id, 5_000, slotEnv));
-      await connectStt();
+      callHook("onConnect", (api) => api.onConnect(id, HOOK_TIMEOUT_MS));
+
+      // Pre-warm worker (fire-and-forget, populates cachedWorkerApi)
+      if (getWorkerApi) {
+        getWorkerApi().then((api) => {
+          cachedWorkerApi = api;
+        }).catch(() => {});
+      }
+
+      // Fire-and-forget — stt?.send() in onAudio no-ops while null
+      connectStt();
 
       conn = ConnState.Ready;
-      trySendJson({
-        type: "ready",
-        protocol_version: PROTOCOL_VERSION,
-        audio_format: AUDIO_FORMAT,
-        sample_rate: config.sttConfig.sampleRate,
-        tts_sample_rate: config.ttsConfig.sampleRate,
-        ...(isSttOnly ? { mode: "stt-only" } : {}),
-      });
     },
 
     async stop(): Promise<void> {
@@ -481,7 +556,7 @@ export function createSession(opts: SessionOptions): Session {
       stt?.close();
       tts?.close();
 
-      callHook("onDisconnect", (api) => api.onDisconnect(id, 5_000, slotEnv));
+      callHook("onDisconnect", (api) => api.onDisconnect(id, HOOK_TIMEOUT_MS));
     },
 
     onAudio(data: Uint8Array): void {
@@ -500,8 +575,7 @@ export function createSession(opts: SessionOptions): Session {
       agent = AgentState.Listening;
 
       if (pendingGreeting) {
-        trySendJson({ type: "chat", text: pendingGreeting });
-        speakText(pendingGreeting);
+        streamGreeting(pendingGreeting);
         pendingGreeting = null;
       }
     },
@@ -509,7 +583,7 @@ export function createSession(opts: SessionOptions): Session {
     onCancel(): void {
       cancelInflight();
       stt?.clear();
-      trySendJson({ type: "cancelled" });
+      trySend(() => client.event({ type: "cancelled" }));
 
       if (agent === AgentState.Processing) {
         agent = AgentState.Listening;
@@ -521,11 +595,10 @@ export function createSession(opts: SessionOptions): Session {
       stt?.clear();
       messages = [];
       agent = AgentState.Listening;
-      trySendJson({ type: "reset" });
+      trySend(() => client.event({ type: "reset" }));
 
       if (agentConfig.greeting) {
-        trySendJson({ type: "chat", text: agentConfig.greeting });
-        speakText(agentConfig.greeting);
+        streamGreeting(agentConfig.greeting);
       }
     },
 
@@ -533,11 +606,7 @@ export function createSession(opts: SessionOptions): Session {
       incoming: readonly { role: "user" | "assistant"; text: string }[],
     ): void {
       for (const msg of incoming) {
-        const coreMsg: CoreUserMessage | CoreAssistantMessage = {
-          role: msg.role,
-          content: msg.text,
-        };
-        messages.push(coreMsg);
+        messages.push({ role: msg.role, content: msg.text });
       }
       log.info("Restored conversation history", {
         count: incoming.length,

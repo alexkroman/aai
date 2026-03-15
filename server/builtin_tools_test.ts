@@ -7,42 +7,6 @@ import {
   getBuiltinVercelTools,
 } from "./builtin_tools.ts";
 
-// --- htmlToMarkdown ---
-
-const HTML_TO_MD_CASES: [string, string, string][] = [
-  [
-    "strips script and style tags",
-    '<p>Hello</p><script>alert("x")</script><style>.a{}</style><p>World</p>',
-    "Hello",
-  ],
-  ["converts headings", "<h1>Title</h1>", "# Title"],
-  ["converts h2", "<h2>Sub</h2>", "## Sub"],
-  ["converts h3", "<h3>Deep</h3>", "### Deep"],
-  ["converts bold", "<b>bold</b>", "**bold**"],
-  ["converts strong", "<strong>bold</strong>", "**bold**"],
-  ["converts italic", "<i>italic</i>", "_italic_"],
-  ["converts em", "<em>italic</em>", "_italic_"],
-  [
-    "converts links",
-    '<a href="https://example.com">click</a>',
-    "[click](https://example.com)",
-  ],
-  ["converts list items", "<ul><li>one</li><li>two</li></ul>", "*   one"],
-  ["decodes HTML entities", "<p>&amp; &lt; &gt; &quot;</p>", '& < > "'],
-  ["strips remaining tags", "<div><span>text</span></div>", "text"],
-  [
-    "strips head section",
-    "<head><title>T</title></head><body>content</body>",
-    "content",
-  ],
-];
-
-for (const [name, input, expected] of HTML_TO_MD_CASES) {
-  Deno.test(`htmlToMarkdown: ${name}`, () => {
-    assertStringIncludes(_internals.htmlToMarkdown(input), expected);
-  });
-}
-
 // --- helpers ---
 
 function mockFetch(body: string, status = 200, statusText = "OK") {
@@ -54,32 +18,22 @@ function mockFetch(body: string, status = 200, statusText = "OK") {
 
 // --- getBuiltinToolSchemas ---
 
-Deno.test("getBuiltinToolSchemas returns requested + required tools", () => {
+Deno.test("getBuiltinToolSchemas returns requested tools", () => {
   const schemas = getBuiltinToolSchemas([
     "web_search",
     "visit_webpage",
     "run_code",
     "fetch_json",
   ]);
-  assertStrictEquals(schemas.length, 6);
+  assertStrictEquals(schemas.length, 4);
   const names = schemas.map((s) => s.name);
-  assert(names.includes("final_answer"));
-  assert(names.includes("user_input"));
   assert(names.includes("web_search"));
+  assert(names.includes("fetch_json"));
 });
 
-Deno.test("getBuiltinToolSchemas always includes required tools", () => {
+Deno.test("getBuiltinToolSchemas returns empty for no tools", () => {
   const schemas = getBuiltinToolSchemas([]);
-  assertStrictEquals(schemas.length, 2);
-  const names = schemas.map((s) => s.name);
-  assert(names.includes("final_answer"));
-  assert(names.includes("user_input"));
-});
-
-Deno.test("getBuiltinToolSchemas does not duplicate final_answer", () => {
-  const schemas = getBuiltinToolSchemas(["final_answer", "web_search"]);
-  const names = schemas.map((s) => s.name);
-  assertStrictEquals(names.filter((n) => n === "final_answer").length, 1);
+  assertStrictEquals(schemas.length, 0);
 });
 
 // --- getBuiltinVercelTools ---

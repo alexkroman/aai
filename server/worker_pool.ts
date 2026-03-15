@@ -4,18 +4,18 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
 import type { AgentConfig } from "@aai/sdk/types";
 import type { ToolSchema } from "@aai/sdk/types";
-import {
-  createWorkerApi,
-  type HostApi,
-  type WorkerApi,
-} from "./_worker_entry.ts";
+import { createWorkerApi, type WorkerApi } from "./_worker_entry.ts";
 import type { ExecuteTool } from "./_worker_entry.ts";
+import type { HostApi, KvRequest } from "@aai/sdk/protocol";
+import { TOOL_EXECUTION_TIMEOUT_MS } from "@aai/sdk/protocol";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "./_schemas.ts";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";
 import { assertPublicUrl, getBuiltinToolSchemas } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
+import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
+import { KvRequestBaseSchema, WorkerFetchRequestSchema } from "./_schemas.ts";
 export type { AgentMetadata } from "./_schemas.ts";
 
 const IDLE_MS = 5 * 60 * 1000;
@@ -31,20 +31,18 @@ export type AgentSlot = {
   env: Record<string, string>;
   /** Supported transport types for this agent. */
   transport: readonly ("websocket" | "twilio")[];
-  /** Cached agent configuration extracted from the worker. */
-  config?: AgentConfig;
+  /** Agent configuration extracted at build time. */
+  config: AgentConfig;
   /** Human-readable agent name from the configuration. */
-  name?: string;
-  /** Cached tool schemas extracted from the worker. */
-  toolSchemas?: ToolSchema[];
+  name: string;
+  /** Tool schemas extracted at build time. */
+  toolSchemas: ToolSchema[];
   /** Credential hash of the agent owner (for KV scoping). */
   keyHash: string;
   /** Active worker handle and RPC API proxy. */
   worker?: { handle: { terminate(): void }; api: WorkerApi };
   /** Promise that resolves when the worker is done initializing. */
   initializing?: Promise<void>;
-  /** Whether the agent config has been loaded from the worker. */
-  configLoaded?: boolean;
   /** Timer handle for idle worker eviction. */
   idleTimer?: ReturnType<typeof setTimeout>;
 };
@@ -82,38 +80,33 @@ async function spawnAgent(
       }
       lastCrash = now;
       log.info("Respawning worker", { slug });
-      spawnAgent(slot, getWorkerCode, kvCtx).catch((err: unknown) => {
-        log.error("Worker respawn failed", {
-          slug,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
+      spawnAgent(slot, getWorkerCode, kvCtx).catch(
+        (err: unknown) => {
+          log.error("Worker respawn failed", {
+            slug,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        },
+      );
     }) as EventListener,
   );
 
-  const api = createWorkerApi(worker, createHostApi(kvCtx));
+  const api = createWorkerApi(worker, createHostApi(kvCtx), slot.env);
   slot.worker = { handle: worker, api };
-
-  if (!slot.configLoaded) {
-    const { config, toolSchemas } = await api.getConfig();
-    slot.config = config;
-    slot.name = config.name;
-    slot.toolSchemas = toolSchemas;
-    slot.configLoaded = true;
-  }
 }
 
 function createHostApi(
   kvCtx?: { kvStore: KvStore; scope: AgentScope },
 ): HostApi {
   return {
-    async fetch(req) {
-      await assertPublicUrl(req.url);
-      const resp = await fetch(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: req.body,
-        signal: AbortSignal.timeout(30_000),
+    async fetch(req: Parameters<HostApi["fetch"]>[0]) {
+      const parsed = WorkerFetchRequestSchema.parse(req);
+      await assertPublicUrl(parsed.url);
+      const resp = await fetch(parsed.url, {
+        method: parsed.method,
+        headers: parsed.headers,
+        body: parsed.body,
+        signal: AbortSignal.timeout(5_000),
       });
       const body = await resp.text();
       const headers: Record<string, string> = {};
@@ -128,28 +121,38 @@ function createHostApi(
       };
     },
 
-    async kv(req): Promise<{ result: unknown }> {
+    async kv(req: KvRequest): Promise<{ result: unknown }> {
       if (!kvCtx) throw new Error("KV not configured for this agent");
+      const validated = KvRequestBaseSchema.parse(req);
       const { kvStore, scope } = kvCtx;
-      switch (req.op) {
+      switch (validated.op) {
         case "get":
-          return { result: await kvStore.get(scope, req.key) };
+          return { result: await kvStore.get(scope, validated.key) };
         case "set":
-          await kvStore.set(scope, req.key, req.value, req.ttl);
+          await kvStore.set(
+            scope,
+            validated.key,
+            validated.value,
+            validated.ttl,
+          );
           return { result: "OK" };
         case "del":
-          await kvStore.del(scope, req.key);
+          await kvStore.del(scope, validated.key);
           return { result: "OK" };
         case "list":
           return {
-            result: await kvStore.list(scope, req.prefix, {
-              ...(req.limit !== undefined && { limit: req.limit }),
-              ...(req.reverse !== undefined && { reverse: req.reverse }),
+            result: await kvStore.list(scope, validated.prefix, {
+              ...(validated.limit !== undefined && {
+                limit: validated.limit,
+              }),
+              ...(validated.reverse !== undefined && {
+                reverse: validated.reverse,
+              }),
             }),
           };
         default:
           throw new Error(
-            `Unknown KV operation: ${(req as { op: string }).op}`,
+            `Unknown KV operation: ${(validated as { op: string }).op}`,
           );
       }
     },
@@ -185,8 +188,8 @@ function resetIdleTimer(slot: AgentSlot): void {
 export function ensureAgent(
   slot: AgentSlot,
   opts?: {
-    getWorkerCode?: (slug: string) => Promise<string | null>;
-    kvCtx?: { kvStore: KvStore; scope: AgentScope };
+    getWorkerCode?: ((slug: string) => Promise<string | null>) | undefined;
+    kvCtx?: { kvStore: KvStore; scope: AgentScope } | undefined;
   },
 ): Promise<void> {
   const getWorkerCode = opts?.getWorkerCode;
@@ -199,15 +202,17 @@ export function ensureAgent(
   }
   if (slot.initializing) return slot.initializing;
 
-  slot.initializing = spawnAgent(slot, getWorkerCode, kvCtx).then(() => {
-    delete slot.initializing;
-    resetIdleTimer(slot);
-    log.info("Agent ready", {
-      slug: slot.slug,
-      name: slot.name,
-      durationMs: Math.round(performance.now() - t0),
-    });
-  }).catch((err) => {
+  slot.initializing = spawnAgent(slot, getWorkerCode, kvCtx).then(
+    () => {
+      delete slot.initializing;
+      resetIdleTimer(slot);
+      log.info("Agent ready", {
+        slug: slot.slug,
+        name: slot.name,
+        durationMs: Math.round(performance.now() - t0),
+      });
+    },
+  ).catch((err) => {
     delete slot.initializing;
     throw err;
   });
@@ -244,6 +249,9 @@ export function registerSlot(
     env: metadata.env,
     transport: metadata.transport,
     keyHash: metadata.credential_hashes[0] ?? "",
+    config: metadata.config,
+    name: metadata.config.name,
+    toolSchemas: metadata.toolSchemas,
   });
   return true;
 }
@@ -262,6 +270,10 @@ export type SessionSetup = {
   getWorkerApi: () => Promise<WorkerApi>;
   /** Environment variables available to the agent. */
   env?: Record<string, string | undefined>;
+  /** Vector store context for the built-in vector_search tool. */
+  vectorCtx?:
+    | { vectorStore: ServerVectorStore; scope: AgentScope }
+    | undefined;
 };
 
 /**
@@ -279,10 +291,16 @@ export type SessionSetup = {
  */
 export async function prepareSession(
   slot: AgentSlot,
-  opts: { slug: string; store: BundleStore; kvStore: KvStore },
+  opts: {
+    slug: string;
+    store: BundleStore;
+    kvStore: KvStore;
+    vectorStore?: ServerVectorStore | undefined;
+  },
 ): Promise<SessionSetup> {
-  const { slug, store, kvStore } = opts;
-  const kvCtx = { kvStore, scope: { keyHash: slot.keyHash, slug } };
+  const { slug, store, kvStore, vectorStore } = opts;
+  const scope = { keyHash: slot.keyHash, slug };
+  const kvCtx = { kvStore, scope };
   const getWorkerCode = (s: string) => store.getFile(s, "worker");
   const getWorkerApi = async () => {
     await ensureAgent(slot, { getWorkerCode, kvCtx });
@@ -290,15 +308,21 @@ export async function prepareSession(
   };
   const executeTool: ExecuteTool = async (name, args, sessionId, messages) => {
     const api = await getWorkerApi();
-    return api.executeTool(name, args, sessionId, 30_000, slot.env, messages);
+    return api.executeTool(
+      name,
+      args,
+      sessionId,
+      TOOL_EXECUTION_TIMEOUT_MS,
+      messages,
+    );
   };
 
   // Boot worker and extract config from agent definition
   await getWorkerApi();
-  const config = slot.config!;
+  const config = slot.config;
 
   const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
-  const toolSchemas = [...(slot.toolSchemas ?? []), ...builtinTools];
+  const toolSchemas = [...slot.toolSchemas, ...builtinTools];
 
   return {
     agentConfig: config,
@@ -307,5 +331,6 @@ export async function prepareSession(
     executeTool,
     getWorkerApi,
     env: slot.env,
+    vectorCtx: vectorStore ? { vectorStore, scope } : undefined,
   };
 }

@@ -29,6 +29,8 @@ async function attemptDeploy(
   transport: string[],
   worker: string,
   html: string,
+  config: unknown,
+  toolSchemas: unknown,
 ): Promise<Response> {
   return await _internals.fetch(`${url}/${slug}/deploy`, {
     method: "POST",
@@ -41,6 +43,8 @@ async function attemptDeploy(
       worker,
       html,
       transport,
+      config,
+      toolSchemas,
     }),
   });
 }
@@ -54,6 +58,8 @@ export async function runDeploy(
   const worker = opts.bundle.worker;
   const html = opts.bundle.html;
   const transport = manifest.transport ?? ["websocket"];
+  const config = manifest.config;
+  const toolSchemas = manifest.toolSchemas;
 
   let slug = opts.slug;
 
@@ -73,6 +79,8 @@ export async function runDeploy(
       transport,
       worker,
       html,
+      config,
+      toolSchemas,
     );
 
     if (resp.ok) {

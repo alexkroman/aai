@@ -1,112 +1,31 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { batch, type Signal, signal } from "@preact/signals";
-import { PROTOCOL_VERSION, type ServerMessage } from "@aai/sdk/protocol";
+import { PROTOCOL_VERSION } from "@aai/sdk/protocol";
+import type {
+  ClientEvent,
+  ClientMessage,
+  ReadyConfig,
+  ServerMessage,
+} from "@aai/sdk/protocol";
 
 const SUPPORTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
-const SUPPORTED_AUDIO_FORMATS = new Set(["pcm16"]);
 
-import {
-  type AgentState,
-  INITIAL_BACKOFF_MS,
-  MAX_BACKOFF_MS,
-  MAX_RECONNECT_ATTEMPTS,
-  type Message,
-  PING_INTERVAL_MS,
-  type SessionError,
-  type SessionOptions,
+import type {
+  AgentState,
+  Message,
+  SessionError,
+  SessionOptions,
+  ToolCallInfo,
 } from "./types.ts";
 
 import type { VoiceIO } from "./audio.ts";
 
-/** Reconnection state machine with exponential backoff. */
-export type Reconnect = {
-  /** Whether more reconnection attempts are available. */
-  readonly canRetry: boolean;
-  /**
-   * Schedule the next reconnection attempt with exponential backoff.
-   *
-   * @param cb - Callback to invoke when the backoff timer fires.
-   * @returns `true` if the attempt was scheduled, `false` if max attempts reached.
-   */
-  schedule(cb: () => void): boolean;
-  /** Cancel any pending reconnection timer. */
-  cancel(): void;
-  /** Reset the attempt counter back to zero. */
-  reset(): void;
-};
-
-/**
- * Create a reconnection handler with exponential backoff.
- *
- * @param maxAttempts - Maximum number of reconnection attempts before giving up.
- *   Defaults to {@linkcode MAX_RECONNECT_ATTEMPTS}.
- * @param maxBackoff - Maximum backoff delay in milliseconds.
- *   Defaults to {@linkcode MAX_BACKOFF_MS}.
- * @param initialBackoff - Initial backoff delay in milliseconds.
- *   Defaults to {@linkcode INITIAL_BACKOFF_MS}.
- * @returns A {@linkcode Reconnect} state machine.
- */
-export function createReconnect(
-  opts?: {
-    maxAttempts?: number;
-    maxBackoff?: number;
-    initialBackoff?: number;
-  },
-): Reconnect {
-  const maxAttempts = opts?.maxAttempts ?? MAX_RECONNECT_ATTEMPTS;
-  const maxBackoff = opts?.maxBackoff ?? MAX_BACKOFF_MS;
-  const initialBackoff = opts?.initialBackoff ?? INITIAL_BACKOFF_MS;
-  let attempts = 0;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  return {
-    get canRetry() {
-      return attempts < maxAttempts;
-    },
-    schedule(cb) {
-      if (attempts >= maxAttempts) return false;
-      const ms = Math.min(initialBackoff * 2 ** attempts, maxBackoff);
-      attempts++;
-      timer = setTimeout(() => {
-        timer = null;
-        cb();
-      }, ms);
-      return true;
-    },
-    cancel() {
-      if (timer !== null) {
-        clearTimeout(timer);
-        timer = null;
-      }
-    },
-    reset() {
-      attempts = 0;
-    },
-  };
-}
-
-/**
- * Parse a JSON string into a ServerMessage.
- *
- * @param data - Raw JSON string received from the WebSocket.
- * @returns The parsed {@linkcode ServerMessage}, or `null` if parsing fails
- *   or the payload is not a valid message object.
- */
-export function parseServerMessage(data: string): ServerMessage | null {
-  try {
-    const msg = JSON.parse(data);
-    if (
-      typeof msg !== "object" || msg === null || typeof msg.type !== "string"
-    ) return null;
-    return msg as ServerMessage;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * A reactive voice session that manages WebSocket communication,
  * audio capture/playback, and agent state transitions.
+ *
+ * Uses plain JSON text frames and binary audio frames for communication
+ * and native WebSocket for the connection.
  *
  * Implements {@linkcode Disposable} for resource cleanup via `using`.
  */
@@ -115,6 +34,8 @@ export type VoiceSession = {
   readonly state: Signal<AgentState>;
   /** Chat message history for the session. */
   readonly messages: Signal<Message[]>;
+  /** Active tool calls for the current turn. */
+  readonly toolCalls: Signal<ToolCallInfo[]>;
   /** Live partial transcript from the STT engine. */
   readonly transcript: Signal<string>;
   /** Current session error, or `null` if no error. */
@@ -141,40 +62,211 @@ export type VoiceSession = {
 };
 
 /**
+ * Handles server→client messages and updates reactive Preact signals
+ * accordingly (state transitions, transcripts, messages, audio playback).
+ */
+/** @internal Exported for testing only. */
+export class ClientHandler {
+  #state: Signal<AgentState>;
+  #messages: Signal<Message[]>;
+  #toolCalls: Signal<ToolCallInfo[]>;
+  #transcript: Signal<string>;
+  #error: Signal<SessionError | null>;
+  #voiceIO: () => VoiceIO | null;
+  #streaming = false;
+  constructor(opts: {
+    state: Signal<AgentState>;
+    messages: Signal<Message[]>;
+    toolCalls: Signal<ToolCallInfo[]>;
+    transcript: Signal<string>;
+    error: Signal<SessionError | null>;
+    voiceIO: () => VoiceIO | null;
+  }) {
+    this.#state = opts.state;
+    this.#messages = opts.messages;
+    this.#toolCalls = opts.toolCalls;
+    this.#transcript = opts.transcript;
+    this.#error = opts.error;
+    this.#voiceIO = opts.voiceIO;
+  }
+
+  /** Single entry point for all server→client session events. */
+  event(e: ClientEvent): void {
+    switch (e.type) {
+      case "transcript":
+        this.#transcript.value = e.text;
+        break;
+      case "turn":
+        this.#streaming = false;
+        batch(() => {
+          this.#transcript.value = "";
+          this.#messages.value = [
+            ...this.#messages.value,
+            { role: "user", text: e.text },
+          ];
+          this.#state.value = "thinking";
+        });
+        break;
+      case "chat":
+        this.#streaming = false;
+        this.#messages.value = [
+          ...this.#messages.value,
+          { role: "assistant", text: e.text },
+        ];
+        break;
+      case "chat_delta": {
+        const msgs = this.#messages.value;
+        if (this.#streaming) {
+          // Append delta to the current streaming message
+          const last = msgs[msgs.length - 1]!;
+          this.#messages.value = [
+            ...msgs.slice(0, -1),
+            { role: "assistant", text: last.text + e.delta },
+          ];
+        } else {
+          // First delta of a new turn — start a new message
+          this.#streaming = true;
+          this.#messages.value = [
+            ...msgs,
+            { role: "assistant", text: e.delta },
+          ];
+        }
+        break;
+      }
+      case "tool_call_start":
+        this.#toolCalls.value = [
+          ...this.#toolCalls.value,
+          {
+            toolCallId: e.toolCallId,
+            toolName: e.toolName,
+            args: e.args,
+            status: "pending",
+            afterMessageIndex: this.#messages.value.length - 1,
+          },
+        ];
+        break;
+      case "tool_call_done": {
+        const tcs = this.#toolCalls.value;
+        const idx = tcs.findIndex(
+          (tc) => tc.toolCallId === e.toolCallId,
+        );
+        if (idx !== -1) {
+          const updated = [...tcs];
+          updated[idx] = { ...updated[idx]!, status: "done", result: e.result };
+          this.#toolCalls.value = updated;
+        }
+        break;
+      }
+      case "tts_done":
+        // No-audio turns (stt-only, empty LLM result) still use this event
+        // to transition back to listening. Audio turns signal via stream end.
+        this.#state.value = "listening";
+        break;
+      case "cancelled":
+        this.#voiceIO()?.flush();
+        this.#state.value = "listening";
+        break;
+      case "reset": {
+        this.#voiceIO()?.flush();
+        batch(() => {
+          this.#messages.value = [];
+          this.#toolCalls.value = [];
+          this.#transcript.value = "";
+          this.#error.value = null;
+          this.#state.value = "listening";
+        });
+        break;
+      }
+      case "error":
+        console.error("Agent error:", e.message);
+        batch(() => {
+          this.#error.value = {
+            code: e.code,
+            message: e.message,
+          };
+          this.#state.value = "error";
+        });
+        break;
+    }
+  }
+
+  playAudioChunk(chunk: Uint8Array): void {
+    if (this.#state.value === "error") return;
+    if (this.#state.value !== "speaking") {
+      this.#state.value = "speaking";
+    }
+    this.#voiceIO()?.enqueue(chunk.buffer as ArrayBuffer);
+  }
+
+  playAudioDone(): void {
+    const io = this.#voiceIO();
+    if (io) {
+      void io.done().then(() => {
+        this.#state.value = "listening";
+      });
+    } else {
+      this.#state.value = "listening";
+    }
+  }
+
+  /**
+   * Dispatch an incoming WebSocket message (text or binary).
+   *
+   * Returns the parsed config if the message is a `config` message,
+   * otherwise `null`.
+   */
+  handleMessage(data: string | ArrayBuffer): ReadyConfig | null {
+    // Binary frame → raw PCM16 TTS audio
+    if (data instanceof ArrayBuffer) {
+      this.playAudioChunk(new Uint8Array(data));
+      return null;
+    }
+
+    // Text frame → JSON message
+    let msg: ServerMessage;
+    try {
+      msg = JSON.parse(data);
+    } catch {
+      return null;
+    }
+
+    if (msg.type === "config") {
+      const { type: _, ...config } = msg;
+      return config as ReadyConfig;
+    }
+
+    if (msg.type === "audio_done") {
+      this.playAudioDone();
+      return null;
+    }
+
+    // All other messages are ClientEvent
+    this.event(msg as ClientEvent);
+    return null;
+  }
+}
+
+/**
  * Create a voice session that connects to an AAI server via WebSocket.
  *
- * Manages the full lifecycle of a voice conversation: WebSocket connection
- * with automatic reconnection, microphone capture, TTS playback, and
- * reactive state updates via Preact signals.
+ * Uses plain JSON text frames and binary audio frames for communication.
  *
  * @param options - Session configuration including the platform server URL.
  * @returns A {@linkcode VoiceSession} handle for controlling the session.
  */
 export function createVoiceSession(options: SessionOptions): VoiceSession {
-  const state = signal<AgentState>("connecting");
+  const state = signal<AgentState>("disconnected");
   const messages = signal<Message[]>([]);
+  const toolCalls = signal<ToolCallInfo[]>([]);
   const transcript = signal<string>("");
   const error = signal<SessionError | null>(null);
   const disconnected = signal<{ intentional: boolean } | null>(null);
 
   let ws: WebSocket | null = null;
   let voiceIO: VoiceIO | null = null;
-  const reconnector = createReconnect();
   let connectionController: AbortController | null = null;
   let hasConnected = false;
   let audioSetupInFlight = false;
-  let pongReceived = true;
-
-  function trySend(msg: Record<string, unknown>): boolean {
-    try {
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(msg));
-        return true;
-      }
-    } catch { /* ws may have closed between check and send */ }
-    return false;
-  }
-
   function cleanupAudio(): void {
     audioSetupInFlight = false;
     void voiceIO?.close();
@@ -184,73 +276,34 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   function resetState(): void {
     batch(() => {
       messages.value = [];
+      toolCalls.value = [];
       transcript.value = "";
       error.value = null;
     });
   }
 
-  function startPing(sig: AbortSignal): void {
-    pongReceived = true;
-    const id = setInterval(() => {
-      if (!pongReceived) {
-        ws?.close();
-        return;
-      }
-      pongReceived = false;
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "ping" }));
-      }
-    }, PING_INTERVAL_MS);
-    sig.addEventListener("abort", () => clearInterval(id));
-  }
-
-  function scheduleReconnect(): void {
-    const scheduled = reconnector.schedule(() => {
-      connect();
-    });
-    if (!scheduled) {
-      batch(() => {
-        error.value = {
-          code: "connection",
-          message: "Connection lost. Please refresh.",
-        };
-        state.value = "error";
-      });
-      return;
+  function send(msg: ClientMessage): void {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
     }
-    state.value = "connecting";
   }
 
-  async function handleReady(
-    msg: Extract<ServerMessage, { type: "ready" }>,
-  ): Promise<void> {
+  function sendBinary(data: ArrayBuffer): void {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(data);
+    }
+  }
+
+  async function handleReady(msg: ReadyConfig): Promise<void> {
     if (audioSetupInFlight) return;
 
-    // Protocol version check — reject incompatible servers (undefined = old server, allow)
-    const serverVersion = msg.protocol_version;
-    if (
-      serverVersion !== undefined &&
-      serverVersion !== SUPPORTED_PROTOCOL_VERSION
-    ) {
+    // Protocol version check
+    if (msg.protocolVersion !== SUPPORTED_PROTOCOL_VERSION) {
       batch(() => {
         error.value = {
           code: "protocol",
           message:
-            `Server protocol v${serverVersion} is not compatible with client v${SUPPORTED_PROTOCOL_VERSION}. Please redeploy your agent.`,
-        };
-        state.value = "error";
-      });
-      return;
-    }
-
-    // Audio format check — reject unknown formats (undefined = old server, default to pcm16)
-    const audioFormat = msg.audio_format ?? "pcm16";
-    if (!SUPPORTED_AUDIO_FORMATS.has(audioFormat)) {
-      batch(() => {
-        error.value = {
-          code: "protocol",
-          message:
-            `Unsupported audio format "${audioFormat}". Please redeploy your agent.`,
+            `Server protocol v${msg.protocolVersion} is not compatible with client v${SUPPORTED_PROTOCOL_VERSION}. Please redeploy your agent.`,
         };
         state.value = "error";
       });
@@ -272,25 +325,27 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
           m.default as unknown as string
         ),
       ]);
-      const currentWs = ws!;
       const io = await createVoiceIO({
-        sttSampleRate: msg.sample_rate,
-        ttsSampleRate: msg.tts_sample_rate,
+        sttSampleRate: msg.sampleRate,
+        ttsSampleRate: msg.ttsSampleRate,
         captureWorkletSrc: captureWorklet,
         playbackWorkletSrc: playbackWorklet,
         onMicData: (pcm16: ArrayBuffer) => {
-          if (currentWs.readyState === WebSocket.OPEN) currentWs.send(pcm16);
+          if (state.value !== "listening") return;
+          try {
+            sendBinary(pcm16);
+          } catch { /* connection may be closed */ }
         },
       });
-      if (ws?.readyState !== WebSocket.OPEN) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
         io.close();
         return;
       }
       voiceIO = io;
-      ws.send(JSON.stringify({ type: "audio_ready" }));
+      send({ type: "audio_ready" });
       state.value = "listening";
     } catch (err: unknown) {
-      if (ws?.readyState !== WebSocket.OPEN) return;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
       batch(() => {
         error.value = {
           code: "audio",
@@ -305,76 +360,9 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     }
   }
 
-  function handleServerMessage(event: MessageEvent): void {
-    if (event.data instanceof ArrayBuffer) {
-      if (state.value === "speaking") {
-        voiceIO?.enqueue(event.data);
-      }
-      return;
-    }
-
-    const msg = parseServerMessage(event.data as string);
-    if (!msg) return;
-
-    batch(() => {
-      switch (msg.type) {
-        case "ready":
-          hasConnected = true;
-          reconnector.reset();
-          void handleReady(msg);
-          break;
-        case "partial_transcript":
-          transcript.value = msg.text;
-          break;
-        case "final_transcript":
-          transcript.value = msg.text;
-          break;
-        case "turn":
-          transcript.value = "";
-          messages.value = [
-            ...messages.value,
-            { role: "user", text: msg.text },
-          ];
-          state.value = "thinking";
-          break;
-        case "chat":
-          messages.value = [
-            ...messages.value,
-            { role: "assistant", text: msg.text },
-          ];
-          state.value = "speaking";
-          break;
-        case "tts_done":
-          voiceIO?.done();
-          state.value = "listening";
-          break;
-        case "cancelled":
-          voiceIO?.flush();
-          state.value = "listening";
-          break;
-        case "reset":
-          voiceIO?.flush();
-          resetState();
-          break;
-        case "pong":
-          pongReceived = true;
-          break;
-        case "error": {
-          const details = msg.details;
-          const fullMessage = details?.length
-            ? `${msg.message}: ${details.join(", ")}`
-            : msg.message;
-          console.error("Agent error:", fullMessage);
-          error.value = { code: "protocol", message: fullMessage };
-          state.value = "error";
-          break;
-        }
-      }
-    });
-  }
-
   function connect(opts?: { signal?: AbortSignal }): void {
     disconnected.value = null;
+    state.value = "connecting";
     connectionController?.abort();
     const controller = new AbortController();
     connectionController = controller;
@@ -390,49 +378,67 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     const wsUrl = new URL("websocket", base.endsWith("/") ? base : base + "/");
     wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
     if (hasConnected) wsUrl.searchParams.set("resume", "1");
-    const socket = new WebSocket(wsUrl);
-    ws = socket;
+
+    const socket = new WebSocket(wsUrl.toString());
     socket.binaryType = "arraybuffer";
+    ws = socket;
+
+    const handler = new ClientHandler({
+      state,
+      messages,
+      toolCalls,
+      transcript,
+      error,
+      voiceIO: () => voiceIO,
+    });
 
     socket.addEventListener("open", () => {
-      if (hasConnected && messages.value.length > 0) {
-        socket.send(JSON.stringify({
-          type: "history",
-          messages: messages.value.map((m) => ({
-            role: m.role,
-            text: m.text,
-          })),
-        }));
-      }
       state.value = "ready";
-      startPing(sig);
     }, { signal: sig });
 
-    socket.addEventListener("message", (event) => {
-      handleServerMessage(event);
+    socket.addEventListener("message", (event: Event) => {
+      const msgEvent = event as MessageEvent;
+      const config = handler.handleMessage(msgEvent.data);
+      if (config) {
+        hasConnected = true;
+        void handleReady(config);
+
+        // Send history if reconnecting
+        if (hasConnected && messages.value.length > 0) {
+          send({
+            type: "history",
+            messages: messages.value.map((m) => ({
+              role: m.role,
+              text: m.text,
+            })),
+          });
+        }
+      }
     }, { signal: sig });
 
     socket.addEventListener("close", () => {
       if (sig.aborted) {
-        state.value = "connecting";
         return;
       }
       controller.abort();
       disconnected.value = { intentional: false };
       cleanupAudio();
-      scheduleReconnect();
+      state.value = "disconnected";
     }, { signal: sig });
   }
 
   function cancel(): void {
     voiceIO?.flush();
     state.value = "listening";
-    trySend({ type: "cancel" });
+    send({ type: "cancel" });
   }
 
   function reset(): void {
     voiceIO?.flush();
-    if (trySend({ type: "reset" })) return;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      send({ type: "reset" });
+      return;
+    }
     resetState();
     disconnect();
     connect();
@@ -441,17 +447,17 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   function disconnect(): void {
     connectionController?.abort();
     connectionController = null;
-    reconnector.cancel();
     cleanupAudio();
     ws?.close();
     ws = null;
-    state.value = "connecting";
+    state.value = "disconnected";
     disconnected.value = { intentional: true };
   }
 
   return {
     state,
     messages,
+    toolCalls,
     transcript,
     error,
     disconnected,

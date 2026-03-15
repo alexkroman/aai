@@ -1,11 +1,11 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assert, assertEquals, assertStrictEquals } from "@std/assert";
-import { createTtsConnection } from "./tts.ts";
-import { DEFAULT_TTS_CONFIG } from "./types.ts";
+import { createRimeTtsConnection } from "./tts_rime.ts";
+import { DEFAULT_RIME_TTS_CONFIG } from "./types.ts";
 import { installMockWebSocket } from "@aai/sdk/testing";
 import { flush } from "./_test_utils.ts";
 
-const config = { ...DEFAULT_TTS_CONFIG, apiKey: "test-tts-key" };
+const config = { ...DEFAULT_RIME_TTS_CONFIG, apiKey: "test-tts-key" };
 
 async function* textStream(...texts: string[]): AsyncGenerator<string> {
   for (const t of texts) yield t;
@@ -14,7 +14,7 @@ async function* textStream(...texts: string[]): AsyncGenerator<string> {
 Deno.test("TtsConnection", async (t) => {
   await t.step("does not create a WebSocket on construction", () => {
     using mockWs = installMockWebSocket();
-    const _conn = createTtsConnection(config);
+    const _conn = createRimeTtsConnection(config);
     assertStrictEquals(mockWs.created.length, 0);
   });
 
@@ -22,7 +22,7 @@ Deno.test("TtsConnection", async (t) => {
     "synthesizeStream sends text chunks + FLUSH and relays audio",
     async () => {
       using mockWs = installMockWebSocket();
-      const conn = createTtsConnection(config);
+      const conn = createRimeTtsConnection(config);
 
       const chunks: Uint8Array[] = [];
       const promise = conn.synthesizeStream(
@@ -57,7 +57,7 @@ Deno.test("TtsConnection", async (t) => {
     "resolves immediately when signal is already aborted",
     async () => {
       using _mockWs = installMockWebSocket();
-      const conn = createTtsConnection(config);
+      const conn = createRimeTtsConnection(config);
       const controller = new AbortController();
       controller.abort();
 
@@ -73,7 +73,7 @@ Deno.test("TtsConnection", async (t) => {
 
   await t.step("aborts mid-synthesis and closes WebSocket", async () => {
     using mockWs = installMockWebSocket();
-    const conn = createTtsConnection(config);
+    const conn = createRimeTtsConnection(config);
 
     const controller = new AbortController();
     const chunks: Uint8Array[] = [];
@@ -93,7 +93,7 @@ Deno.test("TtsConnection", async (t) => {
 
   await t.step("close sends EOS and prevents further synthesis", async () => {
     using mockWs = installMockWebSocket();
-    const conn = createTtsConnection(config);
+    const conn = createRimeTtsConnection(config);
 
     const p = conn.synthesizeStream(textStream("Hello"), () => {});
     await flush();
@@ -108,7 +108,7 @@ Deno.test("TtsConnection", async (t) => {
   });
 
   await t.step("close is idempotent", () => {
-    const conn = createTtsConnection(config);
+    const conn = createRimeTtsConnection(config);
     conn.close();
     conn.close();
     assertStrictEquals(conn.closed, true);

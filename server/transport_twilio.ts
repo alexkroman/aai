@@ -3,15 +3,13 @@ import * as log from "@std/log";
 import { escape } from "@std/html";
 import { STATUS_CODE } from "@std/http/status";
 import { HttpError, type RouteContext } from "./context.ts";
-import { concat } from "@std/bytes/concat";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { type AgentSlot, prepareSession } from "./worker_pool.ts";
-import { createSession, type SessionTransport } from "./session.ts";
+import { createSession } from "./session.ts";
+import type { ClientSink } from "@aai/sdk/protocol";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-  ServerMessageSchema,
-  TwilioMessageSchema,
 } from "@aai/sdk/protocol";
 import { mulawToPcm16, pcm16ToMulaw, resample } from "./mulaw.ts";
 
@@ -26,51 +24,39 @@ export type WsSink = {
 };
 
 /**
- * Creates a session transport that bridges between the internal PCM16 audio
- * format and Twilio's mu-law encoded media stream protocol.
+ * Creates a {@linkcode ClientSink} that bridges between the session layer
+ * and Twilio's mu-law encoded media stream protocol.
+ *
+ * Text events (chat, error) are logged. Audio is converted from PCM16
+ * to mu-law and sent as Twilio media frames.
  */
-export function createTwilioTransport(ws: WsSink): SessionTransport & {
-  streamSid: string | null;
-} {
-  let streamSid: string | null = null;
-
+export function createTwilioClientSink(
+  ws: WsSink,
+  streamSidRef: { current: string | null },
+): ClientSink {
   return {
-    get readyState() {
-      return ws.readyState as 0 | 1 | 2 | 3;
+    get open() {
+      return ws.readyState === WebSocket.OPEN;
     },
-    get streamSid() {
-      return streamSid;
-    },
-    set streamSid(sid: string | null) {
-      streamSid = sid;
-    },
-    send(data: string | ArrayBuffer | Uint8Array) {
-      if (ws.readyState !== WebSocket.OPEN) return;
 
-      if (typeof data === "string") {
-        try {
-          const parsed = ServerMessageSchema.safeParse(JSON.parse(data));
-          if (parsed.success) {
-            const msg = parsed.data;
-            if (msg.type === "chat") {
-              log.info("Agent response", {
-                text: msg.text.slice(0, 100),
-              });
-            } else if (msg.type === "error") {
-              log.error("Session error", { message: msg.message });
-            }
-          }
-        } catch { /* ignore */ }
-        return;
+    // Text events — log only, Twilio doesn't display text
+    event(e) {
+      if (e.type === "chat") {
+        log.info("Agent response", { text: e.text.slice(0, 100) });
+      } else if (e.type === "error") {
+        log.error("Session error", { message: e.message });
       }
+    },
 
-      const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
-      if (!streamSid || bytes.length < 2) return;
+    // Audio — convert PCM16 chunks to mu-law Twilio frames
+    playAudioChunk(chunk) {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      if (!streamSidRef.current || chunk.length < 2) return;
 
       const pcm16 = new Int16Array(
-        bytes.buffer,
-        bytes.byteOffset,
-        bytes.byteLength >> 1,
+        chunk.buffer,
+        chunk.byteOffset,
+        chunk.byteLength >> 1,
       );
       const mulaw = pcm16ToMulaw(
         resample(pcm16, {
@@ -80,9 +66,12 @@ export function createTwilioTransport(ws: WsSink): SessionTransport & {
       );
       ws.send(JSON.stringify({
         event: "media",
-        streamSid,
+        streamSid: streamSidRef.current,
         media: { payload: encodeBase64(mulaw) },
       }));
+    },
+    playAudioDone() {
+      // Twilio doesn't need an explicit "done" signal
     },
   };
 }
@@ -92,23 +81,28 @@ const MIN_AUDIO_BYTES = 3200;
 /**
  * Creates a buffer that accumulates small audio chunks and flushes them
  * in larger batches to reduce per-frame overhead.
+ *
+ * Uses a pre-allocated buffer to avoid per-push allocations.
  */
 export function createAudioBuffer(
   flush: (chunk: Uint8Array) => void,
 ): { push(data: Uint8Array): void; drain(): void } {
-  let buf = new Uint8Array(0);
+  // Pre-allocate 2x the flush threshold to avoid reallocation.
+  const buf = new Uint8Array(MIN_AUDIO_BYTES * 2);
+  let offset = 0;
   return {
     push(data: Uint8Array) {
-      buf = concat([buf, data]);
-      if (buf.length >= MIN_AUDIO_BYTES) {
-        flush(buf);
-        buf = new Uint8Array(0);
+      buf.set(data, offset);
+      offset += data.byteLength;
+      if (offset >= MIN_AUDIO_BYTES) {
+        flush(buf.slice(0, offset));
+        offset = 0;
       }
     },
     drain() {
-      if (buf.length > 0) {
-        flush(buf);
-        buf = new Uint8Array(0);
+      if (offset > 0) {
+        flush(buf.slice(0, offset));
+        offset = 0;
       }
     },
   };
@@ -165,10 +159,12 @@ export function handleTwilioVoice(
   );
 }
 
+import { TwilioMessageSchema } from "@aai/sdk/protocol";
+
 /**
  * Handler that upgrades to a WebSocket for Twilio media streams.
  *
- * Creates a session with a Twilio transport adapter, handles mu-law audio
+ * Creates a session with a Twilio client sink, handles mu-law audio
  * conversion, and manages the Twilio stream lifecycle events (start, media, stop).
  */
 export async function handleTwilioStream(
@@ -182,21 +178,22 @@ export async function handleTwilioStream(
     slug,
     store: ctx.state.store,
     kvStore: ctx.state.kvStore,
+    vectorStore: ctx.state.vectorStore ?? undefined,
   });
 
   const { socket, response } = Deno.upgradeWebSocket(ctx.req);
 
-  type TwilioTransport = SessionTransport & { streamSid: string | null };
-  let transport: TwilioTransport;
+  const streamSidRef = { current: null as string | null };
+  let client: ClientSink;
   let session: ReturnType<typeof createSession>;
   let audioBuf: ReturnType<typeof createAudioBuffer>;
 
   socket.addEventListener("open", () => {
-    transport = createTwilioTransport(socket);
+    client = createTwilioClientSink(socket, streamSidRef);
     session = createSession({
       id: `twilio-${crypto.randomUUID().slice(0, 8)}`,
       agent: slug,
-      transport,
+      client,
       ...setup,
     });
     audioBuf = createAudioBuffer((chunk) => session.onAudio(chunk));
@@ -205,7 +202,7 @@ export async function handleTwilioStream(
   });
 
   socket.addEventListener("message", (event: Event) => {
-    if (!session || !transport) return;
+    if (!session || !client) return;
     const msgEvent = event as MessageEvent;
     if (typeof msgEvent.data !== "string") return;
     if ((msgEvent.data as string).length > 1_000_000) return;
@@ -221,10 +218,10 @@ export async function handleTwilioStream(
 
     switch (msg.event) {
       case "start":
-        transport.streamSid = msg.start.streamSid;
+        streamSidRef.current = msg.start.streamSid;
         log.info("Twilio stream started", {
           slug,
-          streamSid: transport.streamSid,
+          streamSid: streamSidRef.current,
         });
         session.onAudioReady();
         break;

@@ -15,7 +15,9 @@ import {
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { handleTwilioStream, handleTwilioVoice } from "./transport_twilio.ts";
 import { handleKv } from "./kv_handler.ts";
+import { handleVector } from "./vector_handler.ts";
 import type { KvStore } from "./kv.ts";
+import type { ServerVectorStore } from "./vector.ts";
 import type { ScopeKey } from "./scope_token.ts";
 import { serialize as serializeMetrics, serializeForAgent } from "./metrics.ts";
 import {
@@ -65,6 +67,7 @@ function ctx(
 export function createOrchestrator(opts: {
   store: BundleStore;
   kvStore: KvStore;
+  vectorStore?: ServerVectorStore | undefined;
   scopeKey: ScopeKey;
 }): Deno.ServeHandler {
   const state: AppState = {
@@ -72,6 +75,7 @@ export function createOrchestrator(opts: {
     sessions: new Map(),
     store: opts.store,
     kvStore: opts.kvStore,
+    vectorStore: opts.vectorStore,
     scopeKey: opts.scopeKey,
   };
 
@@ -179,6 +183,19 @@ export function createOrchestrator(opts: {
         validateSlug(c.params);
         const scope = await requireScopeToken(req, state.scopeKey);
         return handleKv(c, scope);
+      },
+    },
+    {
+      pattern: p("/:slug/vector"),
+      method: "POST",
+      handler: async (req, match, info) => {
+        const c = ctx(req, match, info, state);
+        const slug = validateSlug(c.params);
+        const keyHash = await requireOwner(req, {
+          slug,
+          store: state.store,
+        });
+        return handleVector(c, { keyHash, slug });
       },
     },
     {

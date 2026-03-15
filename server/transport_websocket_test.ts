@@ -2,7 +2,12 @@
 import { assertNotStrictEquals, assertStrictEquals } from "@std/assert";
 import { discoverSlot, resolveSlot } from "./transport_websocket.ts";
 import type { AgentSlot } from "./worker_pool.ts";
-import { createTestStore, makeSlot, VALID_ENV } from "./_test_utils.ts";
+import {
+  createTestStore,
+  makeConfig,
+  makeSlot,
+  VALID_ENV,
+} from "./_test_utils.ts";
 
 // --- discoverSlot ---
 
@@ -33,6 +38,8 @@ Deno.test("discoverSlot lazy-loads from store", async () => {
     worker: "console.log('w');",
     html: "<html></html>",
     credential_hashes: ["hash1"],
+    config: makeConfig(),
+    toolSchemas: [],
   });
   const result = await discoverSlot("stored-agent", { slots, store });
   assertNotStrictEquals(result, null);

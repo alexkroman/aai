@@ -2,6 +2,7 @@
 import { join } from "@std/path";
 import { denoExec } from "./_discover.ts";
 import type { AgentEntry } from "./_discover.ts";
+import { extractStaticConfig } from "./_static_config.ts";
 
 /**
  * Error thrown when bundling fails.
@@ -21,7 +22,7 @@ export type BundleOutput = {
   worker: string;
   /** Single-file HTML page with inlined client JS and CSS. */
   html: string;
-  /** JSON manifest containing env var names and transport configuration. */
+  /** JSON manifest containing transport, config, and tool schemas. */
   manifest: string;
   /** Size of the worker bundle in bytes. */
   workerBytes: number;
@@ -200,6 +201,7 @@ function buildClient() {
           outDir: resolve(root, ".aai/build"),
           emptyOutDir: false,
           minify: true,
+          target: "es2022",
         },
       });
     },
@@ -266,6 +268,11 @@ export async function bundleAgent(
   const aaiDir = join(agent.dir, ".aai");
   await Deno.mkdir(aaiDir, { recursive: true });
 
+  // Extract agent config and tool schemas via static AST analysis (no eval)
+  const { config: agentConfig, toolSchemas } = await extractStaticConfig(
+    agent.entryPoint,
+  );
+
   // Generate build script and HTML shell into .aai/
   const buildScript = join(aaiDir, "_build.mts");
   await Deno.writeTextFile(buildScript, BUILD_SCRIPT);
@@ -303,7 +310,11 @@ export async function bundleAgent(
   const html = await Deno.readTextFile(htmlPath);
 
   const manifest = JSON.stringify(
-    { transport: agent.transport },
+    {
+      transport: agentConfig.transport ?? agent.transport,
+      config: agentConfig,
+      toolSchemas,
+    },
     null,
     2,
   );

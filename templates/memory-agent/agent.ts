@@ -1,4 +1,5 @@
-import { defineAgent, kvTools } from "@aai/sdk";
+import { defineAgent } from "@aai/sdk";
+import { z } from "zod";
 
 export default defineAgent({
   name: "Memory Agent",
@@ -18,6 +19,56 @@ database" — just confirm naturally, like "Got it, I'll remember that."`,
     "Hey there. I'm an assistant with a long-term memory. Tell me things you want me to remember, and I'll recall them in future conversations.",
   builtinTools: ["web_search"],
   tools: {
-    ...kvTools(),
+    save_memory: {
+      description:
+        "Save a piece of information to persistent memory. Use a descriptive key like 'user:name' or 'project:status'.",
+      parameters: z.object({
+        key: z.string().describe(
+          "A descriptive key for this memory (e.g. 'user:name', 'preference:color')",
+        ),
+        value: z.string().describe("The information to remember"),
+      }),
+      execute: async (
+        { key, value }: { key: string; value: string },
+        ctx,
+      ) => {
+        await ctx.kv.set(key, value);
+        return { saved: key };
+      },
+    },
+    recall_memory: {
+      description: "Retrieve a previously saved memory by its key.",
+      parameters: z.object({
+        key: z.string().describe("The key to look up"),
+      }),
+      execute: async ({ key }: { key: string }, ctx) => {
+        const value = await ctx.kv.get(key);
+        if (value === null) return { found: false, key };
+        return { found: true, key, value };
+      },
+    },
+    list_memories: {
+      description:
+        "List all saved memory keys, optionally filtered by a prefix (e.g. 'user:').",
+      parameters: z.object({
+        prefix: z.string().describe(
+          "Prefix to filter keys (e.g. 'user:'). Use empty string for all.",
+        ).optional(),
+      }),
+      execute: async ({ prefix }: { prefix?: string }, ctx) => {
+        const entries = await ctx.kv.list(prefix ?? "");
+        return { count: entries.length, keys: entries.map((e) => e.key) };
+      },
+    },
+    forget_memory: {
+      description: "Delete a previously saved memory by its key.",
+      parameters: z.object({
+        key: z.string().describe("The key to delete"),
+      }),
+      execute: async ({ key }: { key: string }, ctx) => {
+        await ctx.kv.delete(key);
+        return { deleted: key };
+      },
+    },
   },
 });

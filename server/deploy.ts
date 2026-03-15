@@ -8,8 +8,6 @@ import { HttpError } from "./context.ts";
 import { DeployBodySchema } from "./_schemas.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 
-export { hashApiKey } from "./auth.ts";
-
 /**
  * Handler for the agent deploy endpoint (`POST /:slug/deploy`).
  *
@@ -64,6 +62,8 @@ export async function handleDeploy(
     worker: body.worker,
     html: body.html,
     credential_hashes: [keyHash],
+    config: body.config,
+    toolSchemas: body.toolSchemas,
   });
 
   const slot: AgentSlot = {
@@ -71,6 +71,9 @@ export async function handleDeploy(
     env,
     transport,
     keyHash,
+    config: body.config,
+    name: body.config.name,
+    toolSchemas: body.toolSchemas,
   };
   state.slots.set(slug, slot);
 

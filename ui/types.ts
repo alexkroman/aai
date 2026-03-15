@@ -1,17 +1,10 @@
 // Copyright 2025 the AAI authors. MIT license.
-/** Interval between WebSocket ping frames in milliseconds. */
-export const PING_INTERVAL_MS = 30_000;
-/** Maximum number of automatic reconnection attempts. */
-export const MAX_RECONNECT_ATTEMPTS = 5;
-/** Maximum backoff delay between reconnection attempts in milliseconds. */
-export const MAX_BACKOFF_MS = 16_000;
-/** Initial backoff delay between reconnection attempts in milliseconds. */
-export const INITIAL_BACKOFF_MS = 1_000;
 /** Microphone buffer duration in seconds before sending to the server. */
 export const MIC_BUFFER_SECONDS = 0.1;
 
 /** Current state of the voice agent session. */
 export type AgentState =
+  | "disconnected"
   | "connecting"
   | "ready"
   | "listening"
@@ -27,8 +20,19 @@ export type Message = {
   text: string;
 };
 
-/** Category of session error. */
-export type SessionErrorCode = "connection" | "audio" | "protocol";
+/** Info about a tool call for display in the UI. */
+export type ToolCallInfo = {
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  status: "pending" | "done";
+  result?: string | undefined;
+  /** Index in the messages array where this tool call should appear. */
+  afterMessageIndex: number;
+};
+
+import type { SessionErrorCode } from "@aai/sdk/protocol";
+export type { SessionErrorCode };
 
 /** Error reported by the voice session. */
 export type SessionError = {

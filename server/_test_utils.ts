@@ -4,6 +4,7 @@ import { delay } from "@std/async/delay";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
+import type { ServerVectorStore } from "./vector.ts";
 import type { AgentMetadata, AgentSlot } from "./worker_pool.ts";
 import type { AgentConfig } from "@aai/sdk/types";
 import { sortAndPaginate } from "@aai/sdk/kv";
@@ -57,6 +58,8 @@ export function createTestStore(): BundleStore {
         env: bundle.env,
         transport: bundle.transport,
         "credential_hashes": bundle.credential_hashes,
+        config: bundle.config,
+        toolSchemas: bundle.toolSchemas,
       };
       objects.set(
         objectKey(bundle.slug, "manifest.json"),
@@ -140,6 +143,9 @@ export function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
     env: VALID_ENV,
     transport: ["websocket"],
     keyHash: "test-key-hash",
+    config: makeConfig(),
+    name: "Test",
+    toolSchemas: [],
     ...overrides,
   };
 }
@@ -153,6 +159,8 @@ export function deployBody(
     worker: "console.log('w');",
     html:
       '<!DOCTYPE html><html><body><script>console.log("c");</script></body></html>',
+    config: makeConfig(),
+    toolSchemas: [],
     ...overrides,
   });
 }
@@ -163,12 +171,19 @@ export async function createTestOrchestrator(): Promise<{
   store: BundleStore;
   scopeKey: ScopeKey;
   kvStore: KvStore;
+  vectorStore: ServerVectorStore;
 }> {
   const store = createTestStore();
   const scopeKey = await createTestScopeKey();
   const kvStore = createTestKvStore();
-  const handler = createOrchestrator({ store, scopeKey, kvStore });
-  return { handler, store, scopeKey, kvStore };
+  const vectorStore = createTestVectorStore();
+  const handler = createOrchestrator({
+    store,
+    scopeKey,
+    kvStore,
+    vectorStore,
+  });
+  return { handler, store, scopeKey, kvStore, vectorStore };
 }
 
 export function createTestKvStore(): KvStore {
@@ -231,6 +246,69 @@ export function createTestKvStore(): KvStore {
         }
       }
       return Promise.resolve(sortAndPaginate(entries, options));
+    },
+  };
+}
+
+export function createTestVectorStore(): ServerVectorStore {
+  const store = new Map<
+    string,
+    { data: string; metadata?: Record<string, unknown> | undefined }
+  >();
+
+  function scopedId(
+    scope: { keyHash: string; slug: string },
+    id: string,
+  ): string {
+    return `vec:${scope.keyHash}:${scope.slug}:${id}`;
+  }
+
+  function scopePrefix(scope: {
+    keyHash: string;
+    slug: string;
+  }): string {
+    return `vec:${scope.keyHash}:${scope.slug}:`;
+  }
+
+  return {
+    upsert(scope, id, data, metadata) {
+      store.set(scopedId(scope, id), { data, metadata });
+      return Promise.resolve();
+    },
+    query(scope, text, topK = 10, _filter?) {
+      const prefix = scopePrefix(scope);
+      const query = text.toLowerCase();
+      const results: {
+        id: string;
+        score: number;
+        data?: string | undefined;
+        metadata?: Record<string, unknown> | undefined;
+      }[] = [];
+
+      for (const [key, entry] of store) {
+        if (!key.startsWith(prefix)) continue;
+        const id = key.slice(prefix.length);
+        const data = entry.data.toLowerCase();
+        const words = query.split(/\s+/).filter(Boolean);
+        const matches = words.filter((w) => data.includes(w)).length;
+        if (matches > 0) {
+          results.push({
+            id,
+            score: matches / Math.max(words.length, 1),
+            data: entry.data,
+            metadata: entry.metadata,
+          });
+        }
+      }
+
+      results.sort((a, b) => b.score - a.score);
+      return Promise.resolve(results.slice(0, topK));
+    },
+    remove(scope, ids) {
+      for (const id of ids) {
+        store.delete(scopedId(scope, id));
+      }
+      return Promise.resolve();
     },
   };
 }

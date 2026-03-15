@@ -8,12 +8,18 @@
 
 import type * as preact from "preact";
 import type { Signal } from "@preact/signals";
-import type { AgentState, Message, SessionError } from "./types.ts";
+import type {
+  AgentState,
+  Message,
+  SessionError,
+  ToolCallInfo,
+} from "./types.ts";
 
 import { App as _App } from "./_components/app.tsx";
 import { ChatView as _ChatView } from "./_components/chat_view.tsx";
 import { ErrorBanner as _ErrorBanner } from "./_components/error_banner.tsx";
 import { MessageBubble as _MessageBubble } from "./_components/message_bubble.tsx";
+import { ToolCallBlock as _ToolCallBlock } from "./_components/tool_call_block.tsx";
 import { StateIndicator as _StateIndicator } from "./_components/state_indicator.tsx";
 import { ThinkingIndicator as _ThinkingIndicator } from "./_components/thinking_indicator.tsx";
 import { Transcript as _Transcript } from "./_components/transcript.tsx";
@@ -32,6 +38,11 @@ export const ErrorBanner: (
 export const MessageBubble: (
   props: { message: Message },
 ) => preact.JSX.Element = _MessageBubble;
+
+/** Renders a collapsible tool call block. */
+export const ToolCallBlock: (
+  props: { toolCall: ToolCallInfo },
+) => preact.JSX.Element = _ToolCallBlock;
 
 /** Displays the live partial transcript from STT. */
 export const Transcript: (

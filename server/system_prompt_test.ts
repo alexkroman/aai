@@ -31,17 +31,14 @@ Deno.test("buildSystemPrompt", async (t) => {
     assertStringIncludes(prompt, "Test");
   });
 
-  await t.step("includes tool reminder when tools provided", () => {
+  await t.step("includes tool preamble when tools provided", () => {
     const prompt = buildSystemPrompt(makeConfig(), { hasTools: true });
-    assertStringIncludes(prompt, "final_answer");
-    assertStringIncludes(prompt, "tool calling");
-    assertStringIncludes(prompt, "Tool Preambles");
+    assertStringIncludes(prompt, "brief natural phrase BEFORE the tool call");
   });
 
-  await t.step("omits tool reminder when no tools", () => {
+  await t.step("omits tool preamble when no tools", () => {
     const prompt = buildSystemPrompt(makeConfig(), { hasTools: false });
-    assert(!prompt.includes("final_answer"));
-    assert(!prompt.includes("Tool Preambles"));
+    assert(!prompt.includes("BEFORE the tool call"));
   });
 
   await t.step("appends voice rules when voice option set", () => {

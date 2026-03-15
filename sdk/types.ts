@@ -51,22 +51,19 @@ export function normalizeTransport(
  * Identifier for a built-in server-side tool.
  *
  * Built-in tools run on the host process (not inside the sandboxed worker)
- * and provide capabilities like web search, code execution, and user input.
+ * and provide capabilities like web search, code execution, and API access.
  *
  * - `"web_search"` — Search the web for information.
  * - `"visit_webpage"` — Fetch and extract text from a URL.
  * - `"fetch_json"` — Fetch JSON from an API endpoint.
  * - `"run_code"` — Execute code in a sandboxed environment.
- * - `"user_input"` — Request additional input from the user.
- * - `"final_answer"` — Signal that the agent has finished its turn.
  */
 export type BuiltinTool =
   | "web_search"
   | "visit_webpage"
   | "fetch_json"
   | "run_code"
-  | "user_input"
-  | "final_answer";
+  | "vector_search";
 
 /**
  * How the LLM should select tools during a turn.
@@ -107,6 +104,8 @@ export type AgentConfig = {
   toolChoice?: ToolChoice | undefined;
   transport?: readonly Transport[] | undefined;
   builtinTools?: readonly BuiltinTool[] | undefined;
+  /** Default set of active tools. Can be overridden per-turn via `onBeforeStep`. */
+  activeTools?: readonly string[] | undefined;
 };
 
 /**
@@ -131,6 +130,10 @@ export type DeployBody = {
   worker: string;
   html: string;
   transport?: readonly Transport[] | undefined;
+  /** Agent configuration extracted at build time. */
+  config: AgentConfig;
+  /** Tool schemas extracted at build time. */
+  toolSchemas: ToolSchema[];
 };
 
 /** Environment variables required by the agent runtime. */
@@ -138,12 +141,6 @@ export type AgentEnv = {
   ASSEMBLYAI_API_KEY: string;
   LLM_MODEL?: string | undefined;
   [key: string]: string | undefined;
-};
-
-/** Config returned by the worker via RPC. */
-export type WorkerConfig = {
-  config: AgentConfig;
-  toolSchemas: ToolSchema[];
 };
 
 /**
@@ -267,8 +264,9 @@ export type ToolDef<
 /**
  * Available TTS voice identifiers.
  *
- * These voices are provided by the Rime TTS engine. The type also accepts
- * arbitrary strings to support new voices without SDK updates.
+ * For Rime: named voices like "luna", "orion", etc.
+ * For Cartesia: voice UUIDs (e.g., "e07c00bc-4134-4eae-9ea4-1a55fb45746b").
+ * The type also accepts arbitrary strings to support new voices without SDK updates.
  *
  * @default {"luna"}
  */
@@ -303,7 +301,10 @@ export type StepInfo = {
   /** 1-based step index within the current turn. */
   stepNumber: number;
   /** Tool calls made during this step. */
-  toolCalls: readonly { toolName: string; args: Record<string, unknown> }[];
+  toolCalls: readonly {
+    toolName: string;
+    args: Readonly<Record<string, unknown>>;
+  }[];
   /** LLM text output for this step. */
   text: string;
 };
@@ -381,6 +382,13 @@ export type AgentOptions<S = any> = {
   toolChoice?: ToolChoice;
   /** Built-in tools to enable (e.g. `"web_search"`, `"run_code"`). */
   builtinTools?: readonly BuiltinTool[];
+  /**
+   * Default set of active tools per turn.
+   *
+   * When set, only these tools are available to the LLM each turn.
+   * Can be overridden dynamically per-turn via `onBeforeStep`.
+   */
+  activeTools?: readonly string[];
   /** Custom tools the agent can invoke. */
   // deno-lint-ignore no-explicit-any
   tools?: Readonly<Record<string, ToolDef<any, NoInfer<S>>>>;
@@ -415,8 +423,7 @@ export type AgentOptions<S = any> = {
  * formatting, confident tone, and concise answers.
  */
 export const DEFAULT_INSTRUCTIONS: string = `\
-You are a helpful voice assistant. Your goal is to provide accurate, \
-research-backed answers using your available tools.
+You are AAI, a helpful AI assistant.
 
 Voice-First Rules:
 - Optimize for natural speech. Avoid jargon unless central to the answer. \
@@ -475,6 +482,12 @@ export function agentToolsToSchemas(
   }));
 }
 
+/** Configuration + tool schemas bundle returned by the worker's getConfig RPC. */
+export type WorkerConfig = {
+  config: AgentConfig;
+  toolSchemas: ToolSchema[];
+};
+
 /**
  * Agent definition with all defaults applied, returned by
  * {@linkcode defineAgent}.
@@ -494,6 +507,7 @@ export type AgentDef = {
   maxSteps: number | ((ctx: HookContext) => number);
   toolChoice?: ToolChoice;
   builtinTools?: readonly BuiltinTool[];
+  activeTools?: readonly string[];
   tools: Readonly<Record<string, ToolDef>>;
   state?: () => unknown;
   onConnect?: AgentOptions["onConnect"];

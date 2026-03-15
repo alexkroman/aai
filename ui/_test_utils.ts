@@ -6,7 +6,12 @@ import { DOMParser, installDomShim } from "./_dom_shim.ts";
 import { signal } from "@preact/signals";
 import { createVoiceSession, type VoiceSession } from "./session.ts";
 import { createSessionControls, type SessionSignals } from "./signals.ts";
-import type { AgentState, Message, SessionError } from "./types.ts";
+import type {
+  AgentState,
+  Message,
+  SessionError,
+  ToolCallInfo,
+} from "./types.ts";
 export { installMockWebSocket, MockWebSocket } from "@aai/sdk/testing";
 import { installMockWebSocket } from "@aai/sdk/testing";
 
@@ -293,8 +298,9 @@ export function createMockSignals(
   }>,
 ): SessionSignals {
   const signals: SessionSignals = {
-    state: signal<AgentState>(overrides?.state ?? "connecting"),
+    state: signal<AgentState>(overrides?.state ?? "disconnected"),
     messages: signal<Message[]>(overrides?.messages ?? []),
+    toolCalls: signal<ToolCallInfo[]>([]),
     transcript: signal<string>(overrides?.transcript ?? ""),
     error: signal<SessionError | null>(overrides?.error ?? null),
     started: signal<boolean>(overrides?.started ?? false),

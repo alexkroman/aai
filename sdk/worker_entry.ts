@@ -99,5 +99,3 @@ export async function executeToolCall(
     return `Error: ${err instanceof Error ? err.message : String(err)}`;
   }
 }
-
-export type { WorkerConfig } from "./types.ts";
