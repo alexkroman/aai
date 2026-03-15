@@ -18,6 +18,9 @@ class PlaybackProcessor extends AudioWorkletProcessor {
     this.samples = new Float32Array(rate * 60);
     this.writePos = 0;
     this.readPos = 0;
+    // Report playback position every ~50ms for word-level text sync
+    this.progressInterval = Math.floor(rate * 0.05);
+    this.samplesSinceProgress = 0;
 
     this.port.onmessage = (e) => {
       const d = e.data;
@@ -78,6 +81,11 @@ class PlaybackProcessor extends AudioWorkletProcessor {
       const n = Math.min(avail, out.length);
       out.set(this.samples.subarray(this.readPos, this.readPos + n));
       this.readPos += n;
+      this.samplesSinceProgress += n;
+      if (this.samplesSinceProgress >= this.progressInterval) {
+        this.port.postMessage({ event: 'progress', readPos: this.readPos });
+        this.samplesSinceProgress = 0;
+      }
       for (let i = n; i < out.length; i++) out[i] = 0;
       return true;
     }

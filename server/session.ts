@@ -8,11 +8,10 @@ import { createTtsConnection, type TtsConnection } from "./tts.ts";
 import { getBuiltinVercelTools, type VectorCtx } from "./builtin_tools.ts";
 import { executeTurn, type TurnResult } from "./turn_handler.ts";
 import type { STTConfig, TTSConfig } from "./types.ts";
-import type { AgentConfig } from "@aai/sdk/types";
-import type { ToolSchema } from "@aai/sdk/types";
+import type { AgentConfig, ToolSchema } from "@aai/core/types";
 import type { WorkerApi } from "./_worker_entry.ts";
-import { HOOK_TIMEOUT_MS } from "@aai/sdk/protocol";
-import type { ClientSink, TurnConfig } from "@aai/sdk/protocol";
+import { HOOK_TIMEOUT_MS } from "@aai/core/protocol";
+import type { ClientSink, TurnConfig } from "@aai/core/protocol";
 import { buildSystemPrompt } from "./system_prompt.ts";
 import {
   type CoreMessage,
@@ -220,7 +219,7 @@ export function createSession(opts: SessionOptions): Session {
     ttsConn: TtsConnection,
     text: string | AsyncIterable<string>,
     signal: AbortSignal,
-    onText?: (text: string) => void,
+    callbacks?: import("./tts.ts").SynthesizeCallbacks,
   ): Promise<void> {
     await ttsConn.synthesizeStream(
       text,
@@ -228,7 +227,7 @@ export function createSession(opts: SessionOptions): Session {
         trySend(() => client.playAudioChunk(chunk));
       },
       signal,
-      onText,
+      callbacks,
     );
     trySend(() => client.playAudioDone());
   }
@@ -250,6 +249,10 @@ export function createSession(opts: SessionOptions): Session {
     try {
       const handle = doCreateStt(config.apiKey, config.sttConfig);
       await handle.connect();
+
+      handle.onSpeechStarted = () => {
+        trySend(() => client.event({ type: "speech_started" }));
+      };
 
       handle.onTranscript = ({ text, isFinal, turnOrder }) => {
         log.info("transcript", { text, isFinal, turnOrder });
@@ -304,7 +307,7 @@ export function createSession(opts: SessionOptions): Session {
             await connectStt();
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            log.error("STT reconnect failed:", msg);
+            log.error("STT reconnect failed", { cause: err });
             trySend(() =>
               client.event({
                 type: "error",
@@ -319,7 +322,7 @@ export function createSession(opts: SessionOptions): Session {
       stt = handle;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      log.error("STT connect failed:", msg);
+      log.error("STT connect failed", { cause: err });
       trySend(() => client.event({ type: "error", code: "stt", message: msg }));
     }
   }
@@ -431,18 +434,22 @@ export function createSession(opts: SessionOptions): Session {
         }
       })();
 
-      // TTS onText callback: send chat_delta to client and accumulate spoken text
+      // TTS callbacks: accumulate spoken text and forward word timestamps
       let spokenText = "";
-      const onText = (chunk: string) => {
-        spokenText += chunk;
-        trySend(() => client.event({ type: "chat_delta", delta: chunk }));
+      const ttsCallbacks: import("./tts.ts").SynthesizeCallbacks = {
+        onText: (chunk: string) => {
+          spokenText += chunk;
+        },
+        onWords: (words) => {
+          trySend(() => client.event({ type: "words", words }));
+        },
       };
 
       if (tts) {
-        await streamTts(tts, turn.textStream, signal, onText);
+        await streamTts(tts, turn.textStream, signal, ttsCallbacks);
       } else {
         for await (const chunk of turn.textStream) {
-          if (chunk) onText(chunk);
+          if (chunk) spokenText += chunk;
         }
       }
 
@@ -460,18 +467,10 @@ export function createSession(opts: SessionOptions): Session {
     } catch (err: unknown) {
       if (signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
-      if (
-        err instanceof Error &&
-        "responseBody" in err
-      ) {
-        const { responseBody, statusCode } = err as Error & {
-          responseBody?: unknown;
-          statusCode?: number;
-        };
-        log.error("Turn failed:", msg, { responseBody, statusCode });
-      } else {
-        log.error("Turn failed:", msg);
-      }
+      log.error(
+        `Turn failed: ${msg}`,
+        err instanceof Error ? { cause: err } : undefined,
+      );
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
       trySend(() => client.event({ type: "error", code: "llm", message: msg }));
     } finally {
@@ -495,16 +494,18 @@ export function createSession(opts: SessionOptions): Session {
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
-    const onText = (chunk: string) => {
-      trySend(() => client.event({ type: "chat_delta", delta: chunk }));
+    const callbacks: import("./tts.ts").SynthesizeCallbacks = {
+      onWords: (words) => {
+        trySend(() => client.event({ type: "words", words }));
+      },
     };
     const p: Promise<void> = (async () => {
       try {
-        await streamTts(ttsConn, text, signal, onText);
+        await streamTts(ttsConn, text, signal, callbacks);
       } catch (err: unknown) {
         if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : String(err);
-        log.error("TTS failed:", msg);
+        log.error("TTS failed", { cause: err });
         trySend(() =>
           client.event({ type: "error", code: "tts", message: msg })
         );
@@ -535,7 +536,9 @@ export function createSession(opts: SessionOptions): Session {
       if (getWorkerApi) {
         getWorkerApi().then((api) => {
           cachedWorkerApi = api;
-        }).catch(() => {});
+        }).catch((err) => {
+          log.warn("Worker pre-warm failed", { cause: err });
+        });
       }
 
       // Fire-and-forget — stt?.send() in onAudio no-ops while null

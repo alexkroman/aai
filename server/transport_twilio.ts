@@ -6,11 +6,11 @@ import { HttpError, type RouteContext } from "./context.ts";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { type AgentSlot, prepareSession } from "./worker_pool.ts";
 import { createSession } from "./session.ts";
-import type { ClientSink } from "@aai/sdk/protocol";
+import type { ClientSink } from "@aai/core/protocol";
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-} from "@aai/sdk/protocol";
+} from "@aai/core/protocol";
 import { mulawToPcm16, pcm16ToMulaw, resample } from "./mulaw.ts";
 
 const MULAW_RATE = 8000;
@@ -159,7 +159,7 @@ export function handleTwilioVoice(
   );
 }
 
-import { TwilioMessageSchema } from "@aai/sdk/protocol";
+import { TwilioMessageSchema } from "@aai/core/protocol";
 
 /**
  * Handler that upgrades to a WebSocket for Twilio media streams.

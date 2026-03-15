@@ -140,7 +140,7 @@ function workerEntry() {
       if (source === resolved) {
         return [
           \`import agent from "\${resolve(root, "agent.ts")}";\`,
-          \`import { initWorker } from "@aai/sdk";\`,
+          \`import { initWorker } from "@aai/core/worker-shim";\`,
           \`initWorker(agent);\`,
         ].join("\\n");
       }

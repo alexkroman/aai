@@ -2,10 +2,14 @@
 /**
  * WebSocket wire-format types shared by server and client.
  *
+ * Note: this module is for internal use only and should not be used directly.
+ *
  * @module
  */
 
 import { z } from "zod";
+import type { Message, StepInfo } from "@aai/sdk/types";
+import type { WorkerConfig } from "./types.ts";
 
 /**
  * Current protocol version for client-server compatibility checks.
@@ -62,12 +66,6 @@ export const AudioFrameSpec = {
  *
  * This is a discriminated union on the `op` field, representing the four
  * key-value store operations available to sandboxed agent workers.
- *
- * Operations:
- * - `get` — Retrieve a value by key
- * - `set` — Store a value with an optional TTL (in seconds)
- * - `del` — Delete a key
- * - `list` — List entries matching a key prefix, with optional limit and ordering
  */
 export type KvRequest =
   | { op: "get"; key: string }
@@ -104,13 +102,6 @@ export const KvRequestBaseSchema: z.ZodType<KvRequest> = z
  *
  * This is a discriminated union on the `event` field, representing the
  * Twilio Media Streams protocol messages.
- *
- * Event types:
- * - `start` — Stream started, includes the stream SID
- * - `media` — Audio payload (base64-encoded mulaw)
- * - `stop` — Stream ended
- * - `connected` — WebSocket connection established
- * - `mark` — A previously sent mark was reached during playback
  */
 export type TwilioMessage =
   | { event: "start"; start: { streamSid: string } }
@@ -179,6 +170,7 @@ export const SessionErrorCodeSchema: z.ZodType<SessionErrorCode> = z.enum([
  * Sent via a single `event()` RPC method instead of one method per type.
  */
 export type ClientEvent =
+  | { type: "speech_started" }
   | { type: "transcript"; text: string; isFinal: false }
   | {
     type: "transcript";
@@ -189,6 +181,7 @@ export type ClientEvent =
   | { type: "turn"; text: string; turnOrder?: number | undefined }
   | { type: "chat"; text: string }
   | { type: "chat_delta"; delta: string }
+  | { type: "words"; words: { text: string; start: number }[] }
   | {
     type: "tool_call_start";
     toolCallId: string;
@@ -213,6 +206,7 @@ const TranscriptEventSchema = z.object({
 export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
   "type",
   [
+    z.object({ type: z.literal("speech_started") }),
     TranscriptEventSchema,
     z.object({
       type: z.literal("turn"),
@@ -221,6 +215,13 @@ export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
     }),
     z.object({ type: z.literal("chat"), text: z.string() }),
     z.object({ type: z.literal("chat_delta"), delta: z.string() }),
+    z.object({
+      type: z.literal("words"),
+      words: z.array(z.object({
+        text: z.string(),
+        start: z.number(),
+      })),
+    }),
     z.object({
       type: z.literal("tool_call_start"),
       toolCallId: z.string(),
@@ -337,12 +338,12 @@ export type TurnConfig = {
 /** Worker-side RPC target interface (host calls these methods). */
 export interface WorkerRpcApi {
   withEnv(env: Record<string, string>): WorkerRpcApi;
-  getConfig(): Promise<import("./types.ts").WorkerConfig>;
+  getConfig(): Promise<WorkerConfig>;
   executeTool(
     name: string,
     args: Readonly<Record<string, unknown>>,
     sessionId: string | undefined,
-    messages: readonly import("./types.ts").Message[] | undefined,
+    messages: readonly Message[] | undefined,
   ): Promise<string>;
   onConnect(sessionId: string): Promise<void>;
   onDisconnect(sessionId: string): Promise<void>;
@@ -350,7 +351,7 @@ export interface WorkerRpcApi {
   onError(sessionId: string, error: string): void;
   onStep(
     sessionId: string,
-    step: import("./types.ts").StepInfo,
+    step: StepInfo,
   ): Promise<void>;
   resolveTurnConfig(sessionId: string): Promise<TurnConfig | null>;
 }

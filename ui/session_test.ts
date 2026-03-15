@@ -162,7 +162,7 @@ Deno.test("ClientHandler event handling", async (t) => {
   });
 
   await t.step(
-    "full turn lifecycle: transcript → turn → chat_delta → audio → listening",
+    "full turn lifecycle: transcript → turn → words → audio → listening",
     async () => {
       const { target, state, messages, transcript } = createTarget();
       state.value = "listening";
@@ -185,23 +185,30 @@ Deno.test("ClientHandler event handling", async (t) => {
       assertStrictEquals(transcript.value, "");
       assertStrictEquals(messages.value.length, 1);
 
-      // LLM streams text deltas
-      target.event({ type: "chat_delta", delta: "It's " });
+      // TTS sends word timestamps — creates empty assistant message
+      target.event({
+        type: "words",
+        words: [
+          { text: "It's", start: 0 },
+          { text: "72°F", start: 0.3 },
+          { text: "and", start: 0.6 },
+          { text: "sunny.", start: 0.9 },
+        ],
+      });
       assertStrictEquals(state.value, "thinking");
       assertStrictEquals(messages.value.length, 2);
-      assertStrictEquals(messages.value[1]!.text, "It's ");
-
-      target.event({ type: "chat_delta", delta: "72°F and sunny." });
-      assertStrictEquals(messages.value[1]!.text, "It's 72°F and sunny.");
+      // Words are buffered, not yet revealed
+      assertStrictEquals(messages.value[1]!.text, "");
 
       // Audio arrives — transitions to speaking
       target.playAudioChunk(new Uint8Array([1, 2]));
       assertStrictEquals(state.value, "speaking");
 
-      // TTS finishes — state transitions after playback microtask resolves
+      // TTS finishes — reveals all words, transitions to listening
       target.playAudioDone();
       await new Promise((r) => setTimeout(r, 0));
       assertStrictEquals(state.value, "listening");
+      assertStrictEquals(messages.value[1]!.text, "It's 72°F and sunny.");
     },
   );
 

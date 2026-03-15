@@ -1,8 +1,12 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import type { Session } from "./session.ts";
-import type { ClientMessage, ClientSink, ReadyConfig } from "@aai/sdk/protocol";
-import { ClientMessageSchema } from "@aai/sdk/protocol";
+import type {
+  ClientMessage,
+  ClientSink,
+  ReadyConfig,
+} from "@aai/core/protocol";
+import { ClientMessageSchema } from "@aai/core/protocol";
 import { isValidAudioChunk } from "./_schemas.ts";
 
 /** Options for wiring a WebSocket to a session. */

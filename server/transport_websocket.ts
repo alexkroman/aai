@@ -6,7 +6,7 @@ import { wireSessionSocket } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/sdk/protocol";
+import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/core/protocol";
 
 export const _internals = { prepareSession };
 

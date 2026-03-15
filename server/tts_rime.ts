@@ -166,7 +166,7 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
       chunks: string | AsyncIterable<string>,
       onAudio: (chunk: Uint8Array) => void,
       signal?: AbortSignal,
-      onText?: (text: string) => void,
+      callbacks?: import("./tts.ts").SynthesizeCallbacks,
     ): Promise<void> {
       if (lifecycle.signal.aborted || signal?.aborted) return;
 
@@ -179,12 +179,12 @@ export function createRimeTtsConnection(config: RimeTtsConfig): TtsConnection {
         onAudioCb = onAudio;
 
         if (typeof chunks === "string") {
-          onText?.(chunks);
+          callbacks?.onText?.(chunks);
           conn.send(chunks);
         } else {
           for await (const text of chunks) {
             if (signal?.aborted) return;
-            if (text) onText?.(text);
+            if (text) callbacks?.onText?.(text);
             conn.send(text);
           }
         }

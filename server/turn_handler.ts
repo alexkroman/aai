@@ -168,7 +168,9 @@ export function executeTurn(
     let atStepBoundary = false;
     try {
       for await (const chunk of result.fullStream) {
-        if (chunk.type === "step-finish") {
+        if (chunk.type === "error") {
+          throw chunk.error;
+        } else if (chunk.type === "step-finish") {
           atStepBoundary = true;
         } else if (chunk.type === "text-delta" && chunk.textDelta) {
           if (

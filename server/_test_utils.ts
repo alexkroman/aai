@@ -6,7 +6,7 @@ import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentMetadata, AgentSlot } from "./worker_pool.ts";
-import type { AgentConfig } from "@aai/sdk/types";
+import type { AgentConfig } from "@aai/core/types";
 import { sortAndPaginate } from "@aai/sdk/kv";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { createOrchestrator } from "./orchestrator.ts";

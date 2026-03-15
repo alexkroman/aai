@@ -1,12 +1,12 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { batch, type Signal, signal } from "@preact/signals";
-import { PROTOCOL_VERSION } from "@aai/sdk/protocol";
+import { PROTOCOL_VERSION } from "@aai/core/protocol";
 import type {
   ClientEvent,
   ClientMessage,
   ReadyConfig,
   ServerMessage,
-} from "@aai/sdk/protocol";
+} from "@aai/core/protocol";
 
 const SUPPORTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 
@@ -74,6 +74,14 @@ export class ClientHandler {
   #error: Signal<SessionError | null>;
   #voiceIO: () => VoiceIO | null;
   #streaming = false;
+  /** Incremented on each turn boundary — stale async callbacks compare against this. */
+  #generation = 0;
+  /** Buffered words with their audio start times (seconds). */
+  #wordQueue: { text: string; start: number }[] = [];
+  /** Number of words from #wordQueue already revealed in the UI. */
+  #wordsRevealed = 0;
+  /** TTS sample rate for converting samples to seconds. */
+  #ttsSampleRate = 24_000;
   constructor(opts: {
     state: Signal<AgentState>;
     messages: Signal<Message[]>;
@@ -81,6 +89,7 @@ export class ClientHandler {
     transcript: Signal<string>;
     error: Signal<SessionError | null>;
     voiceIO: () => VoiceIO | null;
+    ttsSampleRate?: number;
   }) {
     this.#state = opts.state;
     this.#messages = opts.messages;
@@ -88,16 +97,28 @@ export class ClientHandler {
     this.#transcript = opts.transcript;
     this.#error = opts.error;
     this.#voiceIO = opts.voiceIO;
+    if (opts.ttsSampleRate) this.#ttsSampleRate = opts.ttsSampleRate;
   }
 
   /** Single entry point for all server→client session events. */
+  /** Sentinel value indicating speech detected but no transcript yet. */
+  static readonly speechActive = "\x00";
+
   event(e: ClientEvent): void {
     switch (e.type) {
+      case "speech_started":
+        if (!this.#transcript.value) {
+          this.#transcript.value = ClientHandler.speechActive;
+        }
+        break;
       case "transcript":
         this.#transcript.value = e.text;
         break;
       case "turn":
+        this.#generation++;
         this.#streaming = false;
+        this.#wordQueue = [];
+        this.#wordsRevealed = 0;
         batch(() => {
           this.#transcript.value = "";
           this.#messages.value = [
@@ -114,21 +135,17 @@ export class ClientHandler {
           { role: "assistant", text: e.text },
         ];
         break;
-      case "chat_delta": {
-        const msgs = this.#messages.value;
-        if (this.#streaming) {
-          // Append delta to the current streaming message
-          const last = msgs[msgs.length - 1]!;
-          this.#messages.value = [
-            ...msgs.slice(0, -1),
-            { role: "assistant", text: last.text + e.delta },
-          ];
-        } else {
-          // First delta of a new turn — start a new message
+      case "words": {
+        // Buffer words for playback-synced reveal
+        for (const w of e.words) {
+          this.#wordQueue.push(w);
+        }
+        if (!this.#streaming) {
+          // First words of a new turn — start an empty assistant message
           this.#streaming = true;
           this.#messages.value = [
-            ...msgs,
-            { role: "assistant", text: e.delta },
+            ...this.#messages.value,
+            { role: "assistant", text: "" },
           ];
         }
         break;
@@ -163,11 +180,17 @@ export class ClientHandler {
         this.#state.value = "listening";
         break;
       case "cancelled":
+        this.#generation++;
         this.#voiceIO()?.flush();
+        this.#wordQueue = [];
+        this.#wordsRevealed = 0;
         this.#state.value = "listening";
         break;
       case "reset": {
+        this.#generation++;
         this.#voiceIO()?.flush();
+        this.#wordQueue = [];
+        this.#wordsRevealed = 0;
         batch(() => {
           this.#messages.value = [];
           this.#toolCalls.value = [];
@@ -199,14 +222,59 @@ export class ClientHandler {
   }
 
   playAudioDone(): void {
+    const gen = this.#generation;
     const io = this.#voiceIO();
     if (io) {
       void io.done().then(() => {
+        if (this.#generation !== gen) return;
+        this.#revealAllWords();
         this.#state.value = "listening";
       });
     } else {
+      this.#revealAllWords();
       this.#state.value = "listening";
     }
+  }
+
+  /** Called by VoiceIO when playback advances — reveals words whose start time has been reached. */
+  onPlaybackProgress(samplesPlayed: number): void {
+    if (!this.#streaming || this.#wordQueue.length === 0) return;
+    const playbackTime = samplesPlayed / this.#ttsSampleRate;
+    let newRevealed = this.#wordsRevealed;
+    while (
+      newRevealed < this.#wordQueue.length &&
+      this.#wordQueue[newRevealed]!.start <= playbackTime
+    ) {
+      newRevealed++;
+    }
+    if (newRevealed > this.#wordsRevealed) {
+      this.#wordsRevealed = newRevealed;
+      this.#updateMessageText();
+    }
+  }
+
+  /** Reveal all remaining buffered words. */
+  #revealAllWords(): void {
+    if (this.#wordsRevealed < this.#wordQueue.length) {
+      this.#wordsRevealed = this.#wordQueue.length;
+      this.#updateMessageText();
+    }
+    this.#wordQueue = [];
+    this.#wordsRevealed = 0;
+  }
+
+  /** Update the last assistant message with revealed words. */
+  #updateMessageText(): void {
+    const text = this.#wordQueue
+      .slice(0, this.#wordsRevealed)
+      .map((w) => w.text)
+      .join(" ");
+    const msgs = this.#messages.value;
+    if (msgs.length === 0) return;
+    this.#messages.value = [
+      ...msgs.slice(0, -1),
+      { role: "assistant", text },
+    ];
   }
 
   /**
@@ -265,6 +333,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   let ws: WebSocket | null = null;
   let voiceIO: VoiceIO | null = null;
   let connectionController: AbortController | null = null;
+  let activeHandler: ClientHandler | null = null;
   let hasConnected = false;
   let audioSetupInFlight = false;
   function cleanupAudio(): void {
@@ -336,6 +405,9 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
             sendBinary(pcm16);
           } catch { /* connection may be closed */ }
         },
+        onPlaybackProgress: (samplesPlayed: number) => {
+          activeHandler?.onPlaybackProgress(samplesPlayed);
+        },
       });
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         io.close();
@@ -391,6 +463,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
       error,
       voiceIO: () => voiceIO,
     });
+    activeHandler = handler;
 
     socket.addEventListener("open", () => {
       state.value = "ready";

@@ -20,8 +20,8 @@ export type BundleStore = {
     worker: string;
     html: string;
     credential_hashes: string[];
-    config: import("@aai/sdk/types").AgentConfig;
-    toolSchemas: import("@aai/sdk/types").ToolSchema[];
+    config: import("@aai/core/types").AgentConfig;
+    toolSchemas: import("@aai/core/types").ToolSchema[];
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;

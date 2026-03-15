@@ -31,7 +31,7 @@ export type ToolCallInfo = {
   afterMessageIndex: number;
 };
 
-import type { SessionErrorCode } from "@aai/sdk/protocol";
+import type { SessionErrorCode } from "@aai/core/protocol";
 export type { SessionErrorCode };
 
 /** Error reported by the voice session. */

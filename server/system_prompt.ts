@@ -1,5 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { type AgentConfig, DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
+import { DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
+import type { AgentConfig } from "@aai/core/types";
 
 const VOICE_RULES =
   "\n\nCRITICAL OUTPUT RULES — you MUST follow these for EVERY response:\n" +

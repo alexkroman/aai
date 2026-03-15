@@ -2,12 +2,11 @@
 import * as log from "@std/log";
 import { encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
-import type { AgentConfig } from "@aai/sdk/types";
-import type { ToolSchema } from "@aai/sdk/types";
+import type { AgentConfig, ToolSchema } from "@aai/core/types";
 import { createWorkerApi, type WorkerApi } from "./_worker_entry.ts";
 import type { ExecuteTool } from "./_worker_entry.ts";
-import type { HostApi, KvRequest } from "@aai/sdk/protocol";
-import { TOOL_EXECUTION_TIMEOUT_MS } from "@aai/sdk/protocol";
+import type { HostApi, KvRequest } from "@aai/core/protocol";
+import { TOOL_EXECUTION_TIMEOUT_MS } from "@aai/core/protocol";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "./_schemas.ts";
 import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";

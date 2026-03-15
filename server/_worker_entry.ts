@@ -7,23 +7,23 @@
  */
 
 import type { Message, StepInfo } from "@aai/sdk/types";
-import { HOOK_TIMEOUT_MS } from "@aai/sdk/protocol";
+import { HOOK_TIMEOUT_MS } from "@aai/core/protocol";
 import type {
   HostApi,
   KvRequest,
   TurnConfig,
   WorkerRpcApi,
-} from "@aai/sdk/protocol";
-import { withTimeout } from "@aai/sdk/timeout";
+} from "@aai/core/protocol";
+import { withTimeout } from "@aai/core/timeout";
 import { MAX_TOOL_RESULT_LENGTH, TurnConfigSchema } from "./_schemas.ts";
 import { newMessagePortRpcSession, RpcTarget } from "capnweb";
-import { asMessagePort } from "@aai/sdk/capnweb-transport";
+import { asMessagePort } from "@aai/core/capnweb-transport";
 
 export {
   type ExecuteTool,
   executeToolCall,
   TOOL_HANDLER_TIMEOUT,
-} from "@aai/sdk/worker-entry";
+} from "@aai/core/worker-entry";
 
 /**
  * Cap'n Web RPC target that exposes host-side APIs (fetch, kv) to the worker.
@@ -82,7 +82,7 @@ export type WorkerApi = {
   ): Promise<void>;
   onError(
     sessionId: string,
-    error: string,
+    error: { message: string; stack?: string },
     timeoutMs?: number,
   ): Promise<void>;
   onStep(
@@ -163,7 +163,7 @@ export function createWorkerApi(
     },
     async onError(sessionId, error, timeoutMs) {
       await withTimeout(
-        scoped.onError(sessionId, error) as Promise<void>,
+        scoped.onError(sessionId, error.message) as Promise<void>,
         timeoutMs,
       );
     },

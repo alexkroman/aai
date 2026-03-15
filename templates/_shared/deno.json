@@ -2,6 +2,7 @@
   "nodeModulesDir": "auto",
   "imports": {
     "@aai/sdk": "jsr:@aai/sdk@^0",
+    "@aai/core": "jsr:@aai/core@^0",
     "@aai/ui": "jsr:@aai/ui@^0",
     "zod": "jsr:@zod/zod@^4",
     "preact": "npm:preact@^10",
