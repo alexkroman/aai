@@ -96,7 +96,7 @@ Deno.test("Transcript", async (t) => {
     "renders transcript text",
     withDOM((container) => {
       render(
-        <Transcript text={signal("hello wor")} />,
+        <Transcript userUtterance={signal<string | null>("hello wor")} />,
         container,
       );
       assertStringIncludes(container.textContent!, "hello wor");
@@ -104,13 +104,25 @@ Deno.test("Transcript", async (t) => {
   );
 
   await t.step(
-    "renders nothing when empty",
+    "renders nothing when null",
     withDOM((container) => {
       render(
-        <Transcript text={signal("")} />,
+        <Transcript userUtterance={signal<string | null>(null)} />,
         container,
       );
       assertStrictEquals(container.innerHTML, "");
+    }),
+  );
+
+  await t.step(
+    "renders thinking indicator when empty string (speech detected)",
+    withDOM((container) => {
+      render(
+        <Transcript userUtterance={signal<string | null>("")} />,
+        container,
+      );
+      // Should render something (the ThinkingIndicator), not be empty
+      assert(container.innerHTML !== "");
     }),
   );
 });
@@ -165,7 +177,7 @@ Deno.test("App", async (t) => {
       );
 
       signals.started.value = true;
-      signals.state.value = "listening";
+      signals.session.state.value = "listening";
       renderWithProvider(
         container,
         <App />,
@@ -210,7 +222,7 @@ Deno.test("ChatView", async (t) => {
         started: true,
         state: "error",
         running: false,
-        transcript: "hello wor",
+        userUtterance: "hello wor",
         error: { code: "connection", message: "Connection failed" },
       });
       renderWithProvider(

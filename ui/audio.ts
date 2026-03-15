@@ -13,6 +13,8 @@ export type VoiceIOOptions = {
   playbackWorkletSrc: string;
   /** Callback invoked with buffered PCM16 microphone data to send to the server. */
   onMicData: (pcm16: ArrayBuffer) => void;
+  /** Callback invoked with the current playback position in samples. */
+  onPlaybackProgress?: (samplesPlayed: number) => void;
 };
 
 /**
@@ -124,6 +126,7 @@ export async function createVoiceIO(
   let playNode: AudioWorkletNode | null = null;
   let onPlaybackStop: (() => void) | null = null;
   const lifecycle = new AbortController();
+  const { onPlaybackProgress } = opts;
 
   function ensurePlayNode(): AudioWorkletNode {
     if (playNode) return playNode;
@@ -137,6 +140,8 @@ export async function createVoiceIO(
         if (playNode === node) playNode = null;
         onPlaybackStop?.();
         onPlaybackStop = null;
+      } else if (e.data.event === "progress") {
+        onPlaybackProgress?.(e.data.readPos);
       }
     };
     playNode = node;

@@ -5,7 +5,7 @@ import { promptUpgradeIfAvailable } from "./_update.ts";
 import { runNewCommand } from "./new.ts";
 import { runDeployCommand } from "./deploy.ts";
 import { runEnvCommand } from "./env.ts";
-import { runCrawlCommand } from "./rag.ts";
+import { runRagCommand } from "./rag.ts";
 import { rootHelp } from "./_help.ts";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
@@ -47,8 +47,8 @@ async function main(args: string[]): Promise<void> {
     case "env":
       await runEnvCommand(subArgs, VERSION);
       return;
-    case "crawl":
-      await runCrawlCommand(subArgs, VERSION);
+    case "rag":
+      await runRagCommand(subArgs, VERSION);
       return;
     case "help":
       console.log(rootHelp(VERSION));

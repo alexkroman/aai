@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { useRef } from "preact/hooks";
-import { useSignalEffect } from "@preact/signals";
+import { computed, useSignalEffect } from "@preact/signals";
 import type { Message, ToolCallInfo } from "../types.ts";
 import { useSession } from "../signals.ts";
 import { MessageBubble } from "./message_bubble.tsx";
@@ -39,18 +39,29 @@ function buildDisplayItems(
 }
 
 export function MessageList() {
-  const { messages, toolCalls, transcript, state } = useSession();
+  const { session } = useSession();
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const showThinking = computed(() => {
+    if (session.state.value !== "thinking") return false;
+    const last = session.toolCalls.value.at(-1);
+    if (last?.status === "pending") return false;
+    const lastMsg = session.messages.value.at(-1);
+    return !lastMsg || lastMsg.role === "user" || !!last;
+  });
+
   useSignalEffect(() => {
-    messages.value;
-    toolCalls.value;
-    transcript.value;
-    state.value;
+    session.messages.value;
+    session.toolCalls.value;
+    session.userUtterance.value;
+    session.state.value;
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   });
 
-  const items = buildDisplayItems(messages.value, toolCalls.value);
+  const items = buildDisplayItems(
+    session.messages.value,
+    session.toolCalls.value,
+  );
 
   return (
     <div
@@ -68,16 +79,8 @@ export function MessageList() {
             )
             : <MessageBubble key={item.index} message={item.message} />
         )}
-        <Transcript text={transcript} />
-        {state.value === "thinking" &&
-          (() => {
-            const last = toolCalls.value[toolCalls.value.length - 1];
-            const lastMsg = messages.value[messages.value.length - 1];
-            // Hide thinking dots when a tool call is pending (the block shows activity)
-            if (last && last.status === "pending") return false;
-            // Show when no messages, last is from user, or last tool call finished
-            return !lastMsg || lastMsg.role === "user" || !!last;
-          })() && <ThinkingIndicator />}
+        <Transcript userUtterance={session.userUtterance} />
+        {showThinking.value && <ThinkingIndicator />}
         <div ref={scrollRef} />
       </div>
     </div>

@@ -5,9 +5,9 @@ import { DEFAULT_SERVER, getApiKey, readProjectConfig } from "./_discover.ts";
 import type { SubcommandDef } from "./_help.ts";
 import { subcommandHelp } from "./_help.ts";
 
-/** CLI definition for the `aai crawl` subcommand. */
-export const crawlCommandDef: SubcommandDef = {
-  name: "crawl",
+/** CLI definition for the `aai rag` subcommand. */
+export const ragCommandDef: SubcommandDef = {
+  name: "rag",
   description: "Ingest a site's llms-full.txt into the vector store",
   args: [{ name: "url" }],
   options: [
@@ -22,15 +22,15 @@ export const crawlCommandDef: SubcommandDef = {
 const FETCH_TIMEOUT_MS = 60_000;
 
 /**
- * Runs the `aai crawl <url>` subcommand.
+ * Runs the `aai rag <url>` subcommand.
  *
  * Fetches a site's `llms-full.txt`, chunks the markdown content
  * using chonkie's RecursiveChunker, and upserts chunks to the
  * vector store via POST /:slug/vector.
  *
- * Usage: aai crawl https://example.com/docs/llms-full.txt
+ * Usage: aai rag https://example.com/docs/llms-full.txt
  */
-export async function runCrawlCommand(
+export async function runRagCommand(
   args: string[],
   version: string,
 ): Promise<void> {
@@ -42,14 +42,14 @@ export async function runCrawlCommand(
   });
 
   if (parsed.help) {
-    console.log(subcommandHelp(crawlCommandDef, version));
+    console.log(subcommandHelp(ragCommandDef, version));
     return;
   }
 
   const url = String(parsed._[0] ?? "");
   if (!url) {
     throw new Error(
-      "Usage: aai crawl <url>\n\n" +
+      "Usage: aai rag <url>\n\n" +
         "Provide the full URL to a site's llms-full.txt file",
     );
   }

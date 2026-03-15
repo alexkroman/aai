@@ -20,25 +20,7 @@ export type BeforeStepResult = { activeTools?: string[] } | void;
  */
 export type Transport = "websocket" | "twilio";
 
-/**
- * Normalize a transport value to an array of transports.
- *
- * Converts a single transport string, an array, or `undefined` into a
- * consistent `Transport[]` format.
- *
- * @param value A single transport, array of transports, or `undefined`.
- * @returns An array of transports. Defaults to `["websocket"]` when
- *   `undefined` is provided.
- *
- * @example
- * ```ts
- * import { normalizeTransport } from "@aai/sdk/types";
- *
- * normalizeTransport(undefined);      // ["websocket"]
- * normalizeTransport("twilio");       // ["twilio"]
- * normalizeTransport(["websocket", "twilio"]); // ["websocket", "twilio"]
- * ```
- */
+/** @internal Normalize a transport value to an array of transports. */
 export function normalizeTransport(
   value: Transport | readonly Transport[] | undefined,
 ): readonly Transport[] {
@@ -444,32 +426,7 @@ export const DEFAULT_GREETING: string =
 
 const EMPTY_PARAMS = z.object({});
 
-/**
- * Convert agent tool definitions to JSON Schema format for wire transport.
- *
- * Transforms the Zod-based `parameters` of each tool into a plain JSON Schema
- * object suitable for structured clone / JSON serialization.
- *
- * @param tools A record of tool name to {@linkcode ToolDef} mappings.
- * @returns An array of {@linkcode ToolSchema} objects ready for wire transport.
- *
- * @example
- * ```ts
- * import { z } from "zod";
- * import { agentToolsToSchemas, type ToolDef } from "@aai/sdk/types";
- *
- * const tools: Record<string, ToolDef> = {
- *   greet: {
- *     description: "Greet someone",
- *     parameters: z.object({ name: z.string() }),
- *     execute: ({ name }) => `Hi ${name}`,
- *   },
- * };
- *
- * const schemas = agentToolsToSchemas(tools);
- * // [{ name: "greet", description: "Greet someone", parameters: { ... } }]
- * ```
- */
+/** @internal Convert agent tool definitions to JSON Schema format for wire transport. */
 export function agentToolsToSchemas(
   tools: Readonly<Record<string, ToolDef>>,
 ): ToolSchema[] {
