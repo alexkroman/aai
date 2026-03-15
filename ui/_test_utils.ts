@@ -299,7 +299,7 @@ export function createMockSignals(
   }>,
 ): SessionSignals {
   const signals: SessionSignals = {
-    state: signal<AgentState>(overrides?.state ?? "connecting"),
+    state: signal<AgentState>(overrides?.state ?? "disconnected"),
     messages: signal<Message[]>(overrides?.messages ?? []),
     transcript: signal<string>(overrides?.transcript ?? ""),
     error: signal<SessionError | null>(overrides?.error ?? null),

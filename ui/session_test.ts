@@ -18,7 +18,9 @@ function createTarget() {
     error,
     voiceIO: () => ({
       enqueue() {},
-      done() {},
+      done() {
+        return Promise.resolve();
+      },
       flush() {
         flushed = true;
       },
@@ -153,7 +155,7 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
 
   await t.step(
     "full turn lifecycle: transcript → turn → chat_delta → audio → listening",
-    () => {
+    async () => {
       const { target, state, messages, transcript } = createTarget();
       state.value = "listening";
 
@@ -188,8 +190,9 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
       target.playAudioChunk(new Uint8Array([1, 2]));
       assertStrictEquals(state.value, "speaking");
 
-      // TTS finishes
+      // TTS finishes — state transitions after playback microtask resolves
       target.playAudioDone();
+      await new Promise((r) => setTimeout(r, 0));
       assertStrictEquals(state.value, "listening");
     },
   );
@@ -210,7 +213,9 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
           enqueue(buf: ArrayBuffer) {
             chunks.push(buf);
           },
-          done() {},
+          done() {
+            return Promise.resolve();
+          },
           flush() {},
           close() {
             return Promise.resolve();
@@ -225,8 +230,8 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
   );
 
   await t.step(
-    "playAudioDone transitions to listening",
-    () => {
+    "playAudioDone transitions to listening after playback completes",
+    async () => {
       const { state } = createTarget();
       state.value = "speaking";
 
@@ -240,6 +245,7 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
           enqueue() {},
           done() {
             doneCalled = true;
+            return Promise.resolve();
           },
           flush() {},
           close() {
@@ -250,6 +256,7 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
       });
 
       target.playAudioDone();
+      await new Promise((r) => setTimeout(r, 0));
       assertStrictEquals(doneCalled, true);
       assertStrictEquals(state.value, "listening");
     },

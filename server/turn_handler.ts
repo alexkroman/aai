@@ -89,8 +89,31 @@ export function executeTurn(
   result.response.then(() => {}, logErr);
   result.toolCalls.catch(logErr);
 
+  // Wrap fullStream to insert a space between text produced by different steps.
+  // Without this, multi-step turns concatenate without whitespace
+  // (e.g. "for you.Let me try" instead of "for you. Let me try").
+  async function* textStreamWithStepSeparators(): AsyncIterable<string> {
+    let lastChar = "";
+    let atStepBoundary = false;
+    for await (const chunk of result.fullStream) {
+      if (chunk.type === "step-finish") {
+        atStepBoundary = true;
+      } else if (chunk.type === "text-delta" && chunk.textDelta) {
+        if (
+          atStepBoundary && lastChar && !/\s$/.test(lastChar) &&
+          !/^\s/.test(chunk.textDelta)
+        ) {
+          yield " ";
+        }
+        atStepBoundary = false;
+        yield chunk.textDelta;
+        lastChar = chunk.textDelta;
+      }
+    }
+  }
+
   return {
-    textStream: result.textStream,
+    textStream: textStreamWithStepSeparators(),
     async consume(): Promise<void> {
       await Promise.allSettled([
         result.text,

@@ -244,18 +244,6 @@ export function createSession(opts: SessionOptions): Session {
       const handle = doCreateStt(config.apiKey, config.sttConfig);
       await handle.connect();
 
-      handle.onSpeechStarted = () => {
-        // Always tell the client to flush playback — audio may still be
-        // buffered in the browser even after the server-side turn is done.
-        trySend(() => client.event({ type: "cancelled" }));
-        if (turnAbort) {
-          cancelInflight();
-          if (agent === AgentState.Processing) {
-            agent = AgentState.Listening;
-          }
-        }
-      };
-
       handle.onTranscript = ({ text, isFinal, turnOrder }) => {
         log.info("transcript", { text, isFinal, turnOrder });
         if (isFinal) {
@@ -335,6 +323,9 @@ export function createSession(opts: SessionOptions): Session {
   }
 
   async function handleTurn(text: string, turnOrder?: number): Promise<void> {
+    // Start config resolution immediately — overlaps with previous-turn drain
+    const configPromise = isSttOnly ? null : resolveTurnConfigFromWorker();
+
     cancelInflight();
     agent = AgentState.Processing;
 
@@ -372,7 +363,7 @@ export function createSession(opts: SessionOptions): Session {
         ? [...agentConfig.activeTools]
         : undefined;
 
-      const resolved = await resolveTurnConfigFromWorker();
+      const resolved = await configPromise;
       if (resolved) {
         if (maxSteps === undefined && resolved.maxSteps !== undefined) {
           maxSteps = resolved.maxSteps;
@@ -426,7 +417,6 @@ export function createSession(opts: SessionOptions): Session {
 
       if (signal.aborted) return;
 
-      // Push conversation history using the text that was actually spoken
       messages.push({ role: "user", content: text });
       messages.push({
         role: "assistant",
@@ -509,7 +499,15 @@ export function createSession(opts: SessionOptions): Session {
 
       callHook("onConnect", (api) => api.onConnect(id, HOOK_TIMEOUT_MS));
 
-      await connectStt();
+      // Pre-warm worker (fire-and-forget, populates cachedWorkerApi)
+      if (getWorkerApi) {
+        getWorkerApi().then((api) => {
+          cachedWorkerApi = api;
+        }).catch(() => {});
+      }
+
+      // Fire-and-forget — stt?.send() in onAudio no-ops while null
+      connectStt();
 
       conn = ConnState.Ready;
     },

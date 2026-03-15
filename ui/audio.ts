@@ -26,8 +26,9 @@ export type VoiceIOOptions = {
 export type VoiceIO = AsyncDisposable & {
   /** Enqueue a PCM16 audio buffer for playback through the TTS pipeline. */
   enqueue(pcm16Buffer: ArrayBuffer): void;
-  /** Signal that all TTS audio for the current turn has been enqueued. */
-  done(): void;
+  /** Signal that all TTS audio for the current turn has been enqueued.
+   *  Resolves when the worklet has finished playing all buffered audio. */
+  done(): Promise<void>;
   /** Immediately stop playback and discard any buffered TTS audio. */
   flush(): void;
   /** Release all audio resources (microphone, AudioContext, worklets). */
@@ -141,6 +142,7 @@ export async function createVoiceIO(
   };
 
   let playNode: AudioWorkletNode | null = null;
+  let onPlaybackStop: (() => void) | null = null;
   const lifecycle = new AbortController();
 
   function ensurePlayNode(): AudioWorkletNode {
@@ -153,6 +155,8 @@ export async function createVoiceIO(
       if (e.data.event === "stop") {
         node.disconnect();
         if (playNode === node) playNode = null;
+        onPlaybackStop?.();
+        onPlaybackStop = null;
       }
     };
     playNode = node;
@@ -171,7 +175,11 @@ export async function createVoiceIO(
     },
 
     done() {
-      if (playNode) playNode.port.postMessage({ event: "done" });
+      if (!playNode) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        onPlaybackStop = resolve;
+        playNode!.port.postMessage({ event: "done" });
+      });
     },
 
     flush() {

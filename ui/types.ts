@@ -4,6 +4,7 @@ export const MIC_BUFFER_SECONDS = 0.1;
 
 /** Current state of the voice agent session. */
 export type AgentState =
+  | "disconnected"
   | "connecting"
   | "ready"
   | "listening"

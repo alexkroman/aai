@@ -173,8 +173,14 @@ export class ClientRpcTarget extends RpcTarget {
   }
 
   playAudioDone(): void {
-    this.#voiceIO()?.done();
-    this.#state.value = "listening";
+    const io = this.#voiceIO();
+    if (io) {
+      void io.done().then(() => {
+        this.#state.value = "listening";
+      });
+    } else {
+      this.#state.value = "listening";
+    }
   }
 }
 
@@ -188,7 +194,7 @@ export class ClientRpcTarget extends RpcTarget {
  * @returns A {@linkcode VoiceSession} handle for controlling the session.
  */
 export function createVoiceSession(options: SessionOptions): VoiceSession {
-  const state = signal<AgentState>("connecting");
+  const state = signal<AgentState>("disconnected");
   const messages = signal<Message[]>([]);
   const transcript = signal<string>("");
   const error = signal<SessionError | null>(null);
@@ -252,6 +258,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
         captureWorkletSrc: captureWorklet,
         playbackWorkletSrc: playbackWorklet,
         onMicData: (pcm16: ArrayBuffer) => {
+          if (state.value !== "listening") return;
           try {
             sessionStub?.sendAudioChunk(new Uint8Array(pcm16));
           } catch { /* connection may be closed */ }
@@ -284,6 +291,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
 
   function connect(opts?: { signal?: AbortSignal }): void {
     disconnected.value = null;
+    state.value = "connecting";
     connectionController?.abort();
     const controller = new AbortController();
     connectionController = controller;
@@ -388,7 +396,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     sessionStub = null;
     ws?.close();
     ws = null;
-    state.value = "connecting";
+    state.value = "disconnected";
     disconnected.value = { intentional: true };
   }
 
