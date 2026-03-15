@@ -17,7 +17,6 @@
     "@ai-sdk/openai": "npm:@ai-sdk/openai@^1",
     "mdream": "npm:mdream@^0",
     "openai": "npm:openai@^4.80.0",
-    "@cartesia/cartesia-js": "npm:@cartesia/cartesia-js@^2",
     "assemblyai": "npm:assemblyai@^4",
     "preact": "npm:preact@^10.28.4",
     "preact-render-to-string": "npm:preact-render-to-string@^6.5.13"
