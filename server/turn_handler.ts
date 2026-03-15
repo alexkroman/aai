@@ -2,6 +2,7 @@
 import * as log from "@std/log";
 import {
   type CoreMessage,
+  type CoreSystemMessage,
   type CoreUserMessage,
   type LanguageModelV1,
   type StepResult,
@@ -63,12 +64,28 @@ export function executeTurn(
   const toolChoice = opts.toolChoice ?? "auto";
   const userMessage: CoreUserMessage = { role: "user", content: text };
 
+  // Build messages with Anthropic cache breakpoints on system prompt and
+  // conversation tail so repeated prefixes are served from prompt cache.
+  const systemMessage: CoreSystemMessage = {
+    role: "system",
+    content: system,
+    providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+  };
+  const historyMessages: CoreMessage[] = [...messages];
+  if (historyMessages.length > 0) {
+    const last = historyMessages[historyMessages.length - 1];
+    historyMessages[historyMessages.length - 1] = {
+      ...last,
+      providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+    } as CoreMessage;
+  }
+
   const result = streamText({
     model,
-    system,
-    messages: [...messages, userMessage],
+    messages: [systemMessage, ...historyMessages, userMessage],
     tools,
     toolChoice,
+    toolCallStreaming: true,
     maxSteps,
     abortSignal: signal,
     onStepFinish: (step: StepResult<ToolSet>) => {
