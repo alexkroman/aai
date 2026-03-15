@@ -1,12 +1,12 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { batch, type Signal, signal } from "@preact/signals";
-import { PROTOCOL_VERSION } from "@aai/sdk/protocol";
+import { PROTOCOL_VERSION } from "@aai/core/protocol";
 import type {
   ClientEvent,
   ClientMessage,
   ReadyConfig,
   ServerMessage,
-} from "@aai/sdk/protocol";
+} from "@aai/core/protocol";
 
 const SUPPORTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 
@@ -84,7 +84,7 @@ export class ClientHandler {
   #wordQueue: { text: string; start: number }[] = [];
   /** Number of words from #wordQueue already revealed in the UI. */
   #wordsRevealed = 0;
-  /** TTS sample rate for converting samples → seconds. */
+  /** TTS sample rate for converting samples to seconds. */
   #ttsSampleRate = 24_000;
   constructor(opts: {
     state: Signal<AgentState>;
@@ -105,6 +105,9 @@ export class ClientHandler {
   }
 
   /** Single entry point for all server→client session events. */
+  /** Sentinel value indicating speech detected but no transcript yet. */
+  static readonly speechActive = "\x00";
+
   event(e: ClientEvent): void {
     switch (e.type) {
       case "speech_started":
@@ -333,9 +336,9 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   let ws: WebSocket | null = null;
   let voiceIO: VoiceIO | null = null;
   let connectionController: AbortController | null = null;
+  let activeHandler: ClientHandler | null = null;
   let hasConnected = false;
   let audioSetupInFlight = false;
-  let activeHandler: ClientHandler | null = null;
   function cleanupAudio(): void {
     audioSetupInFlight = false;
     void voiceIO?.close();

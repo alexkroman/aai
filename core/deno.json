@@ -1,0 +1,30 @@
+{
+  "name": "@aai/core",
+  "version": "0.1.72",
+  "exports": {
+    "./types": "./types.ts",
+    "./protocol": "./protocol.ts",
+    "./worker-entry": "./worker_entry.ts",
+    "./worker-shim": "./_worker_shim.ts",
+    "./timeout": "./_timeout.ts",
+    "./capnweb-transport": "./_capnweb_transport.ts"
+  },
+  "imports": {
+    "zod": "jsr:@zod/zod@^4.3.6",
+    "json-schema": "npm:@types/json-schema@^7.0.15",
+    "capnweb": "npm:capnweb@^0.1",
+    "@aai/sdk": "workspace:@aai/sdk"
+  },
+  "publish": {
+    "exclude": [
+      "*_test.ts"
+    ]
+  },
+  "lint": {
+    "rules": {
+      "exclude": [
+        "require-await"
+      ]
+    }
+  }
+}

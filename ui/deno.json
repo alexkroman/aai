@@ -1,6 +1,6 @@
 {
   "name": "@aai/ui",
-  "version": "0.1.170",
+  "version": "0.1.171",
   "exports": {
     ".": "./mod.ts",
     "./session": "./session_mod.ts",
@@ -23,7 +23,8 @@
     "preact/hooks": "npm:preact@^10.29.0/hooks",
     "@preact/signals": "npm:@preact/signals@^2.8.2",
     "linkedom": "npm:linkedom@^0.18.10",
-    "@aai/sdk": "workspace:@aai/sdk"
+    "@aai/sdk": "workspace:@aai/sdk",
+    "@aai/core": "workspace:@aai/core"
   },
   "compilerOptions": {
     "lib": [

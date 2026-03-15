@@ -8,17 +8,10 @@
  * @module
  */
 
-import type {
-  AgentConfig,
-  AgentDef,
-  HookContext,
-  Message,
-  ToolSchema,
-  WorkerConfig,
-} from "./types.ts";
-import type { Kv, KvEntry } from "./kv.ts";
-import type { KvRequest } from "./protocol.ts";
-import type { HostApi } from "./protocol.ts";
+import type { AgentDef, HookContext, Message } from "@aai/sdk/types";
+import type { Kv, KvEntry } from "@aai/sdk/kv";
+import type { AgentConfig, ToolSchema, WorkerConfig } from "./types.ts";
+import type { HostApi, KvRequest } from "./protocol.ts";
 import { executeToolCall } from "./worker_entry.ts";
 import { newMessagePortRpcSession, RpcTarget } from "capnweb";
 import { asMessagePort } from "./_capnweb_transport.ts";

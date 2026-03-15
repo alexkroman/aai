@@ -6,6 +6,8 @@ import type { SynthesizeCallbacks, TtsConnection, WordTiming } from "./tts.ts";
 
 const CARTESIA_WSS_URL = "wss://api.cartesia.ai/tts/websocket";
 const API_VERSION = "2025-04-16";
+/** Safety timeout: resolve if Cartesia never sends `done`. */
+const NO_DONE_TIMEOUT_MS = 10_000;
 
 /**
  * Creates a new streaming TTS connection to the Cartesia service.
@@ -171,8 +173,26 @@ export function createCartesiaTtsConnection(
       completionResolve = resolve;
       completionReject = reject;
 
+      const safetyTimer = setTimeout(() => {
+        log.warn("Cartesia TTS: safety timeout — no done message received");
+        finishSynthesis();
+      }, NO_DONE_TIMEOUT_MS);
+
+      const cleanup = () => clearTimeout(safetyTimer);
+      const origResolve = completionResolve;
+      completionResolve = () => {
+        cleanup();
+        origResolve?.();
+      };
+      const origReject = completionReject;
+      completionReject = (err: Error) => {
+        cleanup();
+        origReject?.(err);
+      };
+
       if (signal) {
         signal.addEventListener("abort", () => {
+          cleanup();
           log.info("TTS aborted (Cartesia)");
           finishSynthesis();
         }, { once: true });
@@ -225,9 +245,8 @@ export function createCartesiaTtsConnection(
           // Single string: send without continue flag
           conn.send(buildMessage(chunks, contextId));
         } else {
-          // Streaming: first chunk via send (no continue flag),
-          // subsequent chunks with continue:true,
-          // empty transcript with continue:false to close.
+          // Streaming: all chunks with continue:true (signals more data coming),
+          // empty transcript with continue:false to close the context.
           let started = false;
           for await (const text of chunks) {
             if (signal?.aborted) return;

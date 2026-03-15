@@ -1,26 +1,24 @@
 // Copyright 2025 the AAI authors. MIT license.
 // Zod validation schemas for server-side use.
 // These validate untrusted input at HTTP/WebSocket boundaries.
-// Protocol schemas (ClientEvent, Twilio, KV) live in @aai/sdk/protocol.
+// Protocol schemas (ClientEvent, Twilio, KV) live in @aai/core/protocol.
 
 import { z } from "zod";
 import type {
-  AgentConfig,
-  AgentEnv,
   AgentMode,
   BuiltinTool,
-  DeployBody,
   ToolChoice,
   Transport,
 } from "@aai/sdk/types";
+import type { AgentConfig, AgentEnv, DeployBody } from "@aai/core/types";
 
 export {
   ClientEventSchema,
   KvRequestBaseSchema,
   SessionErrorCodeSchema,
   TwilioMessageSchema,
-} from "@aai/sdk/protocol";
-import type { KvRequest } from "@aai/sdk/protocol";
+} from "@aai/core/protocol";
+import type { KvRequest } from "@aai/core/protocol";
 
 /** Zod schema for validating transport type values. */
 export const TransportSchema: z.ZodType<Transport> = z.enum([
@@ -104,7 +102,7 @@ export type AgentMetadata = {
   /** Agent configuration extracted at build time. */
   config: AgentConfig;
   /** Tool schemas extracted at build time. */
-  toolSchemas: import("@aai/sdk/types").ToolSchema[];
+  toolSchemas: import("@aai/core/types").ToolSchema[];
 };
 
 /** Zod schema for validating agent metadata from the bundle store. */

@@ -1,7 +1,8 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { z } from "zod";
 import { assertStrictEquals } from "@std/assert";
-import { agentToolsToSchemas, type ToolDef } from "./types.ts";
+import { agentToolsToSchemas } from "./types.ts";
+import type { ToolDef } from "@aai/sdk/types";
 
 Deno.test("agentToolsToSchemas - converts tool definitions to OpenAI schema", () => {
   const tools: Record<string, ToolDef> = {

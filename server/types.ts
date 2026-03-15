@@ -2,7 +2,7 @@
 import {
   DEFAULT_STT_SAMPLE_RATE,
   DEFAULT_TTS_SAMPLE_RATE,
-} from "@aai/sdk/protocol";
+} from "@aai/core/protocol";
 
 export type STTConfig = {
   sampleRate: number;

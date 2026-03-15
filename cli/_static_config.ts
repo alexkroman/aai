@@ -19,7 +19,7 @@ import {
   SyntaxKind,
 } from "ts-morph";
 import { DEFAULT_GREETING, DEFAULT_INSTRUCTIONS } from "@aai/sdk/types";
-import type { AgentConfig, ToolSchema } from "@aai/sdk/types";
+import type { AgentConfig, ToolSchema } from "@aai/core/types";
 import type { JSONSchema7 } from "json-schema";
 import { BundleError } from "./_bundler.ts";
 

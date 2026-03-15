@@ -24,7 +24,7 @@
  */
 
 export { defineAgent } from "./define_agent.ts";
-export { initWorker } from "./_worker_shim.ts";
+export { createMemoryKv } from "./kv.ts";
 export { kvTools } from "./kv_tools.ts";
 
 export type {

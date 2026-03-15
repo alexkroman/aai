@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { newMessagePortRpcSession, RpcTarget } from "capnweb";
-import { asMessagePort } from "@aai/sdk/capnweb-transport";
+import { asMessagePort } from "@aai/core/capnweb-transport";
 
 const output: string[] = [];
 function capture(...args: unknown[]) {

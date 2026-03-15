@@ -1,6 +1,6 @@
 {
   "name": "@aai/sdk",
-  "version": "0.1.110",
+  "version": "0.1.111",
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
@@ -8,17 +8,10 @@
     "./kv": "./kv.ts",
     "./kv-tools": "./kv_tools.ts",
     "./vector": "./vector.ts",
-    "./protocol": "./protocol.ts",
-    "./worker-entry": "./worker_entry.ts",
-    "./worker-shim": "./_worker_shim.ts",
-    "./timeout": "./_timeout.ts",
-    "./testing": "./_mock_ws.ts",
-    "./capnweb-transport": "./_capnweb_transport.ts"
+    "./testing": "./_mock_ws.ts"
   },
   "imports": {
-    "zod": "jsr:@zod/zod@^4.3.6",
-    "json-schema": "npm:@types/json-schema@^7.0.15",
-    "capnweb": "npm:capnweb@^0.1"
+    "zod": "jsr:@zod/zod@^4.3.6"
   },
   "publish": {
     "exclude": [

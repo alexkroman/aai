@@ -26,7 +26,8 @@ const PACKAGES: string[] = rootConfig.workspace;
 // When a package changes, these dependents must also be bumped.
 // Based on the dependency graph: cli/, server/, ui/ depend on sdk/.
 const DEPENDENTS: Record<string, string[]> = {
-  sdk: ["cli", "server", "ui"],
+  sdk: ["cli", "server", "ui", "core"],
+  core: ["cli", "server", "ui"],
   ui: ["cli"],
 };
 

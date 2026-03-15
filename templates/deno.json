@@ -2,6 +2,9 @@
   "imports": {
     "@aai/sdk": "../sdk/mod.ts",
     "@aai/sdk/types": "../sdk/types.ts",
+    "@aai/core/protocol": "../core/protocol.ts",
+    "@aai/core/worker-shim": "../core/_worker_shim.ts",
+    "@aai/core/types": "../core/types.ts",
     "@aai/ui": "../ui/mod.ts",
     "zod": "jsr:@zod/zod@^4",
     "preact/hooks": "npm:preact@^10/hooks",

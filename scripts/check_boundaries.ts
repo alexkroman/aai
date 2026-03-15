@@ -73,7 +73,7 @@ for (const rule of RULES) {
 
 if (violations > 0) {
   log.error(`\nFound ${violations} import boundary violation(s).`);
-  log.error("cli/, server/, and ui/ may only import from sdk/.");
+  log.error("cli/, server/, and ui/ may only import from sdk/ and core/.");
   Deno.exit(1);
 } else {
   log.info("Import boundaries OK");

@@ -1,0 +1,100 @@
+// Copyright 2025 the AAI authors. MIT license.
+/**
+ * Internal type definitions shared by server and CLI.
+ *
+ * Note: this module is for internal use only and should not be used directly.
+ *
+ * @module
+ */
+
+import { z } from "zod";
+import type { JSONSchema7 } from "json-schema";
+import type {
+  AgentMode,
+  BuiltinTool,
+  ToolChoice,
+  ToolDef,
+  Transport,
+} from "@aai/sdk/types";
+
+/**
+ * Serializable agent configuration sent over the wire.
+ *
+ * This is the JSON-safe subset of the agent definition that can be
+ * transmitted between the worker and the host process via structured clone.
+ */
+export type AgentConfig = {
+  name: string;
+  mode?: AgentMode | undefined;
+  instructions: string;
+  greeting: string;
+  voice: string;
+  sttPrompt?: string | undefined;
+  maxSteps?: number | undefined;
+  toolChoice?: ToolChoice | undefined;
+  transport?: readonly Transport[] | undefined;
+  builtinTools?: readonly BuiltinTool[] | undefined;
+  /** Default set of active tools. Can be overridden per-turn via `onBeforeStep`. */
+  activeTools?: readonly string[] | undefined;
+};
+
+/**
+ * Serialized tool schema sent over the wire.
+ * `parameters` must be a valid JSON Schema object (with `type`, `properties`,
+ * etc.) — the Vercel AI SDK wraps it via `jsonSchema()`.
+ */
+export type ToolSchema = {
+  name: string;
+  description: string;
+  parameters: JSONSchema7;
+};
+
+/**
+ * Request body for the deploy endpoint.
+ *
+ * Sent by the CLI to the server when deploying a bundled agent.
+ */
+export type DeployBody = {
+  /** Env vars are optional at deploy time — set separately via `aai env add`. */
+  env?: Readonly<Record<string, string>> | undefined;
+  worker: string;
+  html: string;
+  transport?: readonly Transport[] | undefined;
+  /** Agent configuration extracted at build time. */
+  config: AgentConfig;
+  /** Tool schemas extracted at build time. */
+  toolSchemas: ToolSchema[];
+};
+
+/** Environment variables required by the agent runtime. */
+export type AgentEnv = {
+  ASSEMBLYAI_API_KEY: string;
+  LLM_MODEL?: string | undefined;
+  [key: string]: string | undefined;
+};
+
+/** Configuration + tool schemas bundle returned by the worker's getConfig RPC. */
+export type WorkerConfig = {
+  config: AgentConfig;
+  toolSchemas: ToolSchema[];
+};
+
+const EMPTY_PARAMS = z.object({});
+
+/**
+ * Convert agent tool definitions to JSON Schema format for wire transport.
+ *
+ * Transforms the Zod-based `parameters` of each tool into a plain JSON Schema
+ * object suitable for structured clone / JSON serialization.
+ */
+export function agentToolsToSchemas(
+  tools: Readonly<Record<string, ToolDef>>,
+): ToolSchema[] {
+  return Object.entries(tools).map(([name, def]) => ({
+    name,
+    description: def.description,
+    parameters: z.toJSONSchema(
+      def.parameters ?? EMPTY_PARAMS,
+    ) as JSONSchema7,
+  }));
+}

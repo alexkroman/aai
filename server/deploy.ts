@@ -3,7 +3,7 @@ import * as log from "@std/log";
 import { STATUS_CODE } from "@std/http/status";
 import { json, type RouteContext } from "./context.ts";
 import { loadPlatformConfig } from "./config.ts";
-import type { DeployBody } from "@aai/sdk/types";
+import type { DeployBody } from "@aai/core/types";
 import { HttpError } from "./context.ts";
 import { DeployBodySchema } from "./_schemas.ts";
 import type { AgentSlot } from "./worker_pool.ts";

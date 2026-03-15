@@ -8,11 +8,9 @@ import {
   type ToolSet,
 } from "ai";
 import { newMessagePortRpcSession } from "capnweb";
-import { asMessagePort } from "@aai/sdk/capnweb-transport";
-import type {
-  BuiltinTool as BuiltinToolName,
-  ToolSchema,
-} from "@aai/sdk/types";
+import { asMessagePort } from "@aai/core/capnweb-transport";
+import type { BuiltinTool as BuiltinToolName } from "@aai/sdk/types";
+import type { ToolSchema } from "@aai/core/types";
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
 import { htmlToMarkdown } from "mdream";

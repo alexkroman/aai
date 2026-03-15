@@ -5,8 +5,7 @@
  * @module
  */
 
-import { z } from "zod";
-import type { JSONSchema7 } from "json-schema";
+import type { z } from "zod";
 import type { Kv } from "./kv.ts";
 
 /** Result of the {@linkcode AgentOptions.onBeforeStep} hook. */
@@ -68,62 +67,6 @@ export type ToolChoice =
  * - `"stt-only"` — Speech-to-text only; no LLM or TTS processing.
  */
 export type AgentMode = "full" | "stt-only";
-
-/**
- * Serializable agent configuration sent over the wire.
- *
- * This is the JSON-safe subset of {@linkcode AgentDef} that can be
- * transmitted between the worker and the host process via structured clone.
- */
-export type AgentConfig = {
-  name: string;
-  mode?: AgentMode | undefined;
-  instructions: string;
-  greeting: string;
-  voice: string;
-  sttPrompt?: string | undefined;
-  maxSteps?: number | undefined;
-  toolChoice?: ToolChoice | undefined;
-  transport?: readonly Transport[] | undefined;
-  builtinTools?: readonly BuiltinTool[] | undefined;
-  /** Default set of active tools. Can be overridden per-turn via `onBeforeStep`. */
-  activeTools?: readonly string[] | undefined;
-};
-
-/**
- * Serialized tool schema sent over the wire.
- * `parameters` must be a valid JSON Schema object (with `type`, `properties`,
- * etc.) — the Vercel AI SDK wraps it via `jsonSchema()`.
- */
-export type ToolSchema = {
-  name: string;
-  description: string;
-  parameters: JSONSchema7;
-};
-
-/**
- * Request body for the deploy endpoint.
- *
- * Sent by the CLI to the server when deploying a bundled agent.
- */
-export type DeployBody = {
-  /** Env vars are optional at deploy time — set separately via `aai env add`. */
-  env?: Readonly<Record<string, string>> | undefined;
-  worker: string;
-  html: string;
-  transport?: readonly Transport[] | undefined;
-  /** Agent configuration extracted at build time. */
-  config: AgentConfig;
-  /** Tool schemas extracted at build time. */
-  toolSchemas: ToolSchema[];
-};
-
-/** Environment variables required by the agent runtime. */
-export type AgentEnv = {
-  ASSEMBLYAI_API_KEY: string;
-  LLM_MODEL?: string | undefined;
-  [key: string]: string | undefined;
-};
 
 /**
  * A single message in the conversation history.
@@ -423,27 +366,6 @@ If you need to list items, say "First," "Next," and "Finally."
 /** Default greeting spoken when a session starts. */
 export const DEFAULT_GREETING: string =
   "Hey there. I'm a voice assistant. What can I help you with?";
-
-const EMPTY_PARAMS = z.object({});
-
-/** @internal Convert agent tool definitions to JSON Schema format for wire transport. */
-export function agentToolsToSchemas(
-  tools: Readonly<Record<string, ToolDef>>,
-): ToolSchema[] {
-  return Object.entries(tools).map(([name, def]) => ({
-    name,
-    description: def.description,
-    parameters: z.toJSONSchema(
-      def.parameters ?? EMPTY_PARAMS,
-    ) as JSONSchema7,
-  }));
-}
-
-/** Configuration + tool schemas bundle returned by the worker's getConfig RPC. */
-export type WorkerConfig = {
-  config: AgentConfig;
-  toolSchemas: ToolSchema[];
-};
 
 /**
  * Agent definition with all defaults applied, returned by

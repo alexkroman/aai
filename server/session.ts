@@ -11,11 +11,10 @@ import { createGatewayModel } from "./provider_gateway.ts";
 import { getBuiltinVercelTools, type VectorCtx } from "./builtin_tools.ts";
 import { executeTurn, type TurnResult } from "./turn_handler.ts";
 import type { STTConfig, TTSConfig } from "./types.ts";
-import type { AgentConfig } from "@aai/sdk/types";
-import type { ToolSchema } from "@aai/sdk/types";
+import type { AgentConfig, ToolSchema } from "@aai/core/types";
 import type { WorkerApi } from "./_worker_entry.ts";
-import { HOOK_TIMEOUT_MS } from "@aai/sdk/protocol";
-import type { ClientSink, TurnConfig } from "@aai/sdk/protocol";
+import { HOOK_TIMEOUT_MS } from "@aai/core/protocol";
+import type { ClientSink, TurnConfig } from "@aai/core/protocol";
 import { buildSystemPrompt } from "./system_prompt.ts";
 import {
   type CoreMessage,
@@ -328,7 +327,7 @@ export function createSession(opts: SessionOptions): Session {
             await connectStt();
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            log.error("STT reconnect failed:", msg);
+            log.error("STT reconnect failed", { cause: err });
             trySend(() =>
               client.event({
                 type: "error",
@@ -343,7 +342,7 @@ export function createSession(opts: SessionOptions): Session {
       stt = handle;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      log.error("STT connect failed:", msg);
+      log.error("STT connect failed", { cause: err });
       trySend(() => client.event({ type: "error", code: "stt", message: msg }));
     }
   }
@@ -488,18 +487,10 @@ export function createSession(opts: SessionOptions): Session {
     } catch (err: unknown) {
       if (signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
-      if (
-        err instanceof Error &&
-        "responseBody" in err
-      ) {
-        const { responseBody, statusCode } = err as Error & {
-          responseBody?: unknown;
-          statusCode?: number;
-        };
-        log.error("Turn failed:", msg, { responseBody, statusCode });
-      } else {
-        log.error("Turn failed:", msg);
-      }
+      log.error(
+        `Turn failed: ${msg}`,
+        err instanceof Error ? { cause: err } : undefined,
+      );
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
       trySend(() => client.event({ type: "error", code: "llm", message: msg }));
     } finally {
@@ -534,7 +525,7 @@ export function createSession(opts: SessionOptions): Session {
       } catch (err: unknown) {
         if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : String(err);
-        log.error("TTS failed:", msg);
+        log.error("TTS failed", { cause: err });
         trySend(() =>
           client.event({ type: "error", code: "tts", message: msg })
         );
@@ -565,7 +556,9 @@ export function createSession(opts: SessionOptions): Session {
       if (getWorkerApi) {
         getWorkerApi().then((api) => {
           cachedWorkerApi = api;
-        }).catch(() => {});
+        }).catch((err) => {
+          log.warn("Worker pre-warm failed", { cause: err });
+        });
       }
 
       // Fire-and-forget — stt?.send() in onAudio no-ops while null

@@ -213,10 +213,10 @@ Deno.test("ClientHandler event handling", async (t) => {
       assertStrictEquals(state.value, "speaking");
 
       // Simulate playback progress — reveals words as audio plays
-      target.onPlaybackProgress(2400); // 0.1s at 24kHz → reveals "It's" (start: 0.0)
+      target.onPlaybackProgress(2400); // 0.1s at 24kHz — reveals "It's" (start: 0.0)
       assertStrictEquals(messages.value[1]!.text, "It's");
 
-      target.onPlaybackProgress(16800); // 0.7s → reveals up to "and" (start: 0.6)
+      target.onPlaybackProgress(16800); // 0.7s — reveals up to "and" (start: 0.6)
       assertStrictEquals(messages.value[1]!.text, "It's 72°F and");
 
       // TTS finishes — reveals all remaining words
@@ -224,6 +224,7 @@ Deno.test("ClientHandler event handling", async (t) => {
       await new Promise((r) => setTimeout(r, 0));
       assertStrictEquals(messages.value[1]!.text, "It's 72°F and sunny.");
       assertStrictEquals(state.value, "listening");
+      assertStrictEquals(messages.value[1]!.text, "It's 72°F and sunny.");
     },
   );
 

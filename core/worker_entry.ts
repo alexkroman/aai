@@ -6,8 +6,8 @@
  */
 
 import { z } from "zod";
-import type { Message, ToolContext, ToolDef } from "./types.ts";
-import type { Kv } from "./kv.ts";
+import type { Kv } from "@aai/sdk/kv";
+import type { Message, ToolContext, ToolDef } from "@aai/sdk/types";
 
 /**
  * Maximum time in milliseconds a tool handler may run before being aborted.

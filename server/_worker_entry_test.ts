@@ -7,10 +7,10 @@ import {
 } from "@std/assert";
 import { z } from "zod";
 import { createWorkerApi } from "./_worker_entry.ts";
-import type { HostApi } from "@aai/sdk/protocol";
-import { executeToolCall, TOOL_HANDLER_TIMEOUT } from "@aai/sdk/worker-entry";
+import type { HostApi } from "@aai/core/protocol";
+import { executeToolCall, TOOL_HANDLER_TIMEOUT } from "@aai/core/worker-entry";
 import type { ToolDef } from "@aai/sdk/types";
-import { initWorker } from "@aai/sdk/worker-shim";
+import { initWorker } from "@aai/core/worker-shim";
 
 function makeTool(
   execute: ToolDef["execute"],
