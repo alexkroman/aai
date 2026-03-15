@@ -73,6 +73,7 @@ Templates are in `templates/` relative to the CLI source:
 | `infocom-adventure` | Zork-style text adventure with state, puzzles, inventory. **Has custom UI.**       |
 | `embedded-assets`   | FAQ bot using embedded JSON knowledge (no web search)                              |
 | `twilio-phone`      | Phone assistant with WebSocket + Twilio transports                                 |
+| `support`           | RAG-powered support agent using vector_search (AssemblyAI docs example)            |
 | `terminal`          | STT-only mode for voice-driven kubectl commands                                    |
 
 ### Minimal agent
@@ -86,7 +87,7 @@ export default defineAgent({
   name: "My Agent",
   instructions: "You are a helpful assistant that...",
   greeting: "Hey there. What can I help you with?",
-  voice: "luna",
+  voice: "694f9389-aac1-45b6-b726-9d9369183238", // Sarah
 });
 ```
 
@@ -107,7 +108,7 @@ defineAgent({
   name: string;              // Required: display name
   instructions?: string;     // System prompt (voice-first default provided)
   greeting?: string;         // Spoken on connect
-  voice?: Voice;             // Rime TTS voice (default: "luna")
+  voice?: Voice;             // Cartesia voice UUID (default: Sarah)
 
   // Speech
   sttPrompt?: string;        // STT guidance for jargon, names, acronyms
@@ -137,15 +138,31 @@ defineAgent({
 
 ### Voices
 
-Available voices: `luna` (default), `andromeda`, `celeste`, `orion`, `sirius`,
-`lyra`, `estelle`, `esther`, `kima`, `bond`, `thalassa`, `vespera`, `moss`,
-`fern`, `astra`, `tauro`, `walnut`, `arcana`, or any Rime speaker ID.
+Voices use Cartesia voice UUIDs. Browse all voices at
+[play.cartesia.ai](https://play.cartesia.ai).
+
+Common voices:
+
+| Name                  | Voice ID                               |
+| --------------------- | -------------------------------------- |
+| Sarah (default)       | `694f9389-aac1-45b6-b726-9d9369183238` |
+| Customer Support Man  | `a167e0f3-df7e-4d52-a9c3-f949145efdab` |
+| Customer Support Lady | `829ccd10-f8b3-43cd-b8a0-4aeaa81f3b30` |
+| Helpful Woman         | `156fb8d2-335b-4950-9cb3-a2d33befec77` |
+| Professional Woman    | `248be419-c632-4f23-adf1-5324ed7dbf1d` |
+| Friendly Reading Man  | `69267136-1bdc-412f-ad78-0caad210fb40` |
+| Confident British Man | `63ff761f-c1e8-414b-b969-d1833d1c870c` |
+| New York Man          | `34575e71-908f-4ab6-ab54-b08c95d6597d` |
+| California Girl       | `b7d50908-b17c-442d-ad8d-810c63997ed9` |
+| Newsman               | `d46abd1d-2d02-43e8-819f-51fb652c1c61` |
+
+Any Cartesia voice UUID works — the list above is just a starting point.
 
 Use `sttPrompt` for domain-specific vocabulary:
 
 ```ts
 export default defineAgent({
-  voice: "orion",
+  voice: "a167e0f3-df7e-4d52-a9c3-f949145efdab", // Customer Support Man
   sttPrompt: "Transcribe technical terms: Kubernetes, gRPC, PostgreSQL",
 });
 ```

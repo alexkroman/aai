@@ -147,7 +147,7 @@ function createMockSessionOptions() {
       name: "Test Agent",
       instructions: "Test instructions",
       greeting: "Hi there!",
-      voice: "luna",
+      voice: "",
     },
     toolSchemas: [],
     platformConfig: createMockPlatformConfig(),

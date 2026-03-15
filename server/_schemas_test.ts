@@ -16,7 +16,7 @@ Deno.test("AgentConfigSchema", async (t) => {
       name: "Test",
       instructions: "Help",
       greeting: "Hi",
-      voice: "luna",
+      voice: "",
     });
     assertStrictEquals(result.success, true);
   });
@@ -26,7 +26,7 @@ Deno.test("AgentConfigSchema", async (t) => {
       name: "Agent",
       instructions: "Help",
       greeting: "Hi",
-      voice: "luna",
+      voice: "",
       sttPrompt: "Transcribe accurately",
       maxSteps: 8,
       builtinTools: ["web_search", "run_code"],
@@ -89,7 +89,7 @@ const VALID_CONFIG = {
   name: "Test",
   instructions: "Help",
   greeting: "Hi",
-  voice: "luna",
+  voice: "",
 };
 
 Deno.test("DeployBodySchema", async (t) => {

@@ -8,7 +8,7 @@ Deno.test("defineAgent", async (t) => {
   await t.step("applies defaults", () => {
     const agent = defineAgent({ name: "Test" });
     assertStrictEquals(agent.name, "Test");
-    assertStrictEquals(agent.voice, "luna");
+    assertStrictEquals(agent.voice, "");
     assertStrictEquals(agent.instructions, DEFAULT_INSTRUCTIONS);
     assertStrictEquals(agent.greeting, DEFAULT_GREETING);
     assertEquals(agent.transport, ["websocket"]);
@@ -19,13 +19,13 @@ Deno.test("defineAgent", async (t) => {
   await t.step("preserves custom values", () => {
     const agent = defineAgent({
       name: "Custom",
-      voice: "orion",
+      voice: "a167e0f3-df7e-4d52-a9c3-f949145efdab",
       instructions: "Be a pirate",
       greeting: "Ahoy",
       transport: "twilio",
       env: ["MY_KEY"],
     });
-    assertStrictEquals(agent.voice, "orion");
+    assertStrictEquals(agent.voice, "a167e0f3-df7e-4d52-a9c3-f949145efdab");
     assertStrictEquals(agent.instructions, "Be a pirate");
     assertStrictEquals(agent.greeting, "Ahoy");
     assertEquals(agent.transport, ["twilio"]);

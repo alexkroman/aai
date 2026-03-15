@@ -156,7 +156,7 @@ Deno.test("postMessage RPC worker", async (t) => {
       transport: ["websocket"],
       instructions: "",
       greeting: "",
-      voice: "luna",
+      voice: "",
       maxSteps: 5,
       tools: {
         greet: {
@@ -179,7 +179,7 @@ Deno.test("postMessage RPC worker", async (t) => {
       transport: ["websocket"],
       instructions: "",
       greeting: "",
-      voice: "luna",
+      voice: "",
       maxSteps: 5,
       tools: {},
     });
@@ -198,7 +198,7 @@ Deno.test("postMessage RPC worker", async (t) => {
       transport: ["websocket"],
       instructions: "",
       greeting: "",
-      voice: "luna",
+      voice: "",
       maxSteps: 5,
       tools: {},
       onConnect: () => {
@@ -221,7 +221,7 @@ Deno.test("postMessage RPC worker", async (t) => {
         transport: ["websocket"],
         instructions: "",
         greeting: "",
-        voice: "luna",
+        voice: "",
         maxSteps: 5,
         tools: {
           check: {
@@ -252,7 +252,7 @@ Deno.test("postMessage RPC worker", async (t) => {
         transport: ["websocket"],
         instructions: "",
         greeting: "",
-        voice: "luna",
+        voice: "",
         maxSteps: 5,
         tools: {
           check: {
@@ -286,7 +286,7 @@ Deno.test("postMessage RPC worker", async (t) => {
         transport: ["websocket"],
         instructions: "",
         greeting: "",
-        voice: "luna",
+        voice: "",
         maxSteps: 5,
         tools: {},
         onStep: (step) => {
@@ -318,7 +318,7 @@ Deno.test("fetch proxy via postMessage RPC", async (t) => {
         transport: ["websocket"],
         instructions: "",
         greeting: "",
-        voice: "luna",
+        voice: "",
         maxSteps: 5,
         tools: {
           do_fetch: {
@@ -363,7 +363,7 @@ Deno.test("fetch proxy via postMessage RPC", async (t) => {
         transport: ["websocket"],
         instructions: "",
         greeting: "",
-        voice: "luna",
+        voice: "",
         maxSteps: 5,
         tools: {
           check_response: {
@@ -405,7 +405,7 @@ Deno.test("fetch proxy via postMessage RPC", async (t) => {
         transport: ["websocket"],
         instructions: "",
         greeting: "",
-        voice: "luna",
+        voice: "",
         maxSteps: 5,
         tools: {
           bad_fetch: {
@@ -444,7 +444,7 @@ Deno.test("fetch proxy via postMessage RPC", async (t) => {
         transport: ["websocket"],
         instructions: "",
         greeting: "",
-        voice: "luna",
+        voice: "",
         maxSteps: 5,
         tools: {
           post_data: {
@@ -497,7 +497,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
           transport: ["websocket"],
           instructions: "",
           greeting: "",
-          voice: "luna",
+          voice: "",
           maxSteps: 5,
           tools: {
             do_fetch: {
@@ -538,7 +538,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
         transport: ["websocket"],
         instructions: "",
         greeting: "",
-        voice: "luna",
+        voice: "",
         maxSteps: 5,
         tools: {
           greet: {
@@ -564,7 +564,7 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
         transport: ["websocket"],
         instructions: "",
         greeting: "",
-        voice: "luna",
+        voice: "",
         maxSteps: 5,
         tools: {
           check_env: {
