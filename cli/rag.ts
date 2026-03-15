@@ -19,7 +19,7 @@ export const crawlCommandDef: SubcommandDef = {
   ],
 };
 
-const FETCH_TIMEOUT_MS = 30_000;
+const FETCH_TIMEOUT_MS = 60_000;
 
 /**
  * Runs the `aai crawl <url>` subcommand.
@@ -136,8 +136,10 @@ export async function runCrawlCommand(
 
   // Upsert
   const vectorUrl = `${serverUrl}/${slug}/vector`;
+  info(`target: ${vectorUrl}`);
   let upserted = 0;
   let errors = 0;
+  let lastError = "";
 
   for (const chunk of allChunks) {
     try {
@@ -155,17 +157,22 @@ export async function runCrawlCommand(
         }),
       });
       if (!r.ok) {
+        lastError = await r.text();
         errors++;
       } else {
         upserted++;
       }
-    } catch {
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err.message : String(err);
       errors++;
     }
   }
 
   step("Done", `${upserted} chunks upserted`);
-  if (errors > 0) warn(`${errors} failed`);
+  if (errors > 0) {
+    warn(`${errors} failed`);
+    if (lastError) info(`last error: ${lastError}`);
+  }
   detail(`Agent: ${slug}`);
 }
 
