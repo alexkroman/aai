@@ -134,6 +134,7 @@ const webSearch = defineTool({
     const url = `${BRAVE_SEARCH_URL}?${new URLSearchParams({
       q: query,
       count: String(maxResults),
+      text_decorations: "false",
     })}`;
 
     const resp = await _internals.fetch(url, {
