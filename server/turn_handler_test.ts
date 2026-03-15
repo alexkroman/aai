@@ -55,16 +55,8 @@ function makeModel(
   }) as LanguageModelV1;
 }
 
-function makeTools(): ToolSet {
-  return {
-    user_input: vercelTool({
-      description: "Ask user",
-      parameters: jsonSchema({
-        type: "object",
-        properties: { question: { type: "string" } },
-      }),
-    }) as unknown as ToolSet[string],
-  };
+function _makeTools(): ToolSet {
+  return {};
 }
 
 /** Helper to consume a TurnResult's text stream and return the accumulated text. */
@@ -97,9 +89,16 @@ Deno.test("streams text response when no tools called", async () => {
 });
 
 Deno.test("streams empty text when only tool calls present", async () => {
+  const noExecTool = vercelTool({
+    description: "A tool with no execute",
+    parameters: jsonSchema({
+      type: "object",
+      properties: { question: { type: "string" } },
+    }),
+  }) as unknown as ToolSet[string];
   const model = makeModel([{
     toolCalls: [{
-      toolName: "user_input",
+      toolName: "no_exec",
       args: { question: "What color?" },
     }],
   }]);
@@ -108,7 +107,7 @@ Deno.test("streams empty text when only tool calls present", async () => {
     model,
     system: "You are helpful.",
     messages: [],
-    tools: makeTools(),
+    tools: { no_exec: noExecTool },
     signal: new AbortController().signal,
   });
   assertStrictEquals(result, "");

@@ -189,6 +189,13 @@ export type ClientEvent =
   | { type: "turn"; text: string; turnOrder?: number | undefined }
   | { type: "chat"; text: string }
   | { type: "chat_delta"; delta: string }
+  | {
+    type: "tool_call_start";
+    toolCallId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+  }
+  | { type: "tool_call_done"; toolCallId: string; result: string }
   | { type: "tts_done" }
   | { type: "cancelled" }
   | { type: "reset" }
@@ -214,6 +221,17 @@ export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
     }),
     z.object({ type: z.literal("chat"), text: z.string() }),
     z.object({ type: z.literal("chat_delta"), delta: z.string() }),
+    z.object({
+      type: z.literal("tool_call_start"),
+      toolCallId: z.string(),
+      toolName: z.string(),
+      args: z.record(z.string(), z.unknown()),
+    }),
+    z.object({
+      type: z.literal("tool_call_done"),
+      toolCallId: z.string(),
+      result: z.string().max(4000),
+    }),
     z.object({ type: z.literal("tts_done") }),
     z.object({ type: z.literal("cancelled") }),
     z.object({ type: z.literal("reset") }),

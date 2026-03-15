@@ -31,5 +31,6 @@ export {
   MessageBubble,
   StateIndicator,
   ThinkingIndicator,
+  ToolCallBlock,
   Transcript,
 } from "./components.ts";

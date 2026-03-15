@@ -23,4 +23,5 @@ export type {
   SessionError,
   SessionErrorCode,
   SessionOptions,
+  ToolCallInfo,
 } from "./types.ts";

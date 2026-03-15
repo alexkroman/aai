@@ -51,21 +51,18 @@ export function normalizeTransport(
  * Identifier for a built-in server-side tool.
  *
  * Built-in tools run on the host process (not inside the sandboxed worker)
- * and provide capabilities like web search, code execution, and user input.
+ * and provide capabilities like web search, code execution, and API access.
  *
  * - `"web_search"` — Search the web for information.
  * - `"visit_webpage"` — Fetch and extract text from a URL.
  * - `"fetch_json"` — Fetch JSON from an API endpoint.
  * - `"run_code"` — Execute code in a sandboxed environment.
- * - `"user_input"` — Request additional input from the user.
- * - `"final_answer"` — Signal that the agent has finished its turn.
  */
 export type BuiltinTool =
   | "web_search"
   | "visit_webpage"
   | "fetch_json"
-  | "run_code"
-  | "user_input";
+  | "run_code";
 
 /**
  * How the LLM should select tools during a turn.
@@ -425,8 +422,7 @@ export type AgentOptions<S = any> = {
  * formatting, confident tone, and concise answers.
  */
 export const DEFAULT_INSTRUCTIONS: string = `\
-You are AAI, a helpful AI assistant. Your goal is to provide accurate, \
-research-backed answers using your available tools.
+You are AAI, a helpful AI assistant.
 
 Voice-First Rules:
 - Optimize for natural speech. Avoid jargon unless central to the answer. \

@@ -30,7 +30,7 @@ Deno.test("AgentConfigSchema", async (t) => {
       sttPrompt: "Transcribe accurately",
       maxSteps: 8,
       builtinTools: ["web_search", "run_code"],
-      activeTools: ["web_search", "final_answer"],
+      activeTools: ["web_search", "fetch_json"],
     });
     assertStrictEquals(result.success, true);
   });

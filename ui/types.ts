@@ -20,6 +20,17 @@ export type Message = {
   text: string;
 };
 
+/** Info about a tool call for display in the UI. */
+export type ToolCallInfo = {
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  status: "pending" | "done";
+  result?: string | undefined;
+  /** Index in the messages array where this tool call should appear. */
+  afterMessageIndex: number;
+};
+
 import type { SessionErrorCode } from "@aai/sdk/protocol";
 export type { SessionErrorCode };
 

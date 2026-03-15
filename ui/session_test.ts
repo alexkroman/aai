@@ -2,11 +2,17 @@
 import { assertEquals, assertStrictEquals } from "@std/assert";
 import { signal } from "@preact/signals";
 import { ClientHandler } from "./session.ts";
-import type { AgentState, Message, SessionError } from "./types.ts";
+import type {
+  AgentState,
+  Message,
+  SessionError,
+  ToolCallInfo,
+} from "./types.ts";
 
 function createTarget() {
   const state = signal<AgentState>("connecting");
   const messages = signal<Message[]>([]);
+  const toolCalls = signal<ToolCallInfo[]>([]);
   const transcript = signal<string>("");
   const error = signal<SessionError | null>(null);
   let flushed = false;
@@ -14,6 +20,7 @@ function createTarget() {
   const target = new ClientHandler({
     state,
     messages,
+    toolCalls,
     transcript,
     error,
     voiceIO: () => ({
@@ -35,6 +42,7 @@ function createTarget() {
     target,
     state,
     messages,
+    toolCalls,
     transcript,
     error,
     wasFlushed: () => flushed,
@@ -207,6 +215,7 @@ Deno.test("ClientHandler event handling", async (t) => {
       const target = new ClientHandler({
         state,
         messages: signal<Message[]>([]),
+        toolCalls: signal<ToolCallInfo[]>([]),
         transcript: signal(""),
         error: signal<SessionError | null>(null),
         voiceIO: () => ({
@@ -239,6 +248,7 @@ Deno.test("ClientHandler event handling", async (t) => {
       const target = new ClientHandler({
         state,
         messages: signal<Message[]>([]),
+        toolCalls: signal<ToolCallInfo[]>([]),
         transcript: signal(""),
         error: signal<SessionError | null>(null),
         voiceIO: () => ({

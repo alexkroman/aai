@@ -177,6 +177,8 @@ export function createSession(opts: SessionOptions): Session {
   } else {
     tools = getBuiltinVercelTools(agentConfig.builtinTools ?? [], env);
     for (const schema of opts.toolSchemas) {
+      // Skip schemas for builtin tools — they already have host-side execute
+      if (schema.name in tools) continue;
       tools[schema.name] = vercelTool({
         description: schema.description,
         parameters: jsonSchema(schema.parameters),
@@ -356,6 +358,7 @@ export function createSession(opts: SessionOptions): Session {
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
     let turn: TurnResult | null = null;
+    let toolForward: Promise<void> | null = null;
 
     try {
       let maxSteps = agentConfig.maxSteps;
@@ -399,6 +402,29 @@ export function createSession(opts: SessionOptions): Session {
           }
           : undefined,
       });
+
+      // Forward tool events to client in parallel with TTS streaming
+      toolForward = (async () => {
+        for await (const evt of turn.toolEvents) {
+          if (signal.aborted) break;
+          trySend(() =>
+            client.event(
+              evt.kind === "start"
+                ? {
+                  type: "tool_call_start",
+                  toolCallId: evt.toolCallId,
+                  toolName: evt.toolName,
+                  args: evt.args,
+                }
+                : {
+                  type: "tool_call_done",
+                  toolCallId: evt.toolCallId,
+                  result: evt.result,
+                },
+            )
+          );
+        }
+      })();
 
       // TTS onText callback: send chat_delta to client and accumulate spoken text
       let spokenText = "";
@@ -444,7 +470,8 @@ export function createSession(opts: SessionOptions): Session {
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
       trySend(() => client.event({ type: "error", code: "llm", message: msg }));
     } finally {
-      if (turn) await turn.consume();
+      const settled = [turn?.consume(), toolForward].filter(Boolean);
+      if (settled.length) await Promise.allSettled(settled);
       if (turnAbort === abort) turnAbort = null;
       metrics.turnDuration.observe(
         (performance.now() - turnStart) / 1000,

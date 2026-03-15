@@ -257,19 +257,17 @@ parameters: z.object({
 
 ### Built-in tools
 
-Enable via `builtinTools`. `user_input` and `final_answer` are always
-auto-included.
+Enable via `builtinTools`.
 
-| Tool            | Description                                     | Params                              |
-| --------------- | ----------------------------------------------- | ----------------------------------- |
-| `web_search`    | Search the web (Brave Search)                   | `query`, `max_results?` (default 5) |
-| `visit_webpage` | Fetch URL → Markdown                            | `url`                               |
-| `fetch_json`    | HTTP GET a JSON API                             | `url`, `headers?`                   |
-| `run_code`      | Execute JS in sandbox (no net/fs, 30s timeout)  | `code`                              |
-| `user_input`    | Ask user a follow-up (auto-included)            | `question`                          |
-| `final_answer`  | Deliver spoken response via TTS (auto-included) | `answer`                            |
+| Tool            | Description                                    | Params                              |
+| --------------- | ---------------------------------------------- | ----------------------------------- |
+| `web_search`    | Search the web (Brave Search)                  | `query`, `max_results?` (default 5) |
+| `visit_webpage` | Fetch URL → Markdown                           | `url`                               |
+| `fetch_json`    | HTTP GET a JSON API                            | `url`, `headers?`                   |
+| `run_code`      | Execute JS in sandbox (no net/fs, 30s timeout) | `code`                              |
 
-The framework forces `final_answer` after `maxSteps - 1` iterations (default 4).
+The agentic loop runs up to `maxSteps` iterations (default 5) and stops when the
+LLM produces a text response.
 
 ### Tool context
 
@@ -375,9 +373,9 @@ state: () => ({ phase: "gather" }),
 onBeforeStep: (stepNumber, ctx) => {
   const state = ctx.state as { phase: string };
   if (state.phase === "gather") {
-    return { activeTools: ["search", "lookup", "final_answer"] };
+    return { activeTools: ["search", "lookup"] };
   }
-  return { activeTools: ["summarize", "final_answer"] };
+  return { activeTools: ["summarize"] };
 },
 ```
 

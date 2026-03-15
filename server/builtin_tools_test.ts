@@ -18,24 +18,22 @@ function mockFetch(body: string, status = 200, statusText = "OK") {
 
 // --- getBuiltinToolSchemas ---
 
-Deno.test("getBuiltinToolSchemas returns requested + required tools", () => {
+Deno.test("getBuiltinToolSchemas returns requested tools", () => {
   const schemas = getBuiltinToolSchemas([
     "web_search",
     "visit_webpage",
     "run_code",
     "fetch_json",
   ]);
-  assertStrictEquals(schemas.length, 5);
+  assertStrictEquals(schemas.length, 4);
   const names = schemas.map((s) => s.name);
-  assert(names.includes("user_input"));
   assert(names.includes("web_search"));
+  assert(names.includes("fetch_json"));
 });
 
-Deno.test("getBuiltinToolSchemas always includes required tools", () => {
+Deno.test("getBuiltinToolSchemas returns empty for no tools", () => {
   const schemas = getBuiltinToolSchemas([]);
-  assertStrictEquals(schemas.length, 1);
-  const names = schemas.map((s) => s.name);
-  assert(names.includes("user_input"));
+  assertStrictEquals(schemas.length, 0);
 });
 
 // --- getBuiltinVercelTools ---

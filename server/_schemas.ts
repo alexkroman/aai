@@ -34,7 +34,6 @@ export const BuiltinToolSchema: z.ZodType<BuiltinTool> = z.enum([
   "visit_webpage",
   "fetch_json",
   "run_code",
-  "user_input",
 ]);
 
 /** Zod schema for validating tool choice configuration values. */

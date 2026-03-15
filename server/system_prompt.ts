@@ -21,21 +21,14 @@ export function buildSystemPrompt(
   const agentInstructions = config.instructions
     ? `\n\nAgent-Specific Instructions:\n${config.instructions}`
     : "";
-  const toolReminder = hasTools
-    ? "\n\nAnswer the user's request using the tool calling API provided to you. " +
-      "NEVER write tool calls as text, XML, or code in your response — always use the structured tool calling mechanism. " +
-      "Before calling a tool, do some analysis. " +
-      "First, think about which of the provided tools is the relevant tool to answer the user's request. " +
-      "Second, go through each of the required parameters of the relevant tool and determine if the user has directly provided or given enough information to infer a value. " +
-      "When deciding if the parameter can be inferred, carefully consider all the context to see if it supports a specific value. " +
-      "If all of the required parameters are present or can be reasonably inferred, proceed with the tool call. " +
-      "BUT, if one of the values for a required parameter is missing, DO NOT invoke the function (not even with fillers for the missing params) and instead, ask the user to provide the missing parameters. " +
-      "DO NOT ask for more information on optional parameters if it is not provided. " +
-      "Do not answer from memory alone when a tool can provide accurate, up-to-date information." +
-      "\n\nTool Preambles: When you decide to call a tool, ALWAYS say a brief natural phrase BEFORE the tool call " +
+
+  // Tool preamble guidance: the SDK handles tool schemas and structured calling,
+  // but we need to tell the model to speak a filler phrase before tool calls
+  // so TTS has something to say while the tool executes.
+  const toolPreamble = hasTools
+    ? "\n\nWhen you decide to use a tool, ALWAYS say a brief natural phrase BEFORE the tool call " +
       '(e.g. "Let me look that up" or "One moment while I check"). ' +
-      "This fills silence while the tool executes. Keep preambles to one short sentence." +
-      ""
+      "This fills silence while the tool executes. Keep preambles to one short sentence."
     : "";
 
   const today = new Date().toLocaleDateString("en-US", {
@@ -46,6 +39,6 @@ export function buildSystemPrompt(
   });
 
   return DEFAULT_INSTRUCTIONS + `\n\nToday's date is ${today}.` +
-    agentInstructions + toolReminder +
+    agentInstructions + toolPreamble +
     (opts?.voice ? VOICE_RULES : "");
 }

@@ -302,40 +302,15 @@ const fetchJson = defineTool({
   },
 });
 
-const userInputParams = z.object({
-  question: z.string().describe("The question to ask the user"),
-});
-
-const userInput = defineTool({
-  name: "user_input",
-  description:
-    "Ask the user a follow-up question and wait for their spoken response. Use this when you need clarification, a preference, or any additional input from the user before proceeding.",
-  parameters: userInputParams,
-  execute: () => {
-    throw new Error("Tool user_input is handled by the turn handler");
-  },
-});
-
-/** Name of the built-in tool that asks the user a follow-up question. */
-export const USER_INPUT_TOOL: BuiltinToolName = "user_input";
-
-const REQUIRED_BUILTIN_TOOLS: readonly BuiltinToolName[] = [
-  USER_INPUT_TOOL,
-];
-
 const BUILTIN_TOOLS: Partial<Record<BuiltinToolName, BuiltinTool>> = {
   "web_search": webSearch,
   "visit_webpage": visitWebpage,
   "run_code": runCode,
   "fetch_json": fetchJson,
-  "user_input": userInput,
 };
 
 /**
  * Returns JSON tool schemas for the specified builtin tools.
- *
- * Always includes `final_answer` and `user_input` in addition to any
- * tools explicitly requested by the agent.
  *
  * @param names - Builtin tool names requested by the agent configuration.
  * @returns An array of {@linkcode ToolSchema} objects for use in LLM calls.
@@ -343,8 +318,7 @@ const BUILTIN_TOOLS: Partial<Record<BuiltinToolName, BuiltinTool>> = {
 export function getBuiltinToolSchemas(
   names: readonly BuiltinToolName[],
 ): ToolSchema[] {
-  const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
-  return allNames.flatMap((name) => {
+  return names.flatMap((name) => {
     const tool = BUILTIN_TOOLS[name];
     if (!tool) return [];
     return [{
@@ -357,38 +331,27 @@ export function getBuiltinToolSchemas(
 
 /**
  * Build Vercel AI SDK tool objects for builtin tools.
- * `final_answer` and `user_input` have no `execute` — this makes
- * `generateText` stop the loop when the LLM calls them.
- * Other builtins have `execute` and run on the host.
+ * All builtins have `execute` and run on the host.
  */
 export function getBuiltinVercelTools(
   names: readonly BuiltinToolName[],
   env: Record<string, string | undefined> = {},
 ): ToolSet {
-  const allNames = [...new Set([...REQUIRED_BUILTIN_TOOLS, ...names])];
   const tools: ToolSet = {};
-  for (const name of allNames) {
+  for (const name of names) {
     const bt = BUILTIN_TOOLS[name];
     if (!bt) continue;
     const params = jsonSchema(
       z.toJSONSchema(bt.parameters) as ToolSchema["parameters"],
     );
-    if (name === USER_INPUT_TOOL) {
-      // No execute → streamText stops the loop when LLM calls this
-      tools[name] = vercelTool({
-        description: bt.description,
-        parameters: params,
-      }) as unknown as ToolSet[string];
-    } else {
-      tools[name] = vercelTool({
-        description: bt.description,
-        parameters: params,
-        execute: async (args: unknown, _options: ToolExecutionOptions) => {
-          const result = await bt.execute(args as Record<string, unknown>, env);
-          return result;
-        },
-      });
-    }
+    tools[name] = vercelTool({
+      description: bt.description,
+      parameters: params,
+      execute: async (args: unknown, _options: ToolExecutionOptions) => {
+        const result = await bt.execute(args as Record<string, unknown>, env);
+        return result;
+      },
+    });
   }
   return tools;
 }

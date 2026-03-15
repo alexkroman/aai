@@ -14,6 +14,56 @@ import * as metrics from "./metrics.ts";
 
 const DEFAULT_STOP_WHEN = 5;
 
+/** Maximum characters for tool result display. */
+const MAX_TOOL_RESULT_LENGTH = 4000;
+
+/** Tool lifecycle event emitted during the agentic loop. */
+export type ToolEvent =
+  | {
+    kind: "start";
+    toolCallId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+  }
+  | { kind: "done"; toolCallId: string; result: string };
+
+/** Creates a simple async push/pull channel for tool events. */
+function createToolEventChannel(): {
+  push(event: ToolEvent): void;
+  done(): void;
+  events: AsyncIterable<ToolEvent>;
+} {
+  const buffer: ToolEvent[] = [];
+  let resolve: (() => void) | null = null;
+  let finished = false;
+
+  return {
+    push(event: ToolEvent): void {
+      buffer.push(event);
+      resolve?.();
+      resolve = null;
+    },
+    done(): void {
+      finished = true;
+      resolve?.();
+      resolve = null;
+    },
+    events: {
+      async *[Symbol.asyncIterator]() {
+        while (true) {
+          while (buffer.length > 0) {
+            yield buffer.shift()!;
+          }
+          if (finished) return;
+          await new Promise<void>((r) => {
+            resolve = r;
+          });
+        }
+      },
+    },
+  };
+}
+
 /** Options for executing a single conversational turn through the agentic loop. */
 export type ExecuteTurnOptions = {
   /** Agent slug (used for logging and metrics). */
@@ -40,10 +90,12 @@ export type ExecuteTurnOptions = {
   activeTools?: string[] | undefined;
 };
 
-/** Result of executing a turn: a stream of text deltas. */
+/** Result of executing a turn: a stream of text deltas and tool events. */
 export type TurnResult = {
   /** Async iterable of text deltas for streaming to TTS. */
   textStream: AsyncIterable<string>;
+  /** Async iterable of tool lifecycle events for UI display. */
+  toolEvents: AsyncIterable<ToolEvent>;
   /** Silently drain all internal promises to prevent dangling. Call on abort/error. */
   consume(): Promise<void>;
 };
@@ -53,7 +105,7 @@ export type TurnResult = {
  *
  * Uses streaming so text deltas can be piped directly to TTS. The LLM may
  * call tools across multiple steps until it produces a text response or
- * calls `user_input`, or until `maxSteps` is reached.
+ * until `maxSteps` is reached.
  */
 export function executeTurn(
   text: string,
@@ -106,31 +158,61 @@ export function executeTurn(
   result.response.then(() => {}, logErr);
   result.toolCalls.catch(logErr);
 
-  // Wrap fullStream to insert a space between text produced by different steps.
-  // Without this, multi-step turns concatenate without whitespace
-  // (e.g. "for you.Let me try" instead of "for you. Let me try").
+  const toolChannel = createToolEventChannel();
+
+  // Wrap fullStream to insert a space between text produced by different steps
+  // and emit tool events as a side effect. Both `tool-call` and `tool-result`
+  // are native fullStream chunk types in the Vercel AI SDK.
   async function* textStreamWithStepSeparators(): AsyncIterable<string> {
     let lastChar = "";
     let atStepBoundary = false;
-    for await (const chunk of result.fullStream) {
-      if (chunk.type === "step-finish") {
-        atStepBoundary = true;
-      } else if (chunk.type === "text-delta" && chunk.textDelta) {
-        if (
-          atStepBoundary && lastChar && !/\s$/.test(lastChar) &&
-          !/^\s/.test(chunk.textDelta)
-        ) {
-          yield " ";
+    try {
+      for await (const chunk of result.fullStream) {
+        if (chunk.type === "step-finish") {
+          atStepBoundary = true;
+        } else if (chunk.type === "text-delta" && chunk.textDelta) {
+          if (
+            atStepBoundary && lastChar && !/\s$/.test(lastChar) &&
+            !/^\s/.test(chunk.textDelta)
+          ) {
+            yield " ";
+          }
+          atStepBoundary = false;
+          yield chunk.textDelta;
+          lastChar = chunk.textDelta;
+        } else if (chunk.type === "tool-call") {
+          toolChannel.push({
+            kind: "start",
+            toolCallId: chunk.toolCallId,
+            toolName: chunk.toolName,
+            args: chunk.args as Record<string, unknown>,
+          });
+          // tool-result appears later in fullStream when tools have execute().
+          // ToolSet is generic so TS can't prove it, but it does appear at runtime.
+          // deno-lint-ignore no-explicit-any
+        } else if ((chunk as any).type === "tool-result") {
+          // deno-lint-ignore no-explicit-any
+          const tc = chunk as any;
+          const raw = typeof tc.result === "string"
+            ? tc.result
+            : JSON.stringify(tc.result);
+          toolChannel.push({
+            kind: "done",
+            toolCallId: tc.toolCallId,
+            result: raw.length > MAX_TOOL_RESULT_LENGTH
+              ? raw.slice(0, MAX_TOOL_RESULT_LENGTH)
+              : raw,
+          });
         }
-        atStepBoundary = false;
-        yield chunk.textDelta;
-        lastChar = chunk.textDelta;
       }
+    } finally {
+      toolChannel.done();
     }
   }
 
   return {
     textStream: textStreamWithStepSeparators(),
+    toolEvents: toolChannel.events,
     async consume(): Promise<void> {
       await Promise.allSettled([
         result.text,

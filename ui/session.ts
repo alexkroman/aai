@@ -15,6 +15,7 @@ import type {
   Message,
   SessionError,
   SessionOptions,
+  ToolCallInfo,
 } from "./types.ts";
 
 import type { VoiceIO } from "./audio.ts";
@@ -33,6 +34,8 @@ export type VoiceSession = {
   readonly state: Signal<AgentState>;
   /** Chat message history for the session. */
   readonly messages: Signal<Message[]>;
+  /** Active tool calls for the current turn. */
+  readonly toolCalls: Signal<ToolCallInfo[]>;
   /** Live partial transcript from the STT engine. */
   readonly transcript: Signal<string>;
   /** Current session error, or `null` if no error. */
@@ -66,6 +69,7 @@ export type VoiceSession = {
 export class ClientHandler {
   #state: Signal<AgentState>;
   #messages: Signal<Message[]>;
+  #toolCalls: Signal<ToolCallInfo[]>;
   #transcript: Signal<string>;
   #error: Signal<SessionError | null>;
   #voiceIO: () => VoiceIO | null;
@@ -73,12 +77,14 @@ export class ClientHandler {
   constructor(opts: {
     state: Signal<AgentState>;
     messages: Signal<Message[]>;
+    toolCalls: Signal<ToolCallInfo[]>;
     transcript: Signal<string>;
     error: Signal<SessionError | null>;
     voiceIO: () => VoiceIO | null;
   }) {
     this.#state = opts.state;
     this.#messages = opts.messages;
+    this.#toolCalls = opts.toolCalls;
     this.#transcript = opts.transcript;
     this.#error = opts.error;
     this.#voiceIO = opts.voiceIO;
@@ -127,6 +133,30 @@ export class ClientHandler {
         }
         break;
       }
+      case "tool_call_start":
+        this.#toolCalls.value = [
+          ...this.#toolCalls.value,
+          {
+            toolCallId: e.toolCallId,
+            toolName: e.toolName,
+            args: e.args,
+            status: "pending",
+            afterMessageIndex: this.#messages.value.length - 1,
+          },
+        ];
+        break;
+      case "tool_call_done": {
+        const tcs = this.#toolCalls.value;
+        const idx = tcs.findIndex(
+          (tc) => tc.toolCallId === e.toolCallId,
+        );
+        if (idx !== -1) {
+          const updated = [...tcs];
+          updated[idx] = { ...updated[idx]!, status: "done", result: e.result };
+          this.#toolCalls.value = updated;
+        }
+        break;
+      }
       case "tts_done":
         // No-audio turns (stt-only, empty LLM result) still use this event
         // to transition back to listening. Audio turns signal via stream end.
@@ -140,6 +170,7 @@ export class ClientHandler {
         this.#voiceIO()?.flush();
         batch(() => {
           this.#messages.value = [];
+          this.#toolCalls.value = [];
           this.#transcript.value = "";
           this.#error.value = null;
           this.#state.value = "listening";
@@ -226,6 +257,7 @@ export class ClientHandler {
 export function createVoiceSession(options: SessionOptions): VoiceSession {
   const state = signal<AgentState>("disconnected");
   const messages = signal<Message[]>([]);
+  const toolCalls = signal<ToolCallInfo[]>([]);
   const transcript = signal<string>("");
   const error = signal<SessionError | null>(null);
   const disconnected = signal<{ intentional: boolean } | null>(null);
@@ -244,6 +276,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   function resetState(): void {
     batch(() => {
       messages.value = [];
+      toolCalls.value = [];
       transcript.value = "";
       error.value = null;
     });
@@ -353,6 +386,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     const handler = new ClientHandler({
       state,
       messages,
+      toolCalls,
       transcript,
       error,
       voiceIO: () => voiceIO,
@@ -423,6 +457,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   return {
     state,
     messages,
+    toolCalls,
     transcript,
     error,
     disconnected,
