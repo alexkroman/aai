@@ -61,25 +61,17 @@ Deno.test("getBuiltinToolSchemas returns requested + required tools", () => {
     "run_code",
     "fetch_json",
   ]);
-  assertStrictEquals(schemas.length, 6);
+  assertStrictEquals(schemas.length, 5);
   const names = schemas.map((s) => s.name);
-  assert(names.includes("final_answer"));
   assert(names.includes("user_input"));
   assert(names.includes("web_search"));
 });
 
 Deno.test("getBuiltinToolSchemas always includes required tools", () => {
   const schemas = getBuiltinToolSchemas([]);
-  assertStrictEquals(schemas.length, 2);
+  assertStrictEquals(schemas.length, 1);
   const names = schemas.map((s) => s.name);
-  assert(names.includes("final_answer"));
   assert(names.includes("user_input"));
-});
-
-Deno.test("getBuiltinToolSchemas does not duplicate final_answer", () => {
-  const schemas = getBuiltinToolSchemas(["final_answer", "web_search"]);
-  const names = schemas.map((s) => s.name);
-  assertStrictEquals(names.filter((n) => n === "final_answer").length, 1);
 });
 
 // --- getBuiltinVercelTools ---

@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assertEquals, assertStrictEquals } from "@std/assert";
-import { _internals } from "./model.ts";
+import { _internals } from "./provider_gateway.ts";
 
 const { gatewayBugMiddleware, createGatewayFetch, GatewayResponseSchema } =
   _internals;

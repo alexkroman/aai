@@ -1,6 +1,6 @@
 {
   "name": "@aai/server",
-  "version": "0.1.165",
+  "version": "0.1.170",
   "exports": {
     ".": "./main.ts",
     "./types": "./types.ts",
@@ -14,8 +14,10 @@
     "@upstash/redis": "npm:@upstash/redis@^1.36.1",
     "ai": "npm:ai@^4",
     "ai/test": "npm:ai@^4/test",
+    "@ai-sdk/anthropic": "npm:@ai-sdk/anthropic@^1",
     "@ai-sdk/openai": "npm:@ai-sdk/openai@^1",
     "openai": "npm:openai@^4.80.0",
+    "@cartesia/cartesia-js": "npm:@cartesia/cartesia-js@^2",
     "assemblyai": "npm:assemblyai@^4",
     "preact": "npm:preact@^10.28.4",
     "preact-render-to-string": "npm:preact-render-to-string@^6.5.13"

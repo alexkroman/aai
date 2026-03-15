@@ -28,7 +28,10 @@ export function MessageList() {
           <MessageBubble key={i} message={msg} />
         ))}
         <Transcript text={transcript} />
-        {state.value === "thinking" && <ThinkingIndicator />}
+        {state.value === "thinking" &&
+          messages.value[messages.value.length - 1]?.role !== "assistant" && (
+          <ThinkingIndicator />
+        )}
         <div ref={scrollRef} />
       </div>
     </div>

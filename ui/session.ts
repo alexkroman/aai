@@ -73,6 +73,7 @@ export class ClientRpcTarget extends RpcTarget {
   #transcript: Signal<string>;
   #error: Signal<SessionError | null>;
   #voiceIO: () => VoiceIO | null;
+  #streaming = false;
   constructor(opts: {
     state: Signal<AgentState>;
     messages: Signal<Message[]>;
@@ -95,6 +96,7 @@ export class ClientRpcTarget extends RpcTarget {
         this.#transcript.value = e.text;
         break;
       case "turn":
+        this.#streaming = false;
         batch(() => {
           this.#transcript.value = "";
           this.#messages.value = [
@@ -105,14 +107,31 @@ export class ClientRpcTarget extends RpcTarget {
         });
         break;
       case "chat":
-        batch(() => {
-          this.#messages.value = [
-            ...this.#messages.value,
-            { role: "assistant", text: e.text },
-          ];
-          this.#state.value = "speaking";
-        });
+        this.#streaming = false;
+        this.#messages.value = [
+          ...this.#messages.value,
+          { role: "assistant", text: e.text },
+        ];
         break;
+      case "chat_delta": {
+        const msgs = this.#messages.value;
+        if (this.#streaming) {
+          // Append delta to the current streaming message
+          const last = msgs[msgs.length - 1]!;
+          this.#messages.value = [
+            ...msgs.slice(0, -1),
+            { role: "assistant", text: last.text + e.delta },
+          ];
+        } else {
+          // First delta of a new turn — start a new message
+          this.#streaming = true;
+          this.#messages.value = [
+            ...msgs,
+            { role: "assistant", text: e.delta },
+          ];
+        }
+        break;
+      }
       case "tts_done":
         // No-audio turns (stt-only, empty LLM result) still use this event
         // to transition back to listening. Audio turns signal via stream end.
@@ -146,9 +165,11 @@ export class ClientRpcTarget extends RpcTarget {
   }
 
   playAudioChunk(chunk: Uint8Array): void {
-    if (this.#state.value === "speaking") {
-      this.#voiceIO()?.enqueue(chunk.buffer as ArrayBuffer);
+    if (this.#state.value === "error") return;
+    if (this.#state.value !== "speaking") {
+      this.#state.value = "speaking";
     }
+    this.#voiceIO()?.enqueue(chunk.buffer as ArrayBuffer);
   }
 
   playAudioDone(): void {

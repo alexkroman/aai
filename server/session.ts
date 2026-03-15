@@ -6,7 +6,7 @@ import type { ExecuteTool } from "./_worker_entry.ts";
 import { createSttConnection, type SttConnection } from "./stt.ts";
 import { createTtsConnection, type TtsConnection } from "./tts.ts";
 import { getBuiltinVercelTools } from "./builtin_tools.ts";
-import { executeTurn } from "./turn_handler.ts";
+import { executeTurn, type TurnResult } from "./turn_handler.ts";
 import type { STTConfig, TTSConfig } from "./types.ts";
 import type { AgentConfig } from "@aai/sdk/types";
 import type { ToolSchema } from "@aai/sdk/types";
@@ -19,6 +19,7 @@ import {
   type CoreMessage,
   type CoreUserMessage,
   jsonSchema,
+  type LanguageModelV1,
   type StepResult,
   tool as vercelTool,
   type ToolExecutionOptions,
@@ -53,6 +54,8 @@ export type SessionOptions = {
   createStt?: (apiKey: string, config: STTConfig) => SttConnection;
   /** Override the default TTS connection factory (used in tests). */
   createTts?: (config: TTSConfig) => TtsConnection;
+  /** Override the LLM model (used in tests). */
+  model?: LanguageModelV1 | undefined;
 };
 
 const ConnState = {
@@ -157,11 +160,12 @@ export function createSession(opts: SessionOptions): Session {
     : (opts.createTts ?? createTtsConnection)(config.ttsConfig);
   tts?.warmup();
 
-  const model = isSttOnly ? null : createModel({
+  const model = isSttOnly ? null : (opts.model ?? createModel({
     apiKey: config.apiKey,
+    anthropicApiKey: config.anthropicApiKey,
     model: config.model,
     gatewayBase: config.llmGatewayBase,
-  });
+  }));
 
   const hasTools = opts.toolSchemas.length > 0 ||
     (agentConfig.builtinTools?.length ?? 0) > 0;
@@ -209,7 +213,7 @@ export function createSession(opts: SessionOptions): Session {
   /** Stream text through TTS and send audio chunks to the client. */
   async function streamTts(
     ttsConn: TtsConnection,
-    text: string,
+    text: string | AsyncIterable<string>,
     signal: AbortSignal,
   ): Promise<void> {
     await ttsConn.synthesizeStream(
@@ -358,6 +362,7 @@ export function createSession(opts: SessionOptions): Session {
     const abort = new AbortController();
     turnAbort = abort;
     const signal = AbortSignal.any([sessionAbort.signal, abort.signal]);
+    let turn: TurnResult | null = null;
 
     try {
       let maxSteps = agentConfig.maxSteps;
@@ -375,7 +380,7 @@ export function createSession(opts: SessionOptions): Session {
         }
       }
 
-      const result = await executeTurn(text, {
+      turn = executeTurn(text, {
         agent: agentSlug,
         model: model!,
         system: systemPrompt,
@@ -401,13 +406,30 @@ export function createSession(opts: SessionOptions): Session {
           }
           : undefined,
       });
+
+      // Wrap the text stream to send chat_delta events to the client
+      const stream = turn.textStream;
+      const textStreamWithDeltas: AsyncIterable<string> = {
+        async *[Symbol.asyncIterator]() {
+          for await (const delta of stream) {
+            if (delta) {
+              trySend(() => client.event({ type: "chat_delta", delta }));
+            }
+            yield delta;
+          }
+        },
+      };
+
+      if (tts) {
+        await streamTts(tts, textStreamWithDeltas, signal);
+      } else {
+        for await (const _ of textStreamWithDeltas) { /* consume */ }
+      }
+
+      await turn.text();
       if (signal.aborted) return;
 
-      if (result && tts) {
-        trySend(() => client.event({ type: "chat", text: result }));
-        await streamTts(tts, result, signal);
-      } else {
-        // No audio to stream — signal turn completion via event
+      if (!tts) {
         trySend(() => client.event({ type: "tts_done" }));
       }
     } catch (err: unknown) {
@@ -428,6 +450,7 @@ export function createSession(opts: SessionOptions): Session {
       metrics.errorsTotal.inc({ ...agentLabel, component: "turn" });
       trySend(() => client.event({ type: "error", code: "llm", message: msg }));
     } finally {
+      if (turn) await turn.consume();
       if (turnAbort === abort) turnAbort = null;
       metrics.turnDuration.observe(
         (performance.now() - turnStart) / 1000,

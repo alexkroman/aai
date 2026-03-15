@@ -71,10 +71,10 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
     }]);
   });
 
-  await t.step("chat adds assistant message and sets speaking", () => {
+  await t.step("chat adds assistant message without changing state", () => {
     const { target, state, messages } = createTarget();
     target.event({ type: "chat", text: "It's sunny today" });
-    assertStrictEquals(state.value, "speaking");
+    assertStrictEquals(state.value, "connecting");
     assertEquals(messages.value, [{
       role: "assistant",
       text: "It's sunny today",
@@ -152,7 +152,7 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
   });
 
   await t.step(
-    "full turn lifecycle: transcript → turn → chat → listening",
+    "full turn lifecycle: transcript → turn → chat_delta → audio → listening",
     () => {
       const { target, state, messages, transcript } = createTarget();
       state.value = "listening";
@@ -175,13 +175,21 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
       assertStrictEquals(transcript.value, "");
       assertStrictEquals(messages.value.length, 1);
 
-      // LLM responds
-      target.event({ type: "chat", text: "It's 72°F and sunny." });
-      assertStrictEquals(state.value, "speaking");
+      // LLM streams text deltas
+      target.event({ type: "chat_delta", delta: "It's " });
+      assertStrictEquals(state.value, "thinking");
       assertStrictEquals(messages.value.length, 2);
+      assertStrictEquals(messages.value[1]!.text, "It's ");
 
-      // TTS finishes (no-audio path)
-      target.event({ type: "tts_done" });
+      target.event({ type: "chat_delta", delta: "72°F and sunny." });
+      assertStrictEquals(messages.value[1]!.text, "It's 72°F and sunny.");
+
+      // Audio arrives — transitions to speaking
+      target.playAudioChunk(new Uint8Array([1, 2]));
+      assertStrictEquals(state.value, "speaking");
+
+      // TTS finishes
+      target.playAudioDone();
       assertStrictEquals(state.value, "listening");
     },
   );

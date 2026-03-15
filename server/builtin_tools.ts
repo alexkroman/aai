@@ -323,40 +323,19 @@ const userInput = defineTool({
   },
 });
 
-const finalAnswerParams = z.object({
-  answer: z.string().describe(
-    "Your final response to the user. This will be spoken aloud.",
-  ),
-});
-
-const finalAnswer = defineTool({
-  name: "final_answer",
-  description:
-    "Provide your final answer to the user. You MUST call this tool to deliver every response — it is the only way to complete the task, otherwise you will be stuck in a loop.",
-  parameters: finalAnswerParams,
-  execute: (args) => {
-    return args.answer;
-  },
-});
-
-/** Name of the built-in tool that terminates the agentic loop with a response. */
-export const FINAL_ANSWER_TOOL: BuiltinToolName = "final_answer";
-
 /** Name of the built-in tool that asks the user a follow-up question. */
 export const USER_INPUT_TOOL: BuiltinToolName = "user_input";
 
 const REQUIRED_BUILTIN_TOOLS: readonly BuiltinToolName[] = [
-  FINAL_ANSWER_TOOL,
   USER_INPUT_TOOL,
 ];
 
-const BUILTIN_TOOLS: Record<BuiltinToolName, BuiltinTool> = {
+const BUILTIN_TOOLS: Partial<Record<BuiltinToolName, BuiltinTool>> = {
   "web_search": webSearch,
   "visit_webpage": visitWebpage,
   "run_code": runCode,
   "fetch_json": fetchJson,
   "user_input": userInput,
-  "final_answer": finalAnswer,
 };
 
 /**
@@ -401,8 +380,8 @@ export function getBuiltinVercelTools(
     const params = jsonSchema(
       z.toJSONSchema(bt.parameters) as ToolSchema["parameters"],
     );
-    if (name === FINAL_ANSWER_TOOL || name === USER_INPUT_TOOL) {
-      // No execute → generateText stops the loop when LLM calls these
+    if (name === USER_INPUT_TOOL) {
+      // No execute → streamText stops the loop when LLM calls this
       tools[name] = vercelTool({
         description: bt.description,
         parameters: params,

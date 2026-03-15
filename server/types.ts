@@ -27,7 +27,10 @@ export const DEFAULT_STT_CONFIG: STTConfig = {
   vadThreshold: 0.7,
 };
 
-export type TTSConfig = {
+export type TtsProvider = "rime" | "cartesia";
+
+export type RimeTtsConfig = {
+  provider: "rime";
   wssUrl: string;
   apiKey: string;
   voice: string;
@@ -38,7 +41,18 @@ export type TTSConfig = {
   speedAlpha?: number | undefined;
 };
 
-export const DEFAULT_TTS_CONFIG: TTSConfig = {
+export type CartesiaTtsConfig = {
+  provider: "cartesia";
+  apiKey: string;
+  voice: string;
+  modelId: string;
+  sampleRate: number;
+};
+
+export type TTSConfig = RimeTtsConfig | CartesiaTtsConfig;
+
+export const DEFAULT_RIME_TTS_CONFIG: RimeTtsConfig = {
+  provider: "rime",
   wssUrl: "wss://users-ws.rime.ai/ws",
   apiKey: "",
   voice: "luna",
@@ -48,5 +62,15 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
   sampleRate: DEFAULT_TTS_SAMPLE_RATE,
   speedAlpha: 1.1,
 };
+
+export const DEFAULT_CARTESIA_TTS_CONFIG: CartesiaTtsConfig = {
+  provider: "cartesia",
+  apiKey: "",
+  voice: "e07c00bc-4134-4eae-9ea4-1a55fb45746b",
+  modelId: "sonic-2",
+  sampleRate: DEFAULT_TTS_SAMPLE_RATE,
+};
+
+export const DEFAULT_TTS_CONFIG: TTSConfig = DEFAULT_CARTESIA_TTS_CONFIG;
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";

@@ -104,8 +104,7 @@ function extractConfig(
       (isSttOnly ? "" : DEFAULT_INSTRUCTIONS),
     greeting: optionalString(obj, "greeting", fileName) ??
       (isSttOnly ? "" : DEFAULT_GREETING),
-    voice: optionalString(obj, "voice", fileName) ??
-      (isSttOnly ? "" : "luna"),
+    voice: optionalString(obj, "voice", fileName) ?? "",
   };
 
   const sttPrompt = optionalString(obj, "sttPrompt", fileName);

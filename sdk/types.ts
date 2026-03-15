@@ -65,8 +65,7 @@ export type BuiltinTool =
   | "visit_webpage"
   | "fetch_json"
   | "run_code"
-  | "user_input"
-  | "final_answer";
+  | "user_input";
 
 /**
  * How the LLM should select tools during a turn.
@@ -267,8 +266,9 @@ export type ToolDef<
 /**
  * Available TTS voice identifiers.
  *
- * These voices are provided by the Rime TTS engine. The type also accepts
- * arbitrary strings to support new voices without SDK updates.
+ * For Rime: named voices like "luna", "orion", etc.
+ * For Cartesia: voice UUIDs (e.g., "e07c00bc-4134-4eae-9ea4-1a55fb45746b").
+ * The type also accepts arbitrary strings to support new voices without SDK updates.
  *
  * @default {"luna"}
  */

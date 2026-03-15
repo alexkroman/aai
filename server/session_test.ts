@@ -1,12 +1,37 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assert, assertStrictEquals } from "@std/assert";
 import { assertSpyCalls, spy } from "@std/testing/mock";
+import type { LanguageModelV1 } from "ai";
+import { MockLanguageModelV1 } from "ai/test";
 import type { ClientEvent, ClientSink } from "@aai/sdk/protocol";
 import { createSession, type SessionOptions } from "./session.ts";
 import type { AgentConfig } from "@aai/sdk/types";
 import type { SttConnection } from "./stt.ts";
 import { DEFAULT_STT_CONFIG, DEFAULT_TTS_CONFIG } from "./types.ts";
 import type { PlatformConfig } from "./config.ts";
+
+/** A mock model that streams a simple text response. */
+function createMockModel(): LanguageModelV1 {
+  return new MockLanguageModelV1({
+    doStream: async () => ({
+      rawCall: { rawPrompt: "", rawSettings: {} },
+      stream: new ReadableStream({
+        start(controller) {
+          controller.enqueue({
+            type: "text-delta",
+            textDelta: "mock response",
+          });
+          controller.enqueue({
+            type: "finish",
+            finishReason: "stop",
+            usage: { promptTokens: 1, completionTokens: 1 },
+          });
+          controller.close();
+        },
+      }),
+    }),
+  }) as LanguageModelV1;
+}
 
 function createMockClientSink(): ClientSink & {
   calls: { method: string; args: unknown[] }[];
@@ -110,6 +135,7 @@ function createMockSessionOptions() {
     executeTool,
     createStt: () => sttHandle,
     createTts: () => ttsClient,
+    model: createMockModel(),
   };
 
   return {
