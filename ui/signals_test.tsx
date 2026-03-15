@@ -28,24 +28,20 @@ Deno.test("createSessionControls", async (t) => {
     }),
   );
 
-  await t.step({
-    name: "sets running to false on error state",
-    // TODO: update to mock capnweb RPC transport instead of raw WebSocket
-    ignore: true,
-    fn: withSignalsEnv(async ({ signals, connect, send, session }) => {
+  await t.step(
+    "sets running to false on error state",
+    withSignalsEnv(async ({ signals, connect, send, session }) => {
       await connect();
       assertStrictEquals(signals.running.value, true);
-      send({ type: "error", message: "fatal" });
+      send({ type: "error", code: "internal", message: "fatal" });
       assertStrictEquals(signals.running.value, false);
       session.disconnect();
     }),
-  });
+  );
 
-  await t.step({
-    name: "start() sets started/running and connects",
-    // TODO: update to mock capnweb RPC transport instead of raw WebSocket
-    ignore: true,
-    fn: withSignalsEnv(async ({ mock, signals, session }) => {
+  await t.step(
+    "start() sets started/running and connects",
+    withSignalsEnv(async ({ mock, signals, session }) => {
       assertStrictEquals(signals.started.value, false);
       signals.start();
       await flush();
@@ -55,7 +51,7 @@ Deno.test("createSessionControls", async (t) => {
       assert(mock.lastWs !== null);
       session.disconnect();
     }),
-  });
+  );
 
   await t.step(
     "toggle() disconnects then reconnects",
@@ -73,11 +69,9 @@ Deno.test("createSessionControls", async (t) => {
     }),
   );
 
-  await t.step({
-    name: "reset() sends reset message",
-    // TODO: update to mock capnweb RPC transport instead of raw WebSocket
-    ignore: true,
-    fn: withSignalsEnv(async ({ mock, signals, connect, session }) => {
+  await t.step(
+    "reset() sends reset message",
+    withSignalsEnv(async ({ mock, signals, connect, session }) => {
       await connect();
 
       const before = mock.lastWs!.sent.length;
@@ -91,7 +85,7 @@ Deno.test("createSessionControls", async (t) => {
       );
       session.disconnect();
     }),
-  });
+  );
 });
 
 Deno.test("useSession", async (t) => {

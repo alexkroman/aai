@@ -1,7 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assertEquals, assertStrictEquals } from "@std/assert";
 import { signal } from "@preact/signals";
-import { ClientRpcTarget } from "./session.ts";
+import { ClientHandler } from "./session.ts";
 import type { AgentState, Message, SessionError } from "./types.ts";
 
 function createTarget() {
@@ -11,7 +11,7 @@ function createTarget() {
   const error = signal<SessionError | null>(null);
   let flushed = false;
 
-  const target = new ClientRpcTarget({
+  const target = new ClientHandler({
     state,
     messages,
     transcript,
@@ -41,7 +41,7 @@ function createTarget() {
   };
 }
 
-Deno.test("ClientRpcTarget event handling", async (t) => {
+Deno.test("ClientHandler event handling", async (t) => {
   await t.step("transcript partial updates transcript signal", () => {
     const { target, transcript, state } = createTarget();
     state.value = "listening";
@@ -204,7 +204,7 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
       state.value = "speaking";
 
       const chunks: ArrayBuffer[] = [];
-      const target = new ClientRpcTarget({
+      const target = new ClientHandler({
         state,
         messages: signal<Message[]>([]),
         transcript: signal(""),
@@ -236,7 +236,7 @@ Deno.test("ClientRpcTarget event handling", async (t) => {
       state.value = "speaking";
 
       let doneCalled = false;
-      const target = new ClientRpcTarget({
+      const target = new ClientHandler({
         state,
         messages: signal<Message[]>([]),
         transcript: signal(""),

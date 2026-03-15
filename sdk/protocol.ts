@@ -228,7 +228,7 @@ export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
 /**
  * Typed interface for pushing session events to a connected client.
  *
- * For WebSocket sessions this is backed by a capnweb RPC stub;
+ * For WebSocket sessions this sends JSON text frames and binary audio frames;
  * for Twilio it's a custom implementation that converts audio formats.
  */
 export interface ClientSink {
@@ -242,7 +242,7 @@ export interface ClientSink {
   playAudioDone(): void;
 }
 
-// ─── WebSocket RPC interfaces ──────────────────────────────────────────────
+// ─── WebSocket message types ────────────────────────────────────────────────
 
 /** Supported audio formats for the wire protocol. */
 export type AudioFormatId = "pcm16";
@@ -256,29 +256,36 @@ export type ReadyConfig = {
   mode?: "stt-only" | undefined;
 };
 
-/** Server→client RPC interface (capnweb). */
-export interface ClientRpcApi {
-  event(e: ClientEvent): void;
-  playAudioChunk(chunk: Uint8Array): void;
-  playAudioDone(): void;
-}
+/** Client→server text messages (binary frames carry raw PCM16 audio). */
+export type ClientMessage =
+  | { type: "audio_ready" }
+  | { type: "cancel" }
+  | { type: "reset" }
+  | {
+    type: "history";
+    messages: readonly { role: "user" | "assistant"; text: string }[];
+  };
 
-/** Gate interface — the initial capability exposed by the server. */
-export interface GateRpcApi {
-  authenticate(): SessionRpcApi;
-}
+/** Server→client text messages (binary frames carry raw PCM16 audio). */
+export type ServerMessage =
+  | ({ type: "config" } & ReadyConfig)
+  | { type: "audio_done" }
+  | ClientEvent;
 
-/** Session interface — returned by authenticate(). */
-export interface SessionRpcApi {
-  getConfig(): Promise<ReadyConfig>;
-  audioReady(): void;
-  cancel(): void;
-  resetSession(): void;
-  sendHistory(
-    messages: readonly { role: "user" | "assistant"; text: string }[],
-  ): void;
-  sendAudioChunk(chunk: Uint8Array): void;
-}
+/** Zod schema for {@linkcode ClientMessage}. */
+export const ClientMessageSchema: z.ZodType<ClientMessage> = z
+  .discriminatedUnion("type", [
+    z.object({ type: z.literal("audio_ready") }),
+    z.object({ type: z.literal("cancel") }),
+    z.object({ type: z.literal("reset") }),
+    z.object({
+      type: z.literal("history"),
+      messages: z.array(z.object({
+        role: z.enum(["user", "assistant"]),
+        text: z.string().max(100_000),
+      })).max(200),
+    }),
+  ]);
 
 // ─── Worker RPC interfaces ─────────────────────────────────────────────────
 

@@ -3,12 +3,10 @@ import { batch, type Signal, signal } from "@preact/signals";
 import { PROTOCOL_VERSION } from "@aai/sdk/protocol";
 import type {
   ClientEvent,
-  GateRpcApi,
+  ClientMessage,
   ReadyConfig,
-  SessionRpcApi,
+  ServerMessage,
 } from "@aai/sdk/protocol";
-import { newWebSocketRpcSession, RpcTarget } from "capnweb";
-import { WebSocket as PartySocket } from "partysocket";
 
 const SUPPORTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 
@@ -25,8 +23,8 @@ import type { VoiceIO } from "./audio.ts";
  * A reactive voice session that manages WebSocket communication,
  * audio capture/playback, and agent state transitions.
  *
- * Uses Cap'n Web RPC for typed bidirectional communication and
- * PartySocket for automatic WebSocket reconnection.
+ * Uses plain JSON text frames and binary audio frames for communication
+ * and native WebSocket for the connection.
  *
  * Implements {@linkcode Disposable} for resource cleanup via `using`.
  */
@@ -61,13 +59,11 @@ export type VoiceSession = {
 };
 
 /**
- * Cap'n Web RPC target for the browser client.
- *
- * Receives server→client RPC calls and updates reactive Preact signals
+ * Handles server→client messages and updates reactive Preact signals
  * accordingly (state transitions, transcripts, messages, audio playback).
  */
 /** @internal Exported for testing only. */
-export class ClientRpcTarget extends RpcTarget {
+export class ClientHandler {
   #state: Signal<AgentState>;
   #messages: Signal<Message[]>;
   #transcript: Signal<string>;
@@ -81,7 +77,6 @@ export class ClientRpcTarget extends RpcTarget {
     error: Signal<SessionError | null>;
     voiceIO: () => VoiceIO | null;
   }) {
-    super();
     this.#state = opts.state;
     this.#messages = opts.messages;
     this.#transcript = opts.transcript;
@@ -182,13 +177,48 @@ export class ClientRpcTarget extends RpcTarget {
       this.#state.value = "listening";
     }
   }
+
+  /**
+   * Dispatch an incoming WebSocket message (text or binary).
+   *
+   * Returns the parsed config if the message is a `config` message,
+   * otherwise `null`.
+   */
+  handleMessage(data: string | ArrayBuffer): ReadyConfig | null {
+    // Binary frame → raw PCM16 TTS audio
+    if (data instanceof ArrayBuffer) {
+      this.playAudioChunk(new Uint8Array(data));
+      return null;
+    }
+
+    // Text frame → JSON message
+    let msg: ServerMessage;
+    try {
+      msg = JSON.parse(data);
+    } catch {
+      return null;
+    }
+
+    if (msg.type === "config") {
+      const { type: _, ...config } = msg;
+      return config as ReadyConfig;
+    }
+
+    if (msg.type === "audio_done") {
+      this.playAudioDone();
+      return null;
+    }
+
+    // All other messages are ClientEvent
+    this.event(msg as ClientEvent);
+    return null;
+  }
 }
 
 /**
  * Create a voice session that connects to an AAI server via WebSocket.
  *
- * Uses Cap'n Web RPC for typed bidirectional communication and
- * PartySocket for automatic reconnection with exponential backoff.
+ * Uses plain JSON text frames and binary audio frames for communication.
  *
  * @param options - Session configuration including the platform server URL.
  * @returns A {@linkcode VoiceSession} handle for controlling the session.
@@ -200,10 +230,8 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
   const error = signal<SessionError | null>(null);
   const disconnected = signal<{ intentional: boolean } | null>(null);
 
-  let ws: PartySocket | null = null;
+  let ws: WebSocket | null = null;
   let voiceIO: VoiceIO | null = null;
-  /** Session stub obtained via gate.authenticate() — supports pipelining. */
-  let sessionStub: import("capnweb").RpcStub<SessionRpcApi> | null = null;
   let connectionController: AbortController | null = null;
   let hasConnected = false;
   let audioSetupInFlight = false;
@@ -219,6 +247,18 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
       transcript.value = "";
       error.value = null;
     });
+  }
+
+  function send(msg: ClientMessage): void {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+    }
+  }
+
+  function sendBinary(data: ArrayBuffer): void {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(data);
+    }
   }
 
   async function handleReady(msg: ReadyConfig): Promise<void> {
@@ -260,7 +300,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
         onMicData: (pcm16: ArrayBuffer) => {
           if (state.value !== "listening") return;
           try {
-            sessionStub?.sendAudioChunk(new Uint8Array(pcm16));
+            sendBinary(pcm16);
           } catch { /* connection may be closed */ }
         },
       });
@@ -269,9 +309,7 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
         return;
       }
       voiceIO = io;
-      if (sessionStub) {
-        void (sessionStub.audioReady() as Promise<void>).catch(() => {});
-      }
+      send({ type: "audio_ready" });
       state.value = "listening";
     } catch (err: unknown) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -308,80 +346,63 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
     if (hasConnected) wsUrl.searchParams.set("resume", "1");
 
-    // Use PartySocket for automatic reconnection
-    const socket = new PartySocket(wsUrl.toString());
+    const socket = new WebSocket(wsUrl.toString());
+    socket.binaryType = "arraybuffer";
     ws = socket;
 
+    const handler = new ClientHandler({
+      state,
+      messages,
+      transcript,
+      error,
+      voiceIO: () => voiceIO,
+    });
+
     socket.addEventListener("open", () => {
-      // Create the client RPC target
-      const clientTarget = new ClientRpcTarget({
-        state,
-        messages,
-        transcript,
-        error,
-        voiceIO: () => voiceIO,
-      });
-
-      // Initialize capnweb RPC session — server exposes a gate
-      const gate = newWebSocketRpcSession<GateRpcApi>(
-        socket as unknown as WebSocket,
-        clientTarget,
-      );
-
-      // Authenticate to get the session capability.
-      // This is pipelined — subsequent calls on sessionStub
-      // are batched with the authenticate call in one round trip.
-      sessionStub = gate.authenticate() as unknown as import("capnweb").RpcStub<
-        SessionRpcApi
-      >;
-
-      // Pull config from server — pipelined with authenticate (same round trip)
-      void (sessionStub.getConfig() as Promise<ReadyConfig>).then(
-        async (config) => {
-          hasConnected = true;
-          await handleReady(config);
-        },
-      ).catch(() => {});
-
-      // Send history if reconnecting (pipelined with authenticate)
-      if (hasConnected && messages.value.length > 0) {
-        void (sessionStub.sendHistory(
-          messages.value.map((m) => ({
-            role: m.role,
-            text: m.text,
-          })),
-        ) as Promise<void>).catch(() => {});
-      }
-
       state.value = "ready";
+    }, { signal: sig });
+
+    socket.addEventListener("message", (event: Event) => {
+      const msgEvent = event as MessageEvent;
+      const config = handler.handleMessage(msgEvent.data);
+      if (config) {
+        hasConnected = true;
+        void handleReady(config);
+
+        // Send history if reconnecting
+        if (hasConnected && messages.value.length > 0) {
+          send({
+            type: "history",
+            messages: messages.value.map((m) => ({
+              role: m.role,
+              text: m.text,
+            })),
+          });
+        }
+      }
     }, { signal: sig });
 
     socket.addEventListener("close", () => {
       if (sig.aborted) {
-        state.value = "connecting";
         return;
       }
       controller.abort();
       disconnected.value = { intentional: false };
       cleanupAudio();
-      sessionStub = null;
-      // PartySocket handles reconnection automatically
-      state.value = "connecting";
+      state.value = "disconnected";
     }, { signal: sig });
   }
 
   function cancel(): void {
     voiceIO?.flush();
     state.value = "listening";
-    if (sessionStub) {
-      void (sessionStub.cancel() as Promise<void>).catch(() => {});
-    }
+    send({ type: "cancel" });
   }
 
   function reset(): void {
     voiceIO?.flush();
-    if (sessionStub) {
-      void (sessionStub.resetSession() as Promise<void>).catch(() => {});
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      send({ type: "reset" });
       return;
     }
     resetState();
@@ -393,7 +414,6 @@ export function createVoiceSession(options: SessionOptions): VoiceSession {
     connectionController?.abort();
     connectionController = null;
     cleanupAudio();
-    sessionStub = null;
     ws?.close();
     ws = null;
     state.value = "disconnected";

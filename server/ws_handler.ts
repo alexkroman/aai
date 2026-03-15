@@ -1,9 +1,9 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
-import { newWebSocketRpcSession, RpcTarget } from "capnweb";
 import type { Session } from "./session.ts";
-import type { ClientRpcApi, ClientSink, ReadyConfig } from "@aai/sdk/protocol";
-import { isValidAudioChunk, SendHistorySchema } from "./_schemas.ts";
+import type { ClientMessage, ClientSink, ReadyConfig } from "@aai/sdk/protocol";
+import { ClientMessageSchema } from "@aai/sdk/protocol";
+import { isValidAudioChunk } from "./_schemas.ts";
 
 /** Options for wiring a WebSocket to a session. */
 export type WsSessionOptions = {
@@ -11,7 +11,7 @@ export type WsSessionOptions = {
   sessions: Map<string, Session>;
   /** Factory function to create a session for a given ID and client sink. */
   createSession: (sessionId: string, client: ClientSink) => Session;
-  /** Protocol config the client can pull via getConfig() — avoids server push. */
+  /** Protocol config sent to the client immediately on connect. */
   readyConfig: ReadyConfig;
   /** Additional key-value pairs included in log messages. */
   logContext?: Record<string, string>;
@@ -22,166 +22,42 @@ export type WsSessionOptions = {
 };
 
 /**
- * Cap'n Web RPC target for the session API surface.
+ * Creates a {@linkcode ClientSink} backed by a plain WebSocket.
  *
- * Returned by {@linkcode SessionGate.authenticate} — the client can
- * only interact with the session after a successful authenticate call.
+ * Text events are sent as JSON text frames; audio chunks are sent as
+ * binary frames (zero-copy).
  */
-class SessionTarget extends RpcTarget {
-  #session: Session;
-  #readyConfig: ReadyConfig;
-
-  constructor(session: Session, readyConfig: ReadyConfig) {
-    super();
-    this.#session = session;
-    this.#readyConfig = readyConfig;
-  }
-
-  /** Returns protocol config — client pipelines this with authenticate(). */
-  getConfig(): ReadyConfig {
-    return this.#readyConfig;
-  }
-
-  audioReady(): void {
-    this.#session.onAudioReady();
-  }
-
-  cancel(): void {
-    this.#session.onCancel();
-  }
-
-  resetSession(): void {
-    this.#session.onReset();
-  }
-
-  sendHistory(
-    messages: readonly { role: "user" | "assistant"; text: string }[],
-  ): void {
-    const parsed = SendHistorySchema.safeParse(messages);
-    if (!parsed.success) {
-      log.warn("Invalid sendHistory payload", {
-        error: parsed.error.message,
-      });
-      return;
-    }
-    this.#session.onHistory(parsed.data);
-  }
-
-  sendAudioChunk(chunk: Uint8Array): void {
-    if (!isValidAudioChunk(chunk)) {
-      log.warn("Invalid audio chunk, dropping", {
-        bytes: chunk.byteLength,
-        aligned: chunk.byteLength % 2 === 0,
-      });
-      return;
-    }
-    this.#session.onAudio(chunk);
-  }
-}
-
-/**
- * Cap'n Web RPC gate target — the initial capability exposed to clients.
- *
- * Clients must call {@linkcode authenticate} to obtain a
- * {@linkcode SessionTarget} capability. Until then, no session
- * interaction is possible (capability-based security).
- */
-class SessionGate extends RpcTarget {
-  #sessionId: string;
-  #ws: WebSocket;
-  #clientStub: import("capnweb").RpcStub<ClientRpcApi> | null = null;
-  #createSession: (sessionId: string, client: ClientSink) => Session;
-  #sessions: Map<string, Session>;
-  #onSession: (session: Session) => void;
-  #readyConfig: ReadyConfig;
-  #authenticated = false;
-
-  constructor(opts: {
-    sessionId: string;
-    ws: WebSocket;
-    createSession: (sessionId: string, client: ClientSink) => Session;
-    sessions: Map<string, Session>;
-    onSession: (session: Session) => void;
-    readyConfig: ReadyConfig;
-  }) {
-    super();
-    this.#sessionId = opts.sessionId;
-    this.#ws = opts.ws;
-    this.#createSession = opts.createSession;
-    this.#sessions = opts.sessions;
-    this.#onSession = opts.onSession;
-    this.#readyConfig = opts.readyConfig;
-  }
-
-  /** Set the client stub after the RPC session is established. */
-  setClientStub(stub: import("capnweb").RpcStub<ClientRpcApi>): void {
-    this.#clientStub = stub;
-  }
-
-  /**
-   * Authenticate and obtain the session capability.
-   *
-   * Returns a {@linkcode SessionTarget} that the client can use to
-   * send audio, cancel turns, reset, etc. The client can pipeline
-   * calls on the returned target without awaiting.
-   */
-  authenticate(): SessionTarget {
-    if (this.#authenticated) {
-      throw new Error("Already authenticated");
-    }
-    if (!this.#clientStub) {
-      throw new Error("RPC session not ready");
-    }
-    this.#authenticated = true;
-
-    const client = createClientSink(this.#clientStub, this.#ws);
-    const session = this.#createSession(this.#sessionId, client);
-    this.#sessions.set(this.#sessionId, session);
-    this.#onSession(session);
-
-    void session.start();
-    return new SessionTarget(session, this.#readyConfig);
-  }
-}
-
-/**
- * Wraps a capnweb client stub as a {@linkcode ClientSink}.
- *
- * Adds the `open` check and fire-and-forget error handling so the
- * session layer doesn't need to worry about RPC promise management.
- */
-function createClientSink(
-  stub: import("capnweb").RpcStub<ClientRpcApi>,
-  ws: WebSocket,
-): ClientSink {
-  function fire(fn: () => unknown): void {
-    void (fn() as Promise<void>).catch(() => {});
-  }
-
+function createClientSink(ws: WebSocket): ClientSink {
   return {
     get open() {
       return ws.readyState === WebSocket.OPEN;
     },
     event(e) {
-      fire(() => stub.event(e));
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(e));
+      }
     },
     playAudioChunk(chunk) {
-      fire(() => stub.playAudioChunk(chunk));
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(chunk);
+      }
     },
     playAudioDone() {
-      fire(() => stub.playAudioDone());
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "audio_done" }));
+      }
     },
   };
 }
 
 /**
  * Attaches session lifecycle handlers to a native WebSocket using
- * Cap'n Web RPC for bidirectional communication.
+ * plain JSON text frames and binary audio frames.
  *
- * Exposes a {@linkcode SessionGate} as the initial capability — the
- * client must call `authenticate()` to obtain a {@linkcode SessionTarget}
- * for session interaction. This uses capnweb's capability-based security
- * to ensure no session access without explicit authentication.
+ * Connection flow:
+ * 1. WebSocket opens → server sends `{ type: "config", ...ReadyConfig }`
+ * 2. Client sets up audio → sends `{ type: "audio_ready" }`
+ * 3. If reconnecting → client sends `{ type: "history", messages: [...] }`
  */
 export function wireSessionSocket(
   ws: WebSocket,
@@ -198,23 +74,73 @@ export function wireSessionSocket(
     opts.onOpen?.();
     log.info("Session connected", { ...ctx, sid });
 
-    const gate = new SessionGate({
-      sessionId,
-      ws,
-      createSession: opts.createSession,
-      sessions,
-      readyConfig: opts.readyConfig,
-      onSession: (s) => {
-        session = s;
-      },
-    });
+    const client = createClientSink(ws);
+    session = opts.createSession(sessionId, client);
+    sessions.set(sessionId, session);
 
-    // Single RPC session: expose gate to client, get client stub back.
-    // The client calls gate.authenticate() to get the SessionTarget.
-    const clientStub = newWebSocketRpcSession<ClientRpcApi>(ws, gate);
-    gate.setClientStub(clientStub);
+    // Send config immediately — zero RTT
+    ws.send(JSON.stringify({ type: "config", ...opts.readyConfig }));
 
-    log.info("Session gate ready", { ...ctx, sid });
+    void session.start();
+    log.info("Session ready", { ...ctx, sid });
+  });
+
+  ws.addEventListener("message", (event: Event) => {
+    if (!session) return;
+    const msgEvent = event as MessageEvent;
+    const { data } = msgEvent;
+
+    // Binary frame → raw PCM16 audio
+    if (data instanceof ArrayBuffer) {
+      const chunk = new Uint8Array(data);
+      if (!isValidAudioChunk(chunk)) {
+        log.warn("Invalid audio chunk, dropping", {
+          ...ctx,
+          sid,
+          bytes: chunk.byteLength,
+          aligned: chunk.byteLength % 2 === 0,
+        });
+        return;
+      }
+      session.onAudio(chunk);
+      return;
+    }
+
+    // Text frame → JSON message
+    if (typeof data !== "string") return;
+    let json: unknown;
+    try {
+      json = JSON.parse(data);
+    } catch {
+      log.warn("Invalid JSON from client", { ...ctx, sid });
+      return;
+    }
+
+    const parsed = ClientMessageSchema.safeParse(json);
+    if (!parsed.success) {
+      log.warn("Invalid client message", {
+        ...ctx,
+        sid,
+        error: parsed.error.message,
+      });
+      return;
+    }
+
+    const msg: ClientMessage = parsed.data;
+    switch (msg.type) {
+      case "audio_ready":
+        session.onAudioReady();
+        break;
+      case "cancel":
+        session.onCancel();
+        break;
+      case "reset":
+        session.onReset();
+        break;
+      case "history":
+        session.onHistory(msg.messages);
+        break;
+    }
   });
 
   ws.addEventListener("close", () => {

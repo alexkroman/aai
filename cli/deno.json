@@ -1,6 +1,6 @@
 {
   "name": "@aai/cli",
-  "version": "0.1.212",
+  "version": "0.1.216",
   "exports": "./cli.ts",
   "imports": {
     "@aai/sdk": "workspace:@aai/sdk",
