@@ -68,6 +68,21 @@ function denoLoader(loader) {
         importer = importer.slice("\\0deno::".length);
       }
 
+      // npm: specifiers appear in JSR-published sources (deno publish rewrites
+      // bare specifiers to their resolved npm: forms). Handle them directly
+      // before the Deno loader, which may fail with cachedOnly: true.
+      if (id.startsWith("npm:")) {
+        if (id.startsWith("npm:@types/")) return { id, external: true };
+        let bare = id.replace(/^npm:/, "");
+        const vAt = bare.indexOf("@", bare.startsWith("@") ? 1 : 0);
+        if (vAt > 0) {
+          const after = bare.slice(vAt);
+          const slash = after.indexOf("/");
+          bare = bare.slice(0, vAt) + (slash > -1 ? after.slice(slash) : "");
+        }
+        return (await this.resolve(bare, undefined, { skipSelf: true })) ?? bare;
+      }
+
       // Let other pre-plugins resolve first (but skip vite:resolve)
       const other = await this.resolve(id, importer, { skipSelf: true });
       if (other && other.resolvedBy !== "vite:resolve") {
