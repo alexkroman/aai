@@ -1,6 +1,7 @@
 {
   "name": "@aai/sdk",
   "version": "0.1.119",
+  "version": "0.1.116",
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
