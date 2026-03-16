@@ -33,10 +33,11 @@ export function normalizeTransport(
  * Built-in tools run on the host process (not inside the sandboxed worker)
  * and provide capabilities like web search, code execution, and API access.
  *
- * - `"web_search"` — Search the web for information.
- * - `"visit_webpage"` — Fetch and extract text from a URL.
- * - `"fetch_json"` — Fetch JSON from an API endpoint.
- * - `"run_code"` — Execute code in a sandboxed environment.
+ * - `"web_search"` — Search the web for current information, facts, or news.
+ * - `"visit_webpage"` — Fetch a URL and return its content as Markdown.
+ * - `"fetch_json"` — Call a REST API endpoint and return the JSON response.
+ * - `"run_code"` — Execute JavaScript in a sandbox for calculations and data processing.
+ * - `"vector_search"` — Search the agent's RAG knowledge base for relevant documents.
  */
 export type BuiltinTool =
   | "web_search"
