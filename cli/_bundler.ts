@@ -86,7 +86,7 @@ function denoLoader(loader) {
 
         // npm: → strip prefix + version, let Vite resolve from node_modules
         if (resolved.startsWith("npm:")) {
-          let bare = resolved.replace(/^npm:\\//, "");
+          let bare = resolved.replace(/^npm:/, "");
           const vAt = bare.indexOf("@", bare.startsWith("@") ? 1 : 0);
           if (vAt > 0) {
             const after = bare.slice(vAt);
