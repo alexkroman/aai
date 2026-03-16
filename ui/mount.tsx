@@ -7,6 +7,21 @@ import {
   SessionProvider,
   type SessionSignals,
 } from "./signals.ts";
+import { MountConfigProvider } from "./mount_context.ts";
+
+/** Theme overrides for the default UI. Applied as CSS custom properties. */
+export type MountTheme = {
+  /** Background color. Default: `#101010`. */
+  bg?: string;
+  /** Primary accent color. Default: `#fab283`. */
+  primary?: string;
+  /** Main text color. */
+  text?: string;
+  /** Surface/card color. */
+  surface?: string;
+  /** Border color. */
+  border?: string;
+};
 
 /** Options for {@linkcode mount}. */
 export type MountOptions = {
@@ -14,6 +29,10 @@ export type MountOptions = {
   target?: string | HTMLElement;
   /** Base URL of the AAI platform server. Derived from `location.href` by default. */
   platformUrl?: string;
+  /** Agent title shown in the header and start screen. */
+  title?: string;
+  /** Theme color overrides. */
+  theme?: MountTheme;
 };
 
 /**
@@ -63,10 +82,25 @@ export function mount(
   const session = createVoiceSession({ platformUrl });
   const signals = createSessionControls(session);
 
+  const mountConfig = { title: options?.title, theme: options?.theme };
+
+  // Apply theme overrides as CSS custom properties on the container.
+  if (options?.theme) {
+    const t = options.theme;
+    const el = container as HTMLElement;
+    if (t.bg) el.style.setProperty("--color-aai-bg", t.bg);
+    if (t.primary) el.style.setProperty("--color-aai-primary", t.primary);
+    if (t.text) el.style.setProperty("--color-aai-text", t.text);
+    if (t.surface) el.style.setProperty("--color-aai-surface", t.surface);
+    if (t.border) el.style.setProperty("--color-aai-border", t.border);
+  }
+
   render(
-    <SessionProvider value={signals}>
-      <Component />
-    </SessionProvider>,
+    <MountConfigProvider value={mountConfig}>
+      <SessionProvider value={signals}>
+        <Component />
+      </SessionProvider>
+    </MountConfigProvider>,
     container,
   );
 
