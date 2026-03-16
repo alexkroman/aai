@@ -1,5 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { parseArgs } from "@std/cli/parse-args";
+import { htmlToMarkdown } from "mdream";
 import { detail, info, step, warn } from "./_output.ts";
 import { DEFAULT_SERVER, getApiKey, readProjectConfig } from "./_discover.ts";
 import type { SubcommandDef } from "./_help.ts";
@@ -114,6 +115,8 @@ export async function runRagCommand(
   const siteSlug = slugify(origin);
 
   for (const page of pages) {
+    page.body = htmlToMarkdown(page.body);
+    if (!page.body) continue;
     const raw = await chunker.chunk(page.body);
     for (let i = 0; i < raw.length; i++) {
       const c = raw[i]!;

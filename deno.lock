@@ -3348,7 +3348,8 @@
         "dependencies": [
           "jsr:@std/cli@^1.0.28",
           "npm:@chonkiejs/core@0",
-          "npm:@types/json-schema@7"
+          "npm:@types/json-schema@7",
+          "npm:mdream@0"
         ]
       },
       "core": {
