@@ -134,14 +134,28 @@ export async function runRagCommand(
 
   step("Chunked", `${allChunks.length} chunks`);
 
-  // Upsert
+  // Upsert (concurrent with pool)
   const vectorUrl = `${serverUrl}/${slug}/vector`;
   info(`target: ${vectorUrl}`);
+  const total = allChunks.length;
+  let completed = 0;
   let upserted = 0;
   let errors = 0;
   let lastError = "";
+  const CONCURRENCY = 10;
 
-  for (const chunk of allChunks) {
+  const isTty = Deno.stdout.isTerminal();
+  const enc = new TextEncoder();
+
+  function showProgress() {
+    if (!isTty) return;
+    const pct = Math.round((completed / total) * 100);
+    Deno.stdout.writeSync(
+      enc.encode(`\r${" ".repeat(10)}Upsert ${completed}/${total} (${pct}%)`),
+    );
+  }
+
+  async function upsertChunk(chunk: VectorChunk): Promise<void> {
     try {
       const r = await fetch(vectorUrl, {
         method: "POST",
@@ -166,6 +180,17 @@ export async function runRagCommand(
       lastError = err instanceof Error ? err.message : String(err);
       errors++;
     }
+    completed++;
+    showProgress();
+  }
+
+  // Process chunks in batches of CONCURRENCY
+  for (let i = 0; i < total; i += CONCURRENCY) {
+    const batch = allChunks.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(upsertChunk));
+  }
+  if (isTty) {
+    Deno.stdout.writeSync(enc.encode("\r\x1b[K"));
   }
 
   step("Done", `${upserted} chunks upserted`);
