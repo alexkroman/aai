@@ -262,8 +262,14 @@ function stripNoise(text: string): string {
     .replace(/^(?:[ ]{4,}|\t).+$/gm, "")
     // Inline code
     .replace(/`[^`]+`/g, "")
+    // JSX comments {/* ... */}
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
     // HTML/JSX tags (including self-closing, attributes, and multiline)
     .replace(/<[^>]+>/g, "")
+    // Leftover JSX expression fragments (e.g. } href="...")
+    .replace(/^\s*\}[^}\n]*$/gm, "")
+    // Lines that are only whitespace
+    .replace(/^\s+$/gm, "")
     // Collapse multiple blank lines
     .replace(/\n{3,}/g, "\n\n")
     .trim();
