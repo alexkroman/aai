@@ -299,6 +299,20 @@ export async function bundleAgent(
   await Deno.writeTextFile(buildScript, BUILD_SCRIPT);
   await Deno.writeTextFile(join(aaiDir, "index.html"), INDEX_HTML);
 
+  // Pre-cache the full dependency tree so the Vite build's @deno/loader
+  // Workspace (cachedOnly: true) can resolve all modules. Without this,
+  // fresh environments (CI, new scaffolds) fail because JSR/npm deps
+  // aren't in the Deno module cache yet.
+  const cacheTargets = [agent.entryPoint];
+  if (agent.clientEntry) cacheTargets.push(agent.clientEntry);
+  const cacheCmd = new Deno.Command(denoExec(), {
+    args: ["cache", ...cacheTargets],
+    cwd: agent.dir,
+    stdout: "null",
+    stderr: "null",
+  });
+  await cacheCmd.output();
+
   const skipClient = opts?.skipClient || !agent.clientEntry;
   const env: Record<string, string> = { ...Deno.env.toObject() };
   if (skipClient) {
