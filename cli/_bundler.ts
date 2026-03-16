@@ -176,10 +176,16 @@ async function writeUiSources() {
         if (result.kind === "external") continue;
         const code = new TextDecoder().decode(result.code);
         writeFileSync(resolve(sourcesDir, \`mod\${count++}.ts\`), code);
-        // Follow relative imports
-        const baseUrl = url.replace(/\\/[^\\/]+$/, "");
-        for (const m of code.matchAll(/from\\s+['"](\\.\\/[^'"]+)['"]/g)) {
-          queue.push(baseUrl + "/" + m[1].replace(/^\\.\\//,""));
+        // Follow all local imports (relative and bare specifiers) using the
+        // loader's resolver so JSR, file://, and npm: URLs all work correctly.
+        for (const m of code.matchAll(/from\\s+['"]([^'"]+)['"]/g)) {
+          const spec = m[1];
+          if (spec.startsWith("node:")) continue;
+          try {
+            const resolved = await loader.resolve(spec, url, ResolutionMode.Import);
+            if (resolved.startsWith("npm:") || resolved.startsWith("node:")) continue;
+            queue.push(resolved);
+          } catch { /* unresolvable — skip */ }
         }
       } catch { /* skip */ }
     }
