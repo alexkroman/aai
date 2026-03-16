@@ -135,7 +135,7 @@ export type AgentEntry = {
   /** Absolute path to the client entry point (`client.ts` or empty). */
   clientEntry: string;
   /** Transport protocols the agent supports. */
-  transport: readonly ("websocket" | "twilio")[];
+  transport: readonly ("websocket")[];
 };
 
 /** Default production server URL for agent deployments. */

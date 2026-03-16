@@ -16,7 +16,7 @@ export type BundleStore = {
   putAgent(bundle: {
     slug: string;
     env: Record<string, string>;
-    transport: readonly ("websocket" | "twilio")[];
+    transport: readonly ("websocket")[];
     worker: string;
     html: string;
     credential_hashes: string[];
