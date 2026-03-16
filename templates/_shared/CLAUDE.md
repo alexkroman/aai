@@ -95,7 +95,6 @@ export default defineAgent({
 
 ```ts
 import { defineAgent } from "@aai/sdk"; // Always needed
-import { defineAgent, kvTools } from "@aai/sdk"; // Persistent memory helpers
 import type { BeforeStepResult, HookContext, ToolContext } from "@aai/sdk"; // Type annotations
 import { z } from "zod"; // Tools with typed params (included in deno.json)
 ```
@@ -354,23 +353,6 @@ await ctx.kv.delete("user:123"); // delete
 ```
 
 Keys are strings; use colon-separated prefixes (`"user:123"`). Max value: 64 KB.
-
-#### `kvTools()` — drop-in persistent memory
-
-Spreads four tools: `save_memory`, `recall_memory`, `list_memories`,
-`forget_memory`:
-
-```ts
-import { defineAgent, kvTools } from "@aai/sdk";
-
-export default defineAgent({
-  name: "Memory Agent",
-  tools: {
-    ...kvTools(),
-    // optionally customize: kvTools({ names: { save: "store_note" } })
-  },
-});
-```
 
 ## Advanced patterns
 

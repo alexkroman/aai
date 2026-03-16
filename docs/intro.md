@@ -67,15 +67,7 @@ export default defineAgent({
 
 ## @aai/ui
 
-Your agent gets a web UI out of the box. Customize it in `client.tsx`.
-
-```tsx
-import { App, mount } from "@aai/ui";
-
-mount(App);
-```
-
-Set a title and theme to match your brand:
+Your agent gets a web UI out of the box. Customize it in `client.tsx`:
 
 ```tsx
 import { App, mount } from "@aai/ui";
@@ -88,15 +80,6 @@ mount(App, {
   },
 });
 ```
-
-| Option | What it does |
-|--------|-------------|
-| `title` | Replaces the default logo in the header and start screen |
-| `theme.bg` | Background color |
-| `theme.primary` | Accent color |
-| `theme.text` | Text color |
-| `theme.surface` | Card/surface color |
-| `theme.border` | Border color |
 
 Or build something fully custom using the provided components:
 
@@ -153,20 +136,6 @@ await ctx.kv.set("temp:code", "1234", { expireIn: 60_000 }); // TTL in ms
 const name = await ctx.kv.get("user:name"); // "Alice"
 const entries = await ctx.kv.list("user:"); // all keys starting with "user:"
 await ctx.kv.delete("temp:code");
-```
-
-Or use the built-in memory tools for a quick start:
-
-```typescript
-import { defineAgent, kvTools } from "@aai/sdk";
-
-export default defineAgent({
-  name: "Memory Agent",
-  instructions: "You remember things for the user.",
-  tools: {
-    ...kvTools(), // save_memory, recall_memory, list_memories, forget_memory
-  },
-});
 ```
 
 ## @aai/vector
