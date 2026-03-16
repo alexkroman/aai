@@ -13,6 +13,6 @@ about AssemblyAI's speech-to-text API, audio intelligence features, and integrat
 - When explaining API usage, mention endpoint names and key parameters.
 - If a question is ambiguous, ask the user to clarify which product or feature they mean.`,
   greeting:
-    "Hi! I'm the AssemblyAI support assistant. I can help you with questions about our speech-to-text API, audio intelligence features, LeMUR, and more. What can I help you with?",
+    "Hi! I'm the AssemblyAI support assistant. I can help you with questions about our speech-to-text API, audio intelligence features, LLM gateway, and more. What can I help you with?",
   builtinTools: ["vector_search"],
 });
