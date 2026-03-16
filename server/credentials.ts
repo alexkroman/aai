@@ -41,19 +41,25 @@ export async function deriveCredentialKey(
 /** Encrypt an env record. Returns base64url(nonce ‖ ciphertext ‖ tag). */
 export async function encryptEnv(
   key: CredentialKey,
-  env: Record<string, string>,
+  opts: { env: Record<string, string>; slug: string },
 ): Promise<string> {
   return encodeBase64Url(
-    await encryptAesGcm(key, enc.encode(JSON.stringify(env))),
+    await encryptAesGcm(key, enc.encode(JSON.stringify(opts.env)), {
+      additionalData: enc.encode(opts.slug),
+    }),
   );
 }
 
 /** Decrypt a base64url blob back into an env record. */
 export async function decryptEnv(
   key: CredentialKey,
-  encrypted: string,
+  opts: { encrypted: string; slug: string },
 ): Promise<Record<string, string>> {
   return JSON.parse(
-    dec.decode(await decryptAesGcm(key, decodeBase64Url(encrypted))),
+    dec.decode(
+      await decryptAesGcm(key, decodeBase64Url(opts.encrypted), {
+        additionalData: enc.encode(opts.slug),
+      }),
+    ),
   );
 }

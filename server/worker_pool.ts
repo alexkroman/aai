@@ -26,8 +26,6 @@ const IDLE_MS = 5 * 60 * 1000;
 export type AgentSlot = {
   /** The agent's unique slug identifier. */
   slug: string;
-  /** Environment variables provided at deploy time. */
-  env: Record<string, string>;
   /** Supported transport types for this agent. */
   transport: readonly ("websocket" | "twilio")[];
   /** Agent configuration extracted at build time. */
@@ -48,10 +46,14 @@ export type AgentSlot = {
 
 async function spawnAgent(
   slot: AgentSlot,
-  getWorkerCode?: (slug: string) => Promise<string | null>,
-  kvCtx?: { kvStore: KvStore; scope: AgentScope },
+  opts: {
+    getWorkerCode?: ((slug: string) => Promise<string | null>) | undefined;
+    kvCtx?: { kvStore: KvStore; scope: AgentScope } | undefined;
+    getEnv: () => Promise<Record<string, string>>;
+  },
 ): Promise<void> {
   const { slug } = slot;
+  const { getWorkerCode, kvCtx, getEnv } = opts;
 
   log.info("Spawning agent worker", { slug });
 
@@ -79,7 +81,7 @@ async function spawnAgent(
       }
       lastCrash = now;
       log.info("Respawning worker", { slug });
-      spawnAgent(slot, getWorkerCode, kvCtx).catch(
+      spawnAgent(slot, opts).catch(
         (err: unknown) => {
           log.error("Worker respawn failed", {
             slug,
@@ -90,7 +92,9 @@ async function spawnAgent(
     }) as EventListener,
   );
 
-  const api = createWorkerApi(worker, createHostApi(kvCtx), slot.env);
+  // Decrypt env on demand — plaintext only lives for the duration of this call.
+  const env = await getEnv();
+  const api = createWorkerApi(worker, createHostApi(kvCtx), env);
   slot.worker = { handle: worker, api };
 }
 
@@ -186,13 +190,13 @@ function resetIdleTimer(slot: AgentSlot): void {
  */
 export function ensureAgent(
   slot: AgentSlot,
-  opts?: {
+  opts: {
     getWorkerCode?: ((slug: string) => Promise<string | null>) | undefined;
     kvCtx?: { kvStore: KvStore; scope: AgentScope } | undefined;
+    getEnv: () => Promise<Record<string, string>>;
   },
 ): Promise<void> {
-  const getWorkerCode = opts?.getWorkerCode;
-  const kvCtx = opts?.kvCtx;
+  const { getWorkerCode, kvCtx, getEnv } = opts;
   const t0 = performance.now();
 
   if (slot.worker) {
@@ -201,7 +205,7 @@ export function ensureAgent(
   }
   if (slot.initializing) return slot.initializing;
 
-  slot.initializing = spawnAgent(slot, getWorkerCode, kvCtx).then(
+  slot.initializing = spawnAgent(slot, { getWorkerCode, kvCtx, getEnv }).then(
     () => {
       delete slot.initializing;
       resetIdleTimer(slot);
@@ -245,7 +249,6 @@ export function registerSlot(
 
   slots.set(metadata.slug, {
     slug: metadata.slug,
-    env: metadata.env,
     transport: metadata.transport,
     keyHash: metadata.credential_hashes[0] ?? "",
     config: metadata.config,
@@ -301,8 +304,9 @@ export async function prepareSession(
   const scope = { keyHash: slot.keyHash, slug };
   const kvCtx = { kvStore, scope };
   const getWorkerCode = (s: string) => store.getFile(s, "worker");
+  const getEnv = async () => await store.getEnv(slug) ?? {};
   const getWorkerApi = async () => {
-    await ensureAgent(slot, { getWorkerCode, kvCtx });
+    await ensureAgent(slot, { getWorkerCode, kvCtx, getEnv });
     return slot.worker!.api;
   };
   const executeTool: ExecuteTool = async (name, args, sessionId, messages) => {
@@ -320,16 +324,18 @@ export async function prepareSession(
   await getWorkerApi();
   const config = slot.config;
 
+  // Decrypt env for platform config and session — plaintext is not persisted.
+  const env = await getEnv();
   const builtinTools = getBuiltinToolSchemas(config.builtinTools ?? []);
   const toolSchemas = [...slot.toolSchemas, ...builtinTools];
 
   return {
     agentConfig: config,
     toolSchemas,
-    platformConfig: loadPlatformConfig(slot.env),
+    platformConfig: loadPlatformConfig(env),
     executeTool,
     getWorkerApi,
-    env: slot.env,
+    env,
     vectorCtx: vectorStore ? { vectorStore, scope } : undefined,
   };
 }

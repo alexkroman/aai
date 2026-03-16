@@ -68,7 +68,6 @@ export async function handleDeploy(
 
   const slot: AgentSlot = {
     slug,
-    env,
     transport,
     keyHash,
     config: body.config,
