@@ -137,11 +137,20 @@ export async function runRagCommand(
   // Upsert
   const vectorUrl = `${serverUrl}/${slug}/vector`;
   info(`target: ${vectorUrl}`);
+  const total = allChunks.length;
   let upserted = 0;
   let errors = 0;
   let lastError = "";
 
-  for (const chunk of allChunks) {
+  for (let i = 0; i < total; i++) {
+    const chunk = allChunks[i]!;
+    const pct = Math.round(((i + 1) / total) * 100);
+    const progress = `${i + 1}/${total} (${pct}%)`;
+    if (Deno.stdout.isTerminal()) {
+      Deno.stdout.writeSync(
+        new TextEncoder().encode(`\r${" ".repeat(10)}Upsert ${progress}`),
+      );
+    }
     try {
       const r = await fetch(vectorUrl, {
         method: "POST",
@@ -166,6 +175,9 @@ export async function runRagCommand(
       lastError = err instanceof Error ? err.message : String(err);
       errors++;
     }
+  }
+  if (Deno.stdout.isTerminal()) {
+    Deno.stdout.writeSync(new TextEncoder().encode("\r\x1b[K"));
   }
 
   step("Done", `${upserted} chunks upserted`);
