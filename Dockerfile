@@ -6,6 +6,7 @@ COPY . .
 RUN deno compile \
   --allow-all \
   --unstable-worker-options \
+  --include server/_sandbox_worker.ts \
   --target x86_64-unknown-linux-gnu \
   --output /app/dist/server \
   server/main.ts

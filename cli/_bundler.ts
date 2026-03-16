@@ -43,12 +43,12 @@ const BUILD_SCRIPT = `\
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
-import { build } from "vite";
-import { Workspace, ResolutionMode, RequestedModuleType } from "@deno/loader";
-import { transform } from "esbuild";
-import preact from "@preact/preset-vite";
-import tailwindcss from "@tailwindcss/vite";
-import { viteSingleFile } from "vite-plugin-singlefile";
+import { build } from "npm:vite@^6";
+import { Workspace, ResolutionMode, RequestedModuleType } from "jsr:@deno/loader@^0.3";
+import { transform } from "npm:esbuild@^0.25";
+import preact from "npm:@preact/preset-vite@~2.9";
+import tailwindcss from "npm:@tailwindcss/vite@^4";
+import { viteSingleFile } from "npm:vite-plugin-singlefile@^2";
 import { dirname, resolve } from "node:path";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -250,6 +250,82 @@ await build({
 });
 `;
 
+/** Default Tailwind CSS entry point, generated when the project has no styles.css. */
+const DEFAULT_STYLES_CSS = `\
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+@import "tailwindcss";
+@source "./";
+@source "./components/";
+@source ".aai/sources/";
+
+@theme {
+  --color-aai-bg: #101010;
+  --color-aai-surface: #151515;
+  --color-aai-surface-faint: rgba(255, 255, 255, 0.031);
+  --color-aai-surface-hover: rgba(255, 255, 255, 0.059);
+  --color-aai-border: #282828;
+  --color-aai-primary: #fab283;
+  --color-aai-text: rgba(255, 255, 255, 0.936);
+  --color-aai-text-secondary: rgba(255, 255, 255, 0.618);
+  --color-aai-text-muted: rgba(255, 255, 255, 0.284);
+  --color-aai-text-dim: rgba(255, 255, 255, 0.422);
+  --color-aai-error: #fc533a;
+  --color-aai-ring: #9dbefe;
+  --color-aai-state-disconnected: rgba(255, 255, 255, 0.422);
+  --color-aai-state-connecting: rgba(255, 255, 255, 0.422);
+  --color-aai-state-ready: #12c905;
+  --color-aai-state-listening: #9dbefe;
+  --color-aai-state-thinking: #fcd53a;
+  --color-aai-state-speaking: #fc533a;
+  --color-aai-state-error: #fc533a;
+  --radius-aai: 6px;
+  --font-aai: "Inter", system-ui, -apple-system, sans-serif;
+  --font-aai-mono: "IBM Plex Mono", monospace;
+}
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-aai-bg);
+  }
+}
+
+@keyframes aai-bounce {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes aai-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.tool-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-aai-text) 25%,
+    var(--color-aai-text-dim) 50%,
+    var(--color-aai-text) 75%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: aai-shimmer 2s ease-in-out infinite;
+}
+`;
+
 /** Fallback HTML shell generated when no client.tsx exists. */
 const INDEX_HTML = `\
 <!DOCTYPE html>
@@ -294,10 +370,22 @@ export async function bundleAgent(
     agent.entryPoint,
   );
 
-  // Generate build script and HTML shell into .aai/
+  // Build deps use fully-qualified specifiers in the build script (e.g.
+  // `npm:vite@^6`) so no import map or deno.json is needed — they are
+  // resolved directly by Deno and don't appear in the user's deno.json.
   const buildScript = join(aaiDir, "_build.mts");
   await Deno.writeTextFile(buildScript, BUILD_SCRIPT);
   await Deno.writeTextFile(join(aaiDir, "index.html"), INDEX_HTML);
+
+  // Generate the default Tailwind entry point if the project doesn't have
+  // one. Lives in the agent root (not .aai/) so @tailwindcss/vite can
+  // resolve `tailwindcss` from the project's node_modules.
+  const stylesPath = join(agent.dir, "styles.css");
+  try {
+    await Deno.lstat(stylesPath);
+  } catch {
+    await Deno.writeTextFile(stylesPath, DEFAULT_STYLES_CSS);
+  }
 
   // Pre-cache the full dependency tree so the Vite build's @deno/loader
   // Workspace (cachedOnly: true) can resolve all modules. Without this,

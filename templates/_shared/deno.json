@@ -11,18 +11,9 @@
     "react": "npm:preact@^10/compat",
     "react-dom": "npm:preact@^10/compat",
     "@preact/signals": "npm:@preact/signals@^2",
-    "json-schema": "npm:@types/json-schema@^7",
     "capnweb": "npm:capnweb@^0.1",
-    "@std/async": "jsr:@std/async@^1",
-    "vite": "npm:vite@^6",
-    "@preact/preset-vite": "npm:@preact/preset-vite@~2.9",
-    "@tailwindcss/vite": "npm:@tailwindcss/vite@^4",
     "tailwindcss": "npm:tailwindcss@^4",
-    "vite-plugin-singlefile": "npm:vite-plugin-singlefile@^2",
-    "@deno/loader": "jsr:@deno/loader@^0.3",
-    "esbuild": "npm:esbuild@^0.25",
-    "@xterm/xterm": "npm:@xterm/xterm@^5",
-    "@xterm/addon-fit": "npm:@xterm/addon-fit@^0.10"
+    "@std/async": "jsr:@std/async@^1"
   },
   "compilerOptions": {
     "jsx": "react-jsx",
