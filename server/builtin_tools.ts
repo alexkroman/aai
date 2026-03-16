@@ -109,7 +109,7 @@ const NO_RESULTS = "[]";
 const webSearch = defineTool({
   name: "web_search",
   description:
-    "Search the web using Brave Search. Returns a list of results with title, URL, and description.",
+    "Search the web for current information, facts, news, or answers to questions. Returns a list of results with title, URL, and description. Use this when the user asks about something you don't know, need up-to-date information, or want to verify facts.",
   parameters: webSearchParams,
   execute: async (args, _env) => {
     const { query, max_results: maxResults = 5 } = args;
@@ -175,7 +175,7 @@ const visitWebpageParams = z.object({
 const visitWebpage = defineTool({
   name: "visit_webpage",
   description:
-    "Fetch a webpage URL and return its content as clean Markdown. Useful for reading articles, documentation, or any web page found via search.",
+    "Fetch a webpage and return its content as clean Markdown text. Use this to read the full content of a URL found via web_search, or any link the user shares. Good for reading articles, documentation, blog posts, or product pages.",
   parameters: visitWebpageParams,
   execute: async (args) => {
     const { url } = args;
@@ -229,7 +229,7 @@ const SANDBOX_WORKER_URL = import.meta.resolve("./_sandbox_worker.ts");
 const runCode = defineTool({
   name: "run_code",
   description:
-    "Execute JavaScript in a sandboxed Deno Worker with no permissions. Use console.log() for output. No network or filesystem access.",
+    "Execute JavaScript code in a secure sandbox and return the output. Use this for calculations, data transformations, string manipulation, or any task that benefits from running code. Output is captured from console.log(). No network or filesystem access.",
   parameters: runCodeParams,
   execute: async (args) => {
     const { code } = args;
@@ -270,7 +270,7 @@ const fetchJsonParams = z.object({
 const fetchJson = defineTool({
   name: "fetch_json",
   description:
-    "Fetch a URL via HTTP GET and return the JSON response. Useful for calling REST APIs that return JSON data.",
+    "Call a REST API endpoint via HTTP GET and return the JSON response. Use this to fetch structured data from APIs — for example, weather data, stock prices, exchange rates, or any public JSON API. Supports custom headers for authenticated APIs.",
   parameters: fetchJsonParams,
   execute: async (args) => {
     const { url, headers } = args;
@@ -341,7 +341,7 @@ export function getBuiltinToolSchemas(
       return [{
         name: "vector_search",
         description:
-          "Search the agent's vector knowledge base using natural language.",
+          "Search the agent's knowledge base for relevant information. Use this when the user asks a question that might be answered by previously ingested documents or data. Returns the most relevant matches ranked by similarity.",
         parameters: z.toJSONSchema(
           vectorSearchParams,
         ) as ToolSchema["parameters"],
@@ -380,7 +380,7 @@ export function getBuiltinVercelTools(
       );
       tools.vector_search = vercelTool({
         description:
-          "Search the agent's vector knowledge base using natural language. Returns the most relevant stored entries. Use this to find information that was previously ingested via `aai rag`.",
+          "Search the agent's knowledge base for relevant information. Use this when the user asks a question that might be answered by previously ingested documents or data. Returns the most relevant matches ranked by similarity.",
         parameters: params,
         execute: async (args: unknown) => {
           const { query, topK = 5 } = args as {
