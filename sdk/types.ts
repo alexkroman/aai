@@ -61,14 +61,6 @@ export type ToolChoice =
   | { type: "tool"; toolName: string };
 
 /**
- * Agent operating mode.
- *
- * - `"full"` — Full pipeline: STT, LLM, and TTS (default).
- * - `"stt-only"` — Speech-to-text only; no LLM or TTS processing.
- */
-export type AgentMode = "full" | "stt-only";
-
-/**
  * A single message in the conversation history.
  *
  * Messages are passed to tool `execute` functions via
@@ -283,12 +275,6 @@ export type AgentOptions<S = any> = {
   /** Display name for the agent. */
   name: string;
   /**
-   * Operating mode.
-   *
-   * @default {"full"}
-   */
-  mode?: AgentMode;
-  /**
    * Environment variable names the agent requires at deploy time.
    *
    * @default {["ASSEMBLYAI_API_KEY"]}
@@ -391,7 +377,6 @@ export const DEFAULT_GREETING: string =
  */
 export type AgentDef = {
   name: string;
-  mode: AgentMode;
   env: readonly string[];
   transport: readonly Transport[];
   instructions: string;

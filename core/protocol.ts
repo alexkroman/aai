@@ -271,7 +271,6 @@ export type ReadyConfig = {
   audioFormat: AudioFormatId;
   sampleRate: number;
   ttsSampleRate: number;
-  mode?: "stt-only" | undefined;
 };
 
 /** Client→server text messages (binary frames carry raw PCM16 audio). */

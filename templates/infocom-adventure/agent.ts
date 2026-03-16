@@ -17,7 +17,6 @@ function s(ctx: ToolContext<GameState>): GameState {
 
 export default defineAgent({
   name: "Infocom Adventure",
-  voice: "orion",
   greeting:
     "Welcome to the great underground empire. You are standing in an open field west of a white house, with a boarded front door. There is a small mailbox here. What would you like to do?",
 

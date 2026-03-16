@@ -154,10 +154,9 @@ export function createSession(opts: SessionOptions): Session {
     },
   };
 
-  const isSttOnly = agentConfig.mode === "stt-only";
   const doCreateStt = opts.createStt ?? createSttConnection;
 
-  const tts = isSttOnly ? null : (() => {
+  const tts = (() => {
     if (opts.createTts) return opts.createTts(config.ttsConfig);
     switch (config.ttsConfig.provider) {
       case "rime":
@@ -172,9 +171,9 @@ export function createSession(opts: SessionOptions): Session {
         );
     }
   })();
-  tts?.warmup();
+  tts.warmup();
 
-  const model = isSttOnly ? null : (opts.model ?? (() => {
+  const model = opts.model ?? (() => {
     if (config.anthropicApiKey) {
       const anthropic = createAnthropic({ apiKey: config.anthropicApiKey });
       return anthropic(config.model);
@@ -184,47 +183,43 @@ export function createSession(opts: SessionOptions): Session {
       model: config.model,
       gatewayBase: config.llmGatewayBase,
     });
-  })());
+  })();
 
   const hasTools = opts.toolSchemas.length > 0 ||
     (agentConfig.builtinTools?.length ?? 0) > 0;
-  const systemPrompt = isSttOnly
-    ? ""
-    : buildSystemPrompt(agentConfig, { hasTools, voice: true });
+  const systemPrompt = buildSystemPrompt(agentConfig, {
+    hasTools,
+    voice: true,
+  });
 
-  let tools: ToolSet;
-  if (isSttOnly) {
-    tools = {};
-  } else {
-    tools = getBuiltinVercelTools(agentConfig.builtinTools ?? [], {
-      env,
-      vectorCtx: opts.vectorCtx,
-    });
-    for (const schema of opts.toolSchemas) {
-      // Skip schemas for builtin tools — they already have host-side execute
-      if (schema.name in tools) continue;
-      tools[schema.name] = vercelTool({
-        description: schema.description,
-        parameters: jsonSchema(schema.parameters),
-        execute: async (args: unknown, _options: ToolExecutionOptions) => {
-          const msgs: Message[] = [];
-          for (const m of messages) {
-            if (
-              typeof m.content === "string" &&
-              (m.role === "user" || m.role === "assistant")
-            ) {
-              msgs.push({ role: m.role, content: m.content });
-            }
+  const tools: ToolSet = getBuiltinVercelTools(
+    agentConfig.builtinTools ?? [],
+    { env, vectorCtx: opts.vectorCtx },
+  );
+  for (const schema of opts.toolSchemas) {
+    // Skip schemas for builtin tools — they already have host-side execute
+    if (schema.name in tools) continue;
+    tools[schema.name] = vercelTool({
+      description: schema.description,
+      parameters: jsonSchema(schema.parameters),
+      execute: async (args: unknown, _options: ToolExecutionOptions) => {
+        const msgs: Message[] = [];
+        for (const m of messages) {
+          if (
+            typeof m.content === "string" &&
+            (m.role === "user" || m.role === "assistant")
+          ) {
+            msgs.push({ role: m.role, content: m.content });
           }
-          return await opts.executeTool(
-            schema.name,
-            args as Record<string, unknown>,
-            id,
-            msgs,
-          );
-        },
-      });
-    }
+        }
+        return await opts.executeTool(
+          schema.name,
+          args as Record<string, unknown>,
+          id,
+          msgs,
+        );
+      },
+    });
   }
 
   /** Safely call a method on the client sink, ignoring errors if closed. */
@@ -354,7 +349,7 @@ export function createSession(opts: SessionOptions): Session {
 
   async function handleTurn(text: string, turnOrder?: number): Promise<void> {
     // Start config resolution immediately — overlaps with previous-turn drain
-    const configPromise = isSttOnly ? null : resolveTurnConfigFromWorker();
+    const configPromise = resolveTurnConfigFromWorker();
 
     cancelInflight();
     agent = AgentState.Processing;
@@ -371,16 +366,6 @@ export function createSession(opts: SessionOptions): Session {
     );
 
     callHook("onTurn", (api) => api.onTurn(id, text, HOOK_TIMEOUT_MS));
-
-    if (isSttOnly) {
-      trySend(() => client.event({ type: "tts_done" }));
-      metrics.turnDuration.observe(
-        (performance.now() - turnStart) / 1000,
-        agentLabel,
-      );
-      agent = AgentState.Listening;
-      return;
-    }
 
     const abort = new AbortController();
     turnAbort = abort;
@@ -577,7 +562,7 @@ export function createSession(opts: SessionOptions): Session {
       if (pending) await pending;
 
       stt?.close();
-      tts?.close();
+      tts.close();
 
       callHook("onDisconnect", (api) => api.onDisconnect(id, HOOK_TIMEOUT_MS));
     },

@@ -1,15 +1,16 @@
 # aai
 
-Build and deploy a voice AI agent with one command.
+## aai deploy
+
+One command that scaffolds and deploys a voice agent for you.
 
 ```bash
-aai new
 aai deploy
 ```
 
-## @aai/sdk
+## aai/agent
 
-Define your agent in `agent.ts`. That's the entire backend.
+Write a custom agent in a few lines of code:
 
 ```typescript
 import { defineAgent } from "@aai/sdk";
@@ -21,9 +22,9 @@ export default defineAgent({
 });
 ```
 
-## Built-in Tools
+## aai/agent/tools
 
-Give your agent superpowers with built-in tools:
+Give your agent some built-in tools:
 
 ```typescript
 export default defineAgent({
@@ -32,15 +33,9 @@ export default defineAgent({
 });
 ```
 
-| Tool | What it does |
-| ---- | ------------ |
-| `web_search` | Search the web |
-| `visit_webpage` | Fetch a webpage as markdown |
-| `fetch_json` | Call a JSON API |
-| `run_code` | Run sandboxed JavaScript |
-| `vector_search` | Search your RAG knowledge base |
+## aai/agent/tools/custom
 
-Add custom tools to give your agent more abilities:
+Give your agent a custom tool:
 
 ```typescript
 import { defineAgent } from "@aai/sdk";
@@ -65,9 +60,9 @@ export default defineAgent({
 });
 ```
 
-## @aai/ui
+## aai/ui
 
-Your agent gets a web UI out of the box. Customize it in `client.tsx`:
+Make a UI for your voice agent in just a few lines of code:
 
 ```tsx
 import { App, mount } from "@aai/ui";
@@ -81,7 +76,9 @@ mount(App, {
 });
 ```
 
-Or build something fully custom using the provided components:
+## aai/ui/custom
+
+Or build a completely custom UI using Preact:
 
 ```tsx
 import { mount, useSession } from "@aai/ui";
@@ -102,9 +99,9 @@ function MyApp() {
 mount(MyApp);
 ```
 
-## @aai/state
+## aai/state
 
-Keep track of things during a conversation with per-session state:
+Keep track of memory and state for your agent:
 
 ```typescript
 export default defineAgent({
@@ -124,10 +121,9 @@ export default defineAgent({
 });
 ```
 
-## @aai/kv
+## aai/kv
 
-A durable key-value store that persists across sessions.
-Available on every tool's context.
+A durable key-value store that persists across sessions:
 
 ```typescript
 // Inside any tool's execute function:
@@ -139,9 +135,9 @@ const entries = await ctx.kv.list("user:"); // all keys starting with "user:"
 await ctx.kv.delete("temp:code");
 ```
 
-## @aai/vector
+## aai/vector
 
-Vector search for building RAG agents. Ingest a site, then search it at runtime.
+Vector search for building a RAG agent:
 
 ```typescript
 export default defineAgent({
@@ -153,30 +149,31 @@ export default defineAgent({
 
 ## aai rag
 
-One command to ingest a site into your agent's knowledge base:
+One command to crawl, chunk, and upload your site's content to the vector store:
 
 ```bash
 aai rag https://docs.example.com/llms-full.txt
 ```
 
-This fetches the content, chunks it, and uploads it to the vector
-store. Your agent can then search it at runtime using the
-`vector_search` tool.
+## aai env
 
-## Secure by default
+One command to store secrets on the server -- never in code:
 
-Agent code runs in a sandbox with all permissions disabled — no
-file system, no network, no environment variables. You write
-normal code and aai handles the rest safely.
+```bash
+aai env add MY_API_KEY        # prompts for the value
+aai env add OPENAI_KEY        # add as many as you need
+aai env ls                    # list what's set
+aai env rm MY_API_KEY         # remove one
+aai env pull                  # sync names into .env for local dev
+```
 
-- `fetch` works but is proxied through the host, which blocks
-  requests to private/internal addresses
-- Secrets are stored on the server via `aai env add` and injected
-  at runtime through `ctx.env` — never bundled into your code
-- The `run_code` built-in tool executes in a second layer of
-  sandboxing with a 30-second timeout
-- Built-in tools (web search, fetch, etc.) run on the host outside
-  the sandbox, while your custom tools run inside it
+Access secrets in any tool call:
 
-You don't need to configure any of this. Every agent gets the
-same isolation out of the box.
+```typescript
+execute: async ({ query }, ctx) => {
+  const res = await fetch("https://api.example.com/search", {
+    headers: { Authorization: `Bearer ${ctx.env.MY_API_KEY}` },
+  });
+  return await res.json();
+},
+```

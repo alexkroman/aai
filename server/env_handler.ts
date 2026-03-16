@@ -52,17 +52,13 @@ export async function handleEnvSet(
   const merged = { ...existing, ...updates };
   await ctx.state.store.putEnv(slug, merged);
 
-  // Update in-memory slot if loaded
+  // Terminate worker so it restarts with fresh env from store
   const slot = ctx.state.slots.get(slug);
-  if (slot) {
-    slot.env = merged;
-    // Terminate worker so it restarts with new env
-    if (slot.worker) {
-      log.info("Restarting worker for env update", { slug });
-      slot.worker.handle.terminate();
-      delete slot.worker;
-      delete slot.initializing;
-    }
+  if (slot?.worker) {
+    log.info("Restarting worker for env update", { slug });
+    slot.worker.handle.terminate();
+    delete slot.worker;
+    delete slot.initializing;
   }
 
   log.info("Env updated", { slug, keys: Object.keys(updates) });
@@ -85,16 +81,13 @@ export async function handleEnvDelete(
   delete existing[key];
   await ctx.state.store.putEnv(slug, existing);
 
-  // Update in-memory slot
+  // Terminate worker so it restarts with fresh env from store
   const slot = ctx.state.slots.get(slug);
-  if (slot) {
-    slot.env = existing;
-    if (slot.worker) {
-      log.info("Restarting worker for env delete", { slug });
-      slot.worker.handle.terminate();
-      delete slot.worker;
-      delete slot.initializing;
-    }
+  if (slot?.worker) {
+    log.info("Restarting worker for env delete", { slug });
+    slot.worker.handle.terminate();
+    delete slot.worker;
+    delete slot.initializing;
   }
 
   log.info("Env var deleted", { slug, key });

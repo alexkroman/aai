@@ -20,7 +20,9 @@
     "tailwindcss": "npm:tailwindcss@^4",
     "vite-plugin-singlefile": "npm:vite-plugin-singlefile@^2",
     "@deno/loader": "jsr:@deno/loader@^0.3",
-    "esbuild": "npm:esbuild@^0.25"
+    "esbuild": "npm:esbuild@^0.25",
+    "@xterm/xterm": "npm:@xterm/xterm@^5",
+    "@xterm/addon-fit": "npm:@xterm/addon-fit@^0.10"
   },
   "compilerOptions": {
     "jsx": "react-jsx",

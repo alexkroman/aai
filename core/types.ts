@@ -10,7 +10,6 @@
 import { z } from "zod";
 import type { JSONSchema7 } from "json-schema";
 import type {
-  AgentMode,
   BuiltinTool,
   ToolChoice,
   ToolDef,
@@ -25,7 +24,6 @@ import type {
  */
 export type AgentConfig = {
   name: string;
-  mode?: AgentMode | undefined;
   instructions: string;
   greeting: string;
   voice: string;

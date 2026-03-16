@@ -121,7 +121,6 @@ export function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
 export function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
   return {
     slug: "test-agent",
-    env: VALID_ENV,
     transport: ["websocket"],
     keyHash: "test-key-hash",
     config: makeConfig(),
