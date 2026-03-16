@@ -3,8 +3,7 @@
 Build and deploy a voice AI agent with one command.
 
 ```bash
-aai new
-aai deploy
+aai
 ```
 
 ## @aai/sdk
@@ -163,6 +162,32 @@ This fetches the content, chunks it, and uploads it to the vector
 store. Your agent can then search it at runtime using the
 `vector_search` tool.
 
+## aai env
+
+Store secrets on the server — never in your code.
+
+```bash
+aai env add MY_API_KEY        # prompts for the value
+aai env add OPENAI_KEY        # add as many as you need
+aai env ls                    # list what's set
+aai env rm MY_API_KEY         # remove one
+aai env pull                  # sync names into .env for local dev
+```
+
+Access them in any tool via `ctx.env`:
+
+```typescript
+execute: async ({ query }, ctx) => {
+  const res = await fetch("https://api.example.com/search", {
+    headers: { Authorization: `Bearer ${ctx.env.MY_API_KEY}` },
+  });
+  return await res.json();
+},
+```
+
+Secrets are injected into the agent worker at runtime. They never
+appear in your bundled code or leave the server.
+
 ## Secure by default
 
 Agent code runs in a sandbox with all permissions disabled — no
@@ -177,6 +202,14 @@ normal code and aai handles the rest safely.
   sandboxing with a 30-second timeout
 - Built-in tools (web search, fetch, etc.) run on the host outside
   the sandbox, while your custom tools run inside it
+- Deploy credentials use HMAC-SHA256 signed JWTs for agent ownership,
+  and environment variables are encrypted at rest with AES-256-GCM
+  (keys derived via HKDF)
+- The worker communicates with the host via
+  [object-capability](https://en.wikipedia.org/wiki/Object-capability_model)
+  RPC (capnweb) — the sandbox receives only the specific capabilities
+  it needs (fetch proxy, KV, tool execution) as unforgeable references,
+  not ambient authority
 
 You don't need to configure any of this. Every agent gets the
 same isolation out of the box.
