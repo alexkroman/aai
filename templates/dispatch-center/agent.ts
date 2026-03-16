@@ -565,7 +565,6 @@ async function loadState(ctx: HookContext<DispatchState>): Promise<void> {
 
 export default defineAgent({
   name: "Dispatch Command Center",
-  voice: "bond",
   transport: ["websocket", "twilio"],
 
   greeting:
@@ -612,7 +611,7 @@ Operational rules:
 
 Radio style: "Medic-1, respond priority one to 400 Oak Street, report of cardiac arrest, CPR in progress." Keep it tight and professional.`,
 
-  builtinTools: ["web_search", "run_code"],
+  builtinTools: [],
 
   state: createState,
 

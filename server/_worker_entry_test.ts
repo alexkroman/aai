@@ -151,7 +151,6 @@ Deno.test("postMessage RPC worker", async (t) => {
   await t.step("handles executeTool", async () => {
     const { api } = setupWorker({
       name: "Test",
-      mode: "full" as const,
       env: [],
       transport: ["websocket"],
       instructions: "",
@@ -174,7 +173,6 @@ Deno.test("postMessage RPC worker", async (t) => {
   await t.step("returns error for unknown tool", async () => {
     const { api } = setupWorker({
       name: "Test",
-      mode: "full" as const,
       env: [],
       transport: ["websocket"],
       instructions: "",
@@ -193,7 +191,6 @@ Deno.test("postMessage RPC worker", async (t) => {
     let connected = false;
     const { api } = setupWorker({
       name: "Test",
-      mode: "full" as const,
       env: [],
       transport: ["websocket"],
       instructions: "",
@@ -216,7 +213,6 @@ Deno.test("postMessage RPC worker", async (t) => {
     const { api } = setupWorker(
       {
         name: "Test",
-        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -247,7 +243,6 @@ Deno.test("postMessage RPC worker", async (t) => {
     const { api } = setupWorker(
       {
         name: "Test",
-        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -281,7 +276,6 @@ Deno.test("postMessage RPC worker", async (t) => {
     const { api } = setupWorker(
       {
         name: "Test",
-        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -313,7 +307,6 @@ Deno.test("fetch proxy via postMessage RPC", async (t) => {
     const { api } = setupWorker(
       {
         name: "Test",
-        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -358,7 +351,6 @@ Deno.test("fetch proxy via postMessage RPC", async (t) => {
     const { api } = setupWorker(
       {
         name: "Test",
-        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -400,7 +392,6 @@ Deno.test("fetch proxy via postMessage RPC", async (t) => {
     const { api } = setupWorker(
       {
         name: "Test",
-        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -439,7 +430,6 @@ Deno.test("fetch proxy via postMessage RPC", async (t) => {
     const { api } = setupWorker(
       {
         name: "Test",
-        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -492,7 +482,6 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
       const { api } = setupWorker(
         {
           name: "Test",
-          mode: "full" as const,
           env: [],
           transport: ["websocket"],
           instructions: "",
@@ -533,7 +522,6 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
     async () => {
       const { api } = setupWorker({
         name: "Test",
-        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",
@@ -559,7 +547,6 @@ Deno.test("createWorkerApi with hostApi", async (t) => {
     const { api } = setupWorker(
       {
         name: "Test",
-        mode: "full" as const,
         env: [],
         transport: ["websocket"],
         instructions: "",

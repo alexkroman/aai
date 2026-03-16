@@ -177,7 +177,7 @@ export class ClientHandler {
         break;
       }
       case "tts_done":
-        // No-audio turns (stt-only, empty LLM result) still use this event
+        // No-audio turns (empty LLM result) still use this event
         // to transition back to listening. Audio turns signal via stream end.
         this.#state.value = "listening";
         break;

@@ -176,7 +176,6 @@ class AgentWorkerTarget extends RpcTarget {
     );
     const config: AgentConfig = {
       name: this.#agent.name,
-      mode: this.#agent.mode,
       instructions: this.#agent.instructions,
       greeting: this.#agent.greeting,
       voice: this.#agent.voice,

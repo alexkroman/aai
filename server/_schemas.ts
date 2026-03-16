@@ -4,12 +4,7 @@
 // Protocol schemas (ClientEvent, Twilio, KV) live in @aai/core/protocol.
 
 import { z } from "zod";
-import type {
-  AgentMode,
-  BuiltinTool,
-  ToolChoice,
-  Transport,
-} from "@aai/sdk/types";
+import type { BuiltinTool, ToolChoice, Transport } from "@aai/sdk/types";
 import type { AgentConfig, AgentEnv, DeployBody } from "@aai/core/types";
 
 export {
@@ -41,16 +36,9 @@ export const ToolChoiceSchema: z.ZodType<ToolChoice> = z.union([
   z.object({ type: z.literal("tool"), toolName: z.string().min(1) }),
 ]);
 
-/** Zod schema for validating agent mode values (`"full"` or `"stt-only"`). */
-export const AgentModeSchema: z.ZodType<AgentMode> = z.enum([
-  "full",
-  "stt-only",
-]);
-
 /** Zod schema for validating the full agent configuration object. */
 export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
   name: z.string().min(1),
-  mode: AgentModeSchema.optional(),
   instructions: z.string(),
   greeting: z.string(),
   voice: z.string(),

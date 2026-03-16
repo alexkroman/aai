@@ -20,7 +20,6 @@ type ResearchState = {
 
 export default defineAgent({
   name: "Smart Research Agent",
-  voice: "orion",
   instructions: `You are a research assistant that gathers information, \
 analyzes it, then responds. You work in three phases:
 1. Gather: Use search and fetch tools to collect information.
@@ -30,7 +29,6 @@ analyzes it, then responds. You work in three phases:
 Always search first, then analyze, then answer. Be thorough but concise.`,
   greeting:
     "I'm your research assistant. Ask me anything and I'll dig into it.",
-  sttPrompt: "Transcribe research queries, technical terms, proper nouns",
   builtinTools: ["web_search"],
 
   // Feature 1: toolChoice — force the LLM to always use a tool

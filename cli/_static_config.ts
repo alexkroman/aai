@@ -91,16 +91,11 @@ function extractConfig(
 ): AgentConfig {
   const name = requireString(obj, "name", fileName);
 
-  const mode = optionalString(obj, "mode", fileName);
-  const isSttOnly = mode === "stt-only";
-
   const config: AgentConfig = {
     name,
-    mode: (mode as AgentConfig["mode"]) ?? "full",
     instructions: optionalString(obj, "instructions", fileName) ??
-      (isSttOnly ? "" : DEFAULT_INSTRUCTIONS),
-    greeting: optionalString(obj, "greeting", fileName) ??
-      (isSttOnly ? "" : DEFAULT_GREETING),
+      DEFAULT_INSTRUCTIONS,
+    greeting: optionalString(obj, "greeting", fileName) ?? DEFAULT_GREETING,
     voice: optionalString(obj, "voice", fileName) ?? "",
   };
 

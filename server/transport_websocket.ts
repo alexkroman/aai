@@ -96,7 +96,6 @@ export async function handleWebSocket(
 
   const { socket, response } = Deno.upgradeWebSocket(ctx.req);
 
-  const isSttOnly = setup.agentConfig.mode === "stt-only";
   wireSessionSocket(socket, {
     sessions: ctx.state.sessions,
     createSession: (sessionId, client) =>
@@ -112,7 +111,6 @@ export async function handleWebSocket(
       audioFormat: AUDIO_FORMAT,
       sampleRate: setup.platformConfig.sttConfig.sampleRate,
       ttsSampleRate: setup.platformConfig.ttsConfig.sampleRate,
-      ...(isSttOnly ? { mode: "stt-only" } : {}),
     },
     logContext: { slug },
   });
