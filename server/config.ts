@@ -3,7 +3,9 @@ import {
   DEFAULT_CARTESIA_TTS_CONFIG,
   DEFAULT_MODEL,
   DEFAULT_RIME_TTS_CONFIG,
+  DEFAULT_S2S_CONFIG,
   DEFAULT_STT_CONFIG,
+  type S2SConfig,
   type STTConfig,
   type TTSConfig,
 } from "./types.ts";
@@ -14,6 +16,7 @@ export type PlatformConfig = {
   anthropicApiKey?: string | undefined;
   sttConfig: STTConfig;
   ttsConfig: TTSConfig;
+  s2sConfig: S2SConfig;
   model: string;
   llmGatewayBase: string;
 };
@@ -25,6 +28,7 @@ export function loadPlatformConfig(
 
   const cartesiaKey = Deno.env.get("CARTESIA_API_KEY") ?? "";
   const rimeKey = Deno.env.get("RIME_API_KEY") ?? "";
+  const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 
   let ttsConfig: TTSConfig;
   if (cartesiaKey) {
@@ -32,15 +36,15 @@ export function loadPlatformConfig(
   } else if (rimeKey) {
     ttsConfig = { ...DEFAULT_RIME_TTS_CONFIG, apiKey: rimeKey };
   } else {
-    // Default to Cartesia; will fail at connection time with a clear error.
     ttsConfig = { ...DEFAULT_CARTESIA_TTS_CONFIG };
   }
 
   return {
     apiKey: parsed.ASSEMBLYAI_API_KEY,
-    anthropicApiKey: Deno.env.get("ANTHROPIC_API_KEY") ?? "",
+    anthropicApiKey,
     sttConfig: { ...DEFAULT_STT_CONFIG },
     ttsConfig,
+    s2sConfig: { ...DEFAULT_S2S_CONFIG },
     model: parsed.LLM_MODEL ?? DEFAULT_MODEL,
     llmGatewayBase: "https://llm-gateway.assemblyai.com/v1",
   };

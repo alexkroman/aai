@@ -49,6 +49,7 @@ export function defineAgent<S>(options: AgentOptions<S>): AgentDef {
     name: options.name,
     env: options.env ?? ["ASSEMBLYAI_API_KEY"],
     transport: normalizeTransport(options.transport),
+    mode: options.mode ?? "pipeline",
     instructions: options.instructions ?? DEFAULT_INSTRUCTIONS,
     greeting: options.greeting ?? DEFAULT_GREETING,
     voice: options.voice ?? "",

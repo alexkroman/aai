@@ -1,6 +1,6 @@
 {
   "name": "@aai/server",
-  "version": "0.1.203",
+  "version": "0.1.206",
   "exports": {
     ".": "./main.ts",
     "./types": "./types.ts",
@@ -19,6 +19,7 @@
     "mdream": "npm:mdream@^0",
     "openai": "npm:openai@^4.80.0",
     "assemblyai": "npm:assemblyai@^4",
+    "ws": "npm:ws@^8",
     "preact": "npm:preact@^10.28.4",
     "preact-render-to-string": "npm:preact-render-to-string@^6.5.13"
   },

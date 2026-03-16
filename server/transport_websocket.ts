@@ -4,6 +4,7 @@ import { html, HttpError, json, type RouteContext } from "./context.ts";
 import { STATUS_CODE } from "@std/http/status";
 import { wireSessionSocket } from "./ws_handler.ts";
 import { createSession } from "./session.ts";
+import { createS2sSession } from "./session_s2s.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/core/protocol";
@@ -96,10 +97,13 @@ export async function handleWebSocket(
 
   const { socket, response } = Deno.upgradeWebSocket(ctx.req);
 
+  const useS2s = setup.agentConfig.mode === "s2s";
+  const sessionFactory = useS2s ? createS2sSession : createSession;
+
   wireSessionSocket(socket, {
     sessions: ctx.state.sessions,
     createSession: (sessionId, client) =>
-      createSession({
+      sessionFactory({
         id: sessionId,
         agent: slug,
         client,
@@ -109,8 +113,12 @@ export async function handleWebSocket(
     readyConfig: {
       protocolVersion: PROTOCOL_VERSION,
       audioFormat: AUDIO_FORMAT,
-      sampleRate: setup.platformConfig.sttConfig.sampleRate,
-      ttsSampleRate: setup.platformConfig.ttsConfig.sampleRate,
+      sampleRate: useS2s
+        ? setup.platformConfig.s2sConfig.inputSampleRate
+        : setup.platformConfig.sttConfig.sampleRate,
+      ttsSampleRate: useS2s
+        ? setup.platformConfig.s2sConfig.outputSampleRate
+        : setup.platformConfig.ttsConfig.sampleRate,
     },
     logContext: { slug },
   });

@@ -11,6 +11,7 @@
     "jsr:@std/crypto@^1.0.5": "1.0.5",
     "jsr:@std/data-structures@^1.0.10": "1.0.10",
     "jsr:@std/dotenv@0.225.6": "0.225.6",
+    "jsr:@std/encoding@*": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/fmt@^1.0.5": "1.0.9",
     "jsr:@std/fmt@^1.0.9": "1.0.9",
@@ -55,7 +56,7 @@
     "npm:markdownlint-cli@0.44": "0.44.0",
     "npm:mdream@*": "0.17.0",
     "npm:mdream@0": "0.17.0",
-    "npm:openai@^4.80.0": "4.104.0_zod@3.25.76",
+    "npm:openai@^4.80.0": "4.104.0_ws@8.18.0",
     "npm:postcss@8": "8.5.6",
     "npm:preact-render-to-string@^6.5.13": "6.6.6_preact@10.29.0",
     "npm:preact@10": "10.29.0",
@@ -64,7 +65,10 @@
     "npm:tailwindcss@4": "4.2.1",
     "npm:ts-morph@25": "25.0.1",
     "npm:vite-plugin-singlefile@2": "2.3.0_rollup@4.59.0_vite@6.4.1",
-    "npm:vite@6": "6.4.1"
+    "npm:vite@6": "6.4.1",
+    "npm:ws@*": "8.18.0",
+    "npm:ws@8": "8.18.0",
+    "npm:ws@8.18.0": "8.18.0"
   },
   "jsr": {
     "@deno/loader@0.3.14": {
@@ -118,7 +122,7 @@
       "integrity": "577b4252290af1097132812b339fffdd55fb0f4aeb98ff11bdbf67998aa17193",
       "dependencies": [
         "jsr:@std/cli",
-        "jsr:@std/encoding",
+        "jsr:@std/encoding@^1.0.10",
         "jsr:@std/fmt@^1.0.9",
         "jsr:@std/fs@^1.0.23",
         "jsr:@std/html",
@@ -2946,7 +2950,7 @@
         "boolbase"
       ]
     },
-    "openai@4.104.0_zod@3.25.76": {
+    "openai@4.104.0_ws@8.18.0": {
       "integrity": "sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==",
       "dependencies": [
         "@types/node",
@@ -2956,9 +2960,11 @@
         "form-data-encoder",
         "formdata-node",
         "node-fetch",
+        "ws",
         "zod"
       ],
       "optionalPeers": [
+        "ws",
         "zod"
       ],
       "bin": true
@@ -3298,8 +3304,8 @@
         "strip-ansi@7.2.0"
       ]
     },
-    "ws@8.19.0": {
-      "integrity": "sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg=="
+    "ws@8.18.0": {
+      "integrity": "sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw=="
     },
     "yallist@3.1.1": {
       "integrity": "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g=="
@@ -3377,7 +3383,8 @@
           "npm:mdream@0",
           "npm:openai@^4.80.0",
           "npm:preact-render-to-string@^6.5.13",
-          "npm:preact@^10.28.4"
+          "npm:preact@^10.28.4",
+          "npm:ws@8"
         ]
       },
       "templates": {

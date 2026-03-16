@@ -5,7 +5,8 @@ import { STATUS_CODE } from "@std/http/status";
 import { HttpError, type RouteContext } from "./context.ts";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { type AgentSlot, prepareSession } from "./worker_pool.ts";
-import { createSession } from "./session.ts";
+import { createSession, type Session } from "./session.ts";
+import { createS2sSession } from "./session_s2s.ts";
 import type { ClientSink } from "@aai/core/protocol";
 import {
   DEFAULT_STT_SAMPLE_RATE,
@@ -185,12 +186,15 @@ export async function handleTwilioStream(
 
   const streamSidRef = { current: null as string | null };
   let client: ClientSink;
-  let session: ReturnType<typeof createSession>;
+  let session: Session;
   let audioBuf: ReturnType<typeof createAudioBuffer>;
 
   socket.addEventListener("open", () => {
     client = createTwilioClientSink(socket, streamSidRef);
-    session = createSession({
+    const sessionFactory = setup.agentConfig.mode === "s2s"
+      ? createS2sSession
+      : createSession;
+    session = sessionFactory({
       id: `twilio-${crypto.randomUUID().slice(0, 8)}`,
       agent: slug,
       client,

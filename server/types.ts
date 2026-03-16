@@ -74,3 +74,15 @@ export const DEFAULT_CARTESIA_TTS_CONFIG: CartesiaTtsConfig = {
 export const DEFAULT_TTS_CONFIG: TTSConfig = DEFAULT_CARTESIA_TTS_CONFIG;
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+
+export type S2SConfig = {
+  wssUrl: string;
+  inputSampleRate: number;
+  outputSampleRate: number;
+};
+
+export const DEFAULT_S2S_CONFIG: S2SConfig = {
+  wssUrl: "wss://speech-to-speech.us.assemblyai.com/v1/realtime",
+  inputSampleRate: DEFAULT_TTS_SAMPLE_RATE,
+  outputSampleRate: DEFAULT_TTS_SAMPLE_RATE,
+};

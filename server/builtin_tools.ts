@@ -111,12 +111,12 @@ const webSearch = defineTool({
   description:
     "Search the web using Brave Search. Returns a list of results with title, URL, and description.",
   parameters: webSearchParams,
-  execute: async (args, env) => {
+  execute: async (args, _env) => {
     const { query, max_results: maxResults = 5 } = args;
 
     log.info("web_search", { query, maxResults });
 
-    const apiKey = env.BRAVE_API_KEY;
+    const apiKey = Deno.env.get("BRAVE_API_KEY") ?? "";
     if (!apiKey) {
       return JSON.stringify({
         error: "BRAVE_API_KEY is not set — web search unavailable",
@@ -135,10 +135,10 @@ const webSearch = defineTool({
     });
 
     if (!resp.ok) {
-      log.error("Brave Search request failed", {
-        status: resp.status,
-        statusText: resp.statusText,
-      });
+      const body = await resp.text().catch(() => "");
+      log.error(
+        `Brave Search failed: ${resp.status} ${resp.statusText} ${body}`,
+      );
       return NO_RESULTS;
     }
 
@@ -355,6 +355,46 @@ export function getBuiltinToolSchemas(
       parameters: z.toJSONSchema(tool.parameters) as ToolSchema["parameters"],
     }];
   });
+}
+
+/**
+ * Execute a builtin tool by name with raw args, bypassing the Vercel AI SDK wrapper.
+ * Used by the S2S session which handles tool calls discretely.
+ */
+export async function executeBuiltinTool(
+  name: string,
+  args: Record<string, unknown>,
+  opts: {
+    env?: Record<string, string | undefined>;
+    vectorCtx?: VectorCtx | undefined;
+  } = {},
+): Promise<string> {
+  const { env = {}, vectorCtx } = opts;
+
+  if (name === "vector_search") {
+    if (!vectorCtx) {
+      return JSON.stringify({ error: "Vector store not configured" });
+    }
+    const { query, topK = 5 } = args as { query: string; topK?: number };
+    log.info("vector_search", { query, topK });
+    const results = await vectorCtx.vectorStore.query(
+      vectorCtx.scope,
+      query,
+      topK,
+    );
+    if (results.length === 0) return "No relevant results found.";
+    return JSON.stringify(
+      results.map((r) => ({
+        score: r.score,
+        text: r.data,
+        metadata: r.metadata,
+      })),
+    );
+  }
+
+  const tool = BUILTIN_TOOLS[name as BuiltinToolName];
+  if (!tool) throw new Error(`Unknown builtin tool: ${name}`);
+  return await tool.execute(args, env);
 }
 
 /**
