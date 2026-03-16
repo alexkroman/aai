@@ -21,6 +21,11 @@ jobs:
         env:
           ASSEMBLYAI_API_KEY: ${{ secrets.ASSEMBLYAI_API_KEY }}
 
+      - name: Test templates
+        run: deno task test:templates
+        env:
+          ASSEMBLYAI_API_KEY: ${{ secrets.ASSEMBLYAI_API_KEY }}
+
       - name: Compile binary
         run: |
           npm_includes=""

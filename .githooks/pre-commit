@@ -16,6 +16,9 @@ git add */deno.json deno.lock 2>/dev/null
 echo "Running checks before commit..."
 deno task check || exit 1
 
+echo "Running template tests..."
+deno task test:templates || exit 1
+
 echo "Verifying binary compiles..."
 # --no-check: full type-checking already runs above (deno task check)
 # This just verifies the binary builds and runs correctly.
