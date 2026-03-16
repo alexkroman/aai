@@ -41,11 +41,8 @@ export async function extractStaticConfig(
   return extractStaticConfigFromSource(source, agentPath);
 }
 
-/**
- * Extract agent config and tool schemas from source text.
- * Exported for testing.
- */
-export function extractStaticConfigFromSource(
+/** Extract agent config and tool schemas from source text. */
+function extractStaticConfigFromSource(
   source: string,
   fileName = "agent.ts",
 ): ExtractResult {

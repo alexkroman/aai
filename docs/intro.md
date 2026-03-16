@@ -33,7 +33,7 @@ export default defineAgent({
 ```
 
 | Tool | What it does |
-|------|-------------|
+| ---- | ------------ |
 | `web_search` | Search the web |
 | `visit_webpage` | Fetch a webpage as markdown |
 | `fetch_json` | Call a JSON API |
@@ -126,7 +126,8 @@ export default defineAgent({
 
 ## @aai/kv
 
-A durable key-value store that persists across sessions. Available on every tool's context.
+A durable key-value store that persists across sessions.
+Available on every tool's context.
 
 ```typescript
 // Inside any tool's execute function:
@@ -158,15 +159,24 @@ One command to ingest a site into your agent's knowledge base:
 aai rag https://docs.example.com/llms-full.txt
 ```
 
-This fetches the content, chunks it, and uploads it to the vector store. Your agent can then search it at runtime using the `vector_search` tool.
+This fetches the content, chunks it, and uploads it to the vector
+store. Your agent can then search it at runtime using the
+`vector_search` tool.
 
 ## Secure by default
 
-Agent code runs in a sandbox with all permissions disabled — no file system, no network, no environment variables. You write normal code and aai handles the rest safely.
+Agent code runs in a sandbox with all permissions disabled — no
+file system, no network, no environment variables. You write
+normal code and aai handles the rest safely.
 
-- `fetch` works but is proxied through the host, which blocks requests to private/internal addresses
-- Secrets are stored on the server via `aai env add` and injected at runtime through `ctx.env` — never bundled into your code
-- The `run_code` built-in tool executes in a second layer of sandboxing with a 30-second timeout
-- Built-in tools (web search, fetch, etc.) run on the host outside the sandbox so they can access the network, while your custom tools run inside it
+- `fetch` works but is proxied through the host, which blocks
+  requests to private/internal addresses
+- Secrets are stored on the server via `aai env add` and injected
+  at runtime through `ctx.env` — never bundled into your code
+- The `run_code` built-in tool executes in a second layer of
+  sandboxing with a 30-second timeout
+- Built-in tools (web search, fetch, etc.) run on the host outside
+  the sandbox, while your custom tools run inside it
 
-You don't need to configure any of this. Every agent gets the same isolation out of the box.
+You don't need to configure any of this. Every agent gets the
+same isolation out of the box.

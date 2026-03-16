@@ -68,6 +68,21 @@ function denoLoader(loader) {
         importer = importer.slice("\\0deno::".length);
       }
 
+      // npm: specifiers appear in JSR-published sources (deno publish rewrites
+      // bare specifiers to their resolved npm: forms). Handle them directly
+      // before the Deno loader, which may fail with cachedOnly: true.
+      if (id.startsWith("npm:")) {
+        if (id.startsWith("npm:@types/")) return { id, external: true };
+        let bare = id.replace(/^npm:/, "");
+        const vAt = bare.indexOf("@", bare.startsWith("@") ? 1 : 0);
+        if (vAt > 0) {
+          const after = bare.slice(vAt);
+          const slash = after.indexOf("/");
+          bare = bare.slice(0, vAt) + (slash > -1 ? after.slice(slash) : "");
+        }
+        return (await this.resolve(bare, undefined, { skipSelf: true })) ?? bare;
+      }
+
       // Let other pre-plugins resolve first (but skip vite:resolve)
       const other = await this.resolve(id, importer, { skipSelf: true });
       if (other && other.resolvedBy !== "vite:resolve") {
@@ -86,7 +101,7 @@ function denoLoader(loader) {
 
         // npm: → strip prefix + version, let Vite resolve from node_modules
         if (resolved.startsWith("npm:")) {
-          let bare = resolved.replace(/^npm:\\//, "");
+          let bare = resolved.replace(/^npm:/, "");
           const vAt = bare.indexOf("@", bare.startsWith("@") ? 1 : 0);
           if (vAt > 0) {
             const after = bare.slice(vAt);
@@ -283,6 +298,20 @@ export async function bundleAgent(
   const buildScript = join(aaiDir, "_build.mts");
   await Deno.writeTextFile(buildScript, BUILD_SCRIPT);
   await Deno.writeTextFile(join(aaiDir, "index.html"), INDEX_HTML);
+
+  // Pre-cache the full dependency tree so the Vite build's @deno/loader
+  // Workspace (cachedOnly: true) can resolve all modules. Without this,
+  // fresh environments (CI, new scaffolds) fail because JSR/npm deps
+  // aren't in the Deno module cache yet.
+  const cacheTargets = [agent.entryPoint];
+  if (agent.clientEntry) cacheTargets.push(agent.clientEntry);
+  const cacheCmd = new Deno.Command(denoExec(), {
+    args: ["cache", ...cacheTargets],
+    cwd: agent.dir,
+    stdout: "null",
+    stderr: "null",
+  });
+  await cacheCmd.output();
 
   const skipClient = opts?.skipClient || !agent.clientEntry;
   const env: Record<string, string> = { ...Deno.env.toObject() };

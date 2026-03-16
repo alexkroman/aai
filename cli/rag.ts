@@ -6,7 +6,7 @@ import type { SubcommandDef } from "./_help.ts";
 import { subcommandHelp } from "./_help.ts";
 
 /** CLI definition for the `aai rag` subcommand. */
-export const ragCommandDef: SubcommandDef = {
+const ragCommandDef: SubcommandDef = {
   name: "rag",
   description: "Ingest a site's llms-full.txt into the vector store",
   args: [{ name: "url" }],
