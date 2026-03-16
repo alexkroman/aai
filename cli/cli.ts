@@ -6,6 +6,7 @@ import { runNewCommand } from "./new.ts";
 import { runDeployCommand } from "./deploy.ts";
 import { runEnvCommand } from "./env.ts";
 import { runRagCommand } from "./rag.ts";
+import { runUpgradeCommand } from "./upgrade.ts";
 import { rootHelp } from "./_help.ts";
 
 const denoConfig = await import("./deno.json", { with: { type: "json" } });
@@ -49,6 +50,9 @@ async function main(args: string[]): Promise<void> {
       return;
     case "rag":
       await runRagCommand(subArgs, VERSION);
+      return;
+    case "upgrade":
+      await runUpgradeCommand(subArgs, VERSION);
       return;
     case "help":
       console.log(rootHelp(VERSION));
