@@ -60,6 +60,14 @@ const DEFAULT_CONFIG: ToolConfig = {
   },
 };
 
+function formatResult(result: string): string {
+  try {
+    return JSON.stringify(JSON.parse(result), null, 2);
+  } catch {
+    return result;
+  }
+}
+
 export function ToolCallBlock(
   { toolCall }: { toolCall: ToolCallInfo },
 ): preact.JSX.Element {
@@ -91,11 +99,18 @@ export function ToolCallBlock(
           </span>
         )}
       </div>
-      {isOpen && toolCall.result && (
-        <div class="border-x border-b border-aai-border rounded-b-aai bg-aai-surface max-h-48 overflow-auto">
-          <pre class="text-xs text-aai-text-dim p-2 whitespace-pre-wrap">
-            {toolCall.result}
-          </pre>
+      {isOpen && (
+        <div class="border-x border-b border-aai-border rounded-b-aai bg-aai-surface max-h-64 overflow-auto">
+          {toolCall.toolName === "run_code" && toolCall.args.code && (
+            <pre class="text-xs text-aai-text p-2 whitespace-pre-wrap border-b border-aai-border font-mono">
+              {String(toolCall.args.code)}
+            </pre>
+          )}
+          {toolCall.result && (
+            <pre class="text-xs text-aai-text-dim p-2 whitespace-pre-wrap">
+              {formatResult(toolCall.result)}
+            </pre>
+          )}
         </div>
       )}
     </div>
