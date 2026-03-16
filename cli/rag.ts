@@ -142,7 +142,7 @@ export async function runRagCommand(
   let upserted = 0;
   let errors = 0;
   let lastError = "";
-  const CONCURRENCY = 10;
+  const CONCURRENCY = 5;
 
   const isTty = Deno.stdout.isTerminal();
   const enc = new TextEncoder();
