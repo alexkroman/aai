@@ -1,12 +1,11 @@
 {
   "name": "@aai/sdk",
-  "version": "0.1.112",
+  "version": "0.1.113",
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
     "./define-agent": "./define_agent.ts",
     "./kv": "./kv.ts",
-    "./kv-tools": "./kv_tools.ts",
     "./vector": "./vector.ts",
     "./testing": "./_mock_ws.ts"
   },

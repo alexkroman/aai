@@ -6,17 +6,18 @@ export function MessageBubble(
   { message }: { message: Message },
 ): preact.JSX.Element {
   const isUser = message.role === "user";
-  return (
-    <div class={`flex flex-col w-full ${isUser ? "items-end" : "items-start"}`}>
-      <div
-        class={`whitespace-pre-wrap wrap-break-word text-sm font-normal leading-[150%] text-aai-text ${
-          isUser
-            ? "max-w-[min(82%,64ch)] bg-aai-surface-faint border border-aai-border px-3 py-2 rounded-aai ml-auto"
-            : "w-full p-0"
-        }`}
-      >
-        {message.text}
+  if (isUser) {
+    return (
+      <div class="flex flex-col w-full items-end">
+        <div class="max-w-[min(82%,64ch)] bg-aai-surface-faint border border-aai-border px-3 py-2 rounded-aai whitespace-pre-wrap wrap-break-word text-sm font-normal leading-[150%] text-aai-text">
+          {message.text}
+        </div>
       </div>
+    );
+  }
+  return (
+    <div class="whitespace-pre-wrap wrap-break-word text-sm font-normal leading-[150%] text-aai-text">
+      {message.text}
     </div>
   );
 }
