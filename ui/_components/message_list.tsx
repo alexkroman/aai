@@ -1,4 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
+import type { VNode } from "preact";
 import { useRef } from "preact/hooks";
 import { computed, useSignalEffect } from "@preact/signals";
 import { useSession } from "../signals.ts";
@@ -30,11 +31,38 @@ export function MessageList() {
   const messages = session.messages.value;
   const toolCalls = session.toolCalls.value;
 
-  // Split: all messages except the last assistant, then tool calls, then last assistant.
-  const lastMsg = messages.at(-1);
-  const hasTrailingAssistant = lastMsg?.role === "assistant" &&
-    toolCalls.length > 0;
-  const topMessages = hasTrailingAssistant ? messages.slice(0, -1) : messages;
+  // Group tool calls by the message index they follow.
+  const toolCallsByIndex = new Map<number, typeof toolCalls>();
+  for (const tc of toolCalls) {
+    const idx = tc.afterMessageIndex;
+    const group = toolCallsByIndex.get(idx);
+    if (group) group.push(tc);
+    else toolCallsByIndex.set(idx, [tc]);
+  }
+
+  // Interleave messages and tool calls. For each message, render it first,
+  // then any tool calls that belong after it — so tool calls always appear
+  // above the next assistant message (the text being spoken).
+  const items: VNode[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i]!;
+    // Render tool calls *before* the assistant message they precede
+    const tcs = toolCallsByIndex.get(i - 1);
+    if (m.role === "assistant" && tcs) {
+      for (const tc of tcs) {
+        items.push(<ToolCallBlock key={tc.toolCallId} toolCall={tc} />);
+      }
+      toolCallsByIndex.delete(i - 1);
+    }
+    items.push(<MessageBubble key={`msg-${i}`} message={m} />);
+  }
+  // Render any remaining tool calls (e.g. from the last message, still pending)
+  const trailing = toolCallsByIndex.get(messages.length - 1);
+  if (trailing) {
+    for (const tc of trailing) {
+      items.push(<ToolCallBlock key={tc.toolCallId} toolCall={tc} />);
+    }
+  }
 
   return (
     <div
@@ -42,16 +70,7 @@ export function MessageList() {
       class="flex-1 overflow-y-auto [scrollbar-width:none] bg-aai-surface"
     >
       <div class="flex flex-col gap-4.5 p-4">
-        {topMessages.map((m, i) => <MessageBubble key={i} message={m} />)}
-        {toolCalls.map((tc) => (
-          <ToolCallBlock key={tc.toolCallId} toolCall={tc} />
-        ))}
-        {hasTrailingAssistant && (
-          <MessageBubble
-            key={messages.length - 1}
-            message={lastMsg!}
-          />
-        )}
+        {items}
         <Transcript userUtterance={session.userUtterance} />
         {showThinking.value && <ThinkingIndicator />}
         <div ref={scrollRef} />
