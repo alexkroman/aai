@@ -114,6 +114,8 @@ export async function runRagCommand(
   const siteSlug = slugify(origin);
 
   for (const page of pages) {
+    page.body = stripNoise(page.body);
+    if (!page.body) continue;
     const raw = await chunker.chunk(page.body);
     for (let i = 0; i < raw.length; i++) {
       const c = raw[i]!;
@@ -142,7 +144,7 @@ export async function runRagCommand(
   let upserted = 0;
   let errors = 0;
   let lastError = "";
-  const CONCURRENCY = 10;
+  const CONCURRENCY = 5;
 
   const isTty = Deno.stdout.isTerminal();
   const enc = new TextEncoder();
@@ -249,6 +251,28 @@ function splitPages(
   }
 
   return pages;
+}
+
+/** Strip code blocks, HTML/JSX tags, and collapse whitespace from markdown. */
+function stripNoise(text: string): string {
+  return text
+    // Fenced code blocks (``` or ~~~)
+    .replace(/^(`{3,}|~{3,}).*[\s\S]*?^\1/gm, "")
+    // Indented code blocks (4+ spaces or tab at line start)
+    .replace(/^(?:[ ]{4,}|\t).+$/gm, "")
+    // Inline code
+    .replace(/`[^`]+`/g, "")
+    // JSX comments {/* ... */}
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    // HTML/JSX tags (including self-closing, attributes, and multiline)
+    .replace(/<[^>]+>/g, "")
+    // Leftover JSX expression fragments (e.g. } href="...")
+    .replace(/^\s*\}[^}\n]*$/gm, "")
+    // Lines that are only whitespace
+    .replace(/^\s+$/gm, "")
+    // Collapse multiple blank lines
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function slugify(s: string): string {

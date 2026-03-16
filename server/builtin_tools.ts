@@ -304,7 +304,10 @@ const fetchJson = defineTool({
 
 const vectorSearchParams = z.object({
   query: z.string().describe(
-    "Natural language search query to find relevant information",
+    "Short keyword query to search the knowledge base. Use specific topic " +
+      "terms, not full sentences. Do NOT include the company or product name " +
+      "since all documents are from the same source. For example, if the user " +
+      'asks "how much does Acme cost", search for "pricing plans rates".',
   ),
   topK: z.number().describe("Maximum results to return (default: 5)")
     .optional(),
