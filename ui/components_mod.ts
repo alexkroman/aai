@@ -22,7 +22,9 @@ export {
 export type { SessionSignals } from "./signals.ts";
 
 export { mount } from "./mount.tsx";
-export type { MountHandle, MountOptions } from "./mount.tsx";
+export type { MountHandle, MountOptions, MountTheme } from "./mount.tsx";
+export { useMountConfig } from "./mount_context.ts";
+export type { MountConfig } from "./mount_context.ts";
 
 export {
   App,
