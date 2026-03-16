@@ -42,6 +42,7 @@ export const AgentConfigSchema: z.ZodType<AgentConfig> = z.object({
   instructions: z.string(),
   greeting: z.string(),
   voice: z.string(),
+  mode: z.enum(["s2s", "pipeline"]).optional(),
   sttPrompt: z.string().min(1).optional(),
   maxSteps: z.number().int().positive().optional(),
   toolChoice: ToolChoiceSchema.optional(),

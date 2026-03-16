@@ -19,6 +19,16 @@ export type BeforeStepResult = { activeTools?: string[] } | void;
  */
 export type Transport = "websocket" | "twilio";
 
+/**
+ * Voice pipeline mode.
+ *
+ * - `"s2s"` — AssemblyAI Speech-to-Speech API (default). Single WebSocket
+ *   handles STT, LLM, and TTS. Lowest latency.
+ * - `"pipeline"` — Separate STT + LLM + TTS services. Use when you need
+ *   a specific LLM provider (requires `ANTHROPIC_API_KEY`).
+ */
+export type PipelineMode = "s2s" | "pipeline";
+
 /** @internal Normalize a transport value to an array of transports. */
 export function normalizeTransport(
   value: Transport | readonly Transport[] | undefined,
@@ -286,6 +296,12 @@ export type AgentOptions<S = any> = {
    * @default {"websocket"}
    */
   transport?: Transport | readonly Transport[];
+  /**
+   * Voice pipeline mode.
+   *
+   * @default {"pipeline"}
+   */
+  mode?: PipelineMode;
   /** System prompt for the LLM. Defaults to a built-in voice-optimized prompt. */
   instructions?: string;
   /** Initial spoken greeting when a session starts. */
@@ -379,6 +395,7 @@ export type AgentDef = {
   name: string;
   env: readonly string[];
   transport: readonly Transport[];
+  mode?: PipelineMode | undefined;
   instructions: string;
   greeting: string;
   voice: string;

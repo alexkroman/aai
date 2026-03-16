@@ -99,6 +99,11 @@ function extractConfig(
     voice: optionalString(obj, "voice", fileName) ?? "",
   };
 
+  const mode = optionalString(obj, "mode", fileName);
+  if (mode !== undefined) {
+    config.mode = mode as AgentConfig["mode"];
+  }
+
   const sttPrompt = optionalString(obj, "sttPrompt", fileName);
   if (sttPrompt !== undefined) config.sttPrompt = sttPrompt;
 

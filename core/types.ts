@@ -27,6 +27,7 @@ export type AgentConfig = {
   instructions: string;
   greeting: string;
   voice: string;
+  mode?: "s2s" | "pipeline" | undefined;
   sttPrompt?: string | undefined;
   maxSteps?: number | undefined;
   toolChoice?: ToolChoice | undefined;

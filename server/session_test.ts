@@ -57,6 +57,11 @@ function createMockPlatformConfig(): PlatformConfig {
     apiKey: "test-api-key",
     sttConfig: { ...DEFAULT_STT_CONFIG },
     ttsConfig: { ...DEFAULT_TTS_CONFIG, apiKey: "test-tts-key" },
+    s2sConfig: {
+      wssUrl: "wss://test-s2s.example.com/v1/realtime",
+      inputSampleRate: 24_000,
+      outputSampleRate: 24_000,
+    },
     model: "test-model",
     llmGatewayBase: "https://test-gateway.example.com/v1",
   };
