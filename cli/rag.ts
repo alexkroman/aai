@@ -1,6 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { parseArgs } from "@std/cli/parse-args";
-import { htmlToMarkdown } from "mdream";
 import { detail, info, step, warn } from "./_output.ts";
 import { DEFAULT_SERVER, getApiKey, readProjectConfig } from "./_discover.ts";
 import type { SubcommandDef } from "./_help.ts";
@@ -115,7 +114,7 @@ export async function runRagCommand(
   const siteSlug = slugify(origin);
 
   for (const page of pages) {
-    page.body = htmlToMarkdown(page.body);
+    page.body = stripNoise(page.body);
     if (!page.body) continue;
     const raw = await chunker.chunk(page.body);
     for (let i = 0; i < raw.length; i++) {
@@ -252,6 +251,22 @@ function splitPages(
   }
 
   return pages;
+}
+
+/** Strip code blocks, HTML/JSX tags, and collapse whitespace from markdown. */
+function stripNoise(text: string): string {
+  return text
+    // Fenced code blocks (``` or ~~~)
+    .replace(/^(`{3,}|~{3,}).*[\s\S]*?^\1/gm, "")
+    // Indented code blocks (4+ spaces or tab at line start)
+    .replace(/^(?:[ ]{4,}|\t).+$/gm, "")
+    // Inline code
+    .replace(/`[^`]+`/g, "")
+    // HTML/JSX tags (including self-closing, attributes, and multiline)
+    .replace(/<[^>]+>/g, "")
+    // Collapse multiple blank lines
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function slugify(s: string): string {
