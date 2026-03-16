@@ -24,8 +24,6 @@
  */
 
 export { defineAgent } from "./define_agent.ts";
-export { createMemoryKv } from "./kv.ts";
-
 export type {
   AgentOptions,
   BeforeStepResult,
