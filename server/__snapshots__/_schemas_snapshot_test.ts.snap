@@ -5,7 +5,6 @@ snapshot[`TransportSchema snapshot 1`] = `
   "\$schema": "https://json-schema.org/draft/2020-12/schema",
   enum: [
     "websocket",
-    "twilio",
   ],
   type: "string",
 }
@@ -89,7 +88,6 @@ snapshot[`AgentConfigSchema snapshot 1`] = `
       items: {
         enum: [
           "websocket",
-          "twilio",
         ],
         type: "string",
       },
@@ -240,7 +238,6 @@ snapshot[`DeployBodySchema snapshot 1`] = `
           items: {
             enum: [
               "websocket",
-              "twilio",
             ],
             type: "string",
           },
@@ -325,7 +322,6 @@ snapshot[`DeployBodySchema snapshot 1`] = `
       items: {
         enum: [
           "websocket",
-          "twilio",
         ],
         type: "string",
       },

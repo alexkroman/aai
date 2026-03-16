@@ -27,7 +27,7 @@ export type AgentSlot = {
   /** The agent's unique slug identifier. */
   slug: string;
   /** Supported transport types for this agent. */
-  transport: readonly ("websocket" | "twilio")[];
+  transport: readonly ("websocket")[];
   /** Agent configuration extracted at build time. */
   config: AgentConfig;
   /** Human-readable agent name from the configuration. */

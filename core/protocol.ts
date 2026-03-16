@@ -97,38 +97,6 @@ export const KvRequestBaseSchema: z.ZodType<KvRequest> = z
     }),
   ]);
 
-/**
- * Message received from Twilio Media Streams over WebSocket.
- *
- * This is a discriminated union on the `event` field, representing the
- * Twilio Media Streams protocol messages.
- */
-export type TwilioMessage =
-  | { event: "start"; start: { streamSid: string } }
-  | { event: "media"; media: { payload: string } }
-  | { event: "stop" }
-  | { event: "connected" }
-  | { event: "mark"; mark?: { name: string } | undefined };
-
-/** Zod schema for {@linkcode TwilioMessage}. */
-export const TwilioMessageSchema: z.ZodType<TwilioMessage> = z
-  .discriminatedUnion("event", [
-    z.object({
-      event: z.literal("start"),
-      start: z.object({ streamSid: z.string() }),
-    }),
-    z.object({
-      event: z.literal("media"),
-      media: z.object({ payload: z.string() }),
-    }),
-    z.object({ event: z.literal("stop") }),
-    z.object({ event: z.literal("connected") }),
-    z.object({
-      event: z.literal("mark"),
-      mark: z.object({ name: z.string() }).optional(),
-    }),
-  ]);
-
 // ─── Timeout constants ─────────────────────────────────────────────────────
 
 /** Default timeout for agent lifecycle hooks (onConnect, onTurn, etc). */
@@ -246,8 +214,7 @@ export const ClientEventSchema: z.ZodType<ClientEvent> = z.discriminatedUnion(
 /**
  * Typed interface for pushing session events to a connected client.
  *
- * For WebSocket sessions this sends JSON text frames and binary audio frames;
- * for Twilio it's a custom implementation that converts audio formats.
+ * For WebSocket sessions this sends JSON text frames and binary audio frames.
  */
 export interface ClientSink {
   /** Whether the underlying connection is open and accepting calls. */

@@ -84,17 +84,7 @@ export async function runDeploy(
     );
 
     if (resp.ok) {
-      const urls: string[] = [];
-      if (transport.includes("websocket")) {
-        urls.push(`${opts.url}/${slug}`);
-      }
-      if (transport.includes("twilio")) {
-        urls.push(`${opts.url}/${slug}/twilio/voice`);
-      }
-      step("Deploy", `${slug} -> ${urls[0] ?? opts.url}`);
-      for (const url of urls.slice(1)) {
-        info(url);
-      }
+      step("Deploy", `${slug} -> ${opts.url}/${slug}`);
 
       // Health check: best-effort verification
       try {

@@ -13,7 +13,6 @@ import {
   handleWebSocket,
 } from "./transport_websocket.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import { handleTwilioStream, handleTwilioVoice } from "./transport_twilio.ts";
 import { handleKv } from "./kv_handler.ts";
 import { handleVector } from "./vector_handler.ts";
 import type { KvStore } from "./kv.ts";
@@ -57,7 +56,7 @@ function ctx(
 /**
  * Creates the main HTTP request handler for the orchestrator server.
  *
- * Sets up all routes including agent deploy, WebSocket/Twilio transports,
+ * Sets up all routes including agent deploy, WebSocket transport,
  * health checks, KV operations, and static file serving.
  */
 export function createOrchestrator(opts: {
@@ -200,24 +199,6 @@ export function createOrchestrator(opts: {
           store: state.store,
         });
         return handleVector(c, { keyHash, slug });
-      },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/twilio/voice" }),
-      method: "POST",
-      handler: (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        return handleTwilioVoice(c, slug);
-      },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/twilio/stream" }),
-      handler: (req, match, info) => {
-        requireUpgrade(req);
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        return handleTwilioStream(c, slug);
       },
     },
     {

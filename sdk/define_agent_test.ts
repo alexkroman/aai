@@ -22,22 +22,22 @@ Deno.test("defineAgent", async (t) => {
       voice: "a167e0f3-df7e-4d52-a9c3-f949145efdab",
       instructions: "Be a pirate",
       greeting: "Ahoy",
-      transport: "twilio",
+      transport: "websocket",
       env: ["MY_KEY"],
     });
     assertStrictEquals(agent.voice, "a167e0f3-df7e-4d52-a9c3-f949145efdab");
     assertStrictEquals(agent.instructions, "Be a pirate");
     assertStrictEquals(agent.greeting, "Ahoy");
-    assertEquals(agent.transport, ["twilio"]);
+    assertEquals(agent.transport, ["websocket"]);
     assertEquals(agent.env, ["MY_KEY"]);
   });
 
   await t.step("normalizes transport array", () => {
     const agent = defineAgent({
       name: "Multi",
-      transport: ["websocket", "twilio"],
+      transport: ["websocket"],
     });
-    assertEquals(agent.transport, ["websocket", "twilio"]);
+    assertEquals(agent.transport, ["websocket"]);
   });
 
   await t.step("preserves tools", () => {

@@ -120,7 +120,7 @@ Deno.test("DeployBodySchema", async (t) => {
       env: {},
       worker: "code",
       html: "<html></html>",
-      transport: ["websocket", "twilio"],
+      transport: ["websocket"],
       config: VALID_CONFIG,
       toolSchemas: [],
     });
@@ -132,7 +132,7 @@ Deno.test("DeployBodySchema", async (t) => {
       env: {},
       worker: "code",
       html: "<html></html>",
-      transport: "twilio",
+      transport: "websocket",
       config: VALID_CONFIG,
       toolSchemas: [],
     });
@@ -178,7 +178,7 @@ Deno.test("AgentMetadataSchema", async (t) => {
     const result = AgentMetadataSchema.safeParse({
       slug: "my-agent",
       env: { KEY: "val" },
-      transport: ["websocket", "twilio"],
+      transport: ["websocket"],
       credential_hashes: ["abc123"],
       config: VALID_CONFIG,
       toolSchemas: [],

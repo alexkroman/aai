@@ -5,7 +5,7 @@
 AAI is a voice agent development kit. Users define agents via `defineAgent()`
 in `agent.ts`, and the CLI bundles and deploys them to a server that
 orchestrates STT (AssemblyAI) → LLM (Claude) → TTS (Rime) in real-time over
-WebSocket or Twilio.
+WebSocket.
 
 ## Commands
 
@@ -79,8 +79,7 @@ never on each other.
 
 #### server/
 
-- `orchestrator.ts` — deploy, health, WebSocket, Twilio, landing
-  page routes
+- `orchestrator.ts` — deploy, health, WebSocket, landing page routes
 - `session.ts` — per-connection session: wires STT → turn handler → TTS,
   manages interruptions
 - `turn_handler.ts` — agentic loop: LLM + tool calls (up to 5 iterations)
@@ -91,7 +90,7 @@ never on each other.
 - `llm.ts` — Claude API calls (OpenAI-compatible format)
 - `stt.ts` — AssemblyAI streaming STT
 - `tts.ts` — Rime streaming TTS
-- `transport_websocket.ts` / `transport_twilio.ts` — transport handlers
+- `transport_websocket.ts` — WebSocket transport handler
 
 #### ui/
 

@@ -49,21 +49,11 @@ Deno.test("discoverSlot lazy-loads from store", async () => {
 
 // --- resolveSlot ---
 
-Deno.test("resolveSlot returns null for twilio-only slot", async () => {
-  const slot = makeSlot({ transport: ["twilio"] });
-  const store = createTestStore();
-  const result = await resolveSlot("twilio-only", {
-    slots: new Map([["twilio-only", slot]]),
-    store,
-  });
-  assertStrictEquals(result, null);
-});
-
 Deno.test("resolveSlot returns slot with websocket transport", async () => {
-  const slot = makeSlot({ transport: ["websocket", "twilio"] });
+  const slot = makeSlot({ transport: ["websocket"] });
   const store = createTestStore();
-  const result = await resolveSlot("both-transports", {
-    slots: new Map([["both-transports", slot]]),
+  const result = await resolveSlot("ws-agent", {
+    slots: new Map([["ws-agent", slot]]),
     store,
   });
   assertStrictEquals(result, slot);

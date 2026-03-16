@@ -72,7 +72,6 @@ Templates are in `templates/` relative to the CLI source:
 | `dispatch-center`   | 911 dispatch with incident triage and resource assignment. **Has custom UI.**      |
 | `infocom-adventure` | Zork-style text adventure with state, puzzles, inventory. **Has custom UI.**       |
 | `embedded-assets`   | FAQ bot using embedded JSON knowledge (no web search)                              |
-| `twilio-phone`      | Phone assistant with WebSocket + Twilio transports                                 |
 | `support`           | RAG-powered support agent using vector_search (AssemblyAI docs example)            |
 | `terminal`          | STT-only mode for voice-driven kubectl commands                                    |
 
@@ -119,7 +118,7 @@ defineAgent({
   maxSteps?: number | ((ctx: HookContext) => number);
 
   // Environment
-  transport?: Transport[];   // "websocket" | "twilio" (default: ["websocket"])
+  transport?: Transport[];   // "websocket" (default: ["websocket"])
 
   // State
   state?: () => S;           // Factory for per-session state
@@ -395,14 +394,6 @@ execute: (args, ctx) => {
   const userMessages = ctx.messages.filter(m => m.role === "user");
   return { turns: userMessages.length };
 },
-```
-
-### Phone agents (Twilio)
-
-```ts
-export default defineAgent({
-  transport: ["websocket", "twilio"],
-});
 ```
 
 ### Embedded knowledge

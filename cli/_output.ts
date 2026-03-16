@@ -31,7 +31,7 @@ export function step(action: string, msg: string): void {
 /**
  * Prints an informational step message with a right-aligned blue action label.
  *
- * @param action Short action noun (e.g. `"App"`, `"Twilio"`).
+ * @param action Short action noun (e.g. `"App"`, `"Info"`).
  * @param msg Descriptive message printed after the action label.
  */
 export function stepInfo(action: string, msg: string): void {

@@ -565,7 +565,7 @@ async function loadState(ctx: HookContext<DispatchState>): Promise<void> {
 
 export default defineAgent({
   name: "Dispatch Command Center",
-  transport: ["websocket", "twilio"],
+  transport: ["websocket"],
 
   greeting:
     "Dispatch Command Center online. Restoring operational state. I'm ready to take incoming calls, manage active incidents, or run dispatch operations. Say 'dashboard' for a full status report. What do we have.",

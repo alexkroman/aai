@@ -15,9 +15,8 @@ export type BeforeStepResult = { activeTools?: string[] } | void;
  * Transport protocol for client-server communication.
  *
  * - `"websocket"` — Browser-based WebSocket connection (default).
- * - `"twilio"` — Twilio Media Streams for phone calls.
  */
-export type Transport = "websocket" | "twilio";
+export type Transport = "websocket";
 
 /** @internal Normalize a transport value to an array of transports. */
 export function normalizeTransport(
