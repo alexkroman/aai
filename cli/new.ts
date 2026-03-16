@@ -37,6 +37,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
   "infocom-adventure": "Zork-style text adventure — custom UI",
   "embedded-assets": "FAQ bot using embedded JSON knowledge",
   "twilio-phone": "Phone assistant with WebSocket + Twilio",
+  "support": "RAG-powered support agent for a documentation site",
   "terminal": "STT-only mode for voice-driven commands",
 };
 
