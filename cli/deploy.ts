@@ -17,7 +17,7 @@ import { subcommandHelp } from "./_help.ts";
 import { runNewCommand } from "./new.ts";
 
 /** CLI definition for the `aai deploy` subcommand, including name, description, and options. */
-export const deployCommandDef: SubcommandDef = {
+const deployCommandDef: SubcommandDef = {
   name: "deploy",
   description: "Bundle and deploy to production",
   options: [

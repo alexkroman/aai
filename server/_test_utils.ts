@@ -1,6 +1,4 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { deadline } from "@std/async/deadline";
-import { delay } from "@std/async/delay";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
@@ -10,19 +8,6 @@ import type { AgentConfig } from "@aai/core/types";
 import { sortAndPaginate } from "@aai/sdk/kv";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { createOrchestrator } from "./orchestrator.ts";
-
-/** Poll `predicate` every tick until it returns true, or throw after `ms`. */
-export async function waitFor(
-  predicate: () => boolean,
-  ms = 1000,
-): Promise<void> {
-  await deadline(
-    (async () => {
-      while (!predicate()) await delay(0);
-    })(),
-    ms,
-  );
-}
 
 export const DUMMY_INFO: Deno.ServeHandlerInfo = {
   remoteAddr: { transport: "tcp" as const, hostname: "127.0.0.1", port: 0 },

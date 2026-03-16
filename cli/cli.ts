@@ -17,21 +17,6 @@ if (isCompiled) {
   await promptUpgradeIfAvailable(VERSION);
 }
 
-/** Run `deno install --reload` to refresh dependencies if in a project directory. */
-async function refreshDeps(): Promise<void> {
-  try {
-    await Deno.stat("deno.json");
-  } catch {
-    return; // No deno.json — not in a project directory
-  }
-  const cmd = new Deno.Command("deno", {
-    args: ["install", "--reload"],
-    stdout: "null",
-    stderr: "null",
-  });
-  await cmd.output();
-}
-
 async function main(args: string[]): Promise<void> {
   const parsed = parseArgs(args, {
     boolean: ["help", "version"],
@@ -51,11 +36,6 @@ async function main(args: string[]): Promise<void> {
 
   const [subcommand, ...rest] = parsed._;
   const subArgs = rest.map(String);
-
-  // Refresh dependencies before commands that build/deploy
-  if (subcommand !== "new" && subcommand !== "help") {
-    await refreshDeps();
-  }
 
   switch (subcommand) {
     case "new":

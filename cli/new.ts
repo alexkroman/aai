@@ -11,7 +11,7 @@ import { subcommandHelp } from "./_help.ts";
 import { listTemplates } from "./_new.ts";
 
 /** CLI definition for the `aai new` subcommand, including name, description, arguments, and options. */
-export const newCommandDef: SubcommandDef = {
+const newCommandDef: SubcommandDef = {
   name: "new",
   description: "Scaffold a new agent project",
   args: [{ name: "dir", optional: true }],

@@ -7,7 +7,7 @@ import type { SubcommandDef } from "./_help.ts";
 import { subcommandHelp } from "./_help.ts";
 
 /** CLI definition for the `aai env` subcommand. */
-export const envCommandDef: SubcommandDef = {
+const envCommandDef: SubcommandDef = {
   name: "env",
   description: "Manage environment variables",
   options: [

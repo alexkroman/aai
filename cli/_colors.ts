@@ -27,8 +27,3 @@ export function error(s: string): string {
 export function warning(s: string): string {
   return rgb24(s, 0xfcd53a);
 }
-
-/** Success color — green `#12c905`. */
-export function success(s: string): string {
-  return rgb24(s, 0x12c905);
-}
