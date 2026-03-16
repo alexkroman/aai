@@ -111,12 +111,12 @@ const webSearch = defineTool({
   description:
     "Search the web using Brave Search. Returns a list of results with title, URL, and description.",
   parameters: webSearchParams,
-  execute: async (args, env) => {
+  execute: async (args, _env) => {
     const { query, max_results: maxResults = 5 } = args;
 
     log.info("web_search", { query, maxResults });
 
-    const apiKey = env.BRAVE_API_KEY;
+    const apiKey = Deno.env.get("BRAVE_API_KEY") ?? "";
     if (!apiKey) {
       return JSON.stringify({
         error: "BRAVE_API_KEY is not set — web search unavailable",
