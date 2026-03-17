@@ -2,6 +2,7 @@
 // Custom Vercel AI SDK provider for the AssemblyAI LLM gateway.
 // Wraps @ai-sdk/openai with middleware to normalize non-standard responses.
 
+import * as log from "@std/log";
 import { createOpenAI } from "@ai-sdk/openai";
 import {
   type LanguageModelV1,
@@ -82,6 +83,19 @@ function createGatewayFetch(
   baseFetch: typeof globalThis.fetch = globalThis.fetch,
 ): typeof globalThis.fetch {
   return async (input, init) => {
+    // Capture request body for error diagnostics
+    let requestModel: string | undefined;
+    let requestBodyStr: string | undefined;
+    if (init?.body) {
+      try {
+        requestBodyStr = typeof init.body === "string"
+          ? init.body
+          : new TextDecoder().decode(init.body as BufferSource);
+        const reqBody = JSON.parse(requestBodyStr);
+        requestModel = reqBody?.model;
+      } catch { /* ignore */ }
+    }
+
     const response = await baseFetch(input, init);
 
     // Only patch JSON responses from the chat completions endpoint
@@ -93,6 +107,19 @@ function createGatewayFetch(
     if (!url.includes("/chat/completions")) return response;
 
     const text = await response.text();
+
+    // Log error responses so we can diagnose "Bad Request" etc.
+    if (!response.ok) {
+      log.error("LLM gateway error", {
+        status: response.status,
+        statusText: response.statusText,
+        responseBody: text.slice(0, 1000),
+        url,
+        model: requestModel,
+        requestBody: requestBodyStr?.slice(0, 2000),
+      });
+    }
+
     let body;
     try {
       body = JSON.parse(text);
