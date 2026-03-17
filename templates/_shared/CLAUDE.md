@@ -115,9 +115,11 @@ defineAgent({
   builtinTools?: BuiltinTool[];
   tools?: Record<string, ToolDef>;
   toolChoice?: ToolChoice;   // "auto" | "required" | "none" | { type: "tool", toolName }
+  activeTools?: string[];    // Default active tools per turn (subset of all tools)
   maxSteps?: number | ((ctx: HookContext) => number);
 
   // Environment
+  env?: string[];            // Required env var names (default: ["ASSEMBLYAI_API_KEY"])
   transport?: Transport[];   // "websocket" (default: ["websocket"])
 
   // State
@@ -148,11 +150,20 @@ Common voices:
 | Customer Support Lady | `829ccd10-f8b3-43cd-b8a0-4aeaa81f3b30` |
 | Helpful Woman         | `156fb8d2-335b-4950-9cb3-a2d33befec77` |
 | Professional Woman    | `248be419-c632-4f23-adf1-5324ed7dbf1d` |
+| Sweet Lady            | `e3827ec5-697a-4b7c-9704-1a23041bbc51` |
+| British Lady          | `79a125e8-cd45-4c13-8a67-188112f4dd22` |
+| Calm Lady             | `00a77add-48d5-4ef6-8157-71e5437b282d` |
+| Laidback Woman        | `21b81c14-f85b-436d-aff5-43f2e788ecf8` |
+| Storyteller Lady      | `996a8b96-4804-46f0-8e05-3fd4ef1a87cd` |
+| Newslady              | `bf991597-6c13-47e4-8411-91ec2de5c466` |
 | Friendly Reading Man  | `69267136-1bdc-412f-ad78-0caad210fb40` |
 | Confident British Man | `63ff761f-c1e8-414b-b969-d1833d1c870c` |
 | New York Man          | `34575e71-908f-4ab6-ab54-b08c95d6597d` |
 | California Girl       | `b7d50908-b17c-442d-ad8d-810c63997ed9` |
 | Newsman               | `d46abd1d-2d02-43e8-819f-51fb652c1c61` |
+| Salesman              | `820a3788-2b37-4d21-847a-b65d8a68c99a` |
+| Wise Man              | `b043dea0-a007-4bbe-a708-769dc0d0c569` |
+| Child                 | `2ee87190-8f84-4925-97da-e52547f9462c` |
 
 Any Cartesia voice UUID works — the list above is just a starting point.
 
@@ -200,6 +211,17 @@ aai env pull
 aai env rm MY_API_KEY
 ```
 
+Declare required env vars in the agent config so the CLI validates them at
+deploy time:
+
+```ts
+export default defineAgent({
+  name: "API Agent",
+  env: ["ASSEMBLYAI_API_KEY", "MY_API_KEY"],
+  // ...
+});
+```
+
 Access secrets in tool code via `ctx.env`:
 
 ```ts
@@ -208,6 +230,7 @@ import { z } from "zod";
 
 export default defineAgent({
   name: "API Agent",
+  env: ["ASSEMBLYAI_API_KEY", "MY_API_KEY"],
   tools: {
     call_api: {
       description: "Call an external API",
@@ -308,11 +331,16 @@ Use `fetch` directly in tool execute functions:
 execute: async (args, ctx) => {
   const resp = await fetch(url, {
     headers: { Authorization: `Bearer ${ctx.env.API_KEY}` },
+    signal: ctx.abortSignal, // Respect interruptions
   });
   if (!resp.ok) return { error: `${resp.status} ${resp.statusText}` };
   return resp.json();
 },
 ```
+
+`fetch` is proxied through the host process (the worker has no direct network
+access). All URLs are validated against SSRF rules — only public addresses are
+allowed.
 
 ## State and storage
 
@@ -345,13 +373,16 @@ auto-serialized as JSON.
 
 ```ts
 await ctx.kv.set("user:123", { name: "Alice" }); // save
-await ctx.kv.set("temp:x", value, { expireIn: 60_000 }); // save with TTL
+await ctx.kv.set("temp:x", value, { expireIn: 60_000 }); // save with TTL (ms)
 const user = await ctx.kv.get<User>("user:123"); // read (or null)
-const notes = await ctx.kv.list("note:", { limit: 10, reverse: true }); // list
+const notes = await ctx.kv.list("note:", { limit: 10, reverse: true }); // list by prefix
 await ctx.kv.delete("user:123"); // delete
 ```
 
 Keys are strings; use colon-separated prefixes (`"user:123"`). Max value: 64 KB.
+
+`kv.list()` returns `KvEntry[]` where each entry has
+`{ key: string, value: T }`.
 
 ## Advanced patterns
 
@@ -377,6 +408,20 @@ onBeforeStep: (stepNumber, ctx) => {
   return { activeTools: ["summarize"] };
 },
 ```
+
+### Static `activeTools`
+
+Restrict which tools the LLM can use by default, without writing a hook:
+
+```ts
+export default defineAgent({
+  builtinTools: ["web_search", "visit_webpage", "run_code"],
+  tools: { summarize: {/* ... */} },
+  activeTools: ["web_search", "summarize"], // Only these two are available
+});
+```
+
+Use `onBeforeStep` to override `activeTools` dynamically per step.
 
 ### Dynamic `maxSteps`
 
@@ -467,25 +512,148 @@ mount(App);
 - Style with `style={{ color: "red" }}` or inject `<style>` for selectors,
   keyframes, media queries
 
-**Built-in components from `@aai/ui`:** `ErrorBanner`, `StateIndicator`,
-`Transcript`, `ChatView`, `MessageBubble`, `ThinkingIndicator`
+### `mount()` options
 
-**Session signals (`useSession()`):**
+```ts
+mount(App, {
+  target: "#app", // CSS selector or DOM element (default: "#app")
+  platformUrl: "...", // Server URL (auto-derived from location.href)
+  title: "My Agent", // Shown in header and start screen
+  theme: { // CSS custom property overrides
+    bg: "#101010", // Background color
+    primary: "#fab283", // Accent color
+    text: "#ffffff", // Text color
+    surface: "#1a1a1a", // Card/surface color
+    border: "#333333", // Border color
+  },
+});
+```
+
+`mount()` returns a `MountHandle` with `session`, `signals`, and `dispose()`.
+
+### Built-in components
+
+Import from `@aai/ui`:
+
+| Component           | Description                                        |
+| ------------------- | -------------------------------------------------- |
+| `App`               | Default full UI (start screen + ChatView)          |
+| `ChatView`          | Chat interface with header, messages, and controls |
+| `MessageBubble`     | Single message (user right-aligned, agent left)    |
+| `Transcript`        | Live STT text display                              |
+| `StateIndicator`    | Colored dot + agent state label                    |
+| `ErrorBanner`       | Red error box with message                         |
+| `ThinkingIndicator` | Animated dots during processing                    |
+| `ToolCallBlock`     | Collapsible tool call display (name, args, result) |
+
+Use `useMountConfig()` to access the `title` and `theme` passed to `mount()`.
+
+### Session signals (`useSession()`)
 
 `useSession()` returns
 `{ session, started, running, start, toggle, reset, dispose }`. Reactive agent
 data lives on `session` (a `VoiceSession`); UI-only controls are top-level.
 
-| Signal / field                | Type                   | Description                                                         |
-| ----------------------------- | ---------------------- | ------------------------------------------------------------------- |
-| `session.state.value`         | `AgentState`           | "connecting", "ready", "listening", "thinking", "speaking", "error" |
-| `session.messages.value`      | `Message[]`            | `{ role, text }` objects                                            |
-| `session.userUtterance.value` | `string \| null`       | `null` = not speaking, `""` = speech detected, string = transcript  |
-| `session.error.value`         | `SessionError \| null` | `{ code, message }`                                                 |
-| `started.value`               | `boolean`              | Whether session has started                                         |
-| `running.value`               | `boolean`              | Whether session is active                                           |
+| Signal / field                | Type                   | Description                                                                              |
+| ----------------------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
+| `session.state.value`         | `AgentState`           | "disconnected", "connecting", "ready", "listening", "thinking", "speaking", "error"      |
+| `session.messages.value`      | `Message[]`            | `{ role, text }` objects                                                                 |
+| `session.toolCalls.value`     | `ToolCallInfo[]`       | `{ toolCallId, toolName, args, status, result?, afterMessageIndex }` — active tool calls |
+| `session.userUtterance.value` | `string \| null`       | `null` = not speaking, `""` = speech detected, string = transcript                       |
+| `session.error.value`         | `SessionError \| null` | `{ code, message }`                                                                      |
+| `session.disconnected.value`  | `object \| null`       | `{ intentional: boolean }` when disconnected, `null` when connected                      |
+| `started.value`               | `boolean`              | Whether session has started                                                              |
+| `running.value`               | `boolean`              | Whether session is active                                                                |
 
 **Methods:** `start()`, `toggle()`, `reset()`, `dispose()`
+
+### Showing tool calls in custom UI
+
+```tsx
+import { mount, ToolCallBlock, useSession } from "@aai/ui";
+
+function App() {
+  const { session, started, start } = useSession();
+  if (!started.value) return <button onClick={start}>Start</button>;
+
+  const msgs = session.messages.value;
+  const toolCalls = session.toolCalls.value;
+
+  return (
+    <div>
+      {msgs.map((m, i) => (
+        <div key={i}>
+          <p>{m.text}</p>
+          {toolCalls
+            .filter((tc) => tc.afterMessageIndex === i)
+            .map((tc) => <ToolCallBlock key={tc.toolCallId} toolCall={tc} />)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+mount(App);
+```
+
+### Reacting to agent state
+
+```tsx
+import { useEffect } from "preact/hooks";
+import { mount, StateIndicator, useSession } from "@aai/ui";
+
+function App() {
+  const { session, started, start } = useSession();
+
+  useEffect(() => {
+    // Run side effects when state changes
+    if (session.state.value === "speaking") {
+      // Agent is speaking — e.g., show animation
+    }
+  }, [session.state.value]);
+
+  return (
+    <div>
+      <StateIndicator />
+      {!started.value && <button onClick={start}>Start</button>}
+    </div>
+  );
+}
+
+mount(App);
+```
+
+### Styling custom UIs
+
+The framework uses **Tailwind CSS v4** (compiled at bundle time). Three
+approaches:
+
+1. **Tailwind classes** — `class="flex items-center gap-2 bg-gray-900"`
+2. **Inline styles** — `style={{ color: "red", padding: "1rem" }}`
+3. **Injected `<style>` tags** — for keyframes, selectors, media queries:
+
+```tsx
+function App() {
+  return (
+    <>
+      <style>
+        {`
+        @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.5 } }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+        @media (max-width: 640px) { .sidebar { display: none; } }
+      `}
+      </style>
+      <div class="pulse">Content</div>
+    </>
+  );
+}
+```
+
+**CSS custom properties** available from the theme:
+
+- `--color-aai-bg`, `--color-aai-primary`, `--color-aai-text`
+- `--color-aai-surface`, `--color-aai-border`
+- `--color-aai-state-{state}` — color for each `AgentState` value
 
 ## Project structure
 
@@ -529,6 +697,11 @@ my-agent/
 - **Telling the agent to be verbose** — Voice responses should be 1-3 sentences.
   If your `instructions` say "provide detailed explanations", the agent will
   monologue. Instruct it to be brief and let the user ask follow-ups.
+- **Not declaring `env`** — If your agent needs custom env vars, list them in
+  the `env` array so the CLI validates they're set before deploying.
+- **Forgetting SSRF restrictions on `fetch`** — The host validates all proxied
+  fetch URLs. Requests to private/internal IP addresses (localhost, 10.x,
+  192.168.x, etc.) are blocked.
 
 ## Troubleshooting
 
@@ -536,3 +709,10 @@ my-agent/
 - **"bundle failed"** — TypeScript syntax error — check imports, brackets
 - **"No .aai/project.json found"** — Run `aai deploy` first before using
   `aai env`
+- **Tool returns `undefined`** — Make sure `execute` returns a value. Even
+  `return { ok: true }` is better than an implicit void return.
+- **Agent doesn't use a tool** — Check `description` is clear about when to use
+  it. The LLM relies on the description to decide. Also check `activeTools`
+  isn't filtering it out.
+- **KV reads return `null`** — Keys are scoped per agent deployment. A
+  redeployment with a new slug creates a fresh KV namespace.
