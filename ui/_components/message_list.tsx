@@ -31,37 +31,30 @@ export function MessageList() {
   const messages = session.messages.value;
   const toolCalls = session.toolCalls.value;
 
-  // Group tool calls by the message index they follow.
-  const toolCallsByIndex = new Map<number, typeof toolCalls>();
-  for (const tc of toolCalls) {
-    const idx = tc.afterMessageIndex;
-    const group = toolCallsByIndex.get(idx);
-    if (group) group.push(tc);
-    else toolCallsByIndex.set(idx, [tc]);
-  }
-
-  // Interleave messages and tool calls. For each message, render it first,
-  // then any tool calls that belong after it — so tool calls always appear
-  // above the next assistant message (the text being spoken).
+  // Render each message followed by its tool calls.
   const items: VNode[] = [];
+  let tci = 0;
   for (let i = 0; i < messages.length; i++) {
-    const m = messages[i]!;
-    // Render tool calls *before* the assistant message they precede
-    const tcs = toolCallsByIndex.get(i - 1);
-    if (m.role === "assistant" && tcs) {
-      for (const tc of tcs) {
-        items.push(<ToolCallBlock key={tc.toolCallId} toolCall={tc} />);
-      }
-      toolCallsByIndex.delete(i - 1);
+    items.push(<MessageBubble key={`msg-${i}`} message={messages[i]!} />);
+    while (tci < toolCalls.length && toolCalls[tci]!.afterMessageIndex <= i) {
+      items.push(
+        <ToolCallBlock
+          key={toolCalls[tci]!.toolCallId}
+          toolCall={toolCalls[tci]!}
+        />,
+      );
+      tci++;
     }
-    items.push(<MessageBubble key={`msg-${i}`} message={m} />);
   }
-  // Render any remaining tool calls (e.g. from the last message, still pending)
-  const trailing = toolCallsByIndex.get(messages.length - 1);
-  if (trailing) {
-    for (const tc of trailing) {
-      items.push(<ToolCallBlock key={tc.toolCallId} toolCall={tc} />);
-    }
+  // Any remaining tool calls (still pending, no following message yet).
+  while (tci < toolCalls.length) {
+    items.push(
+      <ToolCallBlock
+        key={toolCalls[tci]!.toolCallId}
+        toolCall={toolCalls[tci]!}
+      />,
+    );
+    tci++;
   }
 
   return (

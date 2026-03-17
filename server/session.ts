@@ -28,6 +28,68 @@ import {
 import type { Message } from "@aai/sdk/types";
 import * as metrics from "./metrics.ts";
 
+/**
+ * Extract a useful error message from LLM/API errors.
+ * The Vercel AI SDK throws `APICallError` with a generic `.message` (e.g.
+ * "Bad Request") but includes the full API response in `.responseBody`.
+ */
+function describeError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  // deno-lint-ignore no-explicit-any
+  const apiErr = err as any;
+
+  const parts: string[] = [err.message];
+
+  // Add status code if present
+  if (typeof apiErr.statusCode === "number") {
+    parts[0] = `${err.message} (HTTP ${apiErr.statusCode})`;
+  }
+
+  // Vercel AI SDK APICallError includes responseBody with the provider's
+  // error detail (e.g. Anthropic's {"error":{"message":"..."}}).
+  if (typeof apiErr.responseBody === "string" && apiErr.responseBody) {
+    try {
+      const body = JSON.parse(apiErr.responseBody);
+      const detail = body?.error?.message ?? body?.message;
+      if (typeof detail === "string" && detail) {
+        parts.push(detail);
+      } else {
+        // Include full JSON if no known error field
+        parts.push(apiErr.responseBody.slice(0, 500));
+      }
+    } catch {
+      // Not JSON — include raw body (truncated)
+      const raw = apiErr.responseBody.slice(0, 500);
+      if (raw !== err.message) parts.push(raw);
+    }
+  }
+
+  // Include the URL that failed
+  if (typeof apiErr.url === "string") {
+    parts.push(`url=${apiErr.url}`);
+  }
+
+  // Include parsed data if the SDK extracted it
+  if (apiErr.data != null) {
+    try {
+      const d = typeof apiErr.data === "string"
+        ? apiErr.data
+        : JSON.stringify(apiErr.data);
+      parts.push(`data=${d.slice(0, 500)}`);
+    } catch { /* ignore */ }
+  }
+
+  // Fall back to nested cause
+  if (
+    parts.length === 1 && err.cause instanceof Error &&
+    err.cause.message !== err.message
+  ) {
+    parts.push(err.cause.message);
+  }
+
+  return parts.join(" — ");
+}
+
 /** Configuration options for creating a new session. */
 export type SessionOptions = {
   /** Unique session identifier. */
@@ -471,7 +533,7 @@ export function createSession(opts: SessionOptions): Session {
       }
     } catch (err: unknown) {
       if (signal.aborted) return;
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = describeError(err);
       log.error(
         `Turn failed: ${msg}`,
         err instanceof Error ? { cause: err } : undefined,
